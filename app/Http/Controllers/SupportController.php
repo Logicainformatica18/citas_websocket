@@ -30,7 +30,8 @@ class SupportController extends Controller
         'diaEspera:id_dias_espera,dias',
         'internalState:id,description',
         'externalState:id,description',
-        'supportType:id,description'
+        'supportType:id,description',
+        'project:id_proyecto,descripcion'
     ])->latest()->paginate(10);
 
     // Opciones para selects
@@ -64,7 +65,8 @@ public function fetchPaginated()
         'diaEspera:id_dias_espera,dias',
         'internalState:id,description',
         'externalState:id,description',
-        'supportType:id,description'
+        'supportType:id,description',
+         'project:id_proyecto,descripcion'
     ])->latest()->paginate(10);
 
     return response()->json([
@@ -95,8 +97,8 @@ public function store(Request $request)
     $support->derived = $request->input('derived', '');
     $support->id_motivos_cita = 28;
     $support->project_id = $request->project_id;
-    $support->Manzana = $request->Manzana;
-    $support->Lote = $request->Lote;
+    $support->manzana = $request->manzana;
+    $support->lote = $request->lote;
 
 
     if ($request->hasFile('attachment')) {
@@ -140,26 +142,66 @@ dispatch(function () use ($clientId, $data) {
 }
 
 
-    public function update(Request $request, $id)
-    {
-        $support = Support::findOrFail($id);
-        $this->validateSupport($request);
 
-        $support->fill($request->except('attachment'));
 
-        if ($request->hasFile('attachment')) {
-            $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
-        }
+public function update(Request $request, $id)
+{
+    $support = Support::findOrFail($id);
 
-        $support->save();
+    // Asignación específica SIN valores por defecto
+    $support->subject = $request->input('subject');
+    $support->description = $request->input('description');
+    $support->client_id = $request->input('client_id');
+    $support->cellphone = $request->input('cellphone');
+    $support->priority = $request->input('priority');
+    $support->status = $request->input('status');
+    $support->reservation_time = $request->input('reservation_time');
+    $support->attended_at = $request->input('attended_at');
+    $support->area_id = $request->input('area_id');
+    $support->derived = $request->input('derived');
+    $support->id_motivos_cita = $request->input('id_motivos_cita');
+    $support->id_tipo_cita = $request->input('id_tipo_cita');
+    $support->id_dia_espera = $request->input('id_dia_espera');
+    $support->internal_state_id = $request->input('internal_state_id');
+    $support->external_state_id = $request->input('external_state_id');
+    $support->type_id = $request->input('type_id');
+    $support->project_id = $request->input('project_id');
+    $support->Manzana = $request->input('manzana');
+    $support->Lote = $request->input('lote');
 
-       broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
-
-        return response()->json([
-            'message' => '✅ Ticket de soporte actualizado correctamente',
-            'support' => $support,
-        ]);
+    // Procesar archivo adjunto
+    if ($request->hasFile('attachment')) {
+        $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
     }
+
+    $support->save();
+
+    // Log para auditoría
+    Log::info('📝 Soporte actualizado', [
+        'support_id' => $support->id,
+        'user_id' => Auth::id(),
+        'updated_fields' => $request->except(['_method', '_token']),
+    ]);
+  $support->load([
+        'area:id_area,descripcion',
+        'creator:id,firstname,lastname,names',
+        'client:id_cliente,Razon_Social',
+        'motivoCita:id_motivos_cita,nombre_motivo',
+        'tipoCita:id_tipo_cita,tipo',
+        'diaEspera:id_dias_espera,dias',
+        'internalState:id,description',
+        'externalState:id,description',
+        'supportType:id,description'
+    ]);
+    // Emitir evento
+    broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
+
+    return response()->json([
+        'message' => '✅ Ticket de soporte actualizado correctamente',
+        'support' => $support,
+    ]);
+}
+
 
     public function show($id)
     {
@@ -172,7 +214,8 @@ dispatch(function () use ($clientId, $data) {
             'diaEspera',
             'internalState',
             'externalState',
-            'supportType'
+            'supportType',
+             'project'
         ])->findOrFail($id);
 
         return response()->json(['support' => $support]);

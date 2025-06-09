@@ -109,10 +109,11 @@ class ClientController extends Controller
     }
 public function searchByName(Request $request)
 {
-    $q = $request->input('q');
+    $q = trim($request->input('q'));
 
-    return Client::where('DNI', 'like', "%$q%")
-        ->orWhere('Razon_Social', 'like', "%$q%")
+    return Client::query()
+        ->where('DNI', $q) // búsqueda exacta por DNI
+        ->orWhereRaw('LOWER(Razon_Social) LIKE ?', ["%" . strtolower($q) . "%"]) // búsqueda parcial por nombre
         ->limit(10)
         ->get([
             'id_cliente as id',
@@ -123,6 +124,7 @@ public function searchByName(Request $request)
             'Direccion as address'
         ]);
 }
+
 
 }
 

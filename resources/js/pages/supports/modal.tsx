@@ -17,6 +17,7 @@ import { usePage } from '@inertiajs/react';
 
 import LimitedInput from '@/components/LimitedInput';
 import LimitedTextarea from '@/components/LimitedTextarea';
+
 const getNowPlusHours = (plus = 0) => {
     const now = new Date();
     now.setHours(now.getHours() + plus);
@@ -28,10 +29,8 @@ const getNowPlusHours = (plus = 0) => {
     const mm = pad(now.getMinutes());
     return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
 };
-type PageProps = {
-    permissions: string[];
-};
-export default function SupportModal({
+
+const SupportModal = ({
     open,
     onClose,
     onSaved,
@@ -43,7 +42,6 @@ export default function SupportModal({
     externalStates,
     types,
     projects,
-
 }: {
     open: boolean;
     onClose: () => void;
@@ -56,8 +54,8 @@ export default function SupportModal({
     externalStates: any[];
     types: any[];
     projects: any[];
-}) {
-    const [formData, setFormData] = useState({
+}) => {
+    const [formData, setFormData] = useState<any>({
         subject: '',
         description: '',
         priority: 'Normal',
@@ -84,15 +82,14 @@ export default function SupportModal({
         lote: '',
     });
 
-
     const [clientQuery, setClientQuery] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
     const [uploading, setUploading] = useState(false);
-    const { permissions } = usePage<PageProps>().props;
+    const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
-    const inputClass = "col-span-3 text-sm h-7 px-2 py-1 rounded-md";
+    const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
 
     useEffect(() => {
         axios.get('/areas/all')
@@ -100,13 +97,22 @@ export default function SupportModal({
             .catch((err) => console.error('Error al cargar áreas:', err));
 
         if (supportToEdit) {
-            setFormData({
-                ...formData,
-                ...supportToEdit,
-                reservation_time: supportToEdit.reservation_time || getNowPlusHours(0),
-                attended_at: supportToEdit.attended_at || getNowPlusHours(1)
-            });
+            const cleanData = Object.fromEntries(
+                Object.entries(supportToEdit).map(([key, val]) => [
+                    key,
+                    val === null || typeof val === 'undefined' ? '' : val,
+                ])
+            );
+
+            setFormData((prev: any) => ({
+                ...prev,
+                ...cleanData,
+                reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
+                attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
+            }));
+
             setClientQuery(supportToEdit.client?.names || '');
+
             if (supportToEdit.attachment) {
                 setPreview(`/attachments/${supportToEdit.attachment}`);
             }
@@ -115,7 +121,7 @@ export default function SupportModal({
 
     const handleChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
+        setFormData((prev: any) => ({
             ...prev,
             [name]: value,
         }));
@@ -134,16 +140,14 @@ export default function SupportModal({
             setUploading(true);
             const data = new FormData();
             Object.entries(formData).forEach(([key, value]) => {
-                if (value !== null) data.append(key, String(value));
+                data.append(key, String(value ?? ''));
             });
             if (file) data.append('attachment', file);
 
             const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
             if (supportToEdit) data.append('_method', 'PUT');
 
-            const response = await axios.post(url, data, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const response = await axios.post(url, data);
 
             toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
             onSaved(response.data.support);
@@ -158,7 +162,7 @@ export default function SupportModal({
 
     return (
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-            <DialogContent className="sm:max-w-3xl">
+              <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Atención' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
@@ -540,4 +544,6 @@ export default function SupportModal({
             </DialogContent>
         </Dialog>
     );
-}
+};
+
+export default SupportModal;

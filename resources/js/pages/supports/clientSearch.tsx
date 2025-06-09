@@ -12,17 +12,24 @@ export default function ClientSearch({
 }) {
   const [results, setResults] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selected, setSelected] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [loading, setLoading] = useState(false); // 👈 estado de carga
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const search = async (q: string) => {
     if (q.length >= 2) {
       try {
+        setLoading(true); // 👈 comienza la carga
         const res = await axios.get(`/clients/search?q=${q}`);
         setResults(res.data);
-        setShowDropdown(true);
+        setLoading(false); // 👈 termina la carga
+        if (res.data.length > 0 && !selectedClient) {
+          setShowDropdown(true); // 👈 solo muestra si hay resultados
+        }
       } catch (e) {
         console.error('Error al buscar clientes:', e);
+        setLoading(false);
+        setShowDropdown(false);
       }
     } else {
       setResults([]);
@@ -31,7 +38,7 @@ export default function ClientSearch({
   };
 
   useEffect(() => {
-    if (!selected) {
+    if (!selectedClient || query !== selectedClient.names) {
       search(query);
     }
   }, [query]);
@@ -40,7 +47,6 @@ export default function ClientSearch({
     const handleClickOutside = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
-        setSelected(false); // permitir nueva búsqueda si hacen clic fuera
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -54,12 +60,26 @@ export default function ClientSearch({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          setSelected(false); // desbloquea búsqueda al escribir de nuevo
+          setSelectedClient(null); // invalida selección previa
+        }}
+        onFocus={() => {
+          if (!selectedClient && results.length > 0) {
+            setShowDropdown(true);
+          }
         }}
         placeholder="Buscar cliente por DNI o razón social"
         className="w-full border px-3 py-2 rounded"
       />
-      {showDropdown && results.length > 0 && (
+
+      {/* Mostrar loading opcional */}
+      {loading && (
+        <div className="absolute z-10 bg-white mt-1 border w-full px-4 py-2 text-sm text-gray-500 rounded shadow">
+          Buscando...
+        </div>
+      )}
+
+      {/* Solo muestra si terminó de buscar y hay resultados */}
+      {!loading && showDropdown && results.length > 0 && (
         <ul className="absolute z-10 bg-white border mt-1 rounded w-full max-h-60 overflow-auto shadow-md">
           {results.map((client) => (
             <li
@@ -67,7 +87,7 @@ export default function ClientSearch({
               onClick={() => {
                 onSelect(client);
                 setQuery(client.names);
-                setSelected(true);
+                setSelectedClient(client);
                 setShowDropdown(false);
               }}
               className="px-3 py-2 hover:bg-blue-100 cursor-pointer"

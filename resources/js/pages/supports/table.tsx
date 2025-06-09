@@ -21,6 +21,10 @@ interface Support {
   area?: { descripcion: string };
   creator?: { firstname: string; lastname: string; names: string };
   client?: { Razon_Social: string };
+  project?:  { descripcion: string; id_proyecto: number };
+    Manzana?: string;
+    Lote?: string;
+
 }
 
 interface Pagination<T> {
@@ -69,7 +73,7 @@ const canEdit = permissions.includes('administrar') || permissions.includes('atc
                 setSupports((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
                 setSelectedIds([]);
               } catch (e) {
-                alert('Error al eliminar en lote');
+                alert('Error al eliminar en Lote');
                 console.error(e);
               }
             }
@@ -93,18 +97,20 @@ const canEdit = permissions.includes('administrar') || permissions.includes('atc
                   }
                 />
               </th>
+                   {canEdit && (
               <th className="px-4 py-2">Acciones</th>
+                )}
               <th className="px-4 py-2">ID</th>
               <th className="px-4 py-2">Área</th>
               <th className="px-4 py-2">Cliente</th>
-              <th className="px-4 py-2">Creado por</th>
-              <th className="px-4 py-2">Reserva</th>
-              <th className="px-4 py-2">Atendido</th>
-              <th className="px-4 py-2">Derivado</th>
+              <th className="px-4 py-2">Asunto</th>
+              <th className="px-4 py-2">Proyecto</th>
+              <th className="px-4 py-2">Manzana</th>
+              <th className="px-4 py-2">Lote</th>
               <th className="px-4 py-2">Prioridad</th>
-              <th className="px-4 py-2">Tipo</th>
-              <th className="px-4 py-2">Estado</th>
-              <th className="px-4 py-2">Teléfono</th>
+              <th className="px-4 py-2">Creación</th>
+              <th className="px-4 py-2">Estado Externo</th>
+              <th className="px-4 py-2">Estado Interno</th>
               <th className="px-4 py-2">Archivo</th>
             </tr>
           </thead>
@@ -124,8 +130,9 @@ const canEdit = permissions.includes('administrar') || permissions.includes('atc
                     }
                   />
                 </td>
-                <td className="px-4 py-2 text-sm space-x-2">
+
                {canEdit && (
+                  <td className="px-4 py-2 text-sm space-x-2">
   <button
     onClick={async () => {
       setEditingId(support.id);
@@ -143,9 +150,10 @@ const canEdit = permissions.includes('administrar') || permissions.includes('atc
       </>
     )}
   </button>
-)}
 
-                  <button
+
+
+  <button
                     onClick={async () => {
                       if (confirm(`¿Eliminar soporte "${support.subject}"?`)) {
                         try {
@@ -171,14 +179,20 @@ const canEdit = permissions.includes('administrar') || permissions.includes('atc
                       </>
                     )}
                   </button>
-                </td>
-                <td className="px-4 py-2">{support.id}</td>
+                     </td>
+)}
+
+
+             <td className="px-4 py-2">
+  Ticket-{String(support.id).padStart(5, '0')}
+</td>
+
                 <td className="px-4 py-2">{support.area?.descripcion || '-'}</td>
                 <td className="px-4 py-2">{support.client?.Razon_Social || '-'}</td>
-                <td className="px-4 py-2">{support.creator ? `${support.creator.firstname} ${support.creator.lastname} ${support.creator.names}` : '-'}</td>
-                <td className="px-4 py-2">{support.reservation_time}</td>
-                <td className="px-4 py-2">{support.attended_at}</td>
-                <td className="px-4 py-2">{support.derived}</td>
+                <td className="px-4 py-2">{support.subject}</td>
+                <td className="px-4 py-2">{support.project?.descripcion || '-'}</td>
+                <td className="px-4 py-2">{support.Manzana}</td>
+                <td className="px-4 py-2">{support.Lote}</td>
                 <td className="px-4 py-2">{support.priority}</td>
                 <td className="px-4 py-2">{support.type}</td>
                 <td className="px-4 py-2">{support.status}</td>
