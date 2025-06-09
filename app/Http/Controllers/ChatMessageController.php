@@ -11,7 +11,7 @@ use Inertia\Inertia;
 class ChatMessageController extends Controller
 {
     /**
-     * Muestra la vista del chat (solo si decides usar una página exclusiva).
+     * Vista del chat (opcional).
      */
     public function index()
     {
@@ -19,22 +19,22 @@ class ChatMessageController extends Controller
     }
 
     /**
-     * Devuelve los últimos mensajes del chat.
+     * Obtener últimos mensajes.
      */
     public function fetch()
     {
         $messages = ChatMessage::with('user')->latest()->take(50)->get()->reverse()->values();
 
-        // Adjuntar rol manualmente a cada usuario
+        // Adjuntar rol usando Spatie
         $messages->each(function ($msg) {
-            $msg->user->role_name = $msg->user->getRoleNames()->first(); // usando Spatie
+            $msg->user->role_name = $msg->user->getRoleNames()->first();
         });
 
         return response()->json($messages);
     }
 
     /**
-     * Almacena un nuevo mensaje de chat.
+     * Guardar y emitir mensaje por la cola.
      */
     public function store(Request $request)
     {
@@ -49,12 +49,11 @@ class ChatMessageController extends Controller
             'message' => $request->message,
         ]);
 
-        // Adjuntar rol al usuario para el evento
+        // Cargar la relación antes de pasarla al evento
         $chatMessage->load('user');
-        $chatMessage->user->role_name = $user->getRoleNames()->first();
 
+        // Emitir el evento (irá a la cola y luego se emitirá por Reverb)
         broadcast(new ChatMessageSent($chatMessage))->toOthers();
-\Log::info('Broadcasting message: ', $chatMessage->toArray());
 
         return response()->json([
             'message' => '✅ Mensaje enviado',

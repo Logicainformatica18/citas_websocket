@@ -1,27 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import Echo from 'laravel-echo';
-
-// 👇 configuración sin @laravel/echo-react
-declare global {
-  interface Window {
-    Echo: Echo;
-  }
-}
-
-if (!window.Echo) {
-  window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: Number(import.meta.env.VITE_REVERB_PORT),
-    wssPort: Number(import.meta.env.VITE_REVERB_PORT),
-    forceTLS: false,
-    enabledTransports: ['ws'],
-    authEndpoint: '', // 👈 evita que intente autenticar
-  });
-}
+import Echo from '@/lib/echo'; // ✅ Reverb ya configurado en echo.ts
 
 console.log('✅ Echo configurado manualmente con canal público');
 
@@ -58,14 +38,8 @@ export default function ChatWidget() {
     loadMessages();
 
     try {
-      if (!window.Echo || typeof window.Echo.channel !== 'function') {
-        console.warn('❌ Echo no está disponible o channel no es función');
-        return;
-      }
-
       console.log('📡 Subscribing to chat-room...');
-
-      const channel = window.Echo.channel('chat-room');
+      const channel = Echo.channel('chat-room');
 
       channel.listen('.chat.message.sent', (e: Message) => {
         console.log('💬 Nuevo mensaje:', e);
@@ -73,7 +47,7 @@ export default function ChatWidget() {
       });
 
       return () => {
-        window.Echo.leave('chat-room');
+        Echo.leave('chat-room');
         console.log('👋 Abandonado canal chat-room');
       };
     } catch (err) {
@@ -120,7 +94,7 @@ export default function ChatWidget() {
         <div className="w-80 h-96 bg-white dark:bg-gray-800 shadow-lg rounded-lg flex flex-col overflow-hidden">
           <div className="bg-blue-600 text-white px-4 py-2 font-semibold flex justify-between items-center">
             <span>Chat de usuarios</span>
-            <button onClick={() => setIsOpen(false)} className="text-white">×</button>
+            <button onClick={() => setIsOpen(false)} className="text-white text-lg">×</button>
           </div>
           <div className="flex-1 p-2 overflow-y-auto space-y-2">
             {messages.map((msg) => (
@@ -129,7 +103,8 @@ export default function ChatWidget() {
                 className="bg-gray-100 dark:bg-gray-700 p-2 rounded shadow"
               >
                 <div className="text-xs text-gray-500 dark:text-gray-300">
-                  {msg.user.email} ({msg.user.role_name ?? '-'}) - {new Date(msg.created_at).toLocaleTimeString()}
+                  {msg.user.email} ({msg.user.role_name ?? '-'}) -{' '}
+                  {new Date(msg.created_at).toLocaleTimeString()}
                 </div>
                 <div className="text-sm text-gray-900 dark:text-white">{msg.message}</div>
               </div>

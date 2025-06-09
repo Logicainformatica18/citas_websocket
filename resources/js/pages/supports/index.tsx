@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import SupportModal from './modal';
 import SupportTable from './table';
+import ChatWidget from '@/components/ChatWidget';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Atenciones', href: '/supports' },
@@ -181,6 +182,7 @@ export default function Supports() {
           projects={projects}
         />
       )}
+      <ChatWidget />
     </AppLayout>
   );
 }
