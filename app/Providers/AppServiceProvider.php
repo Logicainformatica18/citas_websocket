@@ -22,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
     {
 
      
-      URL::forceScheme('http');
+    // URL::forceScheme('http');
   
     
     }
