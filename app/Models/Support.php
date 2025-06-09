@@ -95,4 +95,9 @@ class Support extends Model
     {
         return $this->belongsTo(Project::class, 'project_id', 'id_proyecto');
     }
+    public function type()
+    {
+        return $this->belongsTo(Type::class, 'type_id');
+    }
+
 }

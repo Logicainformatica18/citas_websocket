@@ -31,7 +31,9 @@ class SupportController extends Controller
         'internalState:id,description',
         'externalState:id,description',
         'supportType:id,description',
-        'project:id_proyecto,descripcion'
+        'project:id_proyecto,descripcion',
+     
+        'type:id,description'
     ])->latest()->paginate(10);
 
     // Opciones para selects
@@ -66,7 +68,10 @@ public function fetchPaginated()
         'internalState:id,description',
         'externalState:id,description',
         'supportType:id,description',
-         'project:id_proyecto,descripcion'
+         'project:id_proyecto,descripcion',
+          'externalState:id,description',
+ 
+        'internalState:id,description'
     ])->latest()->paginate(10);
 
     return response()->json([
@@ -97,8 +102,8 @@ public function store(Request $request)
     $support->derived = $request->input('derived', '');
     $support->id_motivos_cita = 28;
     $support->project_id = $request->project_id;
-    $support->manzana = $request->manzana;
-    $support->lote = $request->lote;
+     $support->Manzana = $request->input('Manzana');
+    $support->Lote = $request->input('Lote');
 
 
     if ($request->hasFile('attachment')) {
@@ -117,7 +122,11 @@ public function store(Request $request)
         'diaEspera:id_dias_espera,dias',
         'internalState:id,description',
         'externalState:id,description',
-        'supportType:id,description'
+        'supportType:id,description',
+        'project:id_proyecto,descripcion',
+        
+
+
     ]);
 
      broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
@@ -166,8 +175,8 @@ public function update(Request $request, $id)
     $support->external_state_id = $request->input('external_state_id');
     $support->type_id = $request->input('type_id');
     $support->project_id = $request->input('project_id');
-    $support->Manzana = $request->input('manzana');
-    $support->Lote = $request->input('lote');
+    $support->Manzana = $request->input('Manzana');
+    $support->Lote = $request->input('Lote');
 
     // Procesar archivo adjunto
     if ($request->hasFile('attachment')) {
@@ -182,7 +191,7 @@ public function update(Request $request, $id)
         'user_id' => Auth::id(),
         'updated_fields' => $request->except(['_method', '_token']),
     ]);
-  $support->load([
+    $support->load([
         'area:id_area,descripcion',
         'creator:id,firstname,lastname,names',
         'client:id_cliente,Razon_Social',
@@ -191,7 +200,11 @@ public function update(Request $request, $id)
         'diaEspera:id_dias_espera,dias',
         'internalState:id,description',
         'externalState:id,description',
-        'supportType:id,description'
+        'supportType:id,description',
+        'project:id_proyecto,descripcion',
+        
+
+
     ]);
     // Emitir evento
     broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();

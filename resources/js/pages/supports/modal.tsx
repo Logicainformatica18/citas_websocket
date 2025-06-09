@@ -78,8 +78,8 @@ const SupportModal = ({
         external_state_id: '',
         type_id: '',
         project_id: '',
-        manzana: '',
-        lote: '',
+        Manzana: '',
+        Lote: '',
     });
 
     const [clientQuery, setClientQuery] = useState('');
@@ -298,9 +298,9 @@ const SupportModal = ({
                     <div className="grid grid-cols-1 items-left ">
 
                         <LimitedInput
-                            name="manzana"
+                            name="Manzana"
                             label="Manzana"
-                            value={formData.manzana}
+                            value={formData.Manzana}
                             onChange={handleChange}
                             maxLength={12}
                             inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full" // ✅ clases dinámicas aquí
@@ -315,9 +315,9 @@ const SupportModal = ({
                     </div>
                     <div className="grid grid-cols-1 items-center ">
                         <LimitedInput
-                            name="lote"
+                            name="Lote"
                             label="Lote"
-                            value={formData.lote}
+                            value={formData.Lote}
                             onChange={handleChange}
                             maxLength={11}
                             inputClassName=" col-span-1 text-sm h-7 px-2 py-1 rounded-md" // ✅ clases dinámicas aquí
@@ -468,7 +468,7 @@ const SupportModal = ({
 
                     {canEditAdvancedFields && (
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Estado Externo</Label>
+                            <Label className="text-left">Estado de Atención</Label>
                             <select
                                 name="external_state_id"
                                 value={formData.external_state_id}

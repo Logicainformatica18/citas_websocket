@@ -91,7 +91,7 @@ export default function Transfers() {
                                 setTransfers((prev) => prev.filter((a) => !selectedIds.includes(a.id)));
                                 setSelectedIds([]);
                             } catch (e) {
-                                alert('Error al eliminar en lote');
+                                alert('Error al eliminar en Lote');
                                 console.error(e);
                             }
                         }

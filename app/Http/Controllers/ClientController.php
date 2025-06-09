@@ -105,7 +105,7 @@ class ClientController extends Controller
         $ids = $request->input('ids', []);
         Client::whereIn('id_cliente', $ids)->delete();
 
-        return response()->json(['message' => 'Clientes eliminados en lote']);
+        return response()->json(['message' => 'Clientes eliminados en Lote']);
     }
 public function searchByName(Request $request)
 {

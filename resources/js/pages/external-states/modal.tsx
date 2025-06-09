@@ -54,7 +54,7 @@ export default function ExternalStateModal({
       const method = itemToEdit ? 'put' : 'post';
       const response = await axios[method](url, formData);
 
-      toast.success(itemToEdit ? 'Estado externo actualizado ✅' : 'Estado externo creado ✅');
+      toast.success(itemToEdit ? 'Estado de Atención actualizado ✅' : 'Estado de Atención creado ✅');
       onSaved(response.data.externalState);
       onClose();
     } catch (err) {
@@ -69,7 +69,7 @@ export default function ExternalStateModal({
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{itemToEdit ? 'Editar Estado Externo' : 'Nuevo Estado Externo'}</DialogTitle>
+          <DialogTitle>{itemToEdit ? 'Editar Estado de Atención' : 'Nuevo Estado de Atención'}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">

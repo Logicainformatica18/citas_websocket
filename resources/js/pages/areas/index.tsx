@@ -81,7 +81,7 @@ export default function Areas() {
                   setAreas((prev) => prev.filter((a) => !selectedIds.includes(a.id_area)));
                   setSelectedIds([]);
                 } catch (e) {
-                  alert('Error al eliminar en lote');
+                  alert('Error al eliminar en Lote');
                   console.error(e);
                 }
               }

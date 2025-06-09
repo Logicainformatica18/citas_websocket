@@ -96,7 +96,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
       title: 'Parámetros',
       show: isAdmin || isATC,
       items: [
-        { title: 'Estados Externos', href: '/external-states', icon: ArrowUpRight },
+        { title: 'Estado de Atención', href: '/external-states', icon: ArrowUpRight },
         { title: 'Estados Internos', href: '/internal-states', icon: ArrowDownLeft },
         { title: 'Tipos de Cita', href: '/appointment-types', icon: CalendarClock },
         { title: 'Días de Espera', href: '/waiting-days', icon: Hourglass },

@@ -92,7 +92,7 @@ export default function Products() {
                   setProducts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
                   setSelectedIds([]);
                 } catch (e) {
-                  alert('Error al eliminar en lote');
+                  alert('Error al eliminar en Lote');
                   console.error(e);
                 }
               }

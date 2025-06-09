@@ -53,7 +53,7 @@ export default function ClientTable({
                 setClients((prev) => prev.filter((c) => !selectedIds.includes(c.id_cliente)));
                 setSelectedIds([]);
               } catch (e) {
-                alert('Error al eliminar en lote');
+                alert('Error al eliminar en Lote');
                 console.error(e);
               }
             }

@@ -7,6 +7,9 @@ import axios from 'axios';
 import SupportModal from './modal';
 import SupportTable from './table';
 import ChatWidget from '@/components/ChatWidget';
+import NotificationBell from '@/components/NotificationBell';
+
+
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Atenciones', href: '/supports' },
@@ -30,8 +33,8 @@ type Support = {
   created_by?: number;
   client_id?: number;
   project_id?: number;
-  manzana?: string;
-  lote?: string;
+  Manzana?: string;
+  Lote?: string;
 
   // Campos adicionales del modal (si los necesitas para edición)
   dni?: string;
@@ -142,6 +145,10 @@ export default function Supports() {
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="flex justify-end items-center gap-4">
+  <NotificationBell />
+  {/* otros elementos como el usuario */}
+</div>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-4">Listado de Atenciones</h1>
 

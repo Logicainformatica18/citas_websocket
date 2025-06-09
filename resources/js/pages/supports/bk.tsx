@@ -128,7 +128,7 @@ useEffect(() => {
                   setSupports((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
                   setSelectedIds([]);
                 } catch (e) {
-                  alert('Error al eliminar en lote');
+                  alert('Error al eliminar en Lote');
                   console.error(e);
                 }
               }
