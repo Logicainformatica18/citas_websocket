@@ -326,6 +326,7 @@ useEffect(() => {
                             onChange={handleChange}
                             className="w-full border rounded px-3 py-2 text-sm"
                         >
+                            <option value="">Seleccione un proyecto</option>
                            
                             {projects.map((p) => (
                                 <option key={p.id_proyecto} value={p.id_proyecto}>
