@@ -17,7 +17,7 @@ use App\Http\Controllers\WaitingDayController;
 use App\Http\Controllers\TypeController;
 use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\ProjectController;
- 
+ use App\Http\Controllers\ReportController;
 
 Route::get('/', function () {
     return redirect("dashboard");
@@ -236,6 +236,9 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
       Route::get('/chat', [ChatMessageController::class, 'index'])->name('chat.index');
     Route::get('/chat/messages', [ChatMessageController::class, 'fetch'])->name('chat.fetch');
     Route::post('/chat/messages', [ChatMessageController::class, 'store'])->name('chat.store');
+
+    Route::get('/reports/{id}', [ReportController::class, 'show'])->name('reports.show');
+
 });
 
 use App\Http\Controllers\WebSocketTestController;

@@ -3,6 +3,7 @@ import HourglassLoader from '@/components/HourglassLoader';
 import { useState } from 'react';
 import axios from 'axios';
 import { usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 
 interface Support {
     id: number;
@@ -101,6 +102,8 @@ export default function SupportTable({
                             {canEdit && (
                                 <th className="px-4 py-2">Acciones</th>
                             )}
+                            
+                            <th className="px-4 py-2">Detalle</th>
                             <th className="px-4 py-2">ID</th>
                             <th className="px-4 py-2">Área</th>
                             <th className="px-4 py-2">Cliente</th>
@@ -185,11 +188,20 @@ export default function SupportTable({
                                 )}
 
 
+                              <td className="px-4 py-2">
+  <Link
+    href={`/reports/${support.id}`}
+    className="text-blue-600 underline hover:text-blue-800 text-sm"
+  >
+    Ver Reporte
+  </Link>
+</td>
+
                                 <td className="px-4 py-2">
                                     Ticket-{String(support.id).padStart(5, '0')}
                                 </td>
-                           
                                 <td className="px-4 py-2">{support.area?.descripcion || '-'}</td>
+                           
                                 <td className="px-4 py-2">{support.client?.Razon_Social || '-'}</td>
                                 <td className="px-4 py-2">{support.subject}</td>
                                 <td className="px-4 py-2">{support.project?.descripcion || '-'}</td>
