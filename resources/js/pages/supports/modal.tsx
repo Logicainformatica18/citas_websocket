@@ -42,6 +42,7 @@ const SupportModal = ({
     externalStates,
     types,
     projects,
+    areas
 }: {
     open: boolean;
     onClose: () => void;
@@ -54,6 +55,7 @@ const SupportModal = ({
     externalStates: any[];
     types: any[];
     projects: any[];
+    areas:any[];
 }) => {
     const [formData, setFormData] = useState<any>({
         subject: '',
@@ -80,44 +82,59 @@ const SupportModal = ({
         project_id: '',
         Manzana: '',
         Lote: '',
+
     });
 
-    const [clientQuery, setClientQuery] = useState('');
+const [clientQuery, setClientQuery] = useState<string>(''); // ✅
+
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
-    const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
+ //   const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
     const [uploading, setUploading] = useState(false);
     const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
+    const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
-    useEffect(() => {
-        axios.get('/areas/all')
-            .then((res) => setAreas(res.data))
-            .catch((err) => console.error('Error al cargar áreas:', err));
+useEffect(() => {
+    if (!supportToEdit) return;
 
-        if (supportToEdit) {
-            const cleanData = Object.fromEntries(
-                Object.entries(supportToEdit).map(([key, val]) => [
-                    key,
-                    val === null || typeof val === 'undefined' ? '' : val,
-                ])
-            );
+    const cleanData = Object.fromEntries(
+        Object.entries(supportToEdit).map(([key, val]) => [
+            key,
+            val === null || typeof val === 'undefined' ? '' : val,
+        ])
+    );
 
-            setFormData((prev: any) => ({
-                ...prev,
-                ...cleanData,
-                reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
-                attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
-            }));
+    const client = supportToEdit.client;
+    if (client) {
+        setSelectedClient(client);
+        setClientQuery(client.names);
 
-            setClientQuery(supportToEdit.client?.names || '');
+        // 👇 Esto es lo que te falta (probablemente)
+        setFormData((prev: any) => ({
+            ...prev,
+            client_id: client.id,
+            dni: client.dni,
+            cellphone: client.cellphone,
+            email: client.email,
+            address: client.address,
+        }));
+    }
 
-            if (supportToEdit.attachment) {
-                setPreview(`/attachments/${supportToEdit.attachment}`);
-            }
-        }
-    }, [supportToEdit]);
+    setFormData((prev: any) => ({
+        ...prev,
+        ...cleanData,
+        reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
+        attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
+    }));
+
+    if (supportToEdit.attachment) {
+        setPreview(`/attachments/${supportToEdit.attachment}`);
+    }
+}, [supportToEdit]);
+
+
 
     const handleChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
@@ -162,7 +179,7 @@ const SupportModal = ({
 
     return (
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-              <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Atención' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
@@ -173,21 +190,31 @@ const SupportModal = ({
                     <div className="grid grid-cols-4 items-center w-full">
                         <Label className="text-left text-sm">Cliente :</Label>
                         <div className="col-span-3">
-                            <ClientSearch
-                                query={clientQuery}
-                                setQuery={setClientQuery}
-                                onSelect={(client) => {
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        client_id: client.id,
-                                        cellphone: client.cellphone || '',
-                                        dni: client.dni || '',
-                                        email: client.email || '',
-                                        address: client.address || '',
-                                    }));
-                                    setClientQuery(client.names);
-                                }}
-                            />
+                         {supportToEdit ? (
+  <div className="px-2 py-1 border rounded bg-gray-100 text-sm">
+    {selectedClient?.names || 'Cliente seleccionado'}
+  </div>
+) : (
+  <ClientSearch
+    query={clientQuery}
+    setQuery={setClientQuery}
+    selectedClient={selectedClient}
+    onSelect={(client) => {
+      setFormData((prev) => ({
+        ...prev,
+        client_id: client.id,
+        cellphone: client.cellphone || '',
+        dni: client.dni || '',
+        email: client.email || '',
+        address: client.address || '',
+      }));
+      setSelectedClient(client);
+      setClientQuery(client.names);
+    }}
+  />
+)}
+
+
                         </div>
                     </div>
                 </div>
@@ -289,8 +316,26 @@ const SupportModal = ({
                         />
                     </div>
                 </div>
+  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-left col-span-1">Proyecto</Label>
 
-<div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-3">
+                        <select
+                            name="project_id"
+                            value={formData.project_id}
+                            onChange={handleChange}
+                            className="w-full border rounded px-3 py-2 text-sm"
+                        >
+                           
+                            {projects.map((p) => (
+                                <option key={p.id_proyecto} value={p.id_proyecto}>
+                                    {p.descripcion}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
                     <div className="grid grid-cols-4 items-left ">
                         <Label className="text-left  ">Manzana</Label>
 
@@ -328,25 +373,7 @@ const SupportModal = ({
 
 
 
-                <div className="grid grid-cols-4 items-start gap-4">
-                    <Label className="text-left col-span-1">Proyecto</Label>
-
-                    <div className="col-span-3">
-                        <select
-                            name="project_id"
-                            value={formData.project_id}
-                            onChange={handleChange}
-                            className="w-full border rounded px-3 py-2 text-sm"
-                        >
-                              <option value="">Seleccione un proyecto...</option> {/* <-- Esta línea ayuda a evitar autoselección */}
-                            {projects.map((p) => (
-                                <option key={p.id_proyecto} value={p.id_proyecto}>
-                                    {p.descripcion}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
+              
 
 
 
@@ -383,7 +410,7 @@ const SupportModal = ({
                             >
 
                                 {areas.map((a) => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                    <option key={a.id_area} value={a.id}>{a.descripcion}</option>
                                 ))}
                             </select>
                         </div>
@@ -456,7 +483,7 @@ const SupportModal = ({
                                 onChange={handleChange}
                                 className={inputClass}
                             >
-                                <option value="">Seleccione...</option>
+                               
                                 {internalStates.map(i => (
                                     <option key={i.id} value={i.id}>
                                         {i.description}
@@ -475,7 +502,7 @@ const SupportModal = ({
                                 onChange={handleChange}
                                 className={inputClass}
                             >
-                                <option value="">Seleccione...</option>
+                              
                                 {externalStates.map(e => (
                                     <option key={e.id} value={e.id}>
                                         {e.description}

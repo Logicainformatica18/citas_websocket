@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\RecordChanged;
+use App\Models\Area;
 use App\Models\Support;
 use App\Models\Motive;
 use App\Models\Client;
@@ -32,6 +33,7 @@ class SupportController extends Controller
         'externalState:id,description',
         'supportType:id,description',
         'project:id_proyecto,descripcion',
+        
      
         'type:id,description'
     ])->latest()->paginate(10);
@@ -43,7 +45,8 @@ class SupportController extends Controller
     $internalStates = InternalState::select('id', 'description')->get();
     $externalStates = ExternalState::select('id', 'description')->get();
     $types = Type::select('id', 'description')->get();
-        $projects = Project::select('id_proyecto', 'descripcion')->get();
+    $projects = Project::select('id_proyecto', 'descripcion')->get();
+    $areas = Area::select('id_area', 'descripcion')->get();  
     return Inertia::render('supports/index', [
         'supports' => $supports,
         'motives' => $motives,
@@ -52,7 +55,8 @@ class SupportController extends Controller
         'internalStates' => $internalStates,
         'externalStates' => $externalStates,
         'types' => $types,
-        'projects' => $projects
+        'projects' => $projects,
+        'areas' => $areas,
     ]);
 }
 
@@ -216,23 +220,29 @@ public function update(Request $request, $id)
 }
 
 
-    public function show($id)
-    {
-        $support = Support::with([
-            'area',
-            'creator',
-            'client',
-            'motivoCita',
-            'tipoCita',
-            'diaEspera',
-            'internalState',
-            'externalState',
-            'supportType',
-             'project'
-        ])->findOrFail($id);
+public function show($id)
+{
+    $support = Support::with([
+        'area',
+        'creator',
+        'client',
+        'motivoCita',
+        'tipoCita',
+        'diaEspera',
+        'internalState',
+        'externalState',
+        'supportType',
+        'project'
+    ])->findOrFail($id);
 
-        return response()->json(['support' => $support]);
-    }
+    // 👉 reemplaza el cliente crudo por uno transformado
+    $supportArray = $support->toArray();
+    $supportArray['client'] = $support->client ? $support->client->toFrontend() : null;
+
+    return response()->json(['support' => $supportArray]);
+}
+
+
 
     public function destroy($id)
     {

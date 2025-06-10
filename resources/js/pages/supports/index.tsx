@@ -75,6 +75,7 @@ export default function Supports() {
     externalStates,
     types,
     projects,
+    areas
   } = usePage<{
     supports: Pagination<Support>;
     motives: Option[];
@@ -84,6 +85,7 @@ export default function Supports() {
     externalStates: Option[];
     types: Option[];
     projects: Option[];
+    areas: Option[];
   }>().props;
 
   const [supports, setSupports] = useState<Support[]>(initialPagination.data);
@@ -187,6 +189,7 @@ export default function Supports() {
           externalStates={externalStates}
           types={types}
           projects={projects}
+            areas={areas}
         />
       )}
       <ChatWidget />

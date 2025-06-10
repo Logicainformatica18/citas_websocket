@@ -64,6 +64,17 @@ public function updateFromSupport(array $data)
 
     return $this;
 }
+public function toFrontend()
+{
+    return [
+        'id' => $this->id_cliente,
+        'names' => $this->Razon_Social,
+        'dni' => $this->DNI,
+        'cellphone' => $this->Telefono,
+        'email' => $this->Email,
+        'address' => $this->Direccion,
+    ];
+}
 
 
 }

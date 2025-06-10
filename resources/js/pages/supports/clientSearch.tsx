@@ -5,43 +5,57 @@ export default function ClientSearch({
   query,
   setQuery,
   onSelect,
+  selectedClient, // <- prop desde el padre
 }: {
   query: string;
   setQuery: (value: string) => void;
   onSelect: (client: any) => void;
+  selectedClient?: any;
 }) {
   const [results, setResults] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [loading, setLoading] = useState(false); // 👈 estado de carga
+  const [internalSelectedClient, setInternalSelectedClient] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const search = async (q: string) => {
-    if (q.length >= 2) {
-      try {
-        setLoading(true); // 👈 comienza la carga
-        const res = await axios.get(`/clients/search?q=${q}`);
-        setResults(res.data);
-        setLoading(false); // 👈 termina la carga
-        if (res.data.length > 0 && !selectedClient) {
-          setShowDropdown(true); // 👈 solo muestra si hay resultados
-        }
-      } catch (e) {
-        console.error('Error al buscar clientes:', e);
-        setLoading(false);
-        setShowDropdown(false);
+const search = async (q: string) => {
+  if (!q || typeof q !== 'string') return; // ✅ protección extra
+
+  if (q.length >= 2) {
+    try {
+      setLoading(true);
+      const res = await axios.get(`/clients/search?q=${q}`);
+      setResults(res.data);
+      setLoading(false);
+      if (res.data.length > 0 && !internalSelectedClient) {
+        setShowDropdown(true);
       }
-    } else {
-      setResults([]);
+    } catch (e) {
+      console.error('Error al buscar clientes:', e);
+      setLoading(false);
       setShowDropdown(false);
     }
-  };
+  } else {
+    setResults([]);
+    setShowDropdown(false);
+  }
+};
 
+
+ useEffect(() => {
+  if (typeof query === 'string' && (!internalSelectedClient || query !== internalSelectedClient.names)) {
+    search(query);
+  }
+}, [query]);
+
+
+  // ⬇️ Este hook sincroniza el cliente al editar
   useEffect(() => {
-    if (!selectedClient || query !== selectedClient.names) {
-      search(query);
+    if (selectedClient) {
+      setInternalSelectedClient(selectedClient);
+      setQuery(selectedClient.names);
     }
-  }, [query]);
+  }, [selectedClient]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -60,10 +74,10 @@ export default function ClientSearch({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
-          setSelectedClient(null); // invalida selección previa
+          setInternalSelectedClient(null); // limpiar selección si se escribe de nuevo
         }}
         onFocus={() => {
-          if (!selectedClient && results.length > 0) {
+          if (!internalSelectedClient && results.length > 0) {
             setShowDropdown(true);
           }
         }}
@@ -71,14 +85,12 @@ export default function ClientSearch({
         className="w-full border px-3 py-2 rounded"
       />
 
-      {/* Mostrar loading opcional */}
       {loading && (
         <div className="absolute z-10 bg-white mt-1 border w-full px-4 py-2 text-sm text-gray-500 rounded shadow">
           Buscando...
         </div>
       )}
 
-      {/* Solo muestra si terminó de buscar y hay resultados */}
       {!loading && showDropdown && results.length > 0 && (
         <ul className="absolute z-10 bg-white border mt-1 rounded w-full max-h-60 overflow-auto shadow-md">
           {results.map((client) => (
@@ -87,7 +99,7 @@ export default function ClientSearch({
               onClick={() => {
                 onSelect(client);
                 setQuery(client.names);
-                setSelectedClient(client);
+                setInternalSelectedClient(client);
                 setShowDropdown(false);
               }}
               className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
