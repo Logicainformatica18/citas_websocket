@@ -22,10 +22,10 @@ use App\Http\Controllers\DashboardController;
 
 
 
-// Route::get('/', function () {
-//     return redirect("dashboard");
-//     //return Inertia::render('welcome');
-// })->name('home');
+Route::get('/', function () {
+    return redirect("dashboard");
+    //return Inertia::render('welcome');
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     
