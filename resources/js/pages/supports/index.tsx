@@ -155,6 +155,10 @@ const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
       console.error('Error al cargar página', e);
     }
   };
+const exportSupports = () => {
+  window.open(route('supports.export'), '_blank');
+};
+
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -172,8 +176,12 @@ const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
           }}
           className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
         >
-          Nuevo Soporte
+          Nuevo Registro
         </button>
+
+<button onClick={exportSupports} className="ml-4 mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
+        >Exportar Todo</button>
+
 
        <SupportTable
   supports={supports}

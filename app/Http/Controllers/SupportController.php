@@ -17,7 +17,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-
+use App\Exports\SupportExport;
+    use Maatwebsite\Excel\Facades\Excel;
 class SupportController extends Controller
 {
    public function index()
@@ -33,8 +34,8 @@ class SupportController extends Controller
         'externalState:id,description',
         'supportType:id,description',
         'project:id_proyecto,descripcion',
-        
-     
+
+
         'type:id,description'
     ])->latest()->paginate(10);
 
@@ -46,7 +47,7 @@ class SupportController extends Controller
     $externalStates = ExternalState::select('id', 'description')->get();
     $types = Type::select('id', 'description')->get();
     $projects = Project::select('id_proyecto', 'descripcion')->get();
-    $areas = Area::select('id_area', 'descripcion')->get();  
+    $areas = Area::select('id_area', 'descripcion')->get();
     return Inertia::render('supports/index', [
         'supports' => $supports,
         'motives' => $motives,
@@ -100,7 +101,7 @@ public function fetchPaginated()
         'supportType:id,description',
          'project:id_proyecto,descripcion',
           'externalState:id,description',
- 
+
         'internalState:id,description'
     ])->latest()->paginate(10);
 
@@ -154,7 +155,7 @@ public function store(Request $request)
         'externalState:id,description',
         'supportType:id,description',
         'project:id_proyecto,descripcion',
-        
+
 
 
     ]);
@@ -232,7 +233,7 @@ public function update(Request $request, $id)
         'externalState:id,description',
         'supportType:id,description',
         'project:id_proyecto,descripcion',
-        
+
 
 
     ]);
@@ -315,4 +316,10 @@ public function show($id)
             'type_id' => 'nullable|exists:types,id',
         ]);
     }
+
+
+public function exportAll()
+{
+    return Excel::download(new SupportExport, 'supports.xlsx');
+}
 }

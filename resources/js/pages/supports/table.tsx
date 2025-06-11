@@ -113,7 +113,9 @@ return (
                 />
               </th>
               {canEdit && <th className="px-2 py-1">Acciones</th>}
+              {canEdit && (
               <th className="px-2 py-1">Area Mantenimiento</th>
+                )}
               <th className="px-2 py-1">Detalle</th>
               <th className="px-2 py-1">ID</th>
               <th className="px-2 py-1">Área</th>
@@ -196,8 +198,10 @@ return (
                       )}
                     </button>
                   </td>
+
                 )}
-                <td className="px-2 py-1">
+{canEdit && (
+ <td className="px-2 py-1">
                   <button
                     onClick={() => {
                       setSelectedSupportId(support.id);
@@ -205,9 +209,11 @@ return (
                     }}
                     className="text-blue-600 text-sm underline hover:text-blue-800 transition"
                   >
-                    Editar Área/Motivo
+                     Área/Motivo
                   </button>
                 </td>
+  )}
+
                 <td className="px-2 py-1">
                   <Link
                     href={`/reports/${support.id}`}

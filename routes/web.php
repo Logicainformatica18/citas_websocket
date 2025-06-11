@@ -97,6 +97,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
     Route::get('/supports', [SupportController::class, 'index'])->name('supports.index');
+    Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export');
+
     Route::post('/supports', [SupportController::class, 'store']);
     Route::get('/supports/{id}', [SupportController::class, 'show']);
     Route::put('/supports/{id}', [SupportController::class, 'update']);
@@ -231,7 +233,7 @@ Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
 Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
 
 
- 
+
 
       Route::get('/chat', [ChatMessageController::class, 'index'])->name('chat.index');
     Route::get('/chat/messages', [ChatMessageController::class, 'fetch'])->name('chat.fetch');
