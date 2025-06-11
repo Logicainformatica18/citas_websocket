@@ -131,4 +131,11 @@ public function store(Request $request)
 
         return response()->json(['message' => 'Motivos eliminados correctamente']);
     }
+
+     public function getAllEnabled()
+    {
+        $motives = Motive::get(['id_motivos_cita as id', 'nombre_motivo']);
+
+        return response()->json($motives);
+    }
 }

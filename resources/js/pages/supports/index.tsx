@@ -8,6 +8,7 @@ import SupportModal from './modal';
 import SupportTable from './table';
 import ChatWidget from '@/components/ChatWidget';
 import NotificationBell from '@/components/NotificationBell';
+import AreaModal from './AreaModal';
 
 
 
@@ -66,32 +67,35 @@ type Pagination<T> = {
 };
 
 export default function Supports() {
-  const {
-    supports: initialPagination,
-    motives,
-    appointmentTypes,
-    waitingDays,
-    internalStates,
-    externalStates,
-    types,
-    projects,
-    areas
-  } = usePage<{
-    supports: Pagination<Support>;
-    motives: Option[];
-    appointmentTypes: Option[];
-    waitingDays: Option[];
-    internalStates: Option[];
-    externalStates: Option[];
-    types: Option[];
-    projects: Option[];
-    areas: Option[];
-  }>().props;
+ const {
+  supports: initialPagination,
+  motives,
+  appointmentTypes,
+  waitingDays,
+  internalStates,
+  externalStates,
+  types,
+  projects,
+  areas,
+} = usePage<{
+  supports: Pagination<Support>;
+  motives: { id: number; nombre_motivo: string }[]; // 👈 más específico
+  appointmentTypes: Option[];
+  waitingDays: Option[];
+  internalStates: Option[];
+  externalStates: Option[];
+  types: Option[];
+  projects: Option[];
+  areas: { id_area: number; descripcion: string }[]; // 👈 más específico
+}>().props;
+
 
   const [supports, setSupports] = useState<Support[]>(initialPagination.data);
   const [pagination, setPagination] = useState(initialPagination);
   const [showModal, setShowModal] = useState(false);
   const [editSupport, setEditSupport] = useState<Support | null>(null);
+const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+const [showAreaModal, setShowAreaModal] = useState(false);
 
   useEffect(() => {
     const channel = Echo.channel('supports');
@@ -164,13 +168,18 @@ export default function Supports() {
           Nuevo Soporte
         </button>
 
-        <SupportTable
-          supports={supports}
-          setSupports={setSupports}
-          pagination={pagination}
-          fetchPage={fetchPage}
-          fetchSupport={fetchSupport}
-        />
+       <SupportTable
+  supports={supports}
+  setSupports={setSupports}
+  pagination={pagination}
+  fetchPage={fetchPage}
+  fetchSupport={fetchSupport}
+  setShowAreaModal={setShowAreaModal}
+  setSelectedSupportId={setSelectedSupportId}
+  areas={areas}
+  motives={motives}
+/>
+
       </div>
 
       {showModal && (
@@ -192,6 +201,18 @@ export default function Supports() {
             areas={areas}
         />
       )}
+{showAreaModal && selectedSupportId !== null && (
+  <AreaModal
+    open={showAreaModal}
+    onClose={() => setShowAreaModal(false)}
+    supportId={selectedSupportId}
+    areas={areas}
+    motives={motives}
+  />
+)}
+
+
+
       <ChatWidget />
     </AppLayout>
   );

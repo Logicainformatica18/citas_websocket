@@ -4,6 +4,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { usePage } from '@inertiajs/react';
 import { Link } from '@inertiajs/react';
+import AreaModal from './AreaModal'; // asegúrate de que el path sea correcto
 
 interface Support {
     id: number;
@@ -38,12 +39,18 @@ interface Pagination<T> {
 }
 
 interface Props {
-    supports: Support[];
-    setSupports: React.Dispatch<React.SetStateAction<Support[]>>;
-    pagination: Pagination<Support>;
-    fetchPage: (url: string) => Promise<void>;
-    fetchSupport: (id: number) => Promise<void>;
+  supports: Support[];
+  setSupports: React.Dispatch<React.SetStateAction<Support[]>>;
+  pagination: Pagination<Support>;
+  fetchPage: (url: string) => Promise<void>;
+  fetchSupport: (id: number) => Promise<void>;
+  setShowAreaModal: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>; // ✅ AGREGA ESTA PROP
+  areas: Array<{ id_area: number; descripcion: string }>;
+  motives: Array<{ id: number; nombre_motivo: string }>;
 }
+
+
 type PageProps = {
     permissions: string[];
 };
@@ -54,14 +61,16 @@ export default function SupportTable({
     pagination,
     fetchPage,
     fetchSupport,
+    setShowAreaModal,
+     setSelectedSupportId, // ✅ AGREGA ESTO
+    areas,
+    motives,
 }: Props) {
-
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
-
+  
     const { permissions } = usePage<PageProps>().props;
-
     const canEdit = permissions.includes('administrar') || permissions.includes('atc');
 
     return (
@@ -99,10 +108,8 @@ export default function SupportTable({
                                     }
                                 />
                             </th>
-                            {canEdit && (
-                                <th className="px-4 py-2">Acciones</th>
-                            )}
-                            
+                            {canEdit && <th className="px-4 py-2">Acciones</th>}
+                            <th className="px-4 py-2">Area Mantenimiento</th>
                             <th className="px-4 py-2">Detalle</th>
                             <th className="px-4 py-2">ID</th>
                             <th className="px-4 py-2">Área</th>
@@ -120,7 +127,6 @@ export default function SupportTable({
                     </thead>
                     <tbody>
                         {supports.map((support) => (
-                               
                             <tr key={support.id} className="border-t hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td className="px-4 py-2">
                                     <input
@@ -135,7 +141,6 @@ export default function SupportTable({
                                         }
                                     />
                                 </td>
-
                                 {canEdit && (
                                     <td className="px-4 py-2 text-sm space-x-2">
                                         <button
@@ -155,9 +160,6 @@ export default function SupportTable({
                                                 </>
                                             )}
                                         </button>
-
-
-
                                         <button
                                             onClick={async () => {
                                                 if (confirm(`¿Eliminar soporte "${support.subject}"?`)) {
@@ -186,22 +188,31 @@ export default function SupportTable({
                                         </button>
                                     </td>
                                 )}
+                                <td className="px-4 py-2">
+                                  <button
+  onClick={() => {
+    setSelectedSupportId(support.id); // viene del padre
+    setShowAreaModal(true);           // también viene del padre
+  }}
+  className="text-blue-600 text-sm underline hover:text-blue-800 transition"
+>
+  Editar Área/Motivo
+</button>
 
 
-                              <td className="px-4 py-2">
-  <Link
-    href={`/reports/${support.id}`}
-    className="text-blue-600 underline hover:text-blue-800 text-sm"
-  >
-    Ver Reporte
-  </Link>
-</td>
-
+                                </td>
+                                <td className="px-4 py-2">
+                                    <Link
+                                        href={`/reports/${support.id}`}
+                                        className="text-blue-600 underline hover:text-blue-800 text-sm"
+                                    >
+                                        Ver Reporte
+                                    </Link>
+                                </td>
                                 <td className="px-4 py-2">
                                     Ticket-{String(support.id).padStart(5, '0')}
                                 </td>
                                 <td className="px-4 py-2">{support.area?.descripcion || '-'}</td>
-                           
                                 <td className="px-4 py-2">{support.client?.Razon_Social || '-'}</td>
                                 <td className="px-4 py-2">{support.subject}</td>
                                 <td className="px-4 py-2">{support.project?.descripcion || '-'}</td>
@@ -209,8 +220,8 @@ export default function SupportTable({
                                 <td className="px-4 py-2">{support.Lote}</td>
                                 <td className="px-4 py-2">{support.priority}</td>
                                 <td className="px-4 py-2">{support.created_at}</td>
-                                <td className="px-4 py-2">{support.external_state?.description|| '-'}</td>
-                                <td className="px-4 py-2">{support.internal_state?.description|| '-'}</td>
+                                <td className="px-4 py-2">{support.external_state?.description || '-'}</td>
+                                <td className="px-4 py-2">{support.internal_state?.description || '-'}</td>
                                 <td className="px-4 py-2">
                                     {support.attachment && (
                                         <a
@@ -235,10 +246,11 @@ export default function SupportTable({
                         <button
                             key={page}
                             onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
-                            className={`px-3 py-1 rounded text-sm font-medium transition ${pagination.current_page === page
+                            className={`px-3 py-1 rounded text-sm font-medium transition ${
+                                pagination.current_page === page
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                }`}
+                            }`}
                             disabled={pagination.current_page === page}
                         >
                             {page}
@@ -246,6 +258,8 @@ export default function SupportTable({
                     );
                 })}
             </div>
+
+             
         </>
     );
 }

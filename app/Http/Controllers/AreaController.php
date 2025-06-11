@@ -83,7 +83,7 @@ class AreaController extends Controller
             'Cobranza',
             'BackOffice',
             'SuperAdmin',
-        ])->get(['id_area as id', 'descripcion as name']);
+        ])->get(['id_area as id', 'descripcion']);
 
         return response()->json($areas);
     }

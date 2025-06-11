@@ -55,7 +55,7 @@ const SupportModal = ({
     externalStates: any[];
     types: any[];
     projects: any[];
-    areas:any[];
+    areas: any[];
 }) => {
     const [formData, setFormData] = useState<any>({
         subject: '',
@@ -85,54 +85,54 @@ const SupportModal = ({
 
     });
 
-const [clientQuery, setClientQuery] = useState<string>(''); // ✅
+    const [clientQuery, setClientQuery] = useState<string>(''); // ✅
 
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
- //   const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
+    //   const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
     const [uploading, setUploading] = useState(false);
     const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
-useEffect(() => {
-    if (!supportToEdit) return;
+    useEffect(() => {
+        if (!supportToEdit) return;
 
-    const cleanData = Object.fromEntries(
-        Object.entries(supportToEdit).map(([key, val]) => [
-            key,
-            val === null || typeof val === 'undefined' ? '' : val,
-        ])
-    );
+        const cleanData = Object.fromEntries(
+            Object.entries(supportToEdit).map(([key, val]) => [
+                key,
+                val === null || typeof val === 'undefined' ? '' : val,
+            ])
+        );
 
-    const client = supportToEdit.client;
-    if (client) {
-        setSelectedClient(client);
-        setClientQuery(client.names);
+        const client = supportToEdit.client;
+        if (client) {
+            setSelectedClient(client);
+            setClientQuery(client.names);
 
-        // 👇 Esto es lo que te falta (probablemente)
+            // 👇 Esto es lo que te falta (probablemente)
+            setFormData((prev: any) => ({
+                ...prev,
+                client_id: client.id,
+                dni: client.dni,
+                cellphone: client.cellphone,
+                email: client.email,
+                address: client.address,
+            }));
+        }
+
         setFormData((prev: any) => ({
             ...prev,
-            client_id: client.id,
-            dni: client.dni,
-            cellphone: client.cellphone,
-            email: client.email,
-            address: client.address,
+            ...cleanData,
+            reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
+            attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
         }));
-    }
 
-    setFormData((prev: any) => ({
-        ...prev,
-        ...cleanData,
-        reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
-        attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
-    }));
-
-    if (supportToEdit.attachment) {
-        setPreview(`/attachments/${supportToEdit.attachment}`);
-    }
-}, [supportToEdit]);
+        if (supportToEdit.attachment) {
+            setPreview(`/attachments/${supportToEdit.attachment}`);
+        }
+    }, [supportToEdit]);
 
 
 
@@ -190,29 +190,29 @@ useEffect(() => {
                     <div className="grid grid-cols-4 items-center w-full">
                         <Label className="text-left text-sm">Cliente :</Label>
                         <div className="col-span-3">
-                         {supportToEdit ? (
-  <div className="px-2 py-1 border rounded bg-gray-100 text-sm">
-    {selectedClient?.names || 'Cliente seleccionado'}
-  </div>
-) : (
-  <ClientSearch
-    query={clientQuery}
-    setQuery={setClientQuery}
-    selectedClient={selectedClient}
-    onSelect={(client) => {
-      setFormData((prev) => ({
-        ...prev,
-        client_id: client.id,
-        cellphone: client.cellphone || '',
-        dni: client.dni || '',
-        email: client.email || '',
-        address: client.address || '',
-      }));
-      setSelectedClient(client);
-      setClientQuery(client.names);
-    }}
-  />
-)}
+                            {supportToEdit ? (
+                                <div className="px-2 py-1 border rounded bg-gray-100 text-sm">
+                                    {selectedClient?.names || 'Cliente seleccionado'}
+                                </div>
+                            ) : (
+                                <ClientSearch
+                                    query={clientQuery}
+                                    setQuery={setClientQuery}
+                                    selectedClient={selectedClient}
+                                    onSelect={(client) => {
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            client_id: client.id,
+                                            cellphone: client.cellphone || '',
+                                            dni: client.dni || '',
+                                            email: client.email || '',
+                                            address: client.address || '',
+                                        }));
+                                        setSelectedClient(client);
+                                        setClientQuery(client.names);
+                                    }}
+                                />
+                            )}
 
 
                         </div>
@@ -316,7 +316,7 @@ useEffect(() => {
                         />
                     </div>
                 </div>
-  <div className="grid grid-cols-4 items-start gap-4">
+                <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-left col-span-1">Proyecto</Label>
 
                     <div className="col-span-3">
@@ -327,7 +327,7 @@ useEffect(() => {
                             className="w-full border rounded px-3 py-2 text-sm"
                         >
                             <option value="">Seleccione un proyecto</option>
-                           
+
                             {projects.map((p) => (
                                 <option key={p.id_proyecto} value={p.id_proyecto}>
                                     {p.descripcion}
@@ -374,7 +374,7 @@ useEffect(() => {
 
 
 
-              
+
 
 
 
@@ -484,7 +484,7 @@ useEffect(() => {
                                 onChange={handleChange}
                                 className={inputClass}
                             >
-                               
+
                                 {internalStates.map(i => (
                                     <option key={i.id} value={i.id}>
                                         {i.description}
@@ -503,7 +503,7 @@ useEffect(() => {
                                 onChange={handleChange}
                                 className={inputClass}
                             >
-                              
+
                                 {externalStates.map(e => (
                                     <option key={e.id} value={e.id}>
                                         {e.description}

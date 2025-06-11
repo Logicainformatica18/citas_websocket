@@ -103,8 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/supports/{id}', [SupportController::class, 'destroy']);
     Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
 
-
-
+Route::put('/supports/{id}/area-motivo', [SupportController::class, 'updateAreaMotivo']);
 
 
 
@@ -131,6 +130,7 @@ Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete'])->mi
 
     // routes/web.php
     Route::get('/areas/all', [AreaController::class, 'getAllEnabled']);
+   Route::get('/motivos-cita/all', [MotiveController::class, 'getAllEnabled']);
 
 
 
