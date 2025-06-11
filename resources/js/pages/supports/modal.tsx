@@ -179,14 +179,19 @@ const SupportModal = ({
 
     return (
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-            <DialogContent className="sm:max-w-3xl">
+<DialogContent className="sm:max-w-6xl h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Atención' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
 
+                <div className="rounded-md bg-gray-100 dark:bg-gray-800 p-4 space-y-4">
+                    <div className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.612 0 5.034.75 7.121 2.038M15 11a3 3 0 11-6 0 3 3 0 016 0zM19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
+                        </svg>
+                        Datos del Cliente
+                    </div>
 
-
-                <div className="grid grid-cols-1 gap-4">
                     <div className="grid grid-cols-4 items-center w-full">
                         <Label className="text-left text-sm">Cliente :</Label>
                         <div className="col-span-3">
@@ -213,191 +218,173 @@ const SupportModal = ({
                                     }}
                                 />
                             )}
-
-
                         </div>
                     </div>
-                </div>
 
-
-                <div className="grid grid-cols-4 gap-4">
-                    <div className="grid grid-cols-4 items-left ">
-                        <Label className="text-left  ">Dni</Label>
-
+                    <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-4 items-left">
+                            <Label className="text-left">DNI</Label>
+                        </div>
+                        <div className="grid grid-cols-1 items-left">
+                            <LimitedInput
+                                name="dni"
+                                label="DNI"
+                                value={formData.dni}
+                                onChange={handleChange}
+                                maxLength={12}
+                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 items-center">
+                            <Label className="text-center col-span-1">Celular</Label>
+                        </div>
+                        <div className="grid grid-cols-1 items-center">
+                            <LimitedInput
+                                name="cellphone"
+                                label="Celular"
+                                value={formData.cellphone}
+                                onChange={handleChange}
+                                maxLength={11}
+                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
+                            />
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 items-left ">
 
-                        <LimitedInput
-                            name="dni"
-                            label="DNI"
-                            value={formData.dni}
-                            onChange={handleChange}
-                            maxLength={12}
-                            inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full" // ✅ clases dinámicas aquí
-                        />
-
-                    </div>
-                    <div className="grid grid-cols-1 items-center ">
-                        <Label className="text-center col-span-1">Celular</Label>
-
-
-
-                    </div>
-                    <div className="grid grid-cols-1 items-center ">
-                        <LimitedInput
-                            name="cellphone"
-                            label="Celular"
-                            value={formData.cellphone}
-                            onChange={handleChange}
-                            maxLength={11}
-                            inputClassName=" col-span-1 text-sm h-7 px-2 py-1 rounded-md" // ✅ clases dinámicas aquí
-                        />
-
-                    </div>
-                </div>
-
-
-
-                <div className="grid grid-cols-4 items-center gap-2">
-                    <Label className="text-left col-span-1">Email</Label>
-
-                    <div className="col-span-3">
-                        <LimitedInput
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            maxLength={80}
-                            inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
-                        />
-                    </div>
-                </div>
-
-
-                <div className="grid grid-cols-4 items-center gap-2">
-                    <Label className="text-left col-span-1">Dirección</Label>
-
-                    <div className="col-span-3">
-                        <LimitedInput
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            maxLength={200}
-                            inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
-                        />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left col-span-1">Asunto</Label>
-
+                    <div className="grid grid-cols-4 items-center gap-2">
+                        <Label className="text-left col-span-1">Email</Label>
                         <div className="col-span-3">
                             <LimitedInput
-                                name="subject"
-                                value={formData.subject}
+                                name="email"
+                                value={formData.email}
                                 onChange={handleChange}
-                                maxLength={150}
+                                maxLength={80}
+                                inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-2">
+                        <Label className="text-left col-span-1">Dirección</Label>
+                        <div className="col-span-3">
+                            <LimitedInput
+                                name="address"
+                                value={formData.address}
+                                onChange={handleChange}
+                                maxLength={200}
                                 inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
                             />
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-4 items-start gap-4">
-                    <Label className="text-left col-span-1">Descripción</Label>
 
-                    <div className="col-span-3">
-                        <LimitedTextarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            maxLength={800} // puedes ajustar el límite si deseas
-                            textareaClassName="w-full border rounded px-3 py-2 text-sm"
-                        />
+                <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
+                    <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Detalle de Atención
                     </div>
-                </div>
-                <div className="grid grid-cols-4 items-start gap-4">
-                    <Label className="text-left col-span-1">Proyecto</Label>
 
-                    <div className="col-span-3">
+                    <div className="grid grid-cols-1">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left col-span-1">Asunto</Label>
+                            <div className="col-span-3">
+                                <LimitedInput
+                                    name="subject"
+                                    value={formData.subject}
+                                    onChange={handleChange}
+                                    maxLength={150}
+                                    inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-left col-span-1">Descripción</Label>
+                        <div className="col-span-3">
+                            <LimitedTextarea
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                maxLength={800}
+                                textareaClassName="w-full border rounded px-3 py-2 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-left col-span-1">Proyecto</Label>
+                        <div className="col-span-3">
+                            <select
+                                name="project_id"
+                                value={formData.project_id}
+                                onChange={handleChange}
+                                className="w-full border rounded px-3 py-2 text-sm"
+                            >
+                                <option value="">Seleccione un proyecto</option>
+                                {projects.map((p) => (
+                                    <option key={p.id_proyecto} value={p.id_proyecto}>
+                                        {p.descripcion}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-4 items-left">
+                            <Label className="text-left">Manzana</Label>
+                        </div>
+                        <div className="grid grid-cols-1 items-left">
+                            <LimitedInput
+                                name="Manzana"
+                                label="Manzana"
+                                value={formData.Manzana}
+                                onChange={handleChange}
+                                maxLength={12}
+                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 items-center">
+                            <Label className="text-center col-span-1">Lote</Label>
+                        </div>
+                        <div className="grid grid-cols-1 items-center">
+                            <LimitedInput
+                                name="Lote"
+                                label="Lote"
+                                value={formData.Lote}
+                                onChange={handleChange}
+                                maxLength={11}
+                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left">Prioridad</Label>
                         <select
-                            name="project_id"
-                            value={formData.project_id}
+                            name="priority"
+                            value={formData.priority}
                             onChange={handleChange}
-                            className="w-full border rounded px-3 py-2 text-sm"
+                            className="col-span-3 border rounded"
                         >
-                            <option value="">Seleccione un proyecto</option>
-
-                            {projects.map((p) => (
-                                <option key={p.id_proyecto} value={p.id_proyecto}>
-                                    {p.descripcion}
-                                </option>
-                            ))}
+                            <option value="Urgente">Urgente</option>
+                            <option value="Moderado">Moderado</option>
+                            <option value="Normal">Normal</option>
+                            <option value="Baja Prioridad">Baja Prioridad</option>
                         </select>
                     </div>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
-                    <div className="grid grid-cols-4 items-left ">
-                        <Label className="text-left  ">Manzana</Label>
 
-                    </div>
-                    <div className="grid grid-cols-1 items-left ">
-
-                        <LimitedInput
-                            name="Manzana"
-                            label="Manzana"
-                            value={formData.Manzana}
-                            onChange={handleChange}
-                            maxLength={12}
-                            inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full" // ✅ clases dinámicas aquí
-                        />
-
-                    </div>
-                    <div className="grid grid-cols-1 items-center ">
-                        <Label className="text-center col-span-1">Lote</Label>
-
-
-
-                    </div>
-                    <div className="grid grid-cols-1 items-center ">
-                        <LimitedInput
-                            name="Lote"
-                            label="Lote"
-                            value={formData.Lote}
-                            onChange={handleChange}
-                            maxLength={11}
-                            inputClassName=" col-span-1 text-sm h-7 px-2 py-1 rounded-md" // ✅ clases dinámicas aquí
-                        />
-
-                    </div>
-                </div>
-
-
-
-
-
-
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-left">Prioridad</Label>
-                    <select
-                        name="priority"
-                        value={formData.priority}
-                        onChange={handleChange}
-                        className="col-span-3 border rounded"
-                    >
-
-                        <option value="Urgente">Urgente</option>
-                        <option value="Moderado">Moderado</option>
-                        <option value="Normal">Normal</option>
-                        <option value="Normal">Baja Prioridad</option>
-                    </select>
-                </div>
-
-
-
-
-
+<div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
+  <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v2m0 12v2m8.485-10.485l-1.414 1.414M4.929 19.071l-1.414-1.414M20 12h2M2 12H4m15.071 7.071l-1.414-1.414M4.929 4.929l1.414 1.414" />
+    </svg>
+    Configuración Avanzada
+  </div>
                 <div className="grid grid-cols-2 gap-4 mt-2">
 
                     {canEditAdvancedFields && (
@@ -562,6 +549,7 @@ const SupportModal = ({
                     </div>
 
                 )}
+                </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} disabled={uploading}>Cerrar</Button>
                     <Button onClick={handleSubmit} disabled={uploading}>

@@ -49,7 +49,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative mr-10">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="relative focus:outline-none"
