@@ -7,16 +7,22 @@ use App\Models\ChatMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Models\User;
 
 class ChatMessageController extends Controller
 {
     /**
      * Vista del chat (opcional).
      */
-    public function index()
-    {
-        return Inertia::render('Chat/Index');
-    }
+   public function index()
+{
+    return Inertia::render('Chat/Index', [
+        'auth' => [
+            'user' => auth()->user(),
+        ],
+        'users' => User::select('id', 'name', 'email')->where('id', '!=', auth()->id())->get(),
+    ]);
+}
 
     /**
      * Obtener últimos mensajes.

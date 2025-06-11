@@ -13,11 +13,13 @@ use App\Models\WaitingDay;
 use App\Models\InternalState;
 use App\Models\ExternalState;
 use App\Models\Type;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Exports\SupportExport;
+
     use Maatwebsite\Excel\Facades\Excel;
 class SupportController extends Controller
 {
@@ -48,6 +50,7 @@ class SupportController extends Controller
     $types = Type::select('id', 'description')->get();
     $projects = Project::select('id_proyecto', 'descripcion')->get();
     $areas = Area::select('id_area', 'descripcion')->get();
+    
     return Inertia::render('supports/index', [
         'supports' => $supports,
         'motives' => $motives,
@@ -58,6 +61,7 @@ class SupportController extends Controller
         'types' => $types,
         'projects' => $projects,
         'areas' => $areas,
+         'users' => User::select('id', 'names', 'email')->get(),
     ]);
 }
 

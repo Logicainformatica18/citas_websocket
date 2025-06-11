@@ -18,16 +18,22 @@ use App\Http\Controllers\TypeController;
 use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\ProjectController;
  use App\Http\Controllers\ReportController;
+use App\Http\Controllers\DashboardController;
 
-Route::get('/', function () {
-    return redirect("dashboard");
-    //return Inertia::render('welcome');
-})->name('home');
+
+
+// Route::get('/', function () {
+//     return redirect("dashboard");
+//     //return Inertia::render('welcome');
+// })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    
+ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Route::get('dashboard', function () {
+    //     return Inertia::render('dashboard');
+    // })->name('dashboard');
 
 
 
