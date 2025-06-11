@@ -48,6 +48,7 @@ interface Props {
   setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>; // ✅ AGREGA ESTA PROP
   areas: Array<{ id_area: number; descripcion: string }>;
   motives: Array<{ id: number; nombre_motivo: string }>;
+    highlightedIds: number[]; // 👈 AÑADE ESTA LÍNEA
 }
 
 
@@ -65,6 +66,7 @@ export default function SupportTable({
      setSelectedSupportId, // ✅ AGREGA ESTO
     areas,
     motives,
+      highlightedIds, // ✅ FALTA ESTA LÍNEA
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -72,6 +74,7 @@ export default function SupportTable({
   
     const { permissions } = usePage<PageProps>().props;
     const canEdit = permissions.includes('administrar') || permissions.includes('atc');
+ 
 
     return (
         <>
@@ -127,7 +130,13 @@ export default function SupportTable({
                     </thead>
                     <tbody>
                         {supports.map((support) => (
-                            <tr key={support.id} className="border-t hover:bg-gray-50 dark:hover:bg-gray-700">
+                           <tr
+  key={support.id}
+  className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${
+    highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
+  }`}
+>
+
                                 <td className="px-4 py-2">
                                     <input
                                         type="checkbox"

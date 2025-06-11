@@ -96,6 +96,7 @@ export default function Supports() {
   const [editSupport, setEditSupport] = useState<Support | null>(null);
 const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
 const [showAreaModal, setShowAreaModal] = useState(false);
+const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
 
   useEffect(() => {
     const channel = Echo.channel('supports');
@@ -111,8 +112,14 @@ const [showAreaModal, setShowAreaModal] = useState(false);
             });
             break;
           case 'updated':
-            setSupports((prev) => prev.map((s) => (s.id === e.data.id ? e.data : s)));
-            break;
+  setSupports((prev) => prev.map((s) => (s.id === e.data.id ? e.data : s)));
+
+  setHighlightedIds((prev) => {
+    if (!prev.includes(e.data.id)) return [...prev, e.data.id];
+    return prev;
+  });
+
+  break;
           case 'deleted':
             setSupports((prev) => prev.filter((s) => s.id !== e.data.id));
             break;
@@ -178,6 +185,7 @@ const [showAreaModal, setShowAreaModal] = useState(false);
   setSelectedSupportId={setSelectedSupportId}
   areas={areas}
   motives={motives}
+   highlightedIds={highlightedIds} // 👈 NUEVO
 />
 
       </div>
