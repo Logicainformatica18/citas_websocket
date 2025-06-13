@@ -107,9 +107,9 @@ class UserController extends Controller
 
         $user->fill($request->except(['password', 'role', 'photo']));
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
+        // if ($request->filled('password')) {
+        //     $user->password = Hash::make($request->password);
+        // }
 
         if ($request->hasFile('photo')) {
             $user->photo = fileUpdate($request->file('photo'), 'imageusers', $user->photo);

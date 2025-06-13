@@ -398,7 +398,7 @@ const SupportModal = ({
                             >
 
                                 {areas.map((a) => (
-                                    <option key={a.id_area} value={a.id}>{a.descripcion}</option>
+                                    <option key={a.id_area} value={a.id_area}>{a.descripcion}</option>
                                 ))}
                             </select>
                         </div>
@@ -499,10 +499,7 @@ const SupportModal = ({
                             </select>
                         </div>
                     )}
-
-
-
-
+ 
                     {canEditAdvancedFields && (
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left">Tipo (Catálogo)</Label>
