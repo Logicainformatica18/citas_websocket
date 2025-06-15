@@ -98,7 +98,7 @@ class SupportController extends Controller
         $supports = Support::with([
             'area:id_area,descripcion',
             'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
+            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'motivoCita:id_motivos_cita,nombre_motivo',
             'tipoCita:id_tipo_cita,tipo',
             'diaEspera:id_dias_espera,dias',
@@ -189,7 +189,7 @@ class SupportController extends Controller
                 'area:id_area,descripcion',
                 'project:id_proyecto,descripcion'
             ]);
-            
+
           Notification::send($atcUsers,new NewSupportAtcNotification($support, 'created'));
 
         });
