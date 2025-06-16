@@ -41,7 +41,7 @@ class SupportController extends Controller
 
 
             'type:id,description'
-        ])->latest()->paginate(10);
+        ])->latest()->paginate(7);
 
         // Opciones para selects
         $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
@@ -109,7 +109,7 @@ class SupportController extends Controller
             'externalState:id,description',
 
             'internalState:id,description'
-        ])->latest()->paginate(10);
+        ])->latest()->paginate(7);
 
         return response()->json([
             'supports' => $supports
