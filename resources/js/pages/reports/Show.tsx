@@ -1,7 +1,18 @@
 import AppLayout from '@/layouts/app-layout';
 import { PageProps } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 
 export default function ReportShow({ support }: PageProps<{ support: any }>) {
+  const [loading, setLoading] = useState(true);
+
+  // Para navegación directa con Inertia
+  useEffect(() => {
+    if (support && support.details) {
+      setLoading(false);
+    }
+  }, [support]);
+
   const breadcrumbs = [
     { title: 'Soportes', href: '/supports' },
     { title: `Reporte #${support.id}`, href: `/reports/${support.id}` },
@@ -9,54 +20,82 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
 
   return (
     <AppLayout title={`Reporte de Soporte #${support.id}`} breadcrumbs={breadcrumbs}>
-      <div className="p-8 bg-white rounded shadow space-y-6">
-        <h1 className="text-2xl font-bold">Reporte de la Atención #{support.id}</h1>
+      <Head title={`Reporte #${support.id}`} />
 
-        {/* Grupo: Información del Soporte */}
-        <div className="border rounded p-4 space-y-2">
-          <h2 className="font-semibold text-lg mb-2">Información del Atención</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Asunto:</strong> {support.subject}</div>
-            <div><strong>Descripción:</strong> {support.description}</div>
-            <div><strong>Prioridad:</strong> {support.priority}</div>
-            <div><strong>Tipo:</strong> {support.support_type?.description}</div>
-            <div><strong>Derivado:</strong> {support.derived || '-'}</div>
-            <div><strong>Fecha de Reserva:</strong> {support.reservation_time}</div>
-            <div><strong>Atendido en:</strong> {support.attended_at}</div>
-          </div>
-        </div>
+      <div className="p-8 bg-white rounded shadow space-y-6 print:p-0 print:shadow-none print:bg-white">
 
-        {/* Grupo: Información del Cliente */}
-        <div className="border rounded p-4 space-y-2">
-          <h2 className="font-semibold text-lg mb-2">Información del Cliente</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Nombre:</strong> {support.client?.names}</div>
-            <div><strong>DNI:</strong> {support.client?.dni}</div>
-            <div><strong>Email:</strong> {support.client?.email}</div>
-            <div><strong>Teléfono:</strong> {support.client?.cellphone}</div>
-            <div><strong>Dirección:</strong> {support.client?.address}</div>
-          </div>
-        </div>
+        {/* ✅ Cargando... */}
+        {loading ? (
+          <div className="text-center text-gray-600">Cargando reporte...</div>
+        ) : (
+          <>
+            {/* ✅ Botón de Imprimir */}
+            <div className="flex justify-end print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                🖨 Imprimir
+              </button>
+            </div>
 
-        {/* Grupo: Información del Proyecto y Ubicación */}
-        <div className="border rounded p-4 space-y-2">
-          <h2 className="font-semibold text-lg mb-2">Proyecto y Ubicación</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Proyecto:</strong> {support.project?.descripcion}</div>
-            <div><strong>Área:</strong> {support.area?.descripcion}</div>
-            <div><strong>Manzana:</strong> {support.Manzana}</div>
-            <div><strong>Lote:</strong> {support.Lote}</div>
-          </div>
-        </div>
+            {/* ✅ Título */}
+            <h1 className="text-2xl font-bold">Reporte de Atención #{support.id}</h1>
 
-        {/* Grupo: Estados */}
-        <div className="border rounded p-4 space-y-2">
-          <h2 className="font-semibold text-lg mb-2">Estados</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Estado Interno:</strong> {support.internal_state?.description}</div>
-            <div><strong>Estado Externo:</strong> {support.external_state?.description}</div>
-          </div>
-        </div>
+            {/* ✅ Datos del Cliente */}
+            <div className="border rounded p-4 space-y-2">
+              <h2 className="font-semibold text-lg mb-2">Información del Cliente</h2>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><strong>Razón Social:</strong> {support.client?.names}</div>
+                <div><strong>Teléfono:</strong> {support.client?.cellphone}</div>
+                <div><strong>Estado Global:</strong> {support.status_global}</div>
+                <div><strong>Creado por:</strong> {support.creator?.names}</div>
+              </div>
+            </div>
+
+            {/* ✅ Detalles uno por uno */}
+            {support.details.map((detail: any, index: number) => (
+              <div
+                key={detail.id}
+                className="border p-6 space-y-4 bg-white shadow mb-6 break-before-page print:shadow-none print:mb-0"
+              >
+                <h2 className="text-xl font-bold mb-2">Hoja {index + 1}</h2>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><strong>Asunto:</strong> {detail.subject}</div>
+                  <div><strong>Descripción:</strong> {detail.description}</div>
+                  <div><strong>Prioridad:</strong> {detail.priority}</div>
+                  <div><strong>Estado:</strong> {detail.status}</div>
+                  <div><strong>Área:</strong> {detail.area?.descripcion || '-'}</div>
+                  <div><strong>Proyecto:</strong> {detail.project?.descripcion || '-'}</div>
+                  <div><strong>Motivo de Cita:</strong> {detail.motivo_cita?.nombre_motivo || '-'}</div>
+                  <div><strong>Tipo de Cita:</strong> {detail.tipo_cita?.tipo || '-'}</div>
+                  <div><strong>Día de Espera:</strong> {detail.dia_espera?.dias || '-'}</div>
+                  <div><strong>Estado Interno:</strong> {detail.internal_state?.description || '-'}</div>
+                  <div><strong>Estado Externo:</strong> {detail.external_state?.description || '-'}</div>
+                  <div><strong>Tipo de Atención:</strong> {detail.support_type?.description || '-'}</div>
+                  <div><strong>Fecha de Reserva:</strong> {detail.reservation_time ?? '-'}</div>
+                  <div><strong>Derivado:</strong> {detail.derived ?? '-'}</div>
+                  <div><strong>Manzana:</strong> {detail.Manzana ?? '-'}</div>
+                  <div><strong>Lote:</strong> {detail.Lote ?? '-'}</div>
+
+                  {detail.attachment && (
+                    <div className="col-span-2">
+                      <strong>Archivo:</strong>{' '}
+                      <a
+                        href={`/uploads/${detail.attachment}`}
+                        className="text-blue-600 underline"
+                        target="_blank"
+                      >
+                        {detail.attachment}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </AppLayout>
   );

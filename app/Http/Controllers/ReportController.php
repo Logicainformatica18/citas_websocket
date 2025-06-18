@@ -55,27 +55,31 @@ class ReportController extends Controller
     {
         //
     }
-  public function show($id)
+public function show($id)
 {
     $support = Support::with([
-        'area',
-        'creator',
         'client',
-        'motivoCita',
-        'tipoCita',
-        'diaEspera',
-        'internalState',
-        'externalState',
-        'supportType',
-        'project'
+        'creator:id,names',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
     ])->findOrFail($id);
 
-    // transformar cliente a formato frontend
+    // Convertir el modelo a array para modificar el cliente
     $supportArray = $support->toArray();
+
+    // Reemplazar el cliente con el formato frontend
     $supportArray['client'] = $support->client ? $support->client->toFrontend() : null;
 
     return Inertia::render('reports/Show', [
         'support' => $supportArray
     ]);
 }
+
+
 }

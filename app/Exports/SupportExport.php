@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Exports;
 
 use App\Models\Support;
@@ -9,51 +10,62 @@ class SupportExport implements FromCollection, WithHeadings
 {
     public function collection()
     {
-        return Support::with([
+        $supports = Support::with([
             'client',
-            'area',
             'creator',
-            'motivoCita',
-            'tipoCita',
-            'diaEspera',
-            'internalState',
-            'externalState',
-            'supportType',
-            'project'
-        ])->get()->map(function ($item) {
-            return [
-                'ID' => $item->id,
-                'Cliente' => $item->client->Razon_Social ?? '',
-                'DNI' => $item->client->DNI ?? '',
-                'Celular' => $item->cellphone,
-                'Email' => $item->client->Email ?? '',
-                'Dirección' => $item->client->Direccion?? '',
-                'Asunto' => $item->subject,
-                'Descripción' => $item->description,
-                'Prioridad' => $item->priority,
-                'Proyecto' => $item->project->descripcion ?? '',
-                'Manzana' => $item->Manzana,
-                'Lote' => $item->Lote,
-                'Área' => $item->area->descripcion ?? '',
-                'Motivo de Cita' => $item->motivoCita->nombre_motivo ?? '',
-                'Tipo de Cita' => $item->tipoCita->tipo ?? '',
-                'Día de Espera' => $item->diaEspera->dias ?? '',
-                'Estado Interno' => $item->internalState->description ?? '',
-                'Estado de Atención' => $item->externalState->description ?? '',
-                'Tipo (Catálogo)' => $item->supportType->description ?? '',
-                'Fecha Reserva' => $item->reservation_time,
-                'Fecha Atención' => $item->attended_at,
-                'Derivado' => $item->derived,
-                'Registrado Por' => $item->creator->email ?? '',
-                'Fecha Creación' => $item->created_at,
-            ];
-        });
+            'details.area',
+            'details.project',
+            'details.motivoCita',
+            'details.tipoCita',
+            'details.diaEspera',
+            'details.internalState',
+            'details.externalState',
+            'details.supportType',
+        ])->get();
+
+        $exportData = [];
+
+        foreach ($supports as $support) {
+            $client = $support->client ? $support->client->toFrontend() : null;
+
+            foreach ($support->details as $detail) {
+                $exportData[] = [
+                    'ID de Soporte'        => $support->id,
+                    'Cliente'              => $client['names'] ?? '',
+                    'DNI'                  => $client['dni'] ?? '',
+                    'Celular'              => $client['cellphone'] ?? '',
+                    'Email'                => $client['email'] ?? '',
+                    'Dirección'            => $client['address'] ?? '',
+
+                    'Asunto'               => $detail->subject,
+                    'Descripción'          => $detail->description,
+                    'Prioridad'            => $detail->priority,
+                    'Proyecto'             => $detail->project->descripcion ?? '',
+                    'Manzana'              => $detail->Manzana,
+                    'Lote'                 => $detail->Lote,
+                    'Área'                 => $detail->area->descripcion ?? '',
+                    'Motivo de Cita'       => $detail->motivoCita->nombre_motivo ?? '',
+                    'Tipo de Cita'         => $detail->tipoCita->tipo ?? '',
+                    'Día de Espera'        => $detail->diaEspera->dias ?? '',
+                    'Estado Interno'       => $detail->internalState->description ?? '',
+                    'Estado de Atención'   => $detail->externalState->description ?? '',
+                    'Tipo (Catálogo)'      => $detail->supportType->description ?? '',
+                    'Fecha Reserva'        => $detail->reservation_time,
+                    'Fecha Atención'       => $detail->attended_at,
+                    'Derivado'             => $detail->derived,
+                    'Registrado Por'       => $support->creator->email ?? '',
+                    'Fecha Creación'       => $support->created_at,
+                ];
+            }
+        }
+
+        return collect($exportData);
     }
 
     public function headings(): array
     {
         return [
-            'ID',
+            'ID de Soporte',
             'Cliente',
             'DNI',
             'Celular',

@@ -7,7 +7,7 @@ import { Link } from '@inertiajs/react';
 import AreaModal from './AreaModal'; // asegúrate de que el path sea correcto
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
- 
+import React from 'react';
 
 interface SupportDetail {
     id: number;
@@ -24,9 +24,9 @@ interface SupportDetail {
     Lote?: string;
     project?: { descripcion: string };
     area?: { descripcion: string };
-    motivoCita?: { nombre_motivo: string };
-    tipoCita?: { tipo: string };
-    diaEspera?: { dias: string };
+    motivo_cita?: { nombre_motivo: string };
+    tipo_cita?: { tipo: string };
+    dia_espera?: { dias: string };
     internal_state?: { description: string };
     external_state?: { description: string };
     supportType?: { description: string };
@@ -151,30 +151,8 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Archivo</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {supports.map((support) => (
-                                <>
-                                    <tr
-                                        key={support.id}
-                                        className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
-                                            }`}
-                                    >
-                                        <td className="px-2 py-1">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.includes(support.id)}
-                                                onChange={(e) =>
-                                                    setSelectedIds((prev) =>
-                                                        e.target.checked
-                                                            ? [...prev, support.id]
-                                                            : prev.filter((id) => id !== support.id)
-                                                    )
-                                                }
-                                            />
-                                        </td>
-                                        {canEdit && (
-                                            <td className="px-2 py-1 text-sm space-x-2">
-                                                {/* <button
+
+                          {/* <button
                                                     onClick={async () => {
                                                         setEditingId(support.id);
                                                         await fetchSupport(support.id);
@@ -191,195 +169,215 @@ export default function SupportTable({
                                                         </>
                                                     )}
                                                 </button> */}
-                                                <button
-                                                    onClick={async () => {
-                                                        if (confirm(`¿Eliminar soporte "${support.subject}"?`)) {
-                                                            try {
-                                                                setDeletingId(support.id);
-                                                                await axios.delete(`/supports/${support.id}`);
-                                                                setSupports((prev) => prev.filter((s) => s.id !== support.id));
-                                                            } catch (e) {
-                                                                alert('Error al eliminar');
-                                                                console.error(e);
-                                                            } finally {
-                                                                setDeletingId(null);
-                                                            }
-                                                        }
-                                                    }}
-                                                    disabled={deletingId === support.id}
-                                                    className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
-                                                >
-                                                    {deletingId === support.id ? (
-                                                        <HourglassLoader />
-                                                    ) : (
-                                                        <>
-                                                            <Trash2 className="w-4 h-4" /> Eliminar
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </td>
+                      
+                       <tbody>
+  {supports.map((support) => (
+    <React.Fragment key={support.id}>
+      {/* Fila principal */}
+      <tr
+        className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${
+          highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
+        }`}
+      >
+        <td className="px-2 py-1">
+          <input
+            type="checkbox"
+            checked={selectedIds.includes(support.id)}
+            onChange={(e) =>
+              setSelectedIds((prev) =>
+                e.target.checked
+                  ? [...prev, support.id]
+                  : prev.filter((id) => id !== support.id)
+              )
+            }
+          />
+        </td>
 
-                                        )}
+        {canEdit && (
+          <td className="px-2 py-1 text-sm space-x-2">
+            {/* Botón Editar (si lo deseas habilitar en el futuro) */}
+            {/* 
+            <button
+              onClick={async () => {
+                setEditingId(support.id);
+                await fetchSupport(support.id);
+                setEditingId(null);
+              }}
+              disabled={editingId === support.id}
+              className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
+            >
+              {editingId === support.id ? (
+                <HourglassLoader />
+              ) : (
+                <>
+                  <Paintbrush className="w-4 h-4" /> Editar
+                </>
+              )}
+            </button> 
+            */}
 
+            {/* Botón Eliminar */}
+            <button
+              onClick={async () => {
+                if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
+                  try {
+                    setDeletingId(support.id);
+                    await axios.delete(`/supports/${support.id}`);
+                    setSupports((prev) => prev.filter((s) => s.id !== support.id));
+                  } catch (e) {
+                    alert('Error al eliminar');
+                    console.error(e);
+                  } finally {
+                    setDeletingId(null);
+                  }
+                }
+              }}
+              disabled={deletingId === support.id}
+              className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
+            >
+              {deletingId === support.id ? (
+                <HourglassLoader />
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" /> Eliminar
+                </>
+              )}
+            </button>
+          </td>
+        )}
 
-                                        {canEdit && (
-                                            <td className="px-2 py-1">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedSupportId(support.id);
-                                                        setShowAreaModal(true);
-                                                    }}
-                                                    className="text-blue-600 text-sm underline hover:text-blue-800 transition"
-                                                >
-                                                    Área/Motivo
-                                                </button>
-                                            </td>
-                                        )}
+        {canEdit && (
+          <td className="px-2 py-1">
+            <button
+              onClick={() => {
+                setSelectedSupportId(support.id);
+                setShowAreaModal(true);
+              }}
+              className="text-blue-600 text-sm underline hover:text-blue-800 transition"
+            >
+              Área/Motivo
+            </button>
+          </td>
+        )}
 
-                                        <td className="px-2 py-1">
-                                            <button
-                                                onClick={() => toggleExpand(support.id)}
-                                                className="text-blue-600 underline text-sm"
-                                            >
-                                                {expanded.includes(support.id) ? 'Ocultar' : 'Ver más'}
-                                            </button>
-                                        </td>
+        <td className="px-2 py-1">
+          <button
+            onClick={() => toggleExpand(support.id)}
+            className="text-blue-600 underline text-sm"
+          >
+            {expanded.includes(support.id) ? 'Ocultar' : 'Ver más'}
+          </button>
+        </td>
 
-                                        <td className="px-2 py-1">
-                                            <Link
-                                                href={`/reports/${support.id}`}
-                                                className="text-blue-600 underline hover:text-blue-800 text-sm"
-                                            >
-                                                Ver Reporte
-                                            </Link>
-                                        </td>
-                                        <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
-                                        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
-                                        <td className="px-2 py-1 max-w-[150px] truncate">
-                                            {support.details[0]?.subject ?? '-'}
-                                        </td>
-                                        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.created_at}</td>
-                 <td className="px-2 py-1">
-  {support.details[0]?.external_state?.description ?? (
-    <span className="text-red-500">⚠️ No cargado</span>
-  )}
-</td>
+        <td className="px-2 py-1">
+          <Link
+            href={`/reports/${support.id}`}
+            className="text-blue-600 underline hover:text-blue-800 text-sm"
+          >
+            Ver Reporte
+          </Link>
+        </td>
 
+        <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
+        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
+        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
+        <td className="px-2 py-1 max-w-[150px] truncate">
+          {support.details[0]?.subject ?? '-'}
+        </td>
+        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
+        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
+        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
+        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+        <td className="px-2 py-1">{support.created_at}</td>
+        <td className="px-2 py-1">
+          {support.details[0]?.external_state?.description ?? (
+            <span className="text-red-500">⚠️ No cargado</span>
+          )}
+        </td>
+        <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
+        <td className="px-2 py-1 whitespace-nowrap">
+          {support.details[0]?.attachment && (
+            <a
+              href={`/uploads/${support.details[0].attachment}`}
+              download
+              className="text-blue-600 underline dark:text-blue-400"
+            >
+              {support.details[0].attachment}
+            </a>
+          )}
+        </td>
+      </tr>
 
-                                        <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">
-                                            {support.details[0]?.attachment && (
-                                                <a
-                                                    href={`/uploads/${support.details[0].attachment}`}
-                                                    download
-                                                    className="text-blue-600 underline dark:text-blue-400"
-                                                >
-                                                    {support.details[0].attachment}
-                                                </a>
-                                            )}
-                                        </td>
+      {/* Fila expandida (si aplica) */}
+      {expanded.includes(support.id) && (
+        <tr className="bg-gray-50 dark:bg-gray-900">
+          <td colSpan={16}>
+            <div className="p-3 text-sm">
+              <strong className="block mb-2 text-gray-700 dark:text-gray-200">
+                Detalles adicionales:
+              </strong>
 
-                                    </tr>
-                                    {supports.map((support) => (
-                                        <>
-                                            <tr
-                                                key={support.id}
-                                                className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
-                                                    }`}
-                                            >
-                                                {/* columnas */}
+              <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
+                <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                  <tr>
+                    <th className="px-2 py-1 border">#</th>
+                    <th className="px-2 py-1 border">Asunto</th>
+                    <th className="px-2 py-1 border">Descripción</th>
+                    <th className="px-2 py-1 border">Estado</th>
+                    <th className="px-2 py-1 border">Prioridad</th>
+                    <th className="px-2 py-1 border">Área</th>
+                    <th className="px-2 py-1 border">Proyecto</th>
+                    <th className="px-2 py-1 border">Motivo</th>
+                    <th className="px-2 py-1 border">Tipo Cita</th>
+                    <th className="px-2 py-1 border">Día Espera</th>
+                    <th className="px-2 py-1 border">Estado Interno</th>
+                    <th className="px-2 py-1 border">Estado Externo</th>
+                    <th className="px-2 py-1 border">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {support.details.map((detail, index) => (
+                    <tr key={detail.id} className="border-t dark:border-gray-600">
+                      <td className="px-2 py-1 border">{index + 1}</td>
+                      <td className="px-2 py-1 border">{detail.subject}</td>
+                      <td className="px-2 py-1 border">{detail.description}</td>
+                      <td className="px-2 py-1 border">{detail.status}</td>
+                      <td className="px-2 py-1 border">{detail.priority}</td>
+                      <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
+                      <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
+                      <td className="px-2 py-1 border">
+                        <button
+                          onClick={() => {
+                            if (confirm('¿Estás seguro de eliminar este detalle?')) {
+                              router.delete(`/support-details/${detail.id}`, {
+                                onSuccess: () => toast.success('Detalle eliminado'),
+                                onError: () => toast.error('Error al eliminar'),
+                                preserveScroll: true,
+                              });
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          🗑 Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </React.Fragment>
+  ))}
+</tbody>
 
-
-
-                                            </tr>
-
-                                            {/* ✅ Aquí va el contenido expandido */}
-                                           {expanded.includes(support.id) && (
-  <tr className="bg-gray-50 dark:bg-gray-900">
-    <td colSpan={16}>
-      <div className="p-3 text-sm">
-        <strong className="block mb-2 text-gray-700 dark:text-gray-200">
-          Detalles adicionales:
-        </strong>
-
-        <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
-          <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-            <tr>
-              <th className="px-2 py-1 border">#</th>
-              <th className="px-2 py-1 border">Asunto</th>
-              <th className="px-2 py-1 border">Descripción</th>
-              <th className="px-2 py-1 border">Estado</th>
-              <th className="px-2 py-1 border">Prioridad</th>
-              <th className="px-2 py-1 border">Área</th>
-              <th className="px-2 py-1 border">Proyecto</th>
-              <th className="px-2 py-1 border">Motivo</th>
-              <th className="px-2 py-1 border">Tipo Cita</th>
-              <th className="px-2 py-1 border">Día Espera</th>
-              <th className="px-2 py-1 border">Estado Interno</th>
-              <th className="px-2 py-1 border">Estado Externo</th>
-              <th className="px-2 py-1 border">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {support.details.map((detail, index) => (
-              <tr key={detail.id} className="border-t dark:border-gray-600">
-                <td className="px-2 py-1 border">{index + 1}</td>
-                <td className="px-2 py-1 border">{detail.subject}</td>
-                <td className="px-2 py-1 border">{detail.description}</td>
-                <td className="px-2 py-1 border">{detail.status}</td>
-                <td className="px-2 py-1 border">{detail.priority}</td>
-                <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
-                <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
-                <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
-                <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
-                <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td>
-                <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
-                <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
-                <td className="px-2 py-1 border">
-                 <button
-  onClick={() => {
-    if (confirm('¿Estás seguro de eliminar este detalle?')) {
-      router.delete(`/support-details/${detail.id}`, {
-        onSuccess: () => {
-          toast.success('Detalle eliminado');
-        },
-        onError: () => {
-          toast.error('Ocurrió un error al eliminar');
-        },
-        preserveScroll: true,
-      });
-    }
-  }}
-  className="text-red-600 hover:text-red-800 text-xs"
->
-  🗑 Eliminar
-</button>
-
-                    
-                  {/* <button onClick={() => handleEditDetail(detail)} className="text-blue-600 hover:text-blue-800 ml-2 text-xs">✏ Editar</button> */}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </td>
-  </tr>
-)}
-
-
-                                        </>
-                                    ))}
-
-                                </>
-                            ))}
-
-                        </tbody>
                     </table>
                 </div>
 
