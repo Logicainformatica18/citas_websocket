@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
@@ -12,18 +13,26 @@ class NewSupportAtcNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public $support;
- public string $action;
-    public function __construct(Support $support,string $action = 'created')
-    {
-        $this->support = $support;
+    public string $action;
 
-    //      $this->support = $support->loadMissing([
-    //     'creator:id,names,email',
-    //     'client:id_cliente,Razon_Social',
-    //     'area:id_area,descripcion',
-    //     'project:id_proyecto,descripcion'
-    // ]);
-     $this->action = $action;
+    public function __construct(Support $support, string $action = 'created')
+    {
+        $this->action = $action;
+
+        // 🔄 Asegura que todas las relaciones necesarias estén disponibles
+        $this->support = $support->loadMissing([
+            'creator:id,names,email',
+            'client:id_cliente,Razon_Social',
+            'details',
+            'details.area:id_area,descripcion',
+            'details.project:id_proyecto,descripcion',
+            'details.motivoCita:id_motivos_cita,motivo_cita',
+            'details.tipoCita:id_tipo_cita,tipo_cita',
+            'details.diaEspera:id_dias_espera,dia_espera',
+            'details.internalState:id,internal_state',
+            'details.externalState:id,external_state',
+            'details.supportType:id,description',
+        ]);
     }
 
     public function via(object $notifiable): array
@@ -31,7 +40,7 @@ class NewSupportAtcNotification extends Notification implements ShouldQueue
         return ['mail'];
     }
 
-     public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject(($this->action === 'updated' ? '🔄' : '📢') . ' Soporte ' . ($this->action === 'updated' ? 'actualizado' : 'registrado'))

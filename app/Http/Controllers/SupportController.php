@@ -192,11 +192,11 @@ foreach ($details as $index => $detail) {
 
  
 
-
- broadcast(new RecordChanged('Support', 'created', $support->load([
-    'client:id_cliente,Razon_Social',
-    'creator:id,firstname,lastname,names',
-    'details',
+// 🔁 Cargar todas las relaciones necesarias (una sola vez)
+$support->load([
+    'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
+    'creator:id,firstname,lastname,names,email',
+    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
     'details.area:id_area,descripcion',
     'details.project:id_proyecto,descripcion',
     'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -205,26 +205,25 @@ foreach ($details as $index => $detail) {
     'details.internalState:id,description',
     'details.externalState:id,description',
     'details.supportType:id,description',
-])->toArray()))->toOthers();
-
-
-  return response()->json([
-    'message' => '✅ Ticket de soporte creado con sus detalles',
-    'support' => $support->load([
-        'client:id_cliente,Razon_Social',
-        'creator:id,firstname,lastname,names',
-        'details',
-        'details.area:id_area,descripcion',
-        'details.project:id_proyecto,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-    ]),
 ]);
 
+// 🔊 Emitir evento por WebSocket (con relaciones ya cargadas)
+broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
+
+// 📨 Notificar a usuarios ATC por correo usando cola
+dispatch(function () use ($support) {
+    $atcUsers = User::role('ATC')->get();
+   Notification::send(
+        $atcUsers,
+        new NewSupportAtcNotification($support, 'created')
+    );
+});
+
+// ✅ Retornar respuesta con soporte y relaciones cargadas
+return response()->json([
+    'message' => '✅ Ticket de soporte creado con sus detalles',
+    'support' => $support, // ya tiene loaded relations
+]);
 }
 
 

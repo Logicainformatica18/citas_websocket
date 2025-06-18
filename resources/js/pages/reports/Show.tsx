@@ -59,7 +59,7 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
                 key={detail.id}
                 className="border p-6 space-y-4 bg-white shadow mb-6 break-before-page print:shadow-none print:mb-0"
               >
-                <h2 className="text-xl font-bold mb-2">Hoja {index + 1}</h2>
+                <h2 className="text-xl font-bold mb-2">Atención 0{index + 1}</h2>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div><strong>Asunto:</strong> {detail.subject}</div>
