@@ -58,30 +58,31 @@ const SupportModal = ({
     areas: any[];
 }) => {
     const [formData, setFormData] = useState<any>({
-        subject: '',
-        description: '',
-        priority: 'Normal',
-        type: 'Consulta',
-        status: 'Pendiente',
+        // subject: '',
+        // description: '',
+        // priority: 'Normal',
+        // type: 'Consulta',
+        // status: 'Pendiente',
         cellphone: '',
         dni: '',
         email: '',
         address: '',
         created_by: 1,
         client_id: 1,
-        area_id: '',
-        reservation_time: getNowPlusHours(0),
-        attended_at: getNowPlusHours(1),
-        derived: '',
-        id_motivos_cita: '',
-        id_tipo_cita: '',
-        id_dia_espera: '',
-        internal_state_id: '',
-        external_state_id: '',
-        type_id: '',
-        project_id: '',
-        Manzana: '',
-        Lote: '',
+        // area_id: '',
+        // reservation_time: getNowPlusHours(0),
+        // attended_at: getNowPlusHours(1),
+        // derived: '',
+        // id_motivos_cita: '',
+        // id_tipo_cita: '',
+        // id_dia_espera: '',
+        // internal_state_id: '',
+        // external_state_id: '',
+        // type_id: '',
+        // project_id: '',
+        // Manzana: '',
+        // Lote: '',
+        status_global: 'Simple', // ✅ este es el que falta
 
     });
 
@@ -96,6 +97,114 @@ const SupportModal = ({
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
+    const [supportDetails, setSupportDetails] = useState<any[]>([]);
+    const [currentDetail, setCurrentDetail] = useState<any>({
+        subject: '',
+        description: '',
+        priority: 'Normal',
+        type: 'Consulta',
+        status: 'Pendiente',
+        reservation_time: getNowPlusHours(0),
+        attended_at: getNowPlusHours(1),
+        derived: '',
+        project_id: '',
+        area_id: '',
+        id_motivos_cita: '',
+        id_tipo_cita: '',
+        id_dia_espera: '',
+        internal_state_id: '',
+        external_state_id: '',
+        type_id: '',
+        Manzana: '',
+        Lote: '',
+          attachment: null // ✅ importante
+    });
+    const handleDetailChange = (e: React.ChangeEvent<any>) => {
+        const { name, value } = e.target;
+        setCurrentDetail((prev) => ({ ...prev, [name]: value }));
+    };
+
+
+    const addDetail = () => {
+        setSupportDetails([...supportDetails, currentDetail]);
+        setCurrentDetail({
+            subject: '',
+            description: '',
+            priority: 'Normal',
+            type: 'Consulta',
+            status: 'Pendiente',
+            reservation_time: getNowPlusHours(0),
+            attended_at: getNowPlusHours(1),
+            derived: '',
+            project_id: '',
+            area_id: '',
+            id_motivos_cita: '',
+            id_tipo_cita: '',
+            id_dia_espera: '',
+            internal_state_id: '',
+            external_state_id: '',
+            type_id: '',
+            Manzana: '',
+            Lote: ''
+        });
+    };
+
+
+const handleAddDetail = () => {
+    // Validación básica
+    if (!currentDetail.subject.trim()) {
+        toast.error("El asunto es obligatorio");
+        return;
+    }
+
+    // Lista de campos numéricos obligatorios que no deben ser string vacío
+    const numericFields = [
+        'project_id',
+        'area_id',
+        'id_motivos_cita',
+        'id_tipo_cita',
+        'id_dia_espera',
+        'internal_state_id',
+        'external_state_id',
+        'type_id',
+    ];
+
+    // Convertir string vacío a null en los campos numéricos
+    const sanitizedDetail = {
+        ...currentDetail,
+        ...Object.fromEntries(
+            numericFields.map((key) => [key, currentDetail[key] === '' ? null : Number(currentDetail[key])])
+        ),
+    };
+
+    // Agregar a la lista de detalles
+    setSupportDetails((prev) => [...prev, sanitizedDetail]);
+
+    // Limpiar el formulario
+    setCurrentDetail({
+        subject: '',
+        description: '',
+        priority: 'Normal',
+        type: 'Consulta',
+        status: 'Pendiente',
+        reservation_time: '',
+        attended_at: '',
+        derived: '',
+        Manzana: '',
+        Lote: '',
+        project_id: '',
+        area_id: '',
+        id_motivos_cita: '',
+        id_tipo_cita: '',
+        id_dia_espera: '',
+        internal_state_id: '',
+        external_state_id: '',
+        type_id: '',
+    });
+};
+
+
+    
     useEffect(() => {
         if (!supportToEdit) return;
 
@@ -152,34 +261,55 @@ const SupportModal = ({
         }
     };
 
-    const handleSubmit = async () => {
-        try {
-            setUploading(true);
-            const data = new FormData();
-            Object.entries(formData).forEach(([key, value]) => {
-                data.append(key, String(value ?? ''));
-            });
-            if (file) data.append('attachment', file);
+  const handleSubmit = async () => {
+    try {
+        setUploading(true);
+        const data = new FormData();
 
-            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-            if (supportToEdit) data.append('_method', 'PUT');
+        // 1. Campos principales del soporte
+        Object.entries(formData).forEach(([key, value]) => {
+            data.append(key, String(value ?? ''));
+        });
 
-            const response = await axios.post(url, data);
-
-            toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
-            onSaved(response.data.support);
-            onClose();
-        } catch (error) {
-            console.error('❌ Error al guardar:', error);
-            toast.error('Hubo un error al guardar');
-        } finally {
-            setUploading(false);
+        // 2. Archivo principal (como antes)
+        if (file) {
+            data.append('attachment', file);
         }
-    };
+
+        // 3. Archivos por detalle
+        supportDetails.forEach((detail, index) => {
+            if (detail.attachment) {
+                data.append(`attachments[${index}]`, detail.attachment);
+            }
+        });
+
+        // 4. Eliminar los archivos del JSON antes de enviarlo
+        const cleanedDetails = supportDetails.map(({ attachment, ...rest }) => rest);
+        data.append('details', JSON.stringify(cleanedDetails));
+
+        // 5. URL y método
+        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+        if (supportToEdit) data.append('_method', 'PUT');
+
+        const response = await axios.post(url, data);
+
+        toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+        onSaved(response.data.support);
+        onClose();
+    } catch (error) {
+        console.error('❌ Error al guardar:', error);
+        toast.error('Hubo un error al guardar');
+    } finally {
+        setUploading(false);
+    }
+};
+
+
+
 
     return (
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-<DialogContent className="sm:max-w-6xl h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-6xl h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Atención' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
@@ -277,6 +407,18 @@ const SupportModal = ({
                     </div>
                 </div>
 
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-left">Estado Global</Label>
+                    <select
+                        name="status_global"
+                        value={formData.status_global}
+                        onChange={handleChange}
+                        className="col-span-3 text-sm h-7 px-2 py-1 rounded-md"
+                    >
+                        <option value="Simple">Simple</option>
+                        <option value="Múltiple">Múltiple</option>
+                    </select>
+                </div>
 
                 <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
                     <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
@@ -292,10 +434,10 @@ const SupportModal = ({
                             <div className="col-span-3">
                                 <LimitedInput
                                     name="subject"
-                                    value={formData.subject}
-                                    onChange={handleChange}
+                                    value={currentDetail.subject}
+                                    onChange={handleDetailChange}
                                     maxLength={150}
-                                    inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
+                                    label="Asunto"
                                 />
                             </div>
                         </div>
@@ -306,11 +448,12 @@ const SupportModal = ({
                         <div className="col-span-3">
                             <LimitedTextarea
                                 name="description"
-                                value={formData.description}
-                                onChange={handleChange}
+                                value={currentDetail.description}
+                                onChange={handleDetailChange}
                                 maxLength={800}
                                 textareaClassName="w-full border rounded px-3 py-2 text-sm"
                             />
+
                         </div>
                     </div>
 
@@ -319,8 +462,8 @@ const SupportModal = ({
                         <div className="col-span-3">
                             <select
                                 name="project_id"
-                                value={formData.project_id}
-                                onChange={handleChange}
+                                value={currentDetail.project_id}
+                                onChange={handleDetailChange}
                                 className="w-full border rounded px-3 py-2 text-sm"
                             >
                                 <option value="">Seleccione un proyecto</option>
@@ -330,6 +473,7 @@ const SupportModal = ({
                                     </option>
                                 ))}
                             </select>
+
                         </div>
                     </div>
 
@@ -341,8 +485,8 @@ const SupportModal = ({
                             <LimitedInput
                                 name="Manzana"
                                 label="Manzana"
-                                value={formData.Manzana}
-                                onChange={handleChange}
+                                value={currentDetail.Manzana}
+                                onChange={handleDetailChange}
                                 maxLength={12}
                                 inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full"
                             />
@@ -354,8 +498,8 @@ const SupportModal = ({
                             <LimitedInput
                                 name="Lote"
                                 label="Lote"
-                                value={formData.Lote}
-                                onChange={handleChange}
+                                value={currentDetail.Lote}
+                                onChange={handleDetailChange}
                                 maxLength={11}
                                 inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
                             />
@@ -366,8 +510,8 @@ const SupportModal = ({
                         <Label className="text-left">Prioridad</Label>
                         <select
                             name="priority"
-                            value={formData.priority}
-                            onChange={handleChange}
+                            value={currentDetail.priority}
+                            onChange={handleDetailChange}
                             className="col-span-3 border rounded"
                         >
                             <option value="Urgente">Urgente</option>
@@ -378,175 +522,229 @@ const SupportModal = ({
                     </div>
                 </div>
 
-<div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
-  <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v2m0 12v2m8.485-10.485l-1.414 1.414M4.929 19.071l-1.414-1.414M20 12h2M2 12H4m15.071 7.071l-1.414-1.414M4.929 4.929l1.414 1.414" />
-    </svg>
-    Configuración Avanzada
-  </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
+                    <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v2m0 12v2m8.485-10.485l-1.414 1.414M4.929 19.071l-1.414-1.414M20 12h2M2 12H4m15.071 7.071l-1.414-1.414M4.929 4.929l1.414 1.414" />
+                        </svg>
+                        Configuración Avanzada
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-2">
 
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Área</Label>
-                            <select
-                                name="area_id"
-                                value={formData.area_id}
-                                onChange={handleChange}
-                                className={inputClass}
-                            >
-
-                                {areas.map((a) => (
-                                    <option key={a.id_area} value={a.id_area}>{a.descripcion}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left">Archivo</Label>
-                        <input type="file" onChange={handleFileChange} className="col-span-3" />
-                        {preview && preview.startsWith('blob:') && (
-                            <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Área</Label>
+                                <select
+                                    name="area_id"
+                                    value={currentDetail.area_id}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+ <option value="">Seleccione un área</option> {/* ✅ línea importante */}
+                                    {areas.map((a) => (
+                                        <option key={a.id_area} value={a.id_area}>{a.descripcion}</option>
+                                    ))}
+                                </select>
+                            </div>
                         )}
+
+
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Archivo</Label>
+                           <input
+  type="file"
+  name="attachment"
+  onChange={(e) => {
+    const file = e.target.files?.[0] || null;
+    setCurrentDetail((prev: any) => ({
+      ...prev,
+      attachment: file,
+      attachment_name: file?.name || null,
+    }));
+  }}
+  className="col-span-3 text-sm"
+/>
+
+                            {preview && preview.startsWith('blob:') && (
+                                <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
+                            )}
+                        </div>
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Motivo de Cita</Label>
+                                <select
+                                    name="id_motivos_cita"
+                                    value={currentDetail.id_motivos_cita}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+ <option value="">Seleccione un Motivo</option> {/* ✅ línea importante */}
+                                    {motives.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.nombre_motivo}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Tipo de Cita</Label>
+                                <select name="id_tipo_cita" value={currentDetail.id_tipo_cita} onChange={handleDetailChange} className={inputClass}>
+ <option value="">Seleccione un Tipo</option> 
+                                    {appointmentTypes.map(t => <option key={t.id} value={t.id}>{t.tipo}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Día de Espera</Label>
+                                <select
+                                    name="id_dia_espera"
+                                    value={currentDetail.id_dia_espera}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+ <option value="">Seleccione un Día de espera</option>
+                                    {waitingDays.map(d => (
+                                        <option key={d.id} value={d.id}>
+                                            {d.dias}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Estado Interno</Label>
+                                <select
+                                    name="internal_state_id"
+                                    value={currentDetail.internal_state_id}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+ <option value="">Seleccione un Estado Interno</option>
+                                    {internalStates.map(i => (
+                                        <option key={i.id} value={i.id}>
+                                            {i.description}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Estado de ATC</Label>
+                                <select
+                                    name="external_state_id"
+                                    value={currentDetail.external_state_id}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+ <option value="">Seleccione un Estado de ATC</option>
+                                    {externalStates.map(e => (
+                                        <option key={e.id} value={e.id}>
+                                            {e.description}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Tipo (Catálogo)</Label>
+                                <select name="type_id" value={currentDetail.type_id} onChange={handleDetailChange} className={inputClass}>
+
+                                    {types.map(t => <option key={t.id} value={t.id}>{t.description}</option>)}
+                                </select>
+                            </div>
+
+
+                        )}
+
+
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Reserva</Label>
+                                <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
+                            </div>
+                        )}
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Atendido</Label>
+                                <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
+                            </div>
+                        )}
+
+
                     </div>
-
                     {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Motivo de Cita</Label>
-                            <select
-                                name="id_motivos_cita"
-                                value={formData.id_motivos_cita}
-                                onChange={handleChange}
-                                className={inputClass}
-                            >
 
-                                {motives.map(m => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.nombre_motivo}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-left col-span-1">Derivado</Label>
 
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Tipo de Cita</Label>
-                            <select name="id_tipo_cita" value={formData.id_tipo_cita} onChange={handleChange} className={inputClass}>
-
-                                {appointmentTypes.map(t => <option key={t.id} value={t.id}>{t.tipo}</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Día de Espera</Label>
-                            <select
-                                name="id_dia_espera"
-                                value={formData.id_dia_espera}
-                                onChange={handleChange}
-                                className={inputClass}
-                            >
-
-                                {waitingDays.map(d => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.dias}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Estado Interno</Label>
-                            <select
-                                name="internal_state_id"
-                                value={formData.internal_state_id}
-                                onChange={handleChange}
-                                className={inputClass}
-                            >
-
-                                {internalStates.map(i => (
-                                    <option key={i.id} value={i.id}>
-                                        {i.description}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Estado de Atención</Label>
-                            <select
-                                name="external_state_id"
-                                value={formData.external_state_id}
-                                onChange={handleChange}
-                                className={inputClass}
-                            >
-
-                                {externalStates.map(e => (
-                                    <option key={e.id} value={e.id}>
-                                        {e.description}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
- 
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Tipo (Catálogo)</Label>
-                            <select name="type_id" value={formData.type_id} onChange={handleChange} className={inputClass}>
-
-                                {types.map(t => <option key={t.id} value={t.id}>{t.description}</option>)}
-                            </select>
+                            <div className="col-span-3">
+                                <LimitedInput
+                                    name="derived"
+                                    value={currentDetail.derived}
+                                    onChange={handleDetailChange}
+                                    maxLength={150}
+                                    inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
+                                />
+                            </div>
                         </div>
 
-
                     )}
-
-
-
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Reserva</Label>
-                            <Input type="datetime-local" name="reservation_time" value={formData.reservation_time} onChange={handleChange} className="col-span-3" />
-                        </div>
-                    )}
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Atendido</Label>
-                            <Input type="datetime-local" name="attended_at" value={formData.attended_at} onChange={handleChange} className="col-span-3" />
-                        </div>
-                    )}
-
-
                 </div>
-                {canEditAdvancedFields && (
+                <button type="button" onClick={handleAddDetail} className="bg-blue-600 text-white px-3 py-1 rounded">
+                    Agregar Detalle
+                </button>
 
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-left col-span-1">Derivado</Label>
+                <table className="w-full mt-4 text-sm border">
+                    <thead>
+                        <tr className="bg-gray-200">
+                            <th className="border px-2">#</th>
+                            <th className="border px-2">Asunto</th>
+                            <th className="border px-2">Descripción</th>
+                            <th className="border px-2">Estado</th>
+                            <th className="border px-2">Prioridad</th>
+                            <th className="border px-2">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {supportDetails.map((detail, idx) => (
+                            <tr key={idx}>
+                                <td className="border px-2">{idx + 1}</td>
+                                <td className="border px-2">{detail.subject}</td>
+                                <td className="border px-2">{detail.description}</td>
+                                <td className="border px-2">{detail.status}</td>
+                                <td className="border px-2">{detail.priority}</td>
+                                <td className="border px-2">
+                                    <button
+                                        onClick={() =>
+                                            setSupportDetails((prev) => prev.filter((_, i) => i !== idx))
+                                        }
+                                        className="text-red-600 text-xs"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
 
-                        <div className="col-span-3">
-                            <LimitedInput
-                                name="derived"
-                                value={formData.derived}
-                                onChange={handleChange}
-                                maxLength={150}
-                                inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
-                            />
-                        </div>
-                    </div>
 
-                )}
-                </div>
+
+
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} disabled={uploading}>Cerrar</Button>
                     <Button onClick={handleSubmit} disabled={uploading}>

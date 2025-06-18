@@ -19,6 +19,7 @@ use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\ProjectController;
  use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SupportDetailController;
 
 
 
@@ -246,6 +247,11 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
     Route::post('/chat/messages', [ChatMessageController::class, 'store'])->name('chat.store');
 
     Route::get('/reports/{id}', [ReportController::class, 'show'])->name('reports.show');
+
+
+Route::delete('/support-details/{id}', [SupportDetailController::class, 'destroy']);
+
+
 
 });
 

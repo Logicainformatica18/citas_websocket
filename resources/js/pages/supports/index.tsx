@@ -16,38 +16,40 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Atenciones', href: '/supports' },
 ];
 
-type Support = {
+type SupportDetail = {
   id: number;
   subject: string;
   description?: string;
-  priority: string;
-  type: string;
-  status: string;
-  attachment?: string;
+  priority?: string;
+  type?: string;
+  status?: string;
   reservation_time?: string;
   attended_at?: string;
   derived?: string;
+  project?: { descripcion: string };
+  area?: { descripcion: string };
+  motivoCita?: { nombre_motivo: string };
+  tipoCita?: { tipo: string };
+  diaEspera?: { dias: string };
+  internalState?: { description: string };
+  externalState?: { description: string };
+  supportType?: { description: string };
+};
+
+type Support = {
+  id: number;
+  client_id: number;
+  created_by: number;
   cellphone?: string;
+  state: string;
+  status_global: string;
   created_at?: string;
   updated_at?: string;
-  area_id?: number;
-  created_by?: number;
-  client_id?: number;
-  project_id?: number;
-  Manzana?: string;
-  Lote?: string;
-
-  // Campos adicionales del modal (si los necesitas para edición)
-  dni?: string;
-  email?: string;
-  address?: string;
-  id_motivos_cita?: number;
-  id_tipo_cita?: number;
-  id_dia_espera?: number;
-  internal_state_id?: number;
-  external_state_id?: number;
-  type_id?: number;
+  client?: { Razon_Social: string };
+  creator?: { names: string };
+  details: SupportDetail[];
 };
+
 
 type Option = {
   id: number;
@@ -67,36 +69,45 @@ type Pagination<T> = {
 };
 
 export default function Supports() {
- const {
-  supports: initialPagination,
-  motives,
-  appointmentTypes,
-  waitingDays,
-  internalStates,
-  externalStates,
-  types,
-  projects,
-  areas,
-} = usePage<{
-  supports: Pagination<Support>;
-  motives: { id: number; nombre_motivo: string }[]; // 👈 más específico
-  appointmentTypes: Option[];
-  waitingDays: Option[];
-  internalStates: Option[];
-  externalStates: Option[];
-  types: Option[];
-  projects: Option[];
-  areas: { id_area: number; descripcion: string }[]; // 👈 más específico
-}>().props;
+  const {
+    supports: initialPagination,
+    motives,
+    appointmentTypes,
+    waitingDays,
+    internalStates,
+    externalStates,
+    types,
+    projects,
+    areas,
+  } = usePage<{
+    supports: Pagination<Support>;
+    motives: { id: number; nombre_motivo: string }[]; // 👈 más específico
+    appointmentTypes: Option[];
+    waitingDays: Option[];
+    internalStates: Option[];
+    externalStates: Option[];
+    types: Option[];
+    projects: Option[];
+    areas: { id_area: number; descripcion: string }[]; // 👈 más específico
+  }>().props;
 
 
   const [supports, setSupports] = useState<Support[]>(initialPagination.data);
   const [pagination, setPagination] = useState(initialPagination);
   const [showModal, setShowModal] = useState(false);
   const [editSupport, setEditSupport] = useState<Support | null>(null);
-const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
-const [showAreaModal, setShowAreaModal] = useState(false);
-const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
+  const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+  const [showAreaModal, setShowAreaModal] = useState(false);
+  const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
+const [expanded, setExpanded] = useState<number[]>([]);
+
+const toggleExpand = (id: number) => {
+  setExpanded((prev) =>
+    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  );
+};
+
+
 
   useEffect(() => {
     const channel = Echo.channel('supports');
@@ -112,14 +123,14 @@ const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
             });
             break;
           case 'updated':
-  setSupports((prev) => prev.map((s) => (s.id === e.data.id ? e.data : s)));
+            setSupports((prev) => prev.map((s) => (s.id === e.data.id ? e.data : s)));
 
-  setHighlightedIds((prev) => {
-    if (!prev.includes(e.data.id)) return [...prev, e.data.id];
-    return prev;
-  });
+            setHighlightedIds((prev) => {
+              if (!prev.includes(e.data.id)) return [...prev, e.data.id];
+              return prev;
+            });
 
-  break;
+            break;
           case 'deleted':
             setSupports((prev) => prev.filter((s) => s.id !== e.data.id));
             break;
@@ -155,17 +166,17 @@ const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
       console.error('Error al cargar página', e);
     }
   };
-const exportSupports = () => {
-  window.open(route('supports.export'), '_blank');
-};
+  const exportSupports = () => {
+    window.open(route('supports.export'), '_blank');
+  };
 
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-        <div className="flex justify-end items-center gap-4">
-  <NotificationBell />
-  {/* otros elementos como el usuario */}
-</div>
+      <div className="flex justify-end items-center gap-4">
+        <NotificationBell />
+        {/* otros elementos como el usuario */}
+      </div>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-4">Listado de Atenciones</h1>
 
@@ -179,11 +190,11 @@ const exportSupports = () => {
           Nuevo Registro
         </button>
 
-<button onClick={exportSupports} className="ml-4 mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
+        <button onClick={exportSupports} className="ml-4 mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
         >Exportar Todo</button>
 
 
-       <SupportTable
+      <SupportTable
   supports={supports}
   setSupports={setSupports}
   pagination={pagination}
@@ -193,8 +204,11 @@ const exportSupports = () => {
   setSelectedSupportId={setSelectedSupportId}
   areas={areas}
   motives={motives}
-   highlightedIds={highlightedIds} // 👈 NUEVO
+  highlightedIds={highlightedIds}
+  expanded={expanded}
+  toggleExpand={toggleExpand}
 />
+
 
       </div>
 
@@ -214,18 +228,18 @@ const exportSupports = () => {
           externalStates={externalStates}
           types={types}
           projects={projects}
-            areas={areas}
+          areas={areas}
         />
       )}
-{showAreaModal && selectedSupportId !== null && (
-  <AreaModal
-    open={showAreaModal}
-    onClose={() => setShowAreaModal(false)}
-    supportId={selectedSupportId}
-    areas={areas}
-    motives={motives}
-  />
-)}
+      {showAreaModal && selectedSupportId !== null && (
+        <AreaModal
+          open={showAreaModal}
+          onClose={() => setShowAreaModal(false)}
+          supportId={selectedSupportId}
+          areas={areas}
+          motives={motives}
+        />
+      )}
 
 
 

@@ -25,47 +25,64 @@ use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 class SupportController extends Controller
 {
-    public function index()
-    {
-        $supports = Support::with([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
+   public function index()
+{
+    $supports = Support::with([
+        'creator:id,firstname,lastname,names',
+        'client:id_cliente,Razon_Social',
 
+        // Todos los detalles y sus relaciones
+      
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+        'details.type:id,description',
+    ])
+    ->latest()
+    ->paginate(7);
 
-            'type:id,description'
-        ])->latest()->paginate(7);
+    // Opciones para selects
+    $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
+    $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
+    $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
+    $internalStates = InternalState::select('id', 'description')->get();
+    $externalStates = ExternalState::select('id', 'description')->get();
+    $types = Type::select('id', 'description')->get();
+    $projects = Project::select('id_proyecto', 'descripcion')->get();
+    $areas = Area::select('id_area', 'descripcion')->get();
 
-        // Opciones para selects
-        $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
-        $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
-        $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
-        $internalStates = InternalState::select('id', 'description')->get();
-        $externalStates = ExternalState::select('id', 'description')->get();
-        $types = Type::select('id', 'description')->get();
-        $projects = Project::select('id_proyecto', 'descripcion')->get();
-        $areas = Area::select('id_area', 'descripcion')->get();
+    return Inertia::render('supports/index', [
+        'supports' => $supports,
+        'motives' => $motives,
+        'appointmentTypes' => $appointmentTypes,
+        'waitingDays' => $waitingDays,
+        'internalStates' => $internalStates,
+        'externalStates' => $externalStates,
+        'types' => $types,
+        'projects' => $projects,
+        'areas' => $areas,
+        'users' => User::select('id', 'names', 'email')->get(),
+    ]);
+//     return response()->json([
+//     'supports' => $supports,
+//     'motives' => $motives,
+//     'appointmentTypes' => $appointmentTypes,
+//     'waitingDays' => $waitingDays,
+//     'internalStates' => $internalStates,
+//     'externalStates' => $externalStates,
+//     'types' => $types,
+//     'projects' => $projects,
+//     'areas' => $areas,
+//     'users' => User::select('id', 'names', 'email')->get(),
+// ]);
 
-        return Inertia::render('supports/index', [
-            'supports' => $supports,
-            'motives' => $motives,
-            'appointmentTypes' => $appointmentTypes,
-            'waitingDays' => $waitingDays,
-            'internalStates' => $internalStates,
-            'externalStates' => $externalStates,
-            'types' => $types,
-            'projects' => $projects,
-            'areas' => $areas,
-            'users' => User::select('id', 'names', 'email')->get(),
-        ]);
-    }
+}
+
 
 
 
@@ -93,112 +110,111 @@ class SupportController extends Controller
     }
 
 
-    public function fetchPaginated()
-    {
-        $supports = Support::with([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
-            'externalState:id,description',
+ public function fetchPaginated()
+{
+    $supports = Support::with([
+        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+        'creator:id,firstname,lastname,names',
+        'details.project:id_proyecto,descripcion',
+        'details.area:id_area,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+    ])
+    ->latest()
+    ->paginate(7);
 
-            'internalState:id,description'
-        ])->latest()->paginate(7);
-
-        return response()->json([
-            'supports' => $supports
-        ]);
-    }
-
-
-
-    public function store(Request $request)
-    {
-        $support = new Support();
-
-        $support->subject = $request->input('subject', 'Nuevo Ticket de Soporte');
-        $support->description = $request->input('description', 'Descripción del ticket de soporte');
-        $support->client_id = $request->input('client_id', 1);
-        $support->cellphone = $request->input('cellphone', '0000000000');
-        $support->priority = $request->input('priority');
-        $support->status = 'Pendiente';
-        $support->reservation_time = now();
-        $support->attended_at = now()->addHour();
-        $support->created_by = Auth::id();
-        $support->external_state_id = 1;
-        $support->internal_state_id = 2;
-        $support->id_tipo_cita = 1;
-        $support->type_id = 3;
-        $support->area_id = 1;
-        $support->derived = $request->input('derived', '');
-        $support->id_motivos_cita = 28;
-        $support->project_id = $request->project_id;
-        $support->Manzana = $request->input('Manzana');
-        $support->Lote = $request->input('Lote');
-
-
-        if ($request->hasFile('attachment')) {
-            $support->attachment = fileStore($request->file('attachment'), 'uploads');
-        }
-
-        $support->save();
-
-        // 🔄 Cargar relaciones igual que en el index
-        $support->load([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
+    return response()->json([
+        'supports' => $supports,
+    ]);
+}
 
 
 
-        ]);
-
-        broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
 
 
-        $clientId = $request->input('client_id');
-        $data = $request->only(['dni', 'cellphone', 'email', 'address']);
 
-        dispatch(function () use ($clientId, $data) {
-            $client = \App\Models\Client::find($clientId);
-            if ($client) {
-                $client->updateFromSupport($data);
-            }
-        });
+public function store(Request $request)
+{
+    // ✅ Loguear todo el request entrante (útil para depuración)
+    Log::info('📥 Datos recibidos en store():', $request->all());
 
-        ///////////////////////
+    // 1. Crear soporte base
+    $support = Support::create([
+        'client_id' => $request->client_id,
+        'state' => $request->state,
+        'status_global' => $request->status_global, // <- asegúrate que esté bien escrito
+        'created_by' => Auth::id(),
+    ]);
 
-        dispatch(function () use ($support) {
-            $atcUsers = User::role('ATC')->get();
-            $support->load([
-                'creator:id,names,email',
-                'client:id_cliente,Razon_Social',
-                'area:id_area,descripcion',
-                'project:id_proyecto,descripcion'
-            ]);
+    Log::info('✅ Soporte creado:', $support->toArray());
 
-          Notification::send($atcUsers,new NewSupportAtcNotification($support, 'created'));
+$details = json_decode($request->details, true); // Convertir a array asociativo
 
-        });
+if (!is_array($details)) {
+    Log::error('❌ Error: details no es un array válido', ['details' => $request->details]);
+    return response()->json(['message' => 'Detalles inválidos'], 422);
+}
 
-        return response()->json([
-            'message' => '✅ Ticket de soporte creado correctamente',
-            'support' => $support,
-        ]);
-    }
+// Obtener archivos múltiples (puede venir como null si no se cargó nada)
+$attachments = $request->file('attachments'); // Puede ser array o null
+
+foreach ($details as $index => $detail) {
+    // Buscar el archivo correspondiente a este índice (si existe)
+    $attachment = isset($attachments[$index]) ? fileStore($attachments[$index], 'uploads') : null;
+
+    $support->details()->create([
+        'subject' => $detail['subject'],
+        'description' => $detail['description'] ?? null,
+        'priority' => $detail['priority'] ?? 'Normal',
+        'type' => $detail['type'] ?? 'Consulta',
+        'status' => $detail['status'] ?? 'Pendiente',
+        'reservation_time' => $detail['reservation_time'] ?? now(),
+        'attended_at' => $detail['attended_at'] ?? now()->addHour(),
+        'derived' => $detail['derived'] ?? null,
+        'project_id' => $detail['project_id'] ?? null,
+        'area_id' => $detail['area_id'] ?? null,
+        'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
+        'id_tipo_cita' => $detail['id_tipo_cita'] ?? null,
+        'id_dia_espera' => $detail['id_dia_espera'] ?? null,
+        'internal_state_id' => $detail['internal_state_id'] ?? null,
+        'external_state_id' => $detail['external_state_id'] ?? null,
+        'type_id' => $detail['type_id'] ?? null,
+        'Manzana' => $detail['Manzana'] ?? null,
+        'Lote' => $detail['Lote'] ?? null,
+        'attachment' => $attachment,
+    ]);
+}
+
+
+ 
+
+
+    // 3. Emitir evento si lo necesitas
+    broadcast(new RecordChanged('Support', 'created', $support->load('details')->toArray()))->toOthers();
+
+  return response()->json([
+    'message' => '✅ Ticket de soporte creado con sus detalles',
+    'support' => $support->load([
+        'client:id_cliente,Razon_Social',
+        'creator:id,firstname,lastname,names',
+        'details',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+    ]),
+]);
+
+}
+
 
 
 
