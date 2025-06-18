@@ -207,6 +207,8 @@ const toggleExpand = (id: number) => {
   highlightedIds={highlightedIds}
   expanded={expanded}
   toggleExpand={toggleExpand}
+    setEditSupport={setEditSupport}
+  setShowModal={setShowModal}
 />
 
 

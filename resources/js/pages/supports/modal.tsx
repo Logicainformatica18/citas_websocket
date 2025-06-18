@@ -96,6 +96,7 @@ const SupportModal = ({
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
+const [details, setDetails] = useState<any[]>([]);
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
     const [currentDetail, setCurrentDetail] = useState<any>({
@@ -117,7 +118,7 @@ const SupportModal = ({
         type_id: '',
         Manzana: '',
         Lote: '',
-          attachment: null // ✅ importante
+        attachment: null // ✅ importante
     });
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
@@ -150,98 +151,105 @@ const SupportModal = ({
     };
 
 
-const handleAddDetail = () => {
-    // Validación básica
-    if (!currentDetail.subject.trim()) {
-        toast.error("El asunto es obligatorio");
-        return;
-    }
+    const handleAddDetail = () => {
+        // Validación básica
+        if (!currentDetail.subject.trim()) {
+            toast.error("El asunto es obligatorio");
+            return;
+        }
 
-    // Lista de campos numéricos obligatorios que no deben ser string vacío
-    const numericFields = [
-        'project_id',
-        'area_id',
-        'id_motivos_cita',
-        'id_tipo_cita',
-        'id_dia_espera',
-        'internal_state_id',
-        'external_state_id',
-        'type_id',
-    ];
+        // Lista de campos numéricos obligatorios que no deben ser string vacío
+        const numericFields = [
+            'project_id',
+            'area_id',
+            'id_motivos_cita',
+            'id_tipo_cita',
+            'id_dia_espera',
+            'internal_state_id',
+            'external_state_id',
+            'type_id',
+        ];
 
-    // Convertir string vacío a null en los campos numéricos
-    const sanitizedDetail = {
-        ...currentDetail,
-        ...Object.fromEntries(
-            numericFields.map((key) => [key, currentDetail[key] === '' ? null : Number(currentDetail[key])])
-        ),
+        // Convertir string vacío a null en los campos numéricos
+        const sanitizedDetail = {
+            ...currentDetail,
+            ...Object.fromEntries(
+                numericFields.map((key) => [key, currentDetail[key] === '' ? null : Number(currentDetail[key])])
+            ),
+        };
+
+        // Agregar a la lista de detalles
+        setSupportDetails((prev) => [...prev, sanitizedDetail]);
+
+        // Limpiar el formulario
+        setCurrentDetail({
+            subject: '',
+            description: '',
+            priority: 'Normal',
+            type: 'Consulta',
+            status: 'Pendiente',
+            reservation_time: '',
+            attended_at: '',
+            derived: '',
+            Manzana: '',
+            Lote: '',
+            project_id: '',
+            area_id: '',
+            id_motivos_cita: '',
+            id_tipo_cita: '',
+            id_dia_espera: '',
+            internal_state_id: '',
+            external_state_id: '',
+            type_id: '',
+        });
     };
 
-    // Agregar a la lista de detalles
-    setSupportDetails((prev) => [...prev, sanitizedDetail]);
 
-    // Limpiar el formulario
-    setCurrentDetail({
-        subject: '',
-        description: '',
-        priority: 'Normal',
-        type: 'Consulta',
-        status: 'Pendiente',
-        reservation_time: '',
-        attended_at: '',
-        derived: '',
-        Manzana: '',
-        Lote: '',
-        project_id: '',
-        area_id: '',
-        id_motivos_cita: '',
-        id_tipo_cita: '',
-        id_dia_espera: '',
-        internal_state_id: '',
-        external_state_id: '',
-        type_id: '',
+
+ useEffect(() => {
+  if (!supportToEdit) return;
+
+  const { client, details, ...supportFields } = supportToEdit;
+
+  // Asegura datos base para inputs
+  const cleanedSupport = Object.fromEntries(
+    Object.entries(supportFields).map(([key, val]) => [
+      key,
+      val === null || typeof val === 'undefined' ? '' : val,
+    ])
+  );
+
+  setFormData((prev: any) => ({
+    ...prev,
+    ...cleanedSupport,
+    client_id: client?.id_cliente ?? '',
+    dni: client?.dni ?? '',
+    cellphone: client?.Telefono ?? '',
+    email: client?.Email ?? '',
+    address: client?.Direccion ?? '',
+    status_global: supportToEdit.status_global || 'Simple',
+   
+  }));
+
+  // Mostrar cliente si lo usas en búsqueda
+  if (client) {
+    setSelectedClient({
+      id: client.id_cliente,
+      names: client.Razon_Social,
+      dni: client.DNI,
+      cellphone: client.Telefono,
+      email: client.Email,
+      address: client.Direccion,
     });
-};
+    setClientQuery(client.Razon_Social);
+  }
 
+  // Setear los detalles en la tabla
+  if (details && Array.isArray(details)) {
+    setSupportDetails(details);
+  }
+}, [supportToEdit]);
 
-    
-    useEffect(() => {
-        if (!supportToEdit) return;
-
-        const cleanData = Object.fromEntries(
-            Object.entries(supportToEdit).map(([key, val]) => [
-                key,
-                val === null || typeof val === 'undefined' ? '' : val,
-            ])
-        );
-
-        const client = supportToEdit.client;
-        if (client) {
-            setSelectedClient(client);
-            setClientQuery(client.names);
-
-            // 👇 Esto es lo que te falta (probablemente)
-            setFormData((prev: any) => ({
-                ...prev,
-                client_id: client.id,
-                dni: client.dni,
-                cellphone: client.cellphone,
-                email: client.email,
-                address: client.address,
-            }));
-        }
-
-        setFormData((prev: any) => ({
-            ...prev,
-            ...cleanData,
-            reservation_time: supportToEdit.reservation_time ?? getNowPlusHours(0),
-            attended_at: supportToEdit.attended_at ?? getNowPlusHours(1),
-        }));
-
-        if (supportToEdit.attachment) {
-            setPreview(`/attachments/${supportToEdit.attachment}`);
-        }
-    }, [supportToEdit]);
 
 
 
@@ -261,48 +269,48 @@ const handleAddDetail = () => {
         }
     };
 
-  const handleSubmit = async () => {
-    try {
-        setUploading(true);
-        const data = new FormData();
+    const handleSubmit = async () => {
+        try {
+            setUploading(true);
+            const data = new FormData();
 
-        // 1. Campos principales del soporte
-        Object.entries(formData).forEach(([key, value]) => {
-            data.append(key, String(value ?? ''));
-        });
+            // 1. Campos principales del soporte
+            Object.entries(formData).forEach(([key, value]) => {
+                data.append(key, String(value ?? ''));
+            });
 
-        // 2. Archivo principal (como antes)
-        if (file) {
-            data.append('attachment', file);
-        }
-
-        // 3. Archivos por detalle
-        supportDetails.forEach((detail, index) => {
-            if (detail.attachment) {
-                data.append(`attachments[${index}]`, detail.attachment);
+            // 2. Archivo principal (como antes)
+            if (file) {
+                data.append('attachment', file);
             }
-        });
 
-        // 4. Eliminar los archivos del JSON antes de enviarlo
-        const cleanedDetails = supportDetails.map(({ attachment, ...rest }) => rest);
-        data.append('details', JSON.stringify(cleanedDetails));
+            // 3. Archivos por detalle
+            supportDetails.forEach((detail, index) => {
+                if (detail.attachment) {
+                    data.append(`attachments[${index}]`, detail.attachment);
+                }
+            });
 
-        // 5. URL y método
-        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-        if (supportToEdit) data.append('_method', 'PUT');
+            // 4. Eliminar los archivos del JSON antes de enviarlo
+            const cleanedDetails = supportDetails.map(({ attachment, ...rest }) => rest);
+            data.append('details', JSON.stringify(cleanedDetails));
 
-        const response = await axios.post(url, data);
+            // 5. URL y método
+            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+            if (supportToEdit) data.append('_method', 'PUT');
 
-        toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
-        onSaved(response.data.support);
-        onClose();
-    } catch (error) {
-        console.error('❌ Error al guardar:', error);
-        toast.error('Hubo un error al guardar');
-    } finally {
-        setUploading(false);
-    }
-};
+            const response = await axios.post(url, data);
+
+            toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+            onSaved(response.data.support);
+            onClose();
+        } catch (error) {
+            console.error('❌ Error al guardar:', error);
+            toast.error('Hubo un error al guardar');
+        } finally {
+            setUploading(false);
+        }
+    };
 
 
 
@@ -540,7 +548,7 @@ const handleAddDetail = () => {
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
- <option value="">Seleccione un área</option> {/* ✅ línea importante */}
+                                    <option value="">Seleccione un área</option> {/* ✅ línea importante */}
                                     {areas.map((a) => (
                                         <option key={a.id_area} value={a.id_area}>{a.descripcion}</option>
                                     ))}
@@ -551,19 +559,19 @@ const handleAddDetail = () => {
 
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left">Archivo</Label>
-                           <input
-  type="file"
-  name="attachment"
-  onChange={(e) => {
-    const file = e.target.files?.[0] || null;
-    setCurrentDetail((prev: any) => ({
-      ...prev,
-      attachment: file,
-      attachment_name: file?.name || null,
-    }));
-  }}
-  className="col-span-3 text-sm"
-/>
+                            <input
+                                type="file"
+                                name="attachment"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    setCurrentDetail((prev: any) => ({
+                                        ...prev,
+                                        attachment: file,
+                                        attachment_name: file?.name || null,
+                                    }));
+                                }}
+                                className="col-span-3 text-sm"
+                            />
 
                             {preview && preview.startsWith('blob:') && (
                                 <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
@@ -579,7 +587,7 @@ const handleAddDetail = () => {
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
- <option value="">Seleccione un Motivo</option> {/* ✅ línea importante */}
+                                    <option value="">Seleccione un Motivo</option> {/* ✅ línea importante */}
                                     {motives.map(m => (
                                         <option key={m.id} value={m.id}>
                                             {m.nombre_motivo}
@@ -593,7 +601,7 @@ const handleAddDetail = () => {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-left">Tipo de Cita</Label>
                                 <select name="id_tipo_cita" value={currentDetail.id_tipo_cita} onChange={handleDetailChange} className={inputClass}>
- <option value="">Seleccione un Tipo</option> 
+                                    <option value="">Seleccione un Tipo</option>
                                     {appointmentTypes.map(t => <option key={t.id} value={t.id}>{t.tipo}</option>)}
                                 </select>
                             </div>
@@ -608,7 +616,7 @@ const handleAddDetail = () => {
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
- <option value="">Seleccione un Día de espera</option>
+                                    <option value="">Seleccione un Día de espera</option>
                                     {waitingDays.map(d => (
                                         <option key={d.id} value={d.id}>
                                             {d.dias}
@@ -628,7 +636,7 @@ const handleAddDetail = () => {
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
- <option value="">Seleccione un Estado Interno</option>
+                                    <option value="">Seleccione un Estado Interno</option>
                                     {internalStates.map(i => (
                                         <option key={i.id} value={i.id}>
                                             {i.description}
@@ -647,7 +655,7 @@ const handleAddDetail = () => {
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
- <option value="">Seleccione un Estado de ATC</option>
+                                    <option value="">Seleccione un Estado de ATC</option>
                                     {externalStates.map(e => (
                                         <option key={e.id} value={e.id}>
                                             {e.description}

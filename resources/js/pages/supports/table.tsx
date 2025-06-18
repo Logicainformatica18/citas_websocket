@@ -58,12 +58,14 @@ interface Props {
     fetchPage: (url: string) => Promise<void>;
     fetchSupport: (id: number) => Promise<void>;
     setShowAreaModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>; // ✅ AGREGA ESTA PROP
+    setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>;
     areas: Array<{ id_area: number; descripcion: string }>;
     motives: Array<{ id: number; nombre_motivo: string }>;
-    highlightedIds: number[]; // 👈 AÑADE ESTA LÍNEA
+    highlightedIds: number[];
     expanded: number[];
     toggleExpand: (id: number) => void;
+    setEditSupport: React.Dispatch<React.SetStateAction<Support | null>>;
+    setShowModal: React.Dispatch<React.SetStateAction<boolean>>;
 
 }
 
@@ -79,12 +81,14 @@ export default function SupportTable({
     fetchPage,
     fetchSupport,
     setShowAreaModal,
-    setSelectedSupportId, // ✅ AGREGA ESTO
+    setSelectedSupportId,
     areas,
     motives,
-    highlightedIds, // ✅ FALTA ESTA LÍNEA
+    highlightedIds,
     expanded,
     toggleExpand,
+    setEditSupport,
+    setShowModal,
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -92,6 +96,8 @@ export default function SupportTable({
 
     const { permissions } = usePage<PageProps>().props;
     const canEdit = permissions.includes('administrar') || permissions.includes('atc');
+    const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
+    const [showSupportModal, setShowSupportModal] = useState(false);
 
 
     return (
@@ -152,11 +158,53 @@ export default function SupportTable({
                             </tr>
                         </thead>
 
-                          {/* <button
+
+
+                        <tbody>
+                            {supports.map((support) => (
+                                <React.Fragment key={support.id}>
+                                    {/* Fila principal */}
+                                    <tr
+                                        className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
+                                            }`}
+                                    >
+                                        <td className="px-2 py-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(support.id)}
+                                                onChange={(e) =>
+                                                    setSelectedIds((prev) =>
+                                                        e.target.checked
+                                                            ? [...prev, support.id]
+                                                            : prev.filter((id) => id !== support.id)
+                                                    )
+                                                }
+                                            />
+                                        </td>
+
+                                        {canEdit && (
+                                            <td className="px-2 py-1 text-sm space-x-2">
+                                                {/* Botón Editar (si lo deseas habilitar en el futuro) */}
+
+                                                <button
                                                     onClick={async () => {
                                                         setEditingId(support.id);
-                                                        await fetchSupport(support.id);
-                                                        setEditingId(null);
+                                                        try {
+                                                            const response = await axios.get(`/supports/${support.id}`);
+                                                            const fullSupport = response.data; // Asegúrate que el backend retorne support + details
+
+                                                            // Aquí puedes abrir tu modal y pasarle el soporte completo
+                                                            // Por ejemplo:
+                                                            setSelectedSupportId(support.id);
+                                                            setEditSupport(fullSupport);
+                                                            setShowModal(true);
+
+                                                        } catch (error) {
+                                                            console.error('Error al cargar soporte:', error);
+                                                            toast.error('No se pudo cargar la atención');
+                                                        } finally {
+                                                            setEditingId(null);
+                                                        }
                                                     }}
                                                     disabled={editingId === support.id}
                                                     className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
@@ -168,215 +216,171 @@ export default function SupportTable({
                                                             <Paintbrush className="w-4 h-4" /> Editar
                                                         </>
                                                     )}
-                                                </button> */}
-                      
-                       <tbody>
-  {supports.map((support) => (
-    <React.Fragment key={support.id}>
-      {/* Fila principal */}
-      <tr
-        className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${
-          highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
-        }`}
-      >
-        <td className="px-2 py-1">
-          <input
-            type="checkbox"
-            checked={selectedIds.includes(support.id)}
-            onChange={(e) =>
-              setSelectedIds((prev) =>
-                e.target.checked
-                  ? [...prev, support.id]
-                  : prev.filter((id) => id !== support.id)
-              )
-            }
-          />
-        </td>
+                                                </button>
 
-        {canEdit && (
-          <td className="px-2 py-1 text-sm space-x-2">
-            {/* Botón Editar (si lo deseas habilitar en el futuro) */}
-            {/* 
-            <button
-              onClick={async () => {
-                setEditingId(support.id);
-                await fetchSupport(support.id);
-                setEditingId(null);
-              }}
-              disabled={editingId === support.id}
-              className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
-            >
-              {editingId === support.id ? (
-                <HourglassLoader />
-              ) : (
-                <>
-                  <Paintbrush className="w-4 h-4" /> Editar
-                </>
-              )}
-            </button> 
-            */}
 
-            {/* Botón Eliminar */}
-            <button
-              onClick={async () => {
-                if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
-                  try {
-                    setDeletingId(support.id);
-                    await axios.delete(`/supports/${support.id}`);
-                    setSupports((prev) => prev.filter((s) => s.id !== support.id));
-                  } catch (e) {
-                    alert('Error al eliminar');
-                    console.error(e);
-                  } finally {
-                    setDeletingId(null);
-                  }
-                }
-              }}
-              disabled={deletingId === support.id}
-              className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
-            >
-              {deletingId === support.id ? (
-                <HourglassLoader />
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4" /> Eliminar
-                </>
-              )}
-            </button>
-          </td>
-        )}
 
-        {canEdit && (
-          <td className="px-2 py-1">
-            <button
-              onClick={() => {
-                setSelectedSupportId(support.id);
-                setShowAreaModal(true);
-              }}
-              className="text-blue-600 text-sm underline hover:text-blue-800 transition"
-            >
-              Área/Motivo
-            </button>
-          </td>
-        )}
+                                                {/* Botón Eliminar */}
+                                                <button
+                                                    onClick={async () => {
+                                                        if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
+                                                            try {
+                                                                setDeletingId(support.id);
+                                                                await axios.delete(`/supports/${support.id}`);
+                                                                setSupports((prev) => prev.filter((s) => s.id !== support.id));
+                                                            } catch (e) {
+                                                                alert('Error al eliminar');
+                                                                console.error(e);
+                                                            } finally {
+                                                                setDeletingId(null);
+                                                            }
+                                                        }
+                                                    }}
+                                                    disabled={deletingId === support.id}
+                                                    className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
+                                                >
+                                                    {deletingId === support.id ? (
+                                                        <HourglassLoader />
+                                                    ) : (
+                                                        <>
+                                                            <Trash2 className="w-4 h-4" /> Eliminar
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </td>
+                                        )}
 
-        <td className="px-2 py-1">
-          <button
-            onClick={() => toggleExpand(support.id)}
-            className="text-blue-600 underline text-sm"
-          >
-            {expanded.includes(support.id) ? 'Ocultar' : 'Ver más'}
-          </button>
-        </td>
+                                        {canEdit && (
+                                            <td className="px-2 py-1">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedSupportId(support.id);
+                                                        setShowAreaModal(true);
+                                                    }}
+                                                    className="text-blue-600 text-sm underline hover:text-blue-800 transition"
+                                                >
+                                                    Área/Motivo
+                                                </button>
+                                            </td>
+                                        )}
 
-        <td className="px-2 py-1">
-          <Link
-            href={`/reports/${support.id}`}
-            className="text-blue-600 underline hover:text-blue-800 text-sm"
-          >
-            Ver Reporte
-          </Link>
-        </td>
+                                        <td className="px-2 py-1">
+                                            <button
+                                                onClick={() => toggleExpand(support.id)}
+                                                className="text-blue-600 underline text-sm"
+                                            >
+                                                {expanded.includes(support.id) ? 'Ocultar' : 'Ver más'}
+                                            </button>
+                                        </td>
 
-        <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
-        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
-        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
-        <td className="px-2 py-1 max-w-[150px] truncate">
-          {support.details[0]?.subject ?? '-'}
-        </td>
-        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
-        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
-        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
-        <td className="px-2 py-1">{support.created_at}</td>
-        <td className="px-2 py-1">
-          {support.details[0]?.external_state?.description ?? (
-            <span className="text-red-500">⚠️ No cargado</span>
-          )}
-        </td>
-        <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
-        <td className="px-2 py-1 whitespace-nowrap">
-          {support.details[0]?.attachment && (
-            <a
-              href={`/uploads/${support.details[0].attachment}`}
-              download
-              className="text-blue-600 underline dark:text-blue-400"
-            >
-              {support.details[0].attachment}
-            </a>
-          )}
-        </td>
-      </tr>
+                                        <td className="px-2 py-1">
+                                            <Link
+                                                href={`/reports/${support.id}`}
+                                                className="text-blue-600 underline hover:text-blue-800 text-sm"
+                                            >
+                                                Ver Reporte
+                                            </Link>
+                                        </td>
 
-      {/* Fila expandida (si aplica) */}
-      {expanded.includes(support.id) && (
-        <tr className="bg-gray-50 dark:bg-gray-900">
-          <td colSpan={16}>
-            <div className="p-3 text-sm">
-              <strong className="block mb-2 text-gray-700 dark:text-gray-200">
-                Detalles adicionales:
-              </strong>
+                                        <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
+                                        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
+                                        <td className="px-2 py-1 max-w-[150px] truncate">
+                                            {support.details[0]?.subject ?? '-'}
+                                        </td>
+                                        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.created_at}</td>
+                                        <td className="px-2 py-1">
+                                            {support.details[0]?.external_state?.description ?? (
+                                                <span className="text-red-500">⚠️ No cargado</span>
+                                            )}
+                                        </td>
+                                        <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
+                                        <td className="px-2 py-1 whitespace-nowrap">
+                                            {support.details[0]?.attachment && (
+                                                <a
+                                                    href={`/uploads/${support.details[0].attachment}`}
+                                                    download
+                                                    className="text-blue-600 underline dark:text-blue-400"
+                                                >
+                                                    {support.details[0].attachment}
+                                                </a>
+                                            )}
+                                        </td>
+                                    </tr>
 
-              <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
-                <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                  <tr>
-                    <th className="px-2 py-1 border">#</th>
-                    <th className="px-2 py-1 border">Asunto</th>
-                    <th className="px-2 py-1 border">Descripción</th>
-                    <th className="px-2 py-1 border">Estado</th>
-                    <th className="px-2 py-1 border">Prioridad</th>
-                    <th className="px-2 py-1 border">Área</th>
-                    <th className="px-2 py-1 border">Proyecto</th>
-                    <th className="px-2 py-1 border">Motivo</th>
-                    <th className="px-2 py-1 border">Tipo Cita</th>
-                    <th className="px-2 py-1 border">Día Espera</th>
-                    <th className="px-2 py-1 border">Estado Interno</th>
-                    <th className="px-2 py-1 border">Estado Externo</th>
-                    <th className="px-2 py-1 border">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {support.details.map((detail, index) => (
-                    <tr key={detail.id} className="border-t dark:border-gray-600">
-                      <td className="px-2 py-1 border">{index + 1}</td>
-                      <td className="px-2 py-1 border">{detail.subject}</td>
-                      <td className="px-2 py-1 border">{detail.description}</td>
-                      <td className="px-2 py-1 border">{detail.status}</td>
-                      <td className="px-2 py-1 border">{detail.priority}</td>
-                      <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
-                      <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
-                      <td className="px-2 py-1 border">
-                        <button
-                          onClick={() => {
-                            if (confirm('¿Estás seguro de eliminar este detalle?')) {
-                              router.delete(`/support-details/${detail.id}`, {
-                                onSuccess: () => toast.success('Detalle eliminado'),
-                                onError: () => toast.error('Error al eliminar'),
-                                preserveScroll: true,
-                              });
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-800 text-xs"
-                        >
-                          🗑 Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-      )}
-    </React.Fragment>
-  ))}
-</tbody>
+                                    {/* Fila expandida (si aplica) */}
+                                    {expanded.includes(support.id) && (
+                                        <tr className="bg-gray-50 dark:bg-gray-900">
+                                            <td colSpan={16}>
+                                                <div className="p-3 text-sm">
+                                                    <strong className="block mb-2 text-gray-700 dark:text-gray-200">
+                                                        Detalles adicionales:
+                                                    </strong>
+
+                                                    <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
+                                                        <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                                                            <tr>
+                                                                <th className="px-2 py-1 border">#</th>
+                                                                <th className="px-2 py-1 border">Asunto</th>
+                                                                <th className="px-2 py-1 border">Descripción</th>
+                                                                <th className="px-2 py-1 border">Estado</th>
+                                                                <th className="px-2 py-1 border">Prioridad</th>
+                                                                <th className="px-2 py-1 border">Área</th>
+                                                                <th className="px-2 py-1 border">Proyecto</th>
+                                                                <th className="px-2 py-1 border">Motivo</th>
+                                                                <th className="px-2 py-1 border">Tipo Cita</th>
+                                                                <th className="px-2 py-1 border">Día Espera</th>
+                                                                <th className="px-2 py-1 border">Estado Interno</th>
+                                                                <th className="px-2 py-1 border">Estado Externo</th>
+                                                                <th className="px-2 py-1 border">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {support.details.map((detail, index) => (
+                                                                <tr key={detail.id} className="border-t dark:border-gray-600">
+                                                                    <td className="px-2 py-1 border">{index + 1}</td>
+                                                                    <td className="px-2 py-1 border">{detail.subject}</td>
+                                                                    <td className="px-2 py-1 border">{detail.description}</td>
+                                                                    <td className="px-2 py-1 border">{detail.status}</td>
+                                                                    <td className="px-2 py-1 border">{detail.priority}</td>
+                                                                    <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
+                                                                    <td className="px-2 py-1 border">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                if (confirm('¿Estás seguro de eliminar este detalle?')) {
+                                                                                    router.delete(`/support-details/${detail.id}`, {
+                                                                                        onSuccess: () => toast.success('Detalle eliminado'),
+                                                                                        onError: () => toast.error('Error al eliminar'),
+                                                                                        preserveScroll: true,
+                                                                                    });
+                                                                                }
+                                                                            }}
+                                                                            className="text-red-600 hover:text-red-800 text-xs"
+                                                                        >
+                                                                            🗑 Eliminar
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
 
                     </table>
                 </div>
@@ -389,8 +393,8 @@ export default function SupportTable({
                                 key={page}
                                 onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
                                 className={`px-3 py-1 rounded text-sm font-medium transition ${pagination.current_page === page
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                                     }`}
                                 disabled={pagination.current_page === page}
                             >

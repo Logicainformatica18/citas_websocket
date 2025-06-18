@@ -193,8 +193,20 @@ foreach ($details as $index => $detail) {
  
 
 
-    // 3. Emitir evento si lo necesitas
-    broadcast(new RecordChanged('Support', 'created', $support->load('details')->toArray()))->toOthers();
+ broadcast(new RecordChanged('Support', 'created', $support->load([
+    'client:id_cliente,Razon_Social',
+    'creator:id,firstname,lastname,names',
+    'details',
+    'details.area:id_area,descripcion',
+    'details.project:id_proyecto,descripcion',
+    'details.motivoCita:id_motivos_cita,nombre_motivo',
+    'details.tipoCita:id_tipo_cita,tipo',
+    'details.diaEspera:id_dias_espera,dias',
+    'details.internalState:id,description',
+    'details.externalState:id,description',
+    'details.supportType:id,description',
+])->toArray()))->toOthers();
+
 
   return response()->json([
     'message' => '✅ Ticket de soporte creado con sus detalles',
@@ -219,111 +231,143 @@ foreach ($details as $index => $detail) {
 
 
 
-    public function update(Request $request, $id)
-    {
-        $support = Support::findOrFail($id);
+   public function update(Request $request, $id)
+{
+    $support = Support::findOrFail($id);
 
-        // Asignación específica SIN valores por defecto
-        $support->subject = $request->input('subject');
-        $support->description = $request->input('description');
-        $support->client_id = $request->input('client_id');
-        $support->cellphone = $request->input('cellphone');
-        $support->priority = $request->input('priority');
-        $support->status = $request->input('status');
-        $support->reservation_time = $request->input('reservation_time');
-        $support->attended_at = $request->input('attended_at');
-        $support->area_id = $request->input('area_id');
-        $support->derived = $request->input('derived');
-        $support->id_motivos_cita = $request->input('id_motivos_cita');
-        $support->id_tipo_cita = $request->input('id_tipo_cita');
-        $support->id_dia_espera = $request->input('id_dia_espera');
-        $support->internal_state_id = $request->input('internal_state_id');
-        $support->external_state_id = $request->input('external_state_id');
-        $support->type_id = $request->input('type_id');
-        $support->project_id = $request->input('project_id');
-        $support->Manzana = $request->input('Manzana');
-        $support->Lote = $request->input('Lote');
+    // 1. Actualizar campos del soporte general
+    $support->fill([
+        // 'client_id' => $request->input('client_id'),
+        // 'cellphone' => $request->input('cellphone'),
+        'status_global' => $request->input('status_global'),
+    ]);
 
-        // Procesar archivo adjunto
-        if ($request->hasFile('attachment')) {
-            $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
-        }
-
-        $support->save();
-
-        // Log para auditoría
-        Log::info('📝 Soporte actualizado', [
-            'support_id' => $support->id,
-            'user_id' => Auth::id(),
-            'updated_fields' => $request->except(['_method', '_token']),
-        ]);
-        $support->load([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
-        ]);
-
-
-        $areaRoleName = $support->area->descripcion ?? null;
-
-        // Verificar que el rol existe antes de usarlo
-        if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
-            $usersToNotify = User::role($areaRoleName)->get();
-
-            Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
-                'user_ids' => $usersToNotify->pluck('id'),
-                'user_emails' => $usersToNotify->pluck('email'),
-                'user_names' => $usersToNotify->pluck('name'),
-                'support_id' => $support->id,
-            ]);
-
-            dispatch(function () use ($usersToNotify, $support) {
-              Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
-
-
-            });
-        } else {
-            Log::warning("⚠️ No se notificó a ningún usuario porque no existe un rol '{$areaRoleName}'");
-        }
-
-        // Emitir evento
-        broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
-
-        return response()->json([
-            'message' => '✅ Ticket de soporte actualizado correctamente',
-            'support' => $support,
-        ]);
+    // 2. Procesar archivo adjunto si se sube uno nuevo
+    if ($request->hasFile('attachment')) {
+        $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
     }
 
+    $support->save();
 
-    public function show($id)
-    {
-        $support = Support::with([
-            'area',
-            'creator',
-            'client',
-            'motivoCita',
-            'tipoCita',
-            'diaEspera',
-            'internalState',
-            'externalState',
-            'supportType',
-            'project'
-        ])->findOrFail($id);
+  
 
-        // 👉 reemplaza el cliente crudo por uno transformado
-        $supportArray = $support->toArray();
-        $supportArray['client'] = $support->client ? $support->client->toFrontend() : null;
+    // Elimina detalles actuales y reemplaza por los nuevos (opcionalmente podrías actualizar uno por uno)
+    $support->details()->delete();
 
-        return response()->json(['support' => $supportArray]);
+    $details = $request->input('details', []);
+// ✅ Solución clave
+if (is_string($details)) {
+    $details = json_decode($details, true);
+}
+
+ foreach ($details as $index => $detail) {
+    $newDetail = $support->details()->create([
+        'subject' => $detail['subject'] ?? '',
+        'description' => $detail['description'] ?? '',
+        'priority' => $detail['priority'] ?? '',
+        'type' => $detail['type'] ?? '',
+        'status' => $detail['status'] ?? '',
+        'reservation_time' => $detail['reservation_time'] ?? null,
+        'attended_at' => $detail['attended_at'] ?? null,
+        'derived' => $detail['derived'] ?? '',
+        'Manzana' => $detail['Manzana'] ?? '',
+        'Lote' => $detail['Lote'] ?? '',
+        'project_id' => $detail['project_id'] ?? null,
+        'area_id' => $detail['area_id'] ?? null,
+        'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
+        'id_tipo_cita' => $detail['id_tipo_cita'] ?? null,
+        'id_dia_espera' => $detail['id_dia_espera'] ?? null,
+        'internal_state_id' => $detail['internal_state_id'] ?? null,
+        'external_state_id' => $detail['external_state_id'] ?? null,
+        'type_id' => $detail['type_id'] ?? null,
+    ]);
+
+    // Procesar archivo si viene por índice
+    if ($request->hasFile("attachments.$index")) {
+        $newDetail->attachment = fileUpdate($request->file("attachments.$index"), 'attachments');
+        $newDetail->save();
     }
+}
+
+
+    // 4. Recargar relaciones necesarias para el frontend
+$support->load([
+    'client:id_cliente,Razon_Social',
+    'creator:id,firstname,lastname,names',
+
+    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+
+    'details.area:id_area,descripcion',
+    'details.project:id_proyecto,descripcion',
+    'details.motivoCita:id_motivos_cita,nombre_motivo',
+    'details.tipoCita:id_tipo_cita,tipo',
+    'details.diaEspera:id_dias_espera,dias',
+    'details.internalState:id,description',
+    'details.externalState:id,description',
+    'details.supportType:id,description',
+]);
+
+
+    // 5. Registrar en log
+    Log::info('📝 Soporte actualizado', [
+        'support_id' => $support->id,
+        'user_id' => Auth::id(),
+        'updated_fields' => $request->except(['_method', '_token']),
+    ]);
+
+    // 6. Emitir evento
+    broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
+
+    return response()->json([
+        'message' => '✅ Ticket de soporte actualizado correctamente',
+        'support' => $support,
+    ]);
+}
+
+
+// $areaRoleName = $support->area->descripcion ?? null;
+
+//         // Verificar que el rol existe antes de usarlo
+//         if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
+//             $usersToNotify = User::role($areaRoleName)->get();
+
+//             Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
+//                 'user_ids' => $usersToNotify->pluck('id'),
+//                 'user_emails' => $usersToNotify->pluck('email'),
+//                 'user_names' => $usersToNotify->pluck('name'),
+//                 'support_id' => $support->id,
+//             ]);
+
+//             dispatch(function () use ($usersToNotify, $support) {
+//               Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
+
+
+//             });
+//         } else {
+//             Log::warning("⚠️ No se notificó a ningún usuario porque no existe un rol '{$areaRoleName}'");
+//         }
+
+
+
+public function show($id)
+{
+    $support = Support::with([
+        'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
+        'creator:id,firstname,lastname,names',
+        'details',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo as motivo_cita',
+        'details.tipoCita:id_tipo_cita,tipo as tipo_cita',
+        'details.diaEspera:id_dias_espera,dias as dia_espera',
+        'details.internalState:id,description as internal_state',
+        'details.externalState:id,description as external_state',
+        'details.supportType:id,description as supportType',
+    ])->findOrFail($id);
+
+    return response()->json($support);
+}
+
 
 
 
