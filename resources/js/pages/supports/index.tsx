@@ -84,11 +84,12 @@ export default function Supports() {
     motives: { id: number; nombre_motivo: string }[]; // 👈 más específico
     appointmentTypes: Option[];
     waitingDays: Option[];
-    internalStates: Option[];
+    internalStates: { id: number; description: string }[];
     externalStates: Option[];
     types: Option[];
     projects: Option[];
     areas: { id_area: number; descripcion: string }[]; // 👈 más específico
+    
   }>().props;
 
 
@@ -204,6 +205,7 @@ const toggleExpand = (id: number) => {
   setSelectedSupportId={setSelectedSupportId}
   areas={areas}
   motives={motives}
+  
   highlightedIds={highlightedIds}
   expanded={expanded}
   toggleExpand={toggleExpand}
@@ -240,6 +242,8 @@ const toggleExpand = (id: number) => {
           supportId={selectedSupportId}
           areas={areas}
           motives={motives}
+            internalStates={internalStates}
+            
         />
       )}
 

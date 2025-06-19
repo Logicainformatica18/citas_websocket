@@ -8,6 +8,7 @@ import AreaModal from './AreaModal'; // asegúrate de que el path sea correcto
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import React from 'react';
+import { Wrench } from 'lucide-react';
 
 interface SupportDetail {
     id: number;
@@ -37,7 +38,7 @@ interface Support {
     state: string;
     status_global: string;
     created_at?: string;
-    client?: { Razon_Social: string };
+    client?: { Razon_Social: string, telefono?: string, email?: string };
     creator?: { names: string };
     details: SupportDetail[];
 }
@@ -61,6 +62,7 @@ interface Props {
     setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>;
     areas: Array<{ id_area: number; descripcion: string }>;
     motives: Array<{ id: number; nombre_motivo: string }>;
+    internalStates: Array<{ id: number; description: string }>; // ✅ AÑADIR ESTO
     highlightedIds: number[];
     expanded: number[];
     toggleExpand: (id: number) => void;
@@ -84,6 +86,7 @@ export default function SupportTable({
     setSelectedSupportId,
     areas,
     motives,
+    internalStates, // ✅ AÑADIR ESTO
     highlightedIds,
     expanded,
     toggleExpand,
@@ -98,6 +101,7 @@ export default function SupportTable({
     const canEdit = permissions.includes('administrar') || permissions.includes('atc');
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
+    const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
 
 
     return (
@@ -136,25 +140,31 @@ export default function SupportTable({
                                         }
                                     />
                                 </th>
-                                {canEdit && <th className="px-2 py-1">Acciones</th>}
                                 {canEdit && (
-                                    <th className="px-2 py-1">Area Mantenimiento</th>
+                                    <th className="px-2 py-1 text-center" title="Acciones">
+                                        <Wrench className="w-4 h-4 mx-auto text-gray-600" />
+                                    </th>
                                 )}
 
+
+
                                 <th className="px-2 py-1">Ver más</th>
-                                <th className="px-2 py-1">Detalle</th>
+                                <th className="px-2 py-1">Reporte</th>
                                 <th className="px-2 py-1">ID</th>
-                                <th className="px-2 py-1">Área</th>
                                 <th className="px-2 py-1">Cliente</th>
+                                <th className="px-2 py-1">Celular</th>
+                                <th className="px-2 py-1">Email</th>
+                                <th className="px-2 py-1">Área</th>
                                 <th className="px-2 py-1">Asunto</th>
                                 <th className="px-2 py-1">Proyecto</th>
                                 <th className="px-2 py-1">Manzana</th>
                                 <th className="px-2 py-1">Lote</th>
                                 <th className="px-2 py-1">Prioridad</th>
-                                <th className="px-2 py-1">Creación</th>
-                                <th className="px-2 py-1">Estado de Atención</th>
+                                <th className="px-2 py-1">Estado ATC</th>
                                 <th className="px-2 py-1">Estado Interno</th>
-                                <th className="px-2 py-1">Archivo</th>
+
+                                <th className="px-2 py-1">Creación</th>
+                                <th className="px-2 py-1">Estado Global</th>
                             </tr>
                         </thead>
 
@@ -213,7 +223,7 @@ export default function SupportTable({
                                                         <HourglassLoader />
                                                     ) : (
                                                         <>
-                                                            <Paintbrush className="w-4 h-4" /> Editar
+                                                            <Paintbrush className="w-4 h-4" />
                                                         </>
                                                     )}
                                                 </button>
@@ -243,26 +253,14 @@ export default function SupportTable({
                                                         <HourglassLoader />
                                                     ) : (
                                                         <>
-                                                            <Trash2 className="w-4 h-4" /> Eliminar
+                                                            <Trash2 className="w-4 h-4" />
                                                         </>
                                                     )}
                                                 </button>
                                             </td>
                                         )}
 
-                                        {canEdit && (
-                                            <td className="px-2 py-1">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedSupportId(support.id);
-                                                        setShowAreaModal(true);
-                                                    }}
-                                                    className="text-blue-600 text-sm underline hover:text-blue-800 transition"
-                                                >
-                                                    Área/Motivo
-                                                </button>
-                                            </td>
-                                        )}
+
 
                                         <td className="px-2 py-1">
                                             <button
@@ -278,13 +276,15 @@ export default function SupportTable({
                                                 href={`/reports/${support.id}`}
                                                 className="text-blue-600 underline hover:text-blue-800 text-sm"
                                             >
-                                                Ver Reporte
+                                                Ver
                                             </Link>
                                         </td>
 
                                         <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
                                         <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
+                                        <td className="px-2 py-1">{support.client?.telefono || '-'}</td>
+                                        <td className="px-2 py-1">{support.client?.email || '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
                                         <td className="px-2 py-1 max-w-[150px] truncate">
                                             {support.details[0]?.subject ?? '-'}
                                         </td>
@@ -292,24 +292,29 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.created_at}</td>
+
+
+
                                         <td className="px-2 py-1">
                                             {support.details[0]?.external_state?.description ?? (
                                                 <span className="text-red-500">⚠️ No cargado</span>
                                             )}
                                         </td>
                                         <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">
-                                            {support.details[0]?.attachment && (
-                                                <a
-                                                    href={`/uploads/${support.details[0].attachment}`}
-                                                    download
-                                                    className="text-blue-600 underline dark:text-blue-400"
-                                                >
-                                                    {support.details[0].attachment}
-                                                </a>
-                                            )}
+
+                                        <td className="px-2 py-1">
+                                            {support.created_at
+                                                ? new Date(support.created_at).toLocaleString('es-PE', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                    hour12: false,
+                                                }).replace(',', ' -')
+                                                : '—'}
                                         </td>
+                                            <td className="px-2 py-1">{support.status_global ?? '-'}</td>
                                     </tr>
 
                                     {/* Fila expandida (si aplica) */}
@@ -326,16 +331,17 @@ export default function SupportTable({
                                                             <tr>
                                                                 <th className="px-2 py-1 border">#</th>
                                                                 <th className="px-2 py-1 border">Asunto</th>
-                                                                <th className="px-2 py-1 border">Descripción</th>
+
                                                                 <th className="px-2 py-1 border">Estado</th>
                                                                 <th className="px-2 py-1 border">Prioridad</th>
                                                                 <th className="px-2 py-1 border">Área</th>
                                                                 <th className="px-2 py-1 border">Proyecto</th>
                                                                 <th className="px-2 py-1 border">Motivo</th>
                                                                 <th className="px-2 py-1 border">Tipo Cita</th>
-                                                                <th className="px-2 py-1 border">Día Espera</th>
+                                                        
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
-                                                                <th className="px-2 py-1 border">Estado Externo</th>
+                                                                <th className="px-2 py-1 border">Estado ATC</th>
+                                                                <th className="px-2 py-1 border">Adjunto</th>
                                                                 <th className="px-2 py-1 border">Acciones</th>
                                                             </tr>
                                                         </thead>
@@ -344,16 +350,27 @@ export default function SupportTable({
                                                                 <tr key={detail.id} className="border-t dark:border-gray-600">
                                                                     <td className="px-2 py-1 border">{index + 1}</td>
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>
-                                                                    <td className="px-2 py-1 border">{detail.description}</td>
+
                                                                     <td className="px-2 py-1 border">{detail.status}</td>
                                                                     <td className="px-2 py-1 border">{detail.priority}</td>
                                                                     <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td>
+                                                                    {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}
                                                                     <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
+                                                                    <td className="px-2 py-1 whitespace-nowrap">
+                                                                        {detail.attachment && (
+                                                                            <a
+                                                                                href={`/uploads/${detail.attachment}`}
+                                                                                download
+                                                                                className="text-blue-600 underline dark:text-blue-400"
+                                                                            >
+                                                                                {detail.attachment}
+                                                                            </a>
+                                                                        )}
+                                                                    </td>
                                                                     <td className="px-2 py-1 border">
                                                                         <button
                                                                             onClick={() => {
@@ -369,6 +386,21 @@ export default function SupportTable({
                                                                         >
                                                                             🗑 Eliminar
                                                                         </button>
+                                                                        {canEdit && (
+
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setSelectedSupportId(support.id);
+                                                                                    setSupportDetailToEdit(detail); // 👈 Nuevo estado
+                                                                                    setShowAreaModal(true);
+                                                                                }}
+                                                                                className="text-blue-600 ml-5 text-sm underline hover:text-blue-800 transition"
+                                                                            >
+                                                                                Área/Motivo
+                                                                            </button>
+
+
+                                                                        )}
                                                                     </td>
                                                                 </tr>
                                                             ))}

@@ -147,6 +147,7 @@ const [details, setDetails] = useState<any[]>([]);
             type_id: '',
             Manzana: '',
             Lote: ''
+            
         });
     };
 
@@ -423,8 +424,8 @@ const [details, setDetails] = useState<any[]>([]);
                         onChange={handleChange}
                         className="col-span-3 text-sm h-7 px-2 py-1 rounded-md"
                     >
-                        <option value="Simple">Simple</option>
-                        <option value="Múltiple">Múltiple</option>
+                        <option value="Incompleto">Incompleto</option>
+                        <option value="Completo">Completo</option>
                     </select>
                 </div>
 
@@ -667,7 +668,7 @@ const [details, setDetails] = useState<any[]>([]);
 
                         {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Tipo (Catálogo)</Label>
+                                <Label className="text-left">Tipo</Label>
                                 <select name="type_id" value={currentDetail.type_id} onChange={handleDetailChange} className={inputClass}>
 
                                     {types.map(t => <option key={t.id} value={t.id}>{t.description}</option>)}
@@ -721,9 +722,13 @@ const [details, setDetails] = useState<any[]>([]);
                         <tr className="bg-gray-200">
                             <th className="border px-2">#</th>
                             <th className="border px-2">Asunto</th>
-                            <th className="border px-2">Descripción</th>
-                            <th className="border px-2">Estado</th>
+                           
+                            <th className="border px-2">Proyecto</th>
+                            <th className="border px-2">Area</th>
+                            <th className="border px-2">Motivo Cita</th>
                             <th className="border px-2">Prioridad</th>
+                            <th className="border px-2">Estado Interno</th>
+                            <th className="border px-2">Estado ATC</th>
                             <th className="border px-2">Acciones</th>
                         </tr>
                     </thead>
@@ -732,9 +737,13 @@ const [details, setDetails] = useState<any[]>([]);
                             <tr key={idx}>
                                 <td className="border px-2">{idx + 1}</td>
                                 <td className="border px-2">{detail.subject}</td>
-                                <td className="border px-2">{detail.description}</td>
-                                <td className="border px-2">{detail.status}</td>
+                              
+                                <td className="border px-2">{detail.project?.descripcion}</td>
+                                <td className="border px-2">{detail.area?.descripcion}</td>
+                                <td className="border px-2">{detail.motivo_cita?.motivo_cita}</td>
                                 <td className="border px-2">{detail.priority}</td>
+                                <td className="border px-2">{detail.internal_state?.internal_state}</td>
+                                <td className="border px-2">{detail.external_state?.external_state}</td>
                                 <td className="border px-2">
                                     <button
                                         onClick={() =>

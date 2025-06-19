@@ -174,7 +174,7 @@ class SupportDetailController extends Controller
         $data = $request->only(['dni', 'cellphone', 'email', 'address']);
 
         dispatch(function () use ($clientId, $data) {
-            $client = \App\Models\Client::find($clientId);
+            $client = Client::find($clientId);
             if ($client) {
                 $client->updateFromSupport($data);
             }
