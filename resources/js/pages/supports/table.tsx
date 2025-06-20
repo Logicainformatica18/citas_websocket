@@ -8,7 +8,7 @@ import AreaModal from './AreaModal'; // asegúrate de que el path sea correcto
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import React from 'react';
-import { Wrench } from 'lucide-react';
+import { Wrench, Search, Notebook } from 'lucide-react';
 
 interface SupportDetail {
     id: number;
@@ -102,6 +102,30 @@ export default function SupportTable({
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
+    const getBadgeClass = (status: string) => {
+        switch (status) {
+            case 'Atendido':
+                return 'bg-green-100 text-green-800';
+            case 'Pendiente':
+                return 'bg-blue-100 text-blue-800';
+            case 'Observado':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'Cerrado':
+                return 'bg-gray-200 text-gray-800';
+            default:
+                return 'bg-gray-100 text-gray-600';
+        }
+    };
+    const getExternalStateBadgeClass = (status: string) => {
+        switch (status) {
+            case 'Por Asignar':
+                return 'bg-red-600 text-white';
+            case 'Asignado':
+                return 'bg-green-100 text-green-800';
+            default:
+                return 'bg-gray-100 text-gray-600';
+        }
+    };
 
 
     return (
@@ -131,24 +155,30 @@ export default function SupportTable({
                     <table className="min-w-[1200px] text-sm divide-y divide-gray-200 bg-white dark:bg-black shadow-md rounded">
                         <thead className="bg-gray-100 dark:bg-gray-800">
                             <tr>
-                                <th className="px-2 py-1">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedIds.length === supports.length}
-                                        onChange={(e) =>
-                                            setSelectedIds(e.target.checked ? supports.map((s) => s.id) : [])
-                                        }
-                                    />
-                                </th>
                                 {canEdit && (
-                                    <th className="px-2 py-1 text-center" title="Acciones">
-                                        <Wrench className="w-4 h-4 mx-auto text-gray-600" />
-                                    </th>
+                                    <>
+                                        <th className="px-2 py-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.length === supports.length}
+                                                onChange={(e) =>
+                                                    setSelectedIds(e.target.checked ? supports.map((s) => s.id) : [])
+                                                }
+                                            />
+                                        </th>
+
+                                        <th className="px-2 py-1 text-center" title="Acciones">
+                                            <Wrench className="w-4 h-4 mx-auto text-gray-600" />
+                                        </th>
+                                    </>
                                 )}
 
 
 
-                                <th className="px-2 py-1">Ver más</th>
+                                <th className="px-2 py-1 text-center">
+                                    Detalle
+                                </th>
+
                                 <th className="px-2 py-1">Reporte</th>
                                 <th className="px-2 py-1">ID</th>
                                 <th className="px-2 py-1">Cliente</th>
@@ -159,8 +189,8 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Proyecto</th>
                                 <th className="px-2 py-1">Manzana</th>
                                 <th className="px-2 py-1">Lote</th>
-                                <th className="px-2 py-1">Prioridad</th>
-                                <th className="px-2 py-1">Estado ATC</th>
+                             
+                                <th className="px-2 py-1 w-25">Estado ATC</th>
                                 <th className="px-2 py-1">Estado Interno</th>
 
                                 <th className="px-2 py-1">Creación</th>
@@ -178,86 +208,90 @@ export default function SupportTable({
                                         className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
                                             }`}
                                     >
-                                        <td className="px-2 py-1">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.includes(support.id)}
-                                                onChange={(e) =>
-                                                    setSelectedIds((prev) =>
-                                                        e.target.checked
-                                                            ? [...prev, support.id]
-                                                            : prev.filter((id) => id !== support.id)
-                                                    )
-                                                }
-                                            />
-                                        </td>
 
                                         {canEdit && (
-                                            <td className="px-2 py-1 text-sm space-x-2">
-                                                {/* Botón Editar (si lo deseas habilitar en el futuro) */}
-
-                                                <button
-                                                    onClick={async () => {
-                                                        setEditingId(support.id);
-                                                        try {
-                                                            const response = await axios.get(`/supports/${support.id}`);
-                                                            const fullSupport = response.data; // Asegúrate que el backend retorne support + details
-
-                                                            // Aquí puedes abrir tu modal y pasarle el soporte completo
-                                                            // Por ejemplo:
-                                                            setSelectedSupportId(support.id);
-                                                            setEditSupport(fullSupport);
-                                                            setShowModal(true);
-
-                                                        } catch (error) {
-                                                            console.error('Error al cargar soporte:', error);
-                                                            toast.error('No se pudo cargar la atención');
-                                                        } finally {
-                                                            setEditingId(null);
+                                            <>
+                                                <td className="px-2 py-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(support.id)}
+                                                        onChange={(e) =>
+                                                            setSelectedIds((prev) =>
+                                                                e.target.checked
+                                                                    ? [...prev, support.id]
+                                                                    : prev.filter((id) => id !== support.id)
+                                                            )
                                                         }
-                                                    }}
-                                                    disabled={editingId === support.id}
-                                                    className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
-                                                >
-                                                    {editingId === support.id ? (
-                                                        <HourglassLoader />
-                                                    ) : (
-                                                        <>
-                                                            <Paintbrush className="w-4 h-4" />
-                                                        </>
-                                                    )}
-                                                </button>
+                                                    />
+                                                </td>
 
 
+                                                <td className="px-2 py-1 text-sm space-x-2">
+                                                    {/* Botón Editar (si lo deseas habilitar en el futuro) */}
 
-                                                {/* Botón Eliminar */}
-                                                <button
-                                                    onClick={async () => {
-                                                        if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
+                                                    <button
+                                                        onClick={async () => {
+                                                            setEditingId(support.id);
                                                             try {
-                                                                setDeletingId(support.id);
-                                                                await axios.delete(`/supports/${support.id}`);
-                                                                setSupports((prev) => prev.filter((s) => s.id !== support.id));
-                                                            } catch (e) {
-                                                                alert('Error al eliminar');
-                                                                console.error(e);
+                                                                const response = await axios.get(`/supports/${support.id}`);
+                                                                const fullSupport = response.data; // Asegúrate que el backend retorne support + details
+
+                                                                // Aquí puedes abrir tu modal y pasarle el soporte completo
+                                                                // Por ejemplo:
+                                                                setSelectedSupportId(support.id);
+                                                                setEditSupport(fullSupport);
+                                                                setShowModal(true);
+
+                                                            } catch (error) {
+                                                                console.error('Error al cargar soporte:', error);
+                                                                toast.error('No se pudo cargar la atención');
                                                             } finally {
-                                                                setDeletingId(null);
+                                                                setEditingId(null);
                                                             }
-                                                        }
-                                                    }}
-                                                    disabled={deletingId === support.id}
-                                                    className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
-                                                >
-                                                    {deletingId === support.id ? (
-                                                        <HourglassLoader />
-                                                    ) : (
-                                                        <>
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </td>
+                                                        }}
+                                                        disabled={editingId === support.id}
+                                                        className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
+                                                    >
+                                                        {editingId === support.id ? (
+                                                            <HourglassLoader />
+                                                        ) : (
+                                                            <>
+                                                                <Paintbrush className="w-4 h-4" />
+                                                            </>
+                                                        )}
+                                                    </button>
+
+
+
+                                                    {/* Botón Eliminar */}
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
+                                                                try {
+                                                                    setDeletingId(support.id);
+                                                                    await axios.delete(`/supports/${support.id}`);
+                                                                    setSupports((prev) => prev.filter((s) => s.id !== support.id));
+                                                                } catch (e) {
+                                                                    alert('Error al eliminar');
+                                                                    console.error(e);
+                                                                } finally {
+                                                                    setDeletingId(null);
+                                                                }
+                                                            }
+                                                        }}
+                                                        disabled={deletingId === support.id}
+                                                        className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
+                                                    >
+                                                        {deletingId === support.id ? (
+                                                            <HourglassLoader />
+                                                        ) : (
+                                                            <>
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            </>
                                         )}
 
 
@@ -267,7 +301,8 @@ export default function SupportTable({
                                                 onClick={() => toggleExpand(support.id)}
                                                 className="text-blue-600 underline text-sm"
                                             >
-                                                {expanded.includes(support.id) ? 'Ocultar' : 'Ver más'}
+
+                                                {expanded.includes(support.id) ? 'Ocultar' : <Search className="w-4 h-4 mx-auto text-blue-600" />}
                                             </button>
                                         </td>
 
@@ -276,7 +311,8 @@ export default function SupportTable({
                                                 href={`/reports/${support.id}`}
                                                 className="text-blue-600 underline hover:text-blue-800 text-sm"
                                             >
-                                                Ver
+                                                <Notebook className="w-4 h-4 text-red-600" />
+
                                             </Link>
                                         </td>
 
@@ -291,16 +327,34 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+                                     
 
 
 
                                         <td className="px-2 py-1">
-                                            {support.details[0]?.external_state?.description ?? (
-                                                <span className="text-red-500">⚠️ No cargado</span>
+                                            {support.details[0]?.external_state?.description ? (
+                                                <span
+                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
+                                                        support.details[0].external_state.description
+                                                    )}`}
+                                                >
+                                                    {support.details[0].external_state.description}
+                                                </span>
+                                            ) : (
+                                                <span className="text-red-500 text-xs">⚠️ No cargado</span>
                                             )}
                                         </td>
-                                        <td className="px-2 py-1">{support.details[0]?.internal_state?.description ?? '-'}</td>
+
+                                        <td className="px-2 py-1">
+                                            {support.details[0]?.internal_state?.description ? (
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].internal_state.description)}`}>
+                                                    {support.details[0].internal_state.description}
+                                                </span>
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </td>
+
 
                                         <td className="px-2 py-1">
                                             {support.created_at
@@ -314,7 +368,7 @@ export default function SupportTable({
                                                 }).replace(',', ' -')
                                                 : '—'}
                                         </td>
-                                            <td className="px-2 py-1">{support.status_global ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.status_global ?? '-'}</td>
                                     </tr>
 
                                     {/* Fila expandida (si aplica) */}
@@ -358,8 +412,30 @@ export default function SupportTable({
                                                                     <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
                                                                     {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}
-                                                                    <td className="px-2 py-1 border">{detail.internal_state?.description || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.external_state?.description || '-'}</td>
+                                                                    <td className="px-2 py-1 border">
+                                                                        {detail.internal_state?.description ? (
+                                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
+                                                                                {detail.internal_state.description}
+                                                                            </span>
+                                                                        ) : (
+                                                                            '-'
+                                                                        )}
+                                                                    </td>
+
+                                                                    <td className="px-2 py-1 border">
+                                                                        {detail.external_state?.description ? (
+                                                                            <span
+                                                                                className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
+                                                                                    detail.external_state.description
+                                                                                )}`}
+                                                                            >
+                                                                                {detail.external_state.description}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                                                        )}
+                                                                    </td>
+
                                                                     <td className="px-2 py-1 whitespace-nowrap">
                                                                         {detail.attachment && (
                                                                             <a
