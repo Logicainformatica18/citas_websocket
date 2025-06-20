@@ -370,6 +370,49 @@ class SupportController extends Controller
         // 6. Emitir evento
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
+        dispatch(function () use ($support) {
+            try {
+                Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
+
+                $atcUsers = User::role('ATC')->get();
+                Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
+
+                $supportLoaded = $support->load([
+                    'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
+                    'creator:id,firstname,lastname,names,email',
+                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                    'details.area:id_area,descripcion',
+                    'details.project:id_proyecto,descripcion',
+                    'details.motivoCita:id_motivos_cita,nombre_motivo',
+                    'details.tipoCita:id_tipo_cita,tipo',
+                    'details.diaEspera:id_dias_espera,dias',
+                    'details.internalState:id,description',
+                    'details.externalState:id,description',
+                    'details.supportType:id,description',
+                ]);
+
+                Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
+
+                Notification::send(
+                    array_merge(
+                        $atcUsers->all(), // usuarios notificables
+                        [
+                            Notification::route('mail', $supportLoaded->client->Email)
+                        ]
+                    ),
+                    new NewSupportAtcNotification($supportLoaded, 'created')
+                );
+
+
+                Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
+            } catch (\Throwable $e) {
+                Log::error('[ATC Notification] Error al enviar notificaciones:', [
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        });
+
         return response()->json([
             'message' => '✅ Ticket de soporte actualizado correctamente',
             'support' => $support->load([
@@ -421,12 +464,12 @@ class SupportController extends Controller
             'details',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
-            'details.motivoCita:id_motivos_cita,nombre_motivo as motivo_cita',
-            'details.tipoCita:id_tipo_cita,tipo as tipo_cita',
-            'details.diaEspera:id_dias_espera,dias as dia_espera',
-            'details.internalState:id,description as internal_state',
-            'details.externalState:id,description as external_state',
-            'details.supportType:id,description as supportType',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
         ])->findOrFail($id);
 
         return response()->json($support);

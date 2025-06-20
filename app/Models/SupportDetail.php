@@ -85,7 +85,7 @@ class SupportDetail extends Model
 
 public function externalState()
 {
-    return $this->belongsTo(\App\Models\ExternalState::class, 'external_state_id');
+    return $this->belongsTo( ExternalState::class, 'external_state_id');
 }
 
 

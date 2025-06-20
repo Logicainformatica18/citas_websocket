@@ -155,7 +155,7 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Celular</th>
                                 <th className="px-2 py-1">Email</th>
                                 <th className="px-2 py-1">Área</th>
-                                <th className="px-2 py-1">Asunto</th>
+                                {/* <th className="px-2 py-1">Asunto</th> */}
                                 <th className="px-2 py-1">Proyecto</th>
                                 <th className="px-2 py-1">Manzana</th>
                                 <th className="px-2 py-1">Lote</th>
@@ -285,9 +285,9 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.client?.telefono || '-'}</td>
                                         <td className="px-2 py-1">{support.client?.email || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
-                                        <td className="px-2 py-1 max-w-[150px] truncate">
+                                        {/* <td className="px-2 py-1 max-w-[150px] truncate">
                                             {support.details[0]?.subject ?? '-'}
-                                        </td>
+                                        </td> */}
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>

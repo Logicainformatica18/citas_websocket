@@ -58,31 +58,15 @@ const SupportModal = ({
     areas: any[];
 }) => {
     const [formData, setFormData] = useState<any>({
-        // subject: '',
-        // description: '',
-        // priority: 'Normal',
-        // type: 'Consulta',
-        // status: 'Pendiente',
+
         cellphone: '',
         dni: '',
         email: '',
         address: '',
         created_by: 1,
         client_id: 1,
-        // area_id: '',
-        // reservation_time: getNowPlusHours(0),
-        // attended_at: getNowPlusHours(1),
-        // derived: '',
-        // id_motivos_cita: '',
-        // id_tipo_cita: '',
-        // id_dia_espera: '',
-        // internal_state_id: '',
-        // external_state_id: '',
-        // type_id: '',
-        // project_id: '',
-        // Manzana: '',
-        // Lote: '',
-        status_global: 'Simple', // ✅ este es el que falta
+
+        status_global: 'Incompleto', // ✅ este es el que falta
 
     });
 
@@ -96,9 +80,10 @@ const SupportModal = ({
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
-const [details, setDetails] = useState<any[]>([]);
+    const [details, setDetails] = useState<any[]>([]);
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
+
     const [currentDetail, setCurrentDetail] = useState<any>({
         subject: '',
         description: '',
@@ -119,7 +104,14 @@ const [details, setDetails] = useState<any[]>([]);
         Manzana: '',
         Lote: '',
         attachment: null, // ✅ importante,
-        status_global: 'Incompleto', // ✅ este es el que falta
+        //   status_global: 'Incompleto', // ✅ este es el que falta
+        project: '',
+        area: '',
+        motivo_cita: '',
+        tipo_cita: '',
+        dia_espera: '',
+        internal_state: '',
+        external_state: '',
     });
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
@@ -178,6 +170,14 @@ const [details, setDetails] = useState<any[]>([]);
             ...Object.fromEntries(
                 numericFields.map((key) => [key, currentDetail[key] === '' ? null : Number(currentDetail[key])])
             ),
+            project: projects.find(p => p.id_proyecto === Number(currentDetail.project_id)) || null,
+            area: areas.find(a => a.id_area === Number(currentDetail.area_id)) || null,
+            motivo_cita: motives.find(m => m.id === Number(currentDetail.id_motivos_cita)) || null,
+            tipo_cita: appointmentTypes.find(t => t.id === Number(currentDetail.id_tipo_cita)) || null,
+            dia_espera: waitingDays.find(d => d.id === Number(currentDetail.id_dia_espera)) || null,
+            internal_state: internalStates.find(i => i.id === Number(currentDetail.internal_state_id)) || null,
+            external_state: externalStates.find(e => e.id === Number(currentDetail.external_state_id)) || null,
+            support_type: types.find(t => t.id === Number(currentDetail.type_id)) || null,
         };
 
         // Agregar a la lista de detalles
@@ -187,70 +187,70 @@ const [details, setDetails] = useState<any[]>([]);
         setCurrentDetail({
             subject: '',
             description: '',
-            priority: '',
+            // priority: '',
             type: '',
             status: '',
-            reservation_time: '',
-            attended_at: '',
+            reservation_time: getNowPlusHours(0),
+            attended_at: getNowPlusHours(1),
             derived: '',
             Manzana: '',
             Lote: '',
             project_id: '',
-            area_id: '',
+            // area_id: '',
             id_motivos_cita: '',
-            id_tipo_cita: '',
-            id_dia_espera: '',
-            internal_state_id: '',
-            external_state_id: '',
-            type_id: '',
+            // id_tipo_cita: '',
+            // id_dia_espera: '',
+            // internal_state_id: '',
+            // external_state_id: '',
+            // type_id: '',
         });
     };
 
 
 
- useEffect(() => {
-  if (!supportToEdit) return;
+    useEffect(() => {
+        if (!supportToEdit) return;
 
-  const { client, details, ...supportFields } = supportToEdit;
+        const { client, details, ...supportFields } = supportToEdit;
 
-  // Asegura datos base para inputs
-  const cleanedSupport = Object.fromEntries(
-    Object.entries(supportFields).map(([key, val]) => [
-      key,
-      val === null || typeof val === 'undefined' ? '' : val,
-    ])
-  );
+        // Asegura datos base para inputs
+        const cleanedSupport = Object.fromEntries(
+            Object.entries(supportFields).map(([key, val]) => [
+                key,
+                val === null || typeof val === 'undefined' ? '' : val,
+            ])
+        );
 
-  setFormData((prev: any) => ({
-    ...prev,
-    ...cleanedSupport,
-    client_id: client?.id_cliente ?? '',
-    dni: client?.dni ?? '',
-    cellphone: client?.Telefono ?? '',
-    email: client?.Email ?? '',
-    address: client?.Direccion ?? '',
-    status_global: supportToEdit.status_global || 'Simple',
+        setFormData((prev: any) => ({
+            ...prev,
+            ...cleanedSupport,
+            client_id: client?.id_cliente ?? '',
+            dni: client?.dni ?? '',
+            cellphone: client?.Telefono ?? '',
+            email: client?.Email ?? '',
+            address: client?.Direccion ?? '',
+            status_global: supportToEdit.status_global || 'Incompleto',
 
-  }));
+        }));
 
-  // Mostrar cliente si lo usas en búsqueda
-  if (client) {
-    setSelectedClient({
-      id: client.id_cliente,
-      names: client.Razon_Social,
-      dni: client.DNI,
-      cellphone: client.Telefono,
-      email: client.Email,
-      address: client.Direccion,
-    });
-    setClientQuery(client.Razon_Social);
-  }
+        // Mostrar cliente si lo usas en búsqueda
+        if (client) {
+            setSelectedClient({
+                id: client.id_cliente,
+                names: client.Razon_Social,
+                dni: client.DNI,
+                cellphone: client.Telefono,
+                email: client.Email,
+                address: client.Direccion,
+            });
+            setClientQuery(client.Razon_Social);
+        }
 
-  // Setear los detalles en la tabla
-  if (details && Array.isArray(details)) {
-    setSupportDetails(details);
-  }
-}, [supportToEdit]);
+        // Setear los detalles en la tabla
+        if (details && Array.isArray(details)) {
+            setSupportDetails(details);
+        }
+    }, [supportToEdit]);
 
 
 
@@ -425,6 +425,8 @@ const [details, setDetails] = useState<any[]>([]);
                         onChange={handleChange}
                         className="col-span-3 text-sm h-7 px-2 py-1 rounded-md"
                     >
+
+                        <option value="">Elija un Estado Global</option>
                         <option value="Incompleto">Incompleto</option>
                         <option value="Completo">Completo</option>
                     </select>
@@ -681,18 +683,18 @@ const [details, setDetails] = useState<any[]>([]);
 
 
 
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Reserva</Label>
-                                <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
-                            </div>
-                        )}
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Atendido</Label>
-                                <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
-                            </div>
-                        )}
+
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Reserva</Label>
+                            <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
+                        </div>
+
+
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Atendido</Label>
+                            <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
+                        </div>
+
 
 
                     </div>
@@ -741,10 +743,10 @@ const [details, setDetails] = useState<any[]>([]);
 
                                 <td className="border px-2">{detail.project?.descripcion}</td>
                                 <td className="border px-2">{detail.area?.descripcion}</td>
-                                <td className="border px-2">{detail.motivo_cita?.motivo_cita}</td>
+                                <td className="border px-2">{detail.motivo_cita?.nombre_motivo}</td>
                                 <td className="border px-2">{detail.priority}</td>
-                                <td className="border px-2">{detail.internal_state?.internal_state}</td>
-                                <td className="border px-2">{detail.external_state?.external_state}</td>
+                                <td className="border px-2">{detail.internal_state?.description}</td>
+                                <td className="border px-2">{detail.external_state?.description}</td>
                                 <td className="border px-2">
                                     <button
                                         onClick={() =>
