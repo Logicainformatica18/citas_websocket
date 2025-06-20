@@ -109,16 +109,17 @@ const [details, setDetails] = useState<any[]>([]);
         attended_at: getNowPlusHours(1),
         derived: '',
         project_id: '',
-        area_id: '',
+        area_id: '1',
         id_motivos_cita: '',
-        id_tipo_cita: '',
+        id_tipo_cita: '1',
         id_dia_espera: '',
-        internal_state_id: '',
-        external_state_id: '',
+        internal_state_id: '3',
+        external_state_id: '1',
         type_id: '',
         Manzana: '',
         Lote: '',
-        attachment: null // ✅ importante
+        attachment: null, // ✅ importante,
+        status_global: 'Incompleto', // ✅ este es el que falta
     });
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
@@ -126,30 +127,30 @@ const [details, setDetails] = useState<any[]>([]);
     };
 
 
-    const addDetail = () => {
-        setSupportDetails([...supportDetails, currentDetail]);
-        setCurrentDetail({
-            subject: '',
-            description: '',
-            priority: 'Normal',
-            type: 'Consulta',
-            status: 'Pendiente',
-            reservation_time: getNowPlusHours(0),
-            attended_at: getNowPlusHours(1),
-            derived: '',
-            project_id: '',
-            area_id: '',
-            id_motivos_cita: '',
-            id_tipo_cita: '',
-            id_dia_espera: '',
-            internal_state_id: '',
-            external_state_id: '',
-            type_id: '',
-            Manzana: '',
-            Lote: ''
-            
-        });
-    };
+    // const addDetail = () => {
+    //     setSupportDetails([...supportDetails, currentDetail]);
+    //     setCurrentDetail({
+    //         subject: '',
+    //         description: '',
+    //         priority: 'Normal',
+    //         type: 'Consulta',
+    //         status: 'Pendiente',
+    //         reservation_time: getNowPlusHours(0),
+    //         attended_at: getNowPlusHours(1),
+    //         derived: '',
+    //         project_id: '',
+    //         area_id: '',
+    //         id_motivos_cita: '',
+    //         id_tipo_cita: '',
+    //         id_dia_espera: '',
+    //         internal_state_id: '',
+    //         external_state_id: '',
+    //         type_id: '',
+    //         Manzana: '',
+    //         Lote: ''
+
+    //     });
+    // };
 
 
     const handleAddDetail = () => {
@@ -186,9 +187,9 @@ const [details, setDetails] = useState<any[]>([]);
         setCurrentDetail({
             subject: '',
             description: '',
-            priority: 'Normal',
-            type: 'Consulta',
-            status: 'Pendiente',
+            priority: '',
+            type: '',
+            status: '',
             reservation_time: '',
             attended_at: '',
             derived: '',
@@ -229,7 +230,7 @@ const [details, setDetails] = useState<any[]>([]);
     email: client?.Email ?? '',
     address: client?.Direccion ?? '',
     status_global: supportToEdit.status_global || 'Simple',
-   
+
   }));
 
   // Mostrar cliente si lo usas en búsqueda
@@ -722,7 +723,7 @@ const [details, setDetails] = useState<any[]>([]);
                         <tr className="bg-gray-200">
                             <th className="border px-2">#</th>
                             <th className="border px-2">Asunto</th>
-                           
+
                             <th className="border px-2">Proyecto</th>
                             <th className="border px-2">Area</th>
                             <th className="border px-2">Motivo Cita</th>
@@ -737,7 +738,7 @@ const [details, setDetails] = useState<any[]>([]);
                             <tr key={idx}>
                                 <td className="border px-2">{idx + 1}</td>
                                 <td className="border px-2">{detail.subject}</td>
-                              
+
                                 <td className="border px-2">{detail.project?.descripcion}</td>
                                 <td className="border px-2">{detail.area?.descripcion}</td>
                                 <td className="border px-2">{detail.motivo_cita?.motivo_cita}</td>

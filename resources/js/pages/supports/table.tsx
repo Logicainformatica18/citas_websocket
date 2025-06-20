@@ -338,7 +338,7 @@ export default function SupportTable({
                                                                 <th className="px-2 py-1 border">Proyecto</th>
                                                                 <th className="px-2 py-1 border">Motivo</th>
                                                                 <th className="px-2 py-1 border">Tipo Cita</th>
-                                                        
+
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
                                                                 <th className="px-2 py-1 border">Estado ATC</th>
                                                                 <th className="px-2 py-1 border">Adjunto</th>

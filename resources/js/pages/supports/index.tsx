@@ -45,7 +45,7 @@ type Support = {
   status_global: string;
   created_at?: string;
   updated_at?: string;
-  client?: { Razon_Social: string };
+  client?: { Razon_Social: string; telefono: string; email: string; };
   creator?: { names: string };
   details: SupportDetail[];
 };
@@ -89,7 +89,7 @@ export default function Supports() {
     types: Option[];
     projects: Option[];
     areas: { id_area: number; descripcion: string }[]; // 👈 más específico
-    
+
   }>().props;
 
 
@@ -205,7 +205,7 @@ const toggleExpand = (id: number) => {
   setSelectedSupportId={setSelectedSupportId}
   areas={areas}
   motives={motives}
-  
+
   highlightedIds={highlightedIds}
   expanded={expanded}
   toggleExpand={toggleExpand}
@@ -243,7 +243,7 @@ const toggleExpand = (id: number) => {
           areas={areas}
           motives={motives}
             internalStates={internalStates}
-            
+
         />
       )}
 
