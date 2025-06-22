@@ -190,13 +190,12 @@ class SupportController extends Controller
         }
 
 
+      $support->load([
+            'client:id_cliente,Razon_Social,telefono,email,direccion',
+            'creator:id,firstname,lastname,names',
 
-
-        // 🔁 Cargar todas las relaciones necesarias (una sola vez)
-        $support->load([
-            'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
-            'creator:id,firstname,lastname,names,email',
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -206,6 +205,8 @@ class SupportController extends Controller
             'details.externalState:id,description',
             'details.supportType:id,description',
         ]);
+
+
 
         // 🔊 Emitir evento por WebSocket (con relaciones ya cargadas)
         broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();

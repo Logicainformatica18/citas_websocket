@@ -164,19 +164,29 @@ const SupportModal = ({
             'type_id',
         ];
 
-        // Convertir string vacío a null en los campos numéricos
+        // Valores por defecto
+        const defaultArea = { id_area: 1, descripcion: 'ATC' };
+        const areaId = currentDetail.area_id === '' ? 1 : Number(currentDetail.area_id);
+        const internalStateId = currentDetail.internal_state_id === '' ? 3 : Number(currentDetail.internal_state_id);
+        const externalStateId = currentDetail.external_state_id === '' ? 1 : Number(currentDetail.external_state_id);
+
         const sanitizedDetail = {
             ...currentDetail,
             ...Object.fromEntries(
-                numericFields.map((key) => [key, currentDetail[key] === '' ? null : Number(currentDetail[key])])
+                numericFields.map((key) => [
+                    key,
+                    currentDetail[key] === '' ? null : Number(currentDetail[key])
+                ])
             ),
             project: projects.find(p => p.id_proyecto === Number(currentDetail.project_id)) || null,
-            area: areas.find(a => a.id_area === Number(currentDetail.area_id)) || null,
+            area: areas.find(a => a.id_area === areaId) || defaultArea,
             motivo_cita: motives.find(m => m.id === Number(currentDetail.id_motivos_cita)) || null,
             tipo_cita: appointmentTypes.find(t => t.id === Number(currentDetail.id_tipo_cita)) || null,
             dia_espera: waitingDays.find(d => d.id === Number(currentDetail.id_dia_espera)) || null,
-            internal_state: internalStates.find(i => i.id === Number(currentDetail.internal_state_id)) || null,
-            external_state: externalStates.find(e => e.id === Number(currentDetail.external_state_id)) || null,
+            internal_state: internalStates.find(i => i.id === internalStateId) || { id: 3, description: 'Pendiente' },
+            external_state: externalStates.find(e => e.id === externalStateId) || { id: 1, description: 'Por Asignar' },
+            priority: currentDetail.priority?.trim() || 'Normal',
+
             support_type: types.find(t => t.id === Number(currentDetail.type_id)) || null,
         };
 
@@ -187,7 +197,6 @@ const SupportModal = ({
         setCurrentDetail({
             subject: '',
             description: '',
-            // priority: '',
             type: '',
             status: '',
             reservation_time: getNowPlusHours(0),
@@ -196,15 +205,16 @@ const SupportModal = ({
             Manzana: '',
             Lote: '',
             project_id: '',
-            // area_id: '',
+            area_id: '', // ahora lo vacías pero ya sabes que si está vacío luego usará el valor por defecto (ATC)
             id_motivos_cita: '',
-            // id_tipo_cita: '',
-            // id_dia_espera: '',
-            // internal_state_id: '',
-            // external_state_id: '',
-            // type_id: '',
+            id_tipo_cita: '',
+            id_dia_espera: '',
+            internal_state_id: '',
+            external_state_id: '',
+            type_id: '',
         });
     };
+
 
 
 
@@ -293,9 +303,31 @@ const SupportModal = ({
                 }
             });
 
-            // 4. Eliminar los archivos del JSON antes de enviarlo
-            const cleanedDetails = supportDetails.map(({ attachment, ...rest }) => rest);
+            const cleanedDetails = supportDetails.map((detail) => ({
+                subject: detail.subject,
+                description: detail.description,
+                priority: detail.priority?.trim() || 'Normal',
+                type: detail.type || 'Consulta',
+                status: detail.status || 'Pendiente',
+                reservation_time: detail.reservation_time,
+                attended_at: detail.attended_at,
+                derived: detail.derived || '',
+
+                // Relaciones como IDs
+                project_id: detail.project?.id_proyecto ?? null,
+                area_id: detail.area?.id_area ?? 1,
+                id_motivos_cita: detail.motivo_cita?.id ?? null,
+                id_tipo_cita: detail.tipo_cita?.id ?? 1,
+                id_dia_espera: detail.dia_espera?.id ?? null,
+                internal_state_id: detail.internal_state?.id ?? 3,
+                external_state_id: detail.external_state?.id ?? 1,
+                type_id: detail.support_type?.id ?? null,
+
+                Manzana: detail.Manzana ?? '',
+                Lote: detail.Lote ?? '',
+            }));
             data.append('details', JSON.stringify(cleanedDetails));
+
 
             // 5. URL y método
             const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
