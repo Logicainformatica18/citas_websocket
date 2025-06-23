@@ -9,6 +9,7 @@ use App\Models\Motive;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\AppointmentType;
+use App\Models\SupportDetail;
 use App\Models\WaitingDay;
 use App\Models\InternalState;
 use App\Models\ExternalState;
@@ -87,27 +88,7 @@ class SupportController extends Controller
 
 
 
-    public function updateAreaMotivo(Request $request, $id)
-    {
-        $request->validate([
-            'area_id' => 'nullable|exists:areas,id_area',
-            'id_motivos_cita' => 'nullable|exists:motivos_cita,id_motivos_cita',
-        ]);
 
-        $support = Support::with(['area', 'client', 'project', 'externalState', 'internalState'])->findOrFail($id); // 👈 incluye relaciones necesarias
-
-        $support->area_id = $request->area_id;
-        $support->id_motivos_cita = $request->id_motivos_cita;
-        $support->save();
-
-        // Volver a cargar relaciones actualizadas
-        $support->load(['area', 'client', 'project', 'externalState', 'internalState']);
-
-        // Emitir el evento con los datos como array
-        broadcast(new RecordChanged('Support', 'updated', $support->toArray())); // 👈 aquí convertimos el modelo a array
-
-        return response()->json(['message' => 'Actualizado correctamente', 'support' => $support]);
-    }
 
 
     public function fetchPaginated()

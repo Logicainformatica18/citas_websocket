@@ -98,6 +98,8 @@ export default function Supports() {
   const [showModal, setShowModal] = useState(false);
   const [editSupport, setEditSupport] = useState<Support | null>(null);
   const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+  const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
+
   const [showAreaModal, setShowAreaModal] = useState(false);
   const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
 const [expanded, setExpanded] = useState<number[]>([]);
@@ -195,23 +197,25 @@ const toggleExpand = (id: number) => {
         >Exportar Todo</button>
 
 
-      <SupportTable
+<SupportTable
   supports={supports}
   setSupports={setSupports}
   pagination={pagination}
   fetchPage={fetchPage}
   fetchSupport={fetchSupport}
-  setShowAreaModal={setShowAreaModal}
-  setSelectedSupportId={setSelectedSupportId}
   areas={areas}
   motives={motives}
-
+  internalStates={internalStates}
   highlightedIds={highlightedIds}
   expanded={expanded}
   toggleExpand={toggleExpand}
-    setEditSupport={setEditSupport}
+  setEditSupport={setEditSupport}
   setShowModal={setShowModal}
+  setSelectedSupportId={setSelectedSupportId} // 👈
+  setSupportDetailToEdit={setSupportDetailToEdit} // 👈
+  setShowAreaModal={setShowAreaModal} // 👈
 />
+
 
 
       </div>
@@ -235,17 +239,24 @@ const toggleExpand = (id: number) => {
           areas={areas}
         />
       )}
-      {showAreaModal && selectedSupportId !== null && (
-        <AreaModal
-          open={showAreaModal}
-          onClose={() => setShowAreaModal(false)}
-          supportId={selectedSupportId}
-          areas={areas}
-          motives={motives}
-            internalStates={internalStates}
+{showAreaModal && (
+<AreaModal
+  open={showAreaModal}
+  onClose={() => setShowAreaModal(false)}
+  supportId={selectedSupportId}
+  detail={supportDetailToEdit} // ✅ esta es la prop correcta
+  areas={areas}
+  motives={motives}
+  internalStates={internalStates}
+  onUpdated={(updatedDetail) => {
+    // lógica si deseas actualizar el state
+  }}
+/>
 
-        />
-      )}
+)}
+
+
+
 
 
 

@@ -42,11 +42,21 @@ const search = async (q: string) => {
 };
 
 
- useEffect(() => {
+const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+useEffect(() => {
   if (typeof query === 'string' && (!internalSelectedClient || query !== internalSelectedClient.names)) {
-    search(query);
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+    debounceTimeout.current = setTimeout(() => {
+      search(query);
+    }, 600); // ⏱️ Espera 500ms después de que el usuario deja de escribir
   }
+  return () => {
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+  };
 }, [query]);
+
 
 
   // ⬇️ Este hook sincroniza el cliente al editar

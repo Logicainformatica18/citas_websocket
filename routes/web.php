@@ -29,7 +29,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
  Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Route::get('dashboard', function () {
@@ -112,8 +112,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/supports/{id}', [SupportController::class, 'destroy']);
     Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
 
-Route::put('/supports/{id}/area-motivo', [SupportController::class, 'updateAreaMotivo']);
-
+Route::put('/support-details/{id}/area-motivo', [SupportDetailController::class, 'updateAreaMotivo']);
 
 
 
@@ -249,7 +248,6 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
     Route::get('/reports/{id}', [ReportController::class, 'show'])->name('reports.show');
 
 
-Route::delete('/support-details/{id}', [SupportDetailController::class, 'destroy']);
 
 
 

@@ -58,8 +58,8 @@ interface Props {
     pagination: Pagination<Support>;
     fetchPage: (url: string) => Promise<void>;
     fetchSupport: (id: number) => Promise<void>;
-    setShowAreaModal: React.Dispatch<React.SetStateAction<boolean>>;
-    setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>;
+    // setShowAreaModal: React.Dispatch<React.SetStateAction<boolean>>;
+    // setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>;
     areas: Array<{ id_area: number; descripcion: string }>;
     motives: Array<{ id: number; nombre_motivo: string }>;
     internalStates: Array<{ id: number; description: string }>; // ✅ AÑADIR ESTO
@@ -68,6 +68,10 @@ interface Props {
     toggleExpand: (id: number) => void;
     setEditSupport: React.Dispatch<React.SetStateAction<Support | null>>;
     setShowModal: React.Dispatch<React.SetStateAction<boolean>>;
+
+ setSelectedSupportId: (id: number) => void;
+  setSupportDetailToEdit: (detail: SupportDetail) => void;
+  setShowAreaModal: (show: boolean) => void;
 
 }
 
@@ -92,6 +96,8 @@ export default function SupportTable({
     toggleExpand,
     setEditSupport,
     setShowModal,
+
+
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -189,7 +195,7 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Proyecto</th>
                                 <th className="px-2 py-1">Manzana</th>
                                 <th className="px-2 py-1">Lote</th>
-                             
+
                                 <th className="px-2 py-1 w-25">Estado ATC</th>
                                 <th className="px-2 py-1">Estado Interno</th>
 
@@ -327,7 +333,7 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-                                     
+
 
 
 
@@ -464,16 +470,16 @@ export default function SupportTable({
                                                                         </button>
                                                                         {canEdit && (
 
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setSelectedSupportId(support.id);
-                                                                                    setSupportDetailToEdit(detail); // 👈 Nuevo estado
-                                                                                    setShowAreaModal(true);
-                                                                                }}
-                                                                                className="text-blue-600 ml-5 text-sm underline hover:text-blue-800 transition"
-                                                                            >
-                                                                                Área/Motivo
-                                                                            </button>
+                                                                          <button
+  onClick={() => {
+    setSelectedSupportId(support.id);
+    setSupportDetailToEdit(detail); // 👈 Este es CLAVE
+    setShowAreaModal(true);         // 👈 Este también
+  }}
+>
+  Área/Motivo
+</button>
+
 
 
                                                                         )}
