@@ -100,7 +100,7 @@ export default function SupportTable({
     toggleExpand,
     setEditSupport,
     setShowModal,
-setSelectedDetailSupportId
+    setSelectedDetailSupportId
 
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -168,6 +168,33 @@ setSelectedDetailSupportId
                     <table className="min-w-[1200px] text-sm divide-y divide-gray-200 bg-white dark:bg-black shadow-md rounded">
                         <thead className="bg-gray-100 dark:bg-gray-800">
                             <tr>
+
+
+
+
+
+
+
+                                <th className="px-2 py-1">TICKET</th>
+                                <th className="px-2 py-1">Cliente</th>
+                                <th className="px-2 py-1">Solicitud</th>
+
+                                {/* <th className="px-2 py-1">Asunto</th> */}
+                                <th className="px-2 py-1">Proyecto</th>
+                                <th className="px-2 py-1">Manzana</th>
+                                <th className="px-2 py-1">Lote</th>
+
+                                <th className="px-2 py-1 w-25">Estado de Atención</th>
+                                <th className="px-2 py-1">Área Responsable</th>
+                                <th className="px-2 py-1">Estado Interno</th>
+
+                                <th className="px-2 py-1">Creación</th>
+                                <th className="px-2 py-1">Estado Global</th>
+                                <th className="px-2 py-1">Prioridad</th>
+                                <th className="px-2 py-1">Reporte</th>
+                                <th className="px-2 py-1 text-center">
+                                    Detalle
+                                </th>
                                 {canEdit && (
                                     <>
                                         <th className="px-2 py-1">
@@ -186,28 +213,6 @@ setSelectedDetailSupportId
                                     </>
                                 )}
 
-
-
-                                <th className="px-2 py-1 text-center">
-                                    Detalle
-                                </th>
-
-                                <th className="px-2 py-1">Reporte</th>
-                                <th className="px-2 py-1">ID</th>
-                                <th className="px-2 py-1">Cliente</th>
-                                <th className="px-2 py-1">Celular</th>
-                                <th className="px-2 py-1">Email</th>
-                                <th className="px-2 py-1">Área</th>
-                                {/* <th className="px-2 py-1">Asunto</th> */}
-                                <th className="px-2 py-1">Proyecto</th>
-                                <th className="px-2 py-1">Manzana</th>
-                                <th className="px-2 py-1">Lote</th>
-
-                                <th className="px-2 py-1 w-25">Estado ATC</th>
-                                <th className="px-2 py-1">Estado Interno</th>
-
-                                <th className="px-2 py-1">Creación</th>
-                                <th className="px-2 py-1">Estado Global</th>
                             </tr>
                         </thead>
 
@@ -222,6 +227,79 @@ setSelectedDetailSupportId
                                             }`}
                                     >
 
+                                        <td className="px-2 py-1">Ticket-{String(support.details[0]?.id).padStart(5, '0')}</td>
+                                        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
+
+                                        {/* <td className="px-2 py-1 max-w-[150px] truncate">
+                                            {support.details[0]?.subject ?? '-'}
+                                            </td> */}
+                                        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
+
+
+
+
+
+                                        <td className="px-2 py-1">
+                                            {support.details[0]?.external_state?.description ? (
+                                                <span
+                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
+                                                        support.details[0].external_state.description
+                                                    )}`}
+                                                >
+                                                    {support.details[0].external_state.description}
+                                                </span>
+                                            ) : (
+                                                <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                            )}
+                                        </td>
+                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
+                                        <td className="px-2 py-1">
+                                            {support.details[0]?.internal_state?.description ? (
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].internal_state.description)}`}>
+                                                    {support.details[0].internal_state.description}
+                                                </span>
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </td>
+
+
+                                        <td className="px-2 py-1">
+                                            {support.created_at
+                                                ? new Date(support.created_at).toLocaleString('es-PE', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                    hour12: false,
+                                                }).replace(',', ' -')
+                                                : '—'}
+                                        </td>
+
+                                        <td className="px-2 py-1">{support.status_global ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+                                        <td className="px-2 py-1">
+                                            <Link
+                                                href={`/reports/${support.id}`}
+                                                className="text-blue-600 underline hover:text-blue-800 text-sm"
+                                            >
+                                                <Notebook className="w-4 h-4 text-red-600" />
+
+                                            </Link>
+                                        </td>
+                                        <td className="px-2 py-1">
+                                            <button
+                                                onClick={() => toggleExpand(support.id)}
+                                                className="text-blue-600 underline text-sm"
+                                            >
+
+                                                {expanded.includes(support.id) ? 'Ocultar' : <Search className="w-4 h-4 mx-auto text-blue-600" />}
+                                            </button>
+                                        </td>
                                         {canEdit && (
                                             <>
                                                 <td className="px-2 py-1">
@@ -306,82 +384,6 @@ setSelectedDetailSupportId
                                                 </td>
                                             </>
                                         )}
-
-
-
-                                        <td className="px-2 py-1">
-                                            <button
-                                                onClick={() => toggleExpand(support.id)}
-                                                className="text-blue-600 underline text-sm"
-                                            >
-
-                                                {expanded.includes(support.id) ? 'Ocultar' : <Search className="w-4 h-4 mx-auto text-blue-600" />}
-                                            </button>
-                                        </td>
-
-                                        <td className="px-2 py-1">
-                                            <Link
-                                                href={`/reports/${support.id}`}
-                                                className="text-blue-600 underline hover:text-blue-800 text-sm"
-                                            >
-                                                <Notebook className="w-4 h-4 text-red-600" />
-
-                                            </Link>
-                                        </td>
-
-                                        <td className="px-2 py-1">Ticket-{String(support.id).padStart(5, '0')}</td>
-                                        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
-                                        <td className="px-2 py-1">{support.client?.telefono || '-'}</td>
-                                        <td className="px-2 py-1">{support.client?.email || '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
-                                        {/* <td className="px-2 py-1 max-w-[150px] truncate">
-                                            {support.details[0]?.subject ?? '-'}
-                                        </td> */}
-                                        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-
-
-
-
-                                        <td className="px-2 py-1">
-                                            {support.details[0]?.external_state?.description ? (
-                                                <span
-                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
-                                                        support.details[0].external_state.description
-                                                    )}`}
-                                                >
-                                                    {support.details[0].external_state.description}
-                                                </span>
-                                            ) : (
-                                                <span className="text-red-500 text-xs">⚠️ No cargado</span>
-                                            )}
-                                        </td>
-
-                                        <td className="px-2 py-1">
-                                            {support.details[0]?.internal_state?.description ? (
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].internal_state.description)}`}>
-                                                    {support.details[0].internal_state.description}
-                                                </span>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </td>
-
-
-                                        <td className="px-2 py-1">
-                                            {support.created_at
-                                                ? new Date(support.created_at).toLocaleString('es-PE', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                    hour12: false,
-                                                }).replace(',', ' -')
-                                                : '—'}
-                                        </td>
-                                        <td className="px-2 py-1">{support.status_global ?? '-'}</td>
                                     </tr>
 
                                     {/* Fila expandida (si aplica) */}
@@ -390,19 +392,21 @@ setSelectedDetailSupportId
                                             <td colSpan={16}>
                                                 <div className="p-3 text-sm">
                                                     <strong className="block mb-2 text-gray-700 dark:text-gray-200">
-                                                        Detalles adicionales:
+                                                        Más Solicitudes:
                                                     </strong>
 
                                                     <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
                                                         <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
                                                             <tr>
-                                                                <th className="px-2 py-1 border">#</th>
-                                                                <th className="px-2 py-1 border">Asunto</th>
-
-                                                                <th className="px-2 py-1 border">Estado</th>
-                                                                <th className="px-2 py-1 border">Prioridad</th>
-                                                                <th className="px-2 py-1 border">Área</th>
+                                                                <th className="px-2 py-1 border">Ticket</th>
+                                                                <th className="px-2 py-1 border">Solicitud</th>
                                                                 <th className="px-2 py-1 border">Proyecto</th>
+                                                                <th className="px-2 py-1 border">Manzana</th>
+                                                                <th className="px-2 py-1 border">Lote</th>
+                                                                <th className="px-2 py-1 border">Estado de Atención</th>
+                                                                <th className="px-2 py-1 border">Prioridad</th>
+                                                                <th className="px-2 py-1 border">Área Responsable</th>
+
                                                                 <th className="px-2 py-1 border">Motivo</th>
                                                                 <th className="px-2 py-1 border">Tipo Cita</th>
 
@@ -413,15 +417,19 @@ setSelectedDetailSupportId
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {support.details.map((detail, index) => (
+                                                            {support.details.slice(1).map((detail, index) => (
                                                                 <tr key={detail.id} className="border-t dark:border-gray-600">
-                                                                    <td className="px-2 py-1 border">{index + 1}</td>
+                                                                    <td className="px-2 py-1 border">Ticket-{String(detail.id + 1).padStart(5, '0')}</td>
+                                                                    {/* <td className="px-2 py-1">Ticket-{String(support.details[0]?.id).padStart(5, '0')}</td> */}
+
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>
+                                                                    <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.Lote || '-'}</td>
 
                                                                     <td className="px-2 py-1 border">{detail.status}</td>
                                                                     <td className="px-2 py-1 border">{detail.priority}</td>
                                                                     <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
                                                                     {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}

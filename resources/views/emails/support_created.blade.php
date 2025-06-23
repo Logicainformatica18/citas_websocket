@@ -34,7 +34,7 @@
 <body>
 
 <div class="title">
-    {{ $action === 'updated' ? 'Atención Actualizado' : 'Nuevo Atención Registrado' }}
+    {{ $action === 'updated' ? 'Solicitud Actualizado' : 'Nuevo Solicitud Registrado' }}
 </div>
 
 <p>
@@ -59,11 +59,11 @@
     <tr><th>Email:</th><td>{{ $support->creator->email ?? '-' }}</td></tr>
 </table>
 
-<h3 class="section-title">Detalles de Atención</h3>
+<h3 class="section-title">Detalles de Solicitud</h3>
 
 @forelse($support->details as $detail)
     <div class="detail-block">
-        <div class="sub-title">Atención: #0{{ $loop->iteration }}</div>
+        <div class="sub-title">Solicitud: #0{{ $loop->iteration }}</div>
         <table>
             <tr><th>Asunto:</th><td>{{ $detail->subject ?? '-' }}</td></tr>
             <tr><th>Descripción:</th><td>{{ $detail->description ?? '-' }}</td></tr>
@@ -75,11 +75,11 @@
             <tr><th>Motivo:</th><td>{{ $detail->motivoCita->nombre_motivo ?? '-' }}</td></tr>
             {{-- <tr><th>Tipo de Cita:</th><td>{{ $detail->tipoCita->tipo ?? '-' }}</td></tr> --}}
             {{-- <tr><th>Día de Espera:</th><td>{{ $detail->diaEspera->dias ?? '-' }}</td></tr> --}}
-            <tr><th>Estado de Atención</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
+            <tr><th>Estado de Solicitud</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
             <tr><th>Estado Global</th><td>{{ $support->status_global ?? '-' }}</td></tr>
 
             <tr><th>Estado ATC:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr>
-            {{-- <tr><th>Tipo de Atención:</th><td>{{ $detail->supportType->description ?? '-' }}</td></tr> --}}
+            {{-- <tr><th>Tipo de Solicitud:</th><td>{{ $detail->supportType->description ?? '-' }}</td></tr> --}}
             <tr><th>Reservado:</th><td>{{ $detail->reservation_time ?? '-' }}</td></tr>
             <tr><th>Atendido:</th><td>{{ $detail->attended_at ?? '-' }}</td></tr>
             <tr><th>Manzana:</th><td>{{ $detail->Manzana ?? '-' }}</td></tr>

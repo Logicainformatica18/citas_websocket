@@ -353,7 +353,7 @@ const SupportModal = ({
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
             <DialogContent className="sm:max-w-6xl h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{supportToEdit ? 'Editar Atención' : 'Nuevo Registro'}</DialogTitle>
+                    <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
 
                 <div className="rounded-md bg-gray-100 dark:bg-gray-800 p-4 space-y-4">
@@ -469,7 +469,7 @@ const SupportModal = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Detalle de Atención
+                        Detalle de Solicitud
                     </div>
 
                     <div className="grid grid-cols-1">

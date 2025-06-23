@@ -13,7 +13,7 @@ import AreaModal from './AreaModal';
 
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Atenciones', href: '/supports' },
+    { title: 'Solicitudes', href: '/supports' },
 ];
 
 type SupportDetail = {
@@ -182,7 +182,7 @@ const [showAreaModal, setShowAreaModal] = useState(false);
         window.open(route('supports.export'), '_blank');
     };
 
- 
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="flex justify-end items-center gap-4">
@@ -190,7 +190,7 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                 {/* otros elementos como el usuario */}
             </div>
             <div className="p-8">
-                <h1 className="text-2xl font-bold mb-4">Listado de Atenciones</h1>
+                <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
 
                 <button
                     onClick={() => {

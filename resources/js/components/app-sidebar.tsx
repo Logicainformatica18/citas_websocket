@@ -60,7 +60,7 @@ export function AppSidebar() {
   const isReserva = has('reserva');
   const isATC = has('atc');
 
-const allGroupTitles = ['Admin', 'Gestión', 'Parámetros', 'Atención'];
+const allGroupTitles = ['Admin', 'Gestión', 'Parámetros', 'Solicitud'];
 
 const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
   Object.fromEntries(allGroupTitles.map((title) => [title, true]))
@@ -105,10 +105,10 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
       ],
     },
     {
-      title: 'Atención',
+      title: 'Solicitud',
       show: isAdmin || isATC || isReserva,
       items: [
-        { title: 'Atenciones', href: '/supports', icon: Headphones },
+        { title: 'Solicitudes', href: '/supports', icon: Headphones },
       ],
     },
   ];

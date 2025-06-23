@@ -8,7 +8,7 @@ import { Paintbrush, Trash2 } from 'lucide-react';
 import ExternalStateModal from './modal';
 
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Estado de Atención', href: '/external-states' },
+  { title: 'Estado de Solicitud', href: '/external-states' },
 ];
 
 type ExternalState = {
@@ -54,7 +54,7 @@ export default function ExternalStates() {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Estado de Atención</h1>
+        <h1 className="text-2xl font-bold mb-4">Estado de Solicitud</h1>
         <div className="flex flex-wrap gap-2 mb-4">
           <button onClick={() => { setEditItem(null); setShowModal(true); }} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Nuevo</button>
           {selectedIds.length > 0 && (

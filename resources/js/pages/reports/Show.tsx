@@ -40,7 +40,7 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
             </div>
 
             {/* ✅ Título */}
-            <h1 className="text-2xl font-bold">Reporte de Atención #{support.id}</h1>
+            <h1 className="text-2xl font-bold">Reporte de Solicitud #{support.id}</h1>
 
             {/* ✅ Datos del Cliente */}
             <div className="border rounded p-4 space-y-2">
@@ -59,7 +59,7 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
                 key={detail.id}
                 className="border p-6 space-y-4 bg-white shadow mb-6 break-before-page print:shadow-none print:mb-0"
               >
-                <h2 className="text-xl font-bold mb-2">Atención 0{index + 1}</h2>
+                <h2 className="text-xl font-bold mb-2">Solicitud 0{index + 1}</h2>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div><strong>Asunto:</strong> {detail.subject}</div>
@@ -73,7 +73,7 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
                   <div><strong>Día de Espera:</strong> {detail.dia_espera?.dias || '-'}</div>
                   <div><strong>Estado Interno:</strong> {detail.internal_state?.description || '-'}</div>
                   <div><strong>Estado Externo:</strong> {detail.external_state?.description || '-'}</div>
-                  <div><strong>Tipo de Atención:</strong> {detail.support_type?.description || '-'}</div>
+                  <div><strong>Tipo de Solicitud:</strong> {detail.support_type?.description || '-'}</div>
                   <div><strong>Fecha de Reserva:</strong> {detail.reservation_time ?? '-'}</div>
                   <div><strong>Derivado:</strong> {detail.derived ?? '-'}</div>
                   <div><strong>Manzana:</strong> {detail.Manzana ?? '-'}</div>
