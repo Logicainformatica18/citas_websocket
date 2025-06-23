@@ -15,7 +15,7 @@ import React from 'react';
 interface AreaModalProps {
     open: boolean;
     onClose: () => void;
-    supportId: number;
+    supportDetailId: number | null;
     detail: {
         id: number;
         area?: { id_area: number };
@@ -25,13 +25,13 @@ interface AreaModalProps {
     areas: { id_area: number; descripcion: string }[];
     motives: { id: number; nombre_motivo: string }[];
     internalStates: { id: number; description: string }[];
-    onUpdated: (updatedDetail: any) => void;
+    onUpdated: (supportId: number) => void;
 }
 
 export default function AreaModal({
     open,
     onClose,
-    supportId,
+    supportDetailId,
     detail,
     areas,
     motives,
@@ -44,7 +44,6 @@ export default function AreaModal({
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-          console.log('🧪 ID del detalle recibido:', detail?.id);
         if (detail) {
             setSelectedArea(detail.area?.id_area || '');
             setSelectedMotive(detail.motivo_cita?.id || '');
@@ -53,7 +52,7 @@ export default function AreaModal({
     }, [detail]);
 
     const handleSave = async () => {
-        if (!detail?.id) {
+        if (!supportDetailId) {
             toast.error('No se encontró el ID del detalle');
             return;
         }
@@ -65,15 +64,19 @@ export default function AreaModal({
 
         setLoading(true);
         try {
-            const response = await axios.put(`/support-details/${detail.id}/area-motivo`, {
-                support_id: supportId,
+            const response = await axios.put(`/support-details/${supportDetailId}/area-motivo`, {
                 area_id: selectedArea,
                 id_motivos_cita: selectedMotive,
                 internal_state_id: selectedInternalState,
             });
 
             toast.success('Detalle actualizado correctamente ✅');
-            onUpdated(response.data);
+
+            // 🔁 Obtener el support_id del backend
+            const supportId = response.data.support_id;
+
+            // 🔄 Notificar al padre para hacer fetchSupport(supportId)
+            onUpdated(supportId);
             onClose();
         } catch (error) {
             console.error(error);
@@ -88,16 +91,12 @@ export default function AreaModal({
             <DialogContent className="sm:max-w-md bg-white z-[9999] border shadow-xl">
                 <DialogHeader>
                     <DialogTitle>
-                        Editar Área, Motivo y Estado Interno{' '}
-                        {detail?.id ? `- ID: ${detail.id}` : ''}
-
+                        Editar Área, Motivo y Estado Interno
+                        {supportDetailId !== null && ` - Detalle ID: ${supportDetailId}`}
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    {/* ⚠️ Indicador temporal para verificar render */}
-                    <div className="text-sm text-blue-600">El modal está visible (debug)</div>
-
                     <div>
                         <Label className="block mb-1">Área</Label>
                         <select

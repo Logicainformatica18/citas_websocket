@@ -71,28 +71,123 @@ class SupportDetailController extends Controller
 
     public function updateAreaMotivo(Request $request, $id)
     {
+        // (Opcional) Validación, puedes reactivarla si quieres control:
         // $request->validate([
         //     'area_id' => 'nullable|exists:areas,id_area',
         //     'id_motivos_cita' => 'nullable|exists:motivos_cita,id_motivos_cita',
+        //     'internal_state_id' => 'nullable|exists:internal_states,id',
         // ]);
 
-        $support_detail = SupportDetail::with(['area', 'project', 'externalState', 'internalState'])->findOrFail($id); // 👈 incluye relaciones necesarias
+        // 🔍 Buscar el detalle con relaciones
+        $support_detail = SupportDetail::with([
+            'area',
+            'project',
+            'externalState',
+            'internalState'
+        ])->findOrFail($id);
 
+        // ✏️ Actualizar campos
         $support_detail->area_id = $request->area_id;
         $support_detail->id_motivos_cita = $request->id_motivos_cita;
-
+        $support_detail->internal_state_id = $request->internal_state_id;
 
         $support_detail->save();
 
-        // Volver a cargar relaciones actualizadas
-        $support_detail->load(['area', 'client', 'project', 'externalState', 'internalState']);
-        $support= Support::find( $support_detail->support_id); // Obtener el soporte asociado
+        // 🔁 Obtener el soporte relacionado y cargar TODO lo necesario
+        $support = Support::find($support_detail->support_id);
 
-        // Emitir el evento con los datos como array
-        broadcast(new RecordChanged('Support', 'updated', $support->toArray())); // 👈 aquí convertimos el modelo a array
+        $support->load([
+            'client:id_cliente,Razon_Social,telefono,email,direccion',
+            'creator:id,firstname,lastname,names,email',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+            'details.area:id_area,descripcion',
+            'details.project:id_proyecto,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+        ]);
 
-        return response()->json(['message' => 'Actualizado correctamente', 'support' => $support]);
+        // 📢 Emitir evento
+        broadcast(new RecordChanged('Support', 'updated', $support->toArray()));
+
+        $clientEmail = $support->client->email; // es solo un string, correcto
+
+        dispatch(function () use ($support, $clientEmail) {
+            $supportLoaded = $support->load([
+                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'creator:id,firstname,lastname,names,email',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                'details.area:id_area,descripcion',
+                'details.project:id_proyecto,descripcion',
+                'details.motivoCita:id_motivos_cita,nombre_motivo',
+                'details.tipoCita:id_tipo_cita,tipo',
+                'details.diaEspera:id_dias_espera,dias',
+                'details.internalState:id,description',
+                'details.externalState:id,description',
+                'details.supportType:id,description',
+            ]);
+
+            // Obtener los usuarios con el mismo rol del creador del soporte
+            $creatorRoles = $supportLoaded->creator->getRoleNames(); // Collection
+            $atcUsers = User::role($creatorRoles)->get();    // todos los usuarios con al menos uno de esos roles
+
+            // Preparar lista de notifiables
+            $notifiables = $atcUsers->all(); // array de usuarios
+            $notifiables[] = Notification::route('mail', $clientEmail); // agrega email directo del cliente
+
+            // Enviar notificación
+            Notification::send(
+                $notifiables,
+                new NewSupportAtcNotification($supportLoaded, 'updated')
+            );
+        });
+
+
+
+        // 📦 Retornar respuesta
+        return response()->json([
+            'message' => '✅ Ticket de soporte actualizado correctamente',
+            'support' => $support->load([
+                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'creator:id,firstname,lastname,names,email',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                'details.area:id_area,descripcion',
+                'details.project:id_proyecto,descripcion',
+                'details.motivoCita:id_motivos_cita,nombre_motivo',
+                'details.tipoCita:id_tipo_cita,tipo',
+                'details.diaEspera:id_dias_espera,dias',
+                'details.internalState:id,description',
+                'details.externalState:id,description',
+                'details.supportType:id,description',
+            ]),
+        ]);
     }
+
+    //     public function updateAreaMotivo(Request $request, $supportDetailId)
+// {
+//     // 💡 Acceso al ID desde la URL
+//     // $supportDetailId es el que viene de /support-details/{supportDetailId}/area-motivo
+
+    //     // 💡 Acceso a los campos enviados en el cuerpo
+//     $supportId = $request->input('support_id');
+//     $areaId = $request->input('area_id');
+//     $motivoId = $request->input('id_motivos_cita');
+//     $internalStateId = $request->input('internal_state_id');
+
+    //     // 🛠️ Aquí haces la lógica de actualización
+//     $detail = SupportDetail::findOrFail($supportDetailId);
+//     $detail->support_id = $supportId;
+//     $detail->area_id = $areaId;
+//     $detail->id_motivos_cita = $motivoId;
+//     $detail->internal_state_id = $internalStateId;
+//     $detail->save();
+
+    //     return response()->json($detail);
+// }
+
 
     // public function updateAreaMotivo(Request $request, $id)
     // {
@@ -214,7 +309,7 @@ class SupportDetailController extends Controller
                 'project:id_proyecto,descripcion'
             ]);
 
-          Notification::send($atcUsers,new NewSupportAtcNotification($support, 'created'));
+            Notification::send($atcUsers, new NewSupportAtcNotification($support, 'created'));
 
         });
 
@@ -293,7 +388,7 @@ class SupportDetailController extends Controller
             ]);
 
             dispatch(function () use ($usersToNotify, $support) {
-              Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
+                Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
 
 
             });
@@ -344,13 +439,13 @@ class SupportDetailController extends Controller
 
     //     return response()->json(['success' => true]);
     // }
-public function destroy($id)
-{
-    $detail = SupportDetail::findOrFail($id);
-    $detail->delete();
+    public function destroy($id)
+    {
+        $detail = SupportDetail::findOrFail($id);
+        $detail->delete();
 
-    return redirect()->back()->with('success', 'Detalle eliminado correctamente.');
-}
+        return redirect()->back()->with('success', 'Detalle eliminado correctamente.');
+    }
 
     public function bulkDelete(Request $request)
     {

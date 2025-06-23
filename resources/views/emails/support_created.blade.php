@@ -34,12 +34,12 @@
 <body>
 
 <div class="title">
-    {{ $action === 'updated' ? 'Soporte Actualizado' : 'Nuevo Soporte Registrado' }}
+    {{ $action === 'updated' ? 'Atención Actualizado' : 'Nuevo Atención Registrado' }}
 </div>
 
 <p>
     Estimado equipo {{ $support->details[0]->area->descripcion ?? 'ATC' }},<br>
-    Se ha {{ $action === 'updated' ? 'actualizado' : 'registrado' }} un soporte en el sistema con la siguiente información:
+    Se ha {{ $action === 'updated' ? 'actualizado' : 'registrado' }} una atención en el sistema con la siguiente información:
 </p>
 
 <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte</a>
@@ -63,20 +63,20 @@
 
 @forelse($support->details as $detail)
     <div class="detail-block">
-        <div class="sub-title">Detalle #{{ $loop->iteration }}</div>
+        <div class="sub-title">Atención: #0{{ $loop->iteration }}</div>
         <table>
             <tr><th>Asunto:</th><td>{{ $detail->subject ?? '-' }}</td></tr>
             <tr><th>Descripción:</th><td>{{ $detail->description ?? '-' }}</td></tr>
             <tr><th>Prioridad:</th><td>{{ $detail->priority ?? '-' }}</td></tr>
             <tr><th>Tipo:</th><td>{{ $detail->type ?? '-' }}</td></tr>
-            <tr><th>Estado:</th><td>{{ $detail->status ?? '-' }}</td></tr>
+            {{-- <tr><th>Estado:</th><td>{{ $detail->status ?? '-' }}</td></tr> --}}
             <tr><th>Área:</th><td>{{ $detail->area->descripcion ?? '-' }}</td></tr>
             <tr><th>Proyecto:</th><td>{{ $detail->project->descripcion ?? '-' }}</td></tr>
             <tr><th>Motivo:</th><td>{{ $detail->motivoCita->nombre_motivo ?? '-' }}</td></tr>
             <tr><th>Tipo de Cita:</th><td>{{ $detail->tipoCita->tipo ?? '-' }}</td></tr>
             <tr><th>Día de Espera:</th><td>{{ $detail->diaEspera->dias ?? '-' }}</td></tr>
-            <tr><th>Estado Interno:</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
-            <tr><th>Estado Externo:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr>
+            <tr><th>Estado de Atención</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
+            {{-- <tr><th>Estado Externo:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr> --}}
             <tr><th>Tipo de Atención:</th><td>{{ $detail->supportType->description ?? '-' }}</td></tr>
             <tr><th>Reservado:</th><td>{{ $detail->reservation_time ?? '-' }}</td></tr>
             <tr><th>Atendido:</th><td>{{ $detail->attended_at ?? '-' }}</td></tr>

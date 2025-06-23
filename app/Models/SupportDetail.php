@@ -29,7 +29,6 @@ class SupportDetail extends Model
         'attachment',
         'area_id',
         'created_by',
-        'client_id',
         'status',
         'reservation_time',
         'attended_at',
@@ -43,7 +42,9 @@ class SupportDetail extends Model
         'type_id',
         'project_id',
         'Manzana',
-        'Lote'
+        'Lote',
+        'support_id'
+
     ];
 
     // Relaciones existentes

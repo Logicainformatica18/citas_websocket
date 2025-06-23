@@ -382,7 +382,7 @@ class SupportController extends Controller
                             Notification::route('mail', $supportLoaded->client->Email)
                         ]
                     ),
-                    new NewSupportAtcNotification($supportLoaded, 'created')
+                    new NewSupportAtcNotification($supportLoaded, 'updated')
                 );
 
 
@@ -413,29 +413,7 @@ class SupportController extends Controller
         ]);
     }
 
-
-    // $areaRoleName = $support->area->descripcion ?? null;
-
-    //         // Verificar que el rol existe antes de usarlo
-//         if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
-//             $usersToNotify = User::role($areaRoleName)->get();
-
-    //             Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
-//                 'user_ids' => $usersToNotify->pluck('id'),
-//                 'user_emails' => $usersToNotify->pluck('email'),
-//                 'user_names' => $usersToNotify->pluck('name'),
-//                 'support_id' => $support->id,
-//             ]);
-
-    //             dispatch(function () use ($usersToNotify, $support) {
-//               Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
-
-
-    //             });
-//         } else {
-//             Log::warning("⚠️ No se notificó a ningún usuario porque no existe un rol '{$areaRoleName}'");
-//         }
-
+          
 
 
     public function show($id)

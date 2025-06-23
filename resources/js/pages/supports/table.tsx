@@ -69,9 +69,15 @@ interface Props {
     setEditSupport: React.Dispatch<React.SetStateAction<Support | null>>;
     setShowModal: React.Dispatch<React.SetStateAction<boolean>>;
 
- setSelectedSupportId: (id: number) => void;
-  setSupportDetailToEdit: (detail: SupportDetail) => void;
-  setShowAreaModal: (show: boolean) => void;
+    // setSelectedSupportId: (id: number) => void;
+    // setSupportDetailToEdit: (detail: SupportDetail) => void;
+    // setSupportDetailId: (id: number) => void;
+    // setShowAreaModal: (show: boolean) => void;
+
+    setSelectedSupportId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedDetailSupportId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSupportDetailToEdit: React.Dispatch<React.SetStateAction<SupportDetail | null>>;
+    setShowAreaModal: React.Dispatch<React.SetStateAction<boolean>>;
 
 }
 
@@ -85,9 +91,7 @@ export default function SupportTable({
     setSupports,
     pagination,
     fetchPage,
-    fetchSupport,
     setShowAreaModal,
-    setSelectedSupportId,
     areas,
     motives,
     internalStates, // ✅ AÑADIR ESTO
@@ -96,7 +100,7 @@ export default function SupportTable({
     toggleExpand,
     setEditSupport,
     setShowModal,
-
+setSelectedDetailSupportId
 
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -108,6 +112,9 @@ export default function SupportTable({
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
+    const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+    //  const [supportDetailId, setSupportDetailId] = useState<number | null>(null);
+
     const getBadgeClass = (status: string) => {
         switch (status) {
             case 'Atendido':
@@ -470,15 +477,18 @@ export default function SupportTable({
                                                                         </button>
                                                                         {canEdit && (
 
-                                                                          <button
-  onClick={() => {
-    setSelectedSupportId(support.id);
-    setSupportDetailToEdit(detail); // 👈 Este es CLAVE
-    setShowAreaModal(true);         // 👈 Este también
-  }}
->
-  Área/Motivo
-</button>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    console.log('Editando detalle:', detail.id);
+                                                                                    setSelectedSupportId(support.id);
+                                                                                    setSelectedDetailSupportId(detail.id); // ✅ usa este en lugar de setSupportDetailId
+                                                                                    setSupportDetailToEdit(detail);
+                                                                                    setShowAreaModal(true);
+                                                                                }}
+                                                                            >
+                                                                                Área/Motivo
+                                                                            </button>
+
 
 
 
