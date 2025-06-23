@@ -73,11 +73,13 @@
             <tr><th>Área:</th><td>{{ $detail->area->descripcion ?? '-' }}</td></tr>
             <tr><th>Proyecto:</th><td>{{ $detail->project->descripcion ?? '-' }}</td></tr>
             <tr><th>Motivo:</th><td>{{ $detail->motivoCita->nombre_motivo ?? '-' }}</td></tr>
-            <tr><th>Tipo de Cita:</th><td>{{ $detail->tipoCita->tipo ?? '-' }}</td></tr>
-            <tr><th>Día de Espera:</th><td>{{ $detail->diaEspera->dias ?? '-' }}</td></tr>
+            {{-- <tr><th>Tipo de Cita:</th><td>{{ $detail->tipoCita->tipo ?? '-' }}</td></tr> --}}
+            {{-- <tr><th>Día de Espera:</th><td>{{ $detail->diaEspera->dias ?? '-' }}</td></tr> --}}
             <tr><th>Estado de Atención</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
-            {{-- <tr><th>Estado Externo:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr> --}}
-            <tr><th>Tipo de Atención:</th><td>{{ $detail->supportType->description ?? '-' }}</td></tr>
+            <tr><th>Estado Global</th><td>{{ $support->global_status ?? '-' }}</td></tr>
+
+            <tr><th>Estado ATC:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr>
+            {{-- <tr><th>Tipo de Atención:</th><td>{{ $detail->supportType->description ?? '-' }}</td></tr> --}}
             <tr><th>Reservado:</th><td>{{ $detail->reservation_time ?? '-' }}</td></tr>
             <tr><th>Atendido:</th><td>{{ $detail->attended_at ?? '-' }}</td></tr>
             <tr><th>Manzana:</th><td>{{ $detail->Manzana ?? '-' }}</td></tr>
