@@ -7,8 +7,8 @@ import { Link } from '@inertiajs/react';
 import AreaModal from './AreaModal'; // asegúrate de que el path sea correcto
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import React from 'react';
-import { Wrench, Search, Notebook } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Wrench, Search, Notebook, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SupportDetail {
     id: number;
@@ -38,7 +38,7 @@ interface Support {
     state: string;
     status_global: string;
     created_at?: string;
-    client?: { Razon_Social: string, telefono?: string, email?: string };
+    client?: { Razon_Social: string, dni: string, telefono?: string, email?: string };
     creator?: { names: string };
     details: SupportDetail[];
 }
@@ -114,7 +114,7 @@ export default function SupportTable({
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
     const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
     //  const [supportDetailId, setSupportDetailId] = useState<number | null>(null);
-
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const getBadgeClass = (status: string) => {
         switch (status) {
             case 'Atendido':
@@ -142,7 +142,29 @@ export default function SupportTable({
 
 
     return (
-        <div className="overflow-x-auto mt-4">
+
+
+        <div className="overflow-x-auto mt-0">
+
+            <div className="mb-1 flex items-center gap-2">
+                <input
+                    type="text"
+                    placeholder="Buscar por N° Ticket - DNI/CE o Razón Social"
+                    className="border px-3 py-2 w-90"
+                    onChange={(e) => {
+                        const value = e.target.value;
+
+                        if (debounceRef.current) {
+                            clearTimeout(debounceRef.current);
+                        }
+
+                        debounceRef.current = setTimeout(() => {
+                            fetchPage(`/supports/search?q=${value}`);
+                        }, 500);
+                    }}
+                />
+            </div>
+
             <>
                 {selectedIds.length > 0 && (
                     <button
@@ -177,6 +199,7 @@ export default function SupportTable({
 
                                 <th className="px-2 py-1">TICKET</th>
                                 <th className="px-2 py-1">Cliente</th>
+                                <th className="px-2 py-1">Dni</th>
                                 <th className="px-2 py-1">Solicitud</th>
 
                                 {/* <th className="px-2 py-1">Asunto</th> */}
@@ -184,14 +207,14 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Manzana</th>
                                 <th className="px-2 py-1">Lote</th>
 
-                                <th className="px-2 py-1 w-25">Estado de Atención</th>
+                                <th className="px-2 py-1">Estado de Atención</th>
                                 <th className="px-2 py-1">Área Responsable</th>
                                 <th className="px-2 py-1">Estado Interno</th>
 
                                 <th className="px-2 py-1">Creación</th>
                                 <th className="px-2 py-1">Estado Global</th>
                                 <th className="px-2 py-1">Prioridad</th>
-                                <th className="px-2 py-1">Reporte</th>
+
                                 <th className="px-2 py-1 text-center">
                                     Detalle
                                 </th>
@@ -227,8 +250,9 @@ export default function SupportTable({
                                             }`}
                                     >
 
-                                        <td className="px-2 py-1">Ticket-{String(support.details[0]?.id).padStart(5, '0')}</td>
+                                        <td className="px-2 py-1">Tk-{String(support.details[0]?.id).padStart(5, '0')}</td>
                                         <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
+                                        <td className="px-2 py-1">{support.client?.dni || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
 
                                         {/* <td className="px-2 py-1 max-w-[150px] truncate">
@@ -276,29 +300,35 @@ export default function SupportTable({
                                                     hour: '2-digit',
                                                     minute: '2-digit',
                                                     hour12: false,
-                                                }).replace(',', ' -')
+                                                }).replace(',', ' ')
                                                 : '—'}
                                         </td>
 
                                         <td className="px-2 py-1">{support.status_global ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+
                                         <td className="px-2 py-1">
                                             <Link
                                                 href={`/reports/${support.id}`}
                                                 className="text-blue-600 underline hover:text-blue-800 text-sm"
                                             >
-                                                <Notebook className="w-4 h-4 text-red-600" />
+                                                <Notebook className="ml-1 w-4 h-4 text-red-600" />
 
                                             </Link>
-                                        </td>
-                                        <td className="px-2 py-1">
                                             <button
                                                 onClick={() => toggleExpand(support.id)}
                                                 className="text-blue-600 underline text-sm"
                                             >
 
-                                                {expanded.includes(support.id) ? 'Ocultar' : <Search className="w-4 h-4 mx-auto text-blue-600" />}
+                                                {expanded.includes(support.id) ? (
+                                                    <ChevronUp className="w-7 h-7  text-blue-600" />
+                                                ) : (
+                                                    <ChevronDown className="w-7 h-7   text-blue-600" />
+                                                )}
+
                                             </button>
+
+
                                         </td>
                                         {canEdit && (
                                             <>
@@ -352,7 +382,17 @@ export default function SupportTable({
                                                         )}
                                                     </button>
 
-
+                                                    <button
+                                                        onClick={() => {
+                                                            console.log('Editando detalle:', support.details[0]?.id);
+                                                            setSelectedSupportId(support.id);
+                                                            setSelectedDetailSupportId(support.details[0]?.id); // ✅ usa este en lugar de setSupportDetailId
+                                                            setSupportDetailToEdit(support.details[0]);
+                                                            setShowAreaModal(true);
+                                                        }}
+                                                    >
+                                                        <MapPin className="w-4 h-4" />
+                                                    </button>
 
                                                     {/* Botón Eliminar */}
                                                     <button
@@ -403,46 +443,32 @@ export default function SupportTable({
                                                                 <th className="px-2 py-1 border">Proyecto</th>
                                                                 <th className="px-2 py-1 border">Manzana</th>
                                                                 <th className="px-2 py-1 border">Lote</th>
-                                                                <th className="px-2 py-1 border">Estado de Atención</th>
-                                                                <th className="px-2 py-1 border">Prioridad</th>
+
+                                                                <th className=" py-1 border">Estado de Atención</th>
+
                                                                 <th className="px-2 py-1 border">Área Responsable</th>
 
-                                                                <th className="px-2 py-1 border">Motivo</th>
-                                                                <th className="px-2 py-1 border">Tipo Cita</th>
+
+
 
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
-                                                                <th className="px-2 py-1 border">Estado ATC</th>
-                                                                <th className="px-2 py-1 border">Adjunto</th>
-                                                                <th className="px-2 py-1 border">Acciones</th>
+                                                                <th className="px-2 py-1 border">Prioridad</th>
+
+                                                                {canEdit && (
+                                                                    <th className="px-2 py-1 border">Acciones</th>
+                                                                )}
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {support.details.slice(1).map((detail, index) => (
                                                                 <tr key={detail.id} className="border-t dark:border-gray-600">
-                                                                    <td className="px-2 py-1 border">Ticket-{String(detail.id + 1).padStart(5, '0')}</td>
-                                                                    {/* <td className="px-2 py-1">Ticket-{String(support.details[0]?.id).padStart(5, '0')}</td> */}
+                                                                    <td className="px-2 py-1 border">Tk-{String(detail.id + 1).padStart(5, '0')}</td>
+                                                                    {/* <td className="px-2 py-1">Tk-{String(support.details[0]?.id).padStart(5, '0')}</td> */}
 
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>
                                                                     <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.Lote || '-'}</td>
-
-                                                                    <td className="px-2 py-1 border">{detail.status}</td>
-                                                                    <td className="px-2 py-1 border">{detail.priority}</td>
-                                                                    <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.motivo_cita?.nombre_motivo || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.tipo_cita?.tipo || '-'}</td>
-                                                                    {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}
-                                                                    <td className="px-2 py-1 border">
-                                                                        {detail.internal_state?.description ? (
-                                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
-                                                                                {detail.internal_state.description}
-                                                                            </span>
-                                                                        ) : (
-                                                                            '-'
-                                                                        )}
-                                                                    </td>
-
                                                                     <td className="px-2 py-1 border">
                                                                         {detail.external_state?.description ? (
                                                                             <span
@@ -456,8 +482,24 @@ export default function SupportTable({
                                                                             <span className="text-red-500 text-xs">⚠️ No cargado</span>
                                                                         )}
                                                                     </td>
+                                                                    <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
 
-                                                                    <td className="px-2 py-1 whitespace-nowrap">
+
+                                                                    {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}
+                                                                    <td className="px-2 py-1 border">
+                                                                        {detail.internal_state?.description ? (
+                                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
+                                                                                {detail.internal_state.description}
+                                                                            </span>
+                                                                        ) : (
+                                                                            '-'
+                                                                        )}
+                                                                    </td>
+
+
+                                                                    <td className="px-2 py-1 border">{detail.priority}</td>
+
+                                                                    {/* <td className="px-2 py-1 whitespace-nowrap">
                                                                         {detail.attachment && (
                                                                             <a
                                                                                 href={`/uploads/${detail.attachment}`}
@@ -467,23 +509,24 @@ export default function SupportTable({
                                                                                 {detail.attachment}
                                                                             </a>
                                                                         )}
-                                                                    </td>
-                                                                    <td className="px-2 py-1 border">
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                if (confirm('¿Estás seguro de eliminar este detalle?')) {
-                                                                                    router.delete(`/support-details/${detail.id}`, {
-                                                                                        onSuccess: () => toast.success('Detalle eliminado'),
-                                                                                        onError: () => toast.error('Error al eliminar'),
-                                                                                        preserveScroll: true,
-                                                                                    });
-                                                                                }
-                                                                            }}
-                                                                            className="text-red-600 hover:text-red-800 text-xs"
-                                                                        >
-                                                                            🗑 Eliminar
-                                                                        </button>
-                                                                        {canEdit && (
+                                                                    </td> */}
+                                                                    {canEdit && (
+                                                                        <td className="px-2 py-1 border">
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    if (confirm('¿Estás seguro de eliminar este detalle?')) {
+                                                                                        router.delete(`/support-details/${detail.id}`, {
+                                                                                            onSuccess: () => toast.success('Detalle eliminado'),
+                                                                                            onError: () => toast.error('Error al eliminar'),
+                                                                                            preserveScroll: true,
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                                className="text-red-600 hover:text-red-800 text-xs"
+                                                                            >
+                                                                                🗑
+                                                                            </button>
+
 
                                                                             <button
                                                                                 onClick={() => {
@@ -494,14 +537,15 @@ export default function SupportTable({
                                                                                     setShowAreaModal(true);
                                                                                 }}
                                                                             >
-                                                                                Área/Motivo
+                                                                                <MapPin className="w-4 h-4" />
                                                                             </button>
 
 
 
 
-                                                                        )}
-                                                                    </td>
+
+                                                                        </td>
+                                                                    )}
                                                                 </tr>
                                                             ))}
                                                         </tbody>

@@ -101,7 +101,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
 
-
+Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search');
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
     Route::get('/supports', [SupportController::class, 'index'])->name('supports.index');
     Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export');

@@ -189,7 +189,7 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                 <NotificationBell />
                 {/* otros elementos como el usuario */}
             </div>
-            <div className="p-8">
+            <div className="p-2">
                 <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
 
                 <button
@@ -197,12 +197,12 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                         setEditSupport(null);
                         setShowModal(true);
                     }}
-                    className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                    className="mb-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
                 >
                     Nuevo Registro
                 </button>
 
-                <button onClick={exportSupports} className="ml-4 mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
+                <button onClick={exportSupports} className="ml-4 mb-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
                 >Exportar Todo</button>
 
 

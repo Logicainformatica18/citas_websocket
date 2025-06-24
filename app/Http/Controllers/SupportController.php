@@ -85,6 +85,42 @@ class SupportController extends Controller
     }
 
 
+// SupportController.php
+public function fetch(Request $request)
+{
+    $query = $request->input('q');
+
+    $supports = Support::with([
+        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+        'creator:id,firstname,lastname,names',
+        'details.project:id_proyecto,descripcion',
+        'details.area:id_area,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+    ])
+    ->when($query, function ($q) use ($query) {
+        $q->where(function ($subQuery) use ($query) {
+            $subQuery->whereHas('client', function ($sub) use ($query) {
+                $sub->where('dni', 'like', "%{$query}%")
+                     ->orWhere('Razon_Social', 'like', "%{$query}%");
+            })
+            ->orWhereHas('details', function ($sub) use ($query) {
+                $sub->where('id', $query); // búsqueda exacta por ID de detail
+            });
+        });
+    })
+    ->latest()
+    ->paginate(7);
+
+    return response()->json([
+        'supports' => $supports,
+    ]);
+}
+
 
 
 
@@ -413,7 +449,7 @@ class SupportController extends Controller
         ]);
     }
 
-          
+
 
 
     public function show($id)
