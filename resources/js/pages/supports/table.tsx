@@ -465,7 +465,7 @@ export default function SupportTable({
                                                         <tbody>
                                                             {support.details.slice(1).map((detail, index) => (
                                                                 <tr key={detail.id} className="border-t dark:border-gray-600">
-                                                                    <td className="px-2 py-1 border">Tk-{String(detail.id + 1).padStart(5, '0')}</td>
+                                                                    <td className="px-2 py-1 border">Tk-{String(detail.id ).padStart(5, '0')}</td>
                                                                     {/* <td className="px-2 py-1">Tk-{String(support.details[0]?.id).padStart(5, '0')}</td> */}
 
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>

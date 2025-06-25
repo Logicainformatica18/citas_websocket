@@ -26,38 +26,38 @@ use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 class SupportController extends Controller
 {
-    public function index()
-    {
-        $supports = Support::with([
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social,dni,telefono,email',
+ public function index(Request $request)
+{
+    $supports = Support::with([
+        'creator:id,firstname,lastname,names',
+        'client:id_cliente,Razon_Social,dni,telefono,email',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+        'details.type:id,description',
+    ])
+    ->latest()
+    ->paginate(7);
 
-            // Todos los detalles y sus relaciones
+    // Datos auxiliares
+    $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
+    $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
+    $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
+    $internalStates = InternalState::select('id', 'description')->get();
+    $externalStates = ExternalState::select('id', 'description')->get();
+    $types = Type::select('id', 'description')->get();
+    $projects = Project::select('id_proyecto', 'descripcion')->get();
+    $areas = Area::select('id_area', 'descripcion')->get();
+    $users = User::select('id', 'names', 'email')->get();
 
-            'details.area:id_area,descripcion',
-            'details.project:id_proyecto,descripcion',
-            'details.motivoCita:id_motivos_cita,nombre_motivo',
-            'details.tipoCita:id_tipo_cita,tipo',
-            'details.diaEspera:id_dias_espera,dias',
-            'details.internalState:id,description',
-            'details.externalState:id,description',
-            'details.supportType:id,description',
-            'details.type:id,description',
-        ])
-            ->latest()
-            ->paginate(7);
-
-        // Opciones para selects
-        $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
-        $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
-        $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
-        $internalStates = InternalState::select('id', 'description')->get();
-        $externalStates = ExternalState::select('id', 'description')->get();
-        $types = Type::select('id', 'description')->get();
-        $projects = Project::select('id_proyecto', 'descripcion')->get();
-        $areas = Area::select('id_area', 'descripcion')->get();
-
-        return Inertia::render('supports/index', [
+    // 📱 Si es API (ej. desde React Native), devuelve JSON
+    if ($request->wantsJson()) {
+        return response()->json([
             'supports' => $supports,
             'motives' => $motives,
             'appointmentTypes' => $appointmentTypes,
@@ -67,28 +67,36 @@ class SupportController extends Controller
             'types' => $types,
             'projects' => $projects,
             'areas' => $areas,
-            'users' => User::select('id', 'names', 'email')->get(),
+            'users' => $users,
         ]);
-        //     return response()->json([
-//     'supports' => $supports,
-//     'motives' => $motives,
-//     'appointmentTypes' => $appointmentTypes,
-//     'waitingDays' => $waitingDays,
-//     'internalStates' => $internalStates,
-//     'externalStates' => $externalStates,
-//     'types' => $types,
-//     'projects' => $projects,
-//     'areas' => $areas,
-//     'users' => User::select('id', 'names', 'email')->get(),
-// ]);
-
     }
+
+    // 💻 Si es Inertia (web), renderiza la vista
+    return Inertia::render('supports/index', [
+        'supports' => $supports,
+        'motives' => $motives,
+        'appointmentTypes' => $appointmentTypes,
+        'waitingDays' => $waitingDays,
+        'internalStates' => $internalStates,
+        'externalStates' => $externalStates,
+        'types' => $types,
+        'projects' => $projects,
+        'areas' => $areas,
+        'users' => $users,
+    ]);
+}
+
 
 
 // SupportController.php
 public function fetch(Request $request)
 {
-    $query = $request->input('q');
+ $query = $request->input('q');
+$detailId = null;
+
+if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
+    $detailId = (int) $matches[1];
+}
 
     $supports = Support::with([
         'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
@@ -102,19 +110,23 @@ public function fetch(Request $request)
         'details.externalState:id,description',
         'details.supportType:id,description',
     ])
-    ->when($query, function ($q) use ($query) {
-        $q->where(function ($subQuery) use ($query) {
+   ->when($query, function ($q) use ($query, $detailId) {
+        $q->where(function ($subQuery) use ($query, $detailId) {
             $subQuery->whereHas('client', function ($sub) use ($query) {
                 $sub->where('dni', 'like', "%{$query}%")
                      ->orWhere('Razon_Social', 'like', "%{$query}%");
-            })
-            ->orWhereHas('details', function ($sub) use ($query) {
-                $sub->where('id', $query); // búsqueda exacta por ID de detail
             });
+
+            if ($detailId) {
+                $subQuery->orWhereHas('details', function ($sub) use ($detailId) {
+                    $sub->where('id', $detailId);
+                });
+            }
         });
     })
     ->latest()
     ->paginate(7);
+
 
     return response()->json([
         'supports' => $supports,
