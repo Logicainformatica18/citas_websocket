@@ -176,3 +176,17 @@
   border-radius: 0.5rem;
   background-color: rgba(255, 255, 255, 0.05);
 }
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    border-color: #00ff00;
+    box-shadow: 0 0 8px #00ff00, 0 0 12px #00ff00;
+  }
+  20%, 24%, 55% {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.glow-border {
+  animation: flicker 1.5s infinite;
+}
