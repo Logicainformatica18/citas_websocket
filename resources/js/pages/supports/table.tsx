@@ -315,18 +315,18 @@ export default function SupportTable({
                                                 <Notebook className="ml-1 w-4 h-4 text-red-600" />
 
                                             </Link>
-                                           {support.details.length > 1 && (
-    <button
-        onClick={() => toggleExpand(support.id)}
-        className="text-blue-600 underline text-sm"
-    >
-        {expanded.includes(support.id) ? (
-            <ChevronUp className="w-7 h-7 text-blue-600" />
-        ) : (
-            <ChevronDown className="w-7 h-7 text-blue-600" />
-        )}
-    </button>
-)}
+                                            {support.details.length > 1 && (
+                                                <button
+                                                    onClick={() => toggleExpand(support.id)}
+                                                    className="text-blue-600 underline text-sm"
+                                                >
+                                                    {expanded.includes(support.id) ? (
+                                                        <ChevronUp className="w-7 h-7 text-blue-600" />
+                                                    ) : (
+                                                        <ChevronDown className="w-7 h-7 text-blue-600" />
+                                                    )}
+                                                </button>
+                                            )}
 
 
 
@@ -429,7 +429,7 @@ export default function SupportTable({
 
                                     {/* Fila expandida (si aplica) */}
                                     {expanded.includes(support.id) && (
-                             <tr className="bg-gray-50 dark:bg-gray-900 border-4 border-cyan-400 shadow-[0_0_8px_#00ccff]">
+                                        <tr className="bg-gray-50 dark:bg-gray-900 border-4 border-cyan-400 shadow-[0_0_8px_#00ccff]">
 
 
 
