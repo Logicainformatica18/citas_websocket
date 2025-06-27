@@ -168,14 +168,18 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
 
     public function store(Request $request)
     {
-        // ✅ Loguear todo el request entrante (útil para depuración)
-        Log::info('📥 Datos recibidos en store():', $request->all());
+        // 🧾 Log completo de entrada
+    Log::info('📥 Datos recibidos en store():', $request->all());
+
+    // 🧪 Verificar manualmente campos importantes
+    Log::info('🔍 status_global recibido:', ['status_global' => $request->status_global]);
+
 
         // 1. Crear soporte base
         $support = Support::create([
             'client_id' => $request->client_id,
             'state' => $request->state,
-            'status_global' => $request->status_global, // <- asegúrate que esté bien escrito
+       'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
             'created_by' => Auth::id(),
         ]);
 

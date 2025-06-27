@@ -9,13 +9,28 @@ use Illuminate\Support\Facades\Log;
 
 class AreaController extends Controller
 {
-    public function index()
-    {
-        $areas = Area::orderBy('id_area', 'desc')->paginate(7);
-        return Inertia::render('areas/index', [
-            'areas' => $areas,
-        ]);
+public function index(Request $request)
+{
+    if ($request->wantsJson()) {
+        // 👉 Para API: devolver todas las áreas sin paginar (ideal para select options)
+        $areas = Area::select('id_area', 'descripcion')
+            ->orderBy('id_area', 'desc')
+            ->get();
+
+        return response()->json($areas);
     }
+
+    // 👉 Para vista Inertia: paginar
+    $areas = Area::select('id_area', 'descripcion')
+        ->orderBy('id_area', 'desc')
+        ->paginate(7);
+
+    return Inertia::render('areas/index', [
+        'areas' => $areas,
+    ]);
+}
+
+
 
     public function fetchPaginated()
     {

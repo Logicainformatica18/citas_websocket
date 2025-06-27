@@ -8,9 +8,27 @@ use Inertia\Inertia;
 
 class ProjectController extends Controller
 {
-    public function index()
-    {
-        $projects = Project::orderByDesc('id_proyecto')->paginate(10)->through(function ($project) {
+public function index(Request $request)
+{
+    if ($request->wantsJson()) {
+        // 👉 API: devolver todos los proyectos (sin paginar)
+        $projects = Project::orderByDesc('id_proyecto')
+            ->get()
+            ->map(function ($project) {
+                return [
+                    'id_proyecto' => $project->id_proyecto,
+                    'descripcion' => $project->descripcion,
+                    'habilitado' => (bool) $project->habilitado,
+                ];
+            });
+
+        return response()->json($projects);
+    }
+
+    // 👉 Vista Inertia: paginado con through
+    $projects = Project::orderByDesc('id_proyecto')
+        ->paginate(10)
+        ->through(function ($project) {
             return [
                 'id_proyecto' => $project->id_proyecto,
                 'descripcion' => $project->descripcion,
@@ -18,10 +36,11 @@ class ProjectController extends Controller
             ];
         });
 
-        return Inertia::render('projects/index', [
-            'projects' => $projects,
-        ]);
-    }
+    return Inertia::render('projects/index', [
+        'projects' => $projects,
+    ]);
+}
+
 
     public function fetchPaginated()
     {
