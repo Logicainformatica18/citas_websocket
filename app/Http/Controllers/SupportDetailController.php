@@ -439,13 +439,34 @@ class SupportDetailController extends Controller
 
     //     return response()->json(['success' => true]);
     // }
-    public function destroy($id)
-    {
-        $detail = SupportDetail::findOrFail($id);
-        $detail->delete();
+public function destroy($id)
+{
+    $detail = SupportDetail::findOrFail($id);
+    $supportId = $detail->support_id;
 
-        return redirect()->back()->with('success', 'Detalle eliminado correctamente.');
-    }
+    $detail->delete();
+
+    // 🔄 Cargar el soporte actualizado con sus relaciones
+    $support =  Support::with([
+        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+        'creator:id,firstname,lastname,names,email',
+        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+        'details.project:id_proyecto,descripcion',
+        'details.area:id_area,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+    ])->findOrFail($supportId);
+
+    // 📡 Emitir el soporte actualizado
+    broadcast(new RecordChanged('Support', 'detail_deleted', $support->toArray()));
+
+    return redirect()->back()->with('success', 'Detalle eliminado correctamente.');
+}
+
 
     public function bulkDelete(Request $request)
     {

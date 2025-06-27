@@ -220,7 +220,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
 
 
       $support->load([
-            'client:id_cliente,Razon_Social,telefono,email,direccion',
+            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'creator:id,firstname,lastname,names',
 
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
@@ -261,7 +261,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
                 Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
 
                 $supportLoaded = $support->load([
-                    'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
+                    'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
                     'creator:id,firstname,lastname,names,email',
                     'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                     'details.area:id_area,descripcion',
@@ -294,7 +294,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
         return response()->json([
             'message' => '✅ Ticket de soporte creado con sus detalles',
             'support' => $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
                 'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',

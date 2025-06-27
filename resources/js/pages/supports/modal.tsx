@@ -449,20 +449,45 @@ const SupportModal = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-left">Estado Global</Label>
+ {canEditAdvancedFields && (
+                <div
+                    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
+    ${formData.status_global === 'Completo'
+                            ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
+                            : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
+                        }
+  `}
+                >
+                    <Label
+                        className={`text-left font-semibold
+      ${formData.status_global === 'Completo'
+                                ? 'text-blue-800 dark:text-blue-200'
+                                : 'text-red-800 dark:text-red-200'
+                            }
+    `}
+                    >
+                        ⚠ Estado Global
+                    </Label>
+
                     <select
                         name="status_global"
                         value={formData.status_global}
                         onChange={handleChange}
-                        className="col-span-3 text-sm h-7 px-2 py-1 rounded-md"
+                        className={`col-span-3 text-sm h-7 px-2 py-1 rounded-md font-bold
+      ${formData.status_global === 'Completo'
+                                ? 'border border-blue-600 bg-white dark:bg-black text-blue-700 dark:text-blue-200'
+                                : 'border border-red-600 bg-white dark:bg-black text-red-700 dark:text-red-200'
+                            }
+    `}
                     >
-
-                        <option value="">Elija un Estado Global</option>
+                        <option value="">Elija un Estado de Atención Global</option>
                         <option value="Incompleto">Incompleto</option>
                         <option value="Completo">Completo</option>
                     </select>
                 </div>
+ )}
+
+
 
                 <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
                     <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
@@ -577,7 +602,7 @@ const SupportModal = ({
 
                         {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Área</Label>
+                                <Label className="text-left">Área Responsable</Label>
                                 <select
                                     name="area_id"
                                     value={currentDetail.area_id}
@@ -714,18 +739,21 @@ const SupportModal = ({
                         )}
 
 
+                        {canEditAdvancedFields && (
+                            <>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-left">Reserva</Label>
+                                    <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
+                                </div>
+
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-left">Atendido</Label>
+                                    <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
+                                </div>
+                            </>
+                        )}
 
 
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Reserva</Label>
-                            <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
-                        </div>
-
-
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Atendido</Label>
-                            <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
-                        </div>
 
 
 

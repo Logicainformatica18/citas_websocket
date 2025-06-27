@@ -113,6 +113,7 @@ Route::get('/supports/search', [SupportController::class, 'fetch'])->name('suppo
     Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
 
 Route::put('/support-details/{id}/area-motivo', [SupportDetailController::class, 'updateAreaMotivo']);
+Route::delete('/support-details/{id}', [SupportDetailController::class, 'destroy']);
 
 
 

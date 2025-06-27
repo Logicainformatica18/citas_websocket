@@ -428,7 +428,7 @@ export default function SupportTable({
                                     </tr>
 
                                     {/* Fila expandida (si aplica) */}
-                                    {expanded.includes(support.id) && (
+                                    {expanded.includes(support.id) && support.details.length > 1 && (
                                         <tr className="bg-gray-50 dark:bg-gray-900 border-4 border-cyan-400 shadow-[0_0_8px_#00ccff]">
 
 

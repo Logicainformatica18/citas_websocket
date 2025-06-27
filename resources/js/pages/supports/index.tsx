@@ -97,19 +97,19 @@ export default function Supports() {
     const [pagination, setPagination] = useState(initialPagination);
     const [showModal, setShowModal] = useState(false);
     const [editSupport, setEditSupport] = useState<Support | null>(null);
-  //  const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
-   // const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
+    //  const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+    // const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
 
-// index.tsx
-const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
-const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
-const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
-const [showAreaModal, setShowAreaModal] = useState(false);
+    // index.tsx
+    const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
+    const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
+    const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
+    const [showAreaModal, setShowAreaModal] = useState(false);
 
 
-   // const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
+    // const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
 
-   // const [showAreaModal, setShowAreaModal] = useState(false);
+    // const [showAreaModal, setShowAreaModal] = useState(false);
     const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
     const [expanded, setExpanded] = useState<number[]>([]);
 
@@ -146,6 +146,10 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                     case 'deleted':
                         setSupports((prev) => prev.filter((s) => s.id !== e.data.id));
                         break;
+                    case 'detail_deleted':
+                        setSupports((prev) => prev.map((s) => (s.id === e.data.id ? e.data : s)));
+                        break;
+
                 }
             }
         });
@@ -224,10 +228,10 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                     // setSupportDetailToEdit={setSupportDetailToEdit} // 👈
                     // setShowAreaModal={setShowAreaModal} // 👈
 
-                      setSelectedSupportId={setSelectedSupportId}
-  setSelectedDetailSupportId={setSelectedDetailSupportId}
-  setSupportDetailToEdit={setSupportDetailToEdit}
-  setShowAreaModal={setShowAreaModal}
+                    setSelectedSupportId={setSelectedSupportId}
+                    setSelectedDetailSupportId={setSelectedDetailSupportId}
+                    setSupportDetailToEdit={setSupportDetailToEdit}
+                    setShowAreaModal={setShowAreaModal}
                 />
 
 
@@ -254,25 +258,25 @@ const [showAreaModal, setShowAreaModal] = useState(false);
                 />
             )}
 
-<AreaModal
-  open={showAreaModal}
-  onClose={() => setShowAreaModal(false)}
-  supportId={selectedSupportId}
-  supportDetailId={selectedDetailSupportId} // 👈 AQUÍ SE RECIBE
-  detail={supportDetailToEdit}
-  areas={areas}
-  motives={motives}
-  internalStates={internalStates}
- onUpdated={() => {
-  if (selectedSupportId) {
-    fetchSupport(selectedSupportId)
-      .catch((err) => {
-        console.error('Error al actualizar soporte:', err);
-       // toast.error('Error al actualizar el soporte.');
-      });
-  }
-}}
-/>
+            <AreaModal
+                open={showAreaModal}
+                onClose={() => setShowAreaModal(false)}
+                supportId={selectedSupportId}
+                supportDetailId={selectedDetailSupportId} // 👈 AQUÍ SE RECIBE
+                detail={supportDetailToEdit}
+                areas={areas}
+                motives={motives}
+                internalStates={internalStates}
+                onUpdated={() => {
+                    if (selectedSupportId) {
+                        fetchSupport(selectedSupportId)
+                            .catch((err) => {
+                                console.error('Error al actualizar soporte:', err);
+                                // toast.error('Error al actualizar el soporte.');
+                            });
+                    }
+                }}
+            />
 
 
 
