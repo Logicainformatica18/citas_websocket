@@ -88,6 +88,15 @@ class SupportDetailController extends Controller
 
         // ✏️ Actualizar campos
         $support_detail->area_id = $request->area_id;
+        if($request->area_id!=1){
+            $support_detail->external_state_id=2;
+
+        }
+        else{
+             $support_detail->external_state_id=1;
+
+        }
+
         $support_detail->id_motivos_cita = $request->id_motivos_cita;
         $support_detail->internal_state_id = $request->internal_state_id;
 
@@ -237,173 +246,173 @@ class SupportDetailController extends Controller
 
 
 
-    public function store(Request $request)
-    {
-        $support = new Support();
+    // public function store(Request $request)
+    // {
+    //     $support = new Support();
 
-        $support->subject = $request->input('subject', 'Nuevo Ticket de Soporte');
-        $support->description = $request->input('description', 'Descripción del ticket de soporte');
-        $support->client_id = $request->input('client_id', 1);
-        $support->cellphone = $request->input('cellphone', '0000000000');
-        $support->priority = $request->input('priority');
-        $support->status = 'Pendiente';
-        $support->reservation_time = now();
-        $support->attended_at = now()->addHour();
-        $support->created_by = Auth::id();
-        $support->external_state_id = 1;
-        $support->internal_state_id = 2;
-        $support->id_tipo_cita = 1;
-        $support->type_id = 3;
-        $support->area_id = 1;
-        $support->derived = $request->input('derived', '');
-        $support->id_motivos_cita = 28;
-        $support->project_id = $request->project_id;
-        $support->Manzana = $request->input('Manzana');
-        $support->Lote = $request->input('Lote');
-
-
-        if ($request->hasFile('attachment')) {
-            $support->attachment = fileStore($request->file('attachment'), 'uploads');
-        }
-
-        $support->save();
-
-        // 🔄 Cargar relaciones igual que en el index
-        $support->load([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
+    //     $support->subject = $request->input('subject', 'Nuevo Ticket de Soporte');
+    //     $support->description = $request->input('description', 'Descripción del ticket de soporte');
+    //     $support->client_id = $request->input('client_id', 1);
+    //     $support->cellphone = $request->input('cellphone', '0000000000');
+    //     $support->priority = $request->input('priority');
+    //     $support->status = 'Pendiente';
+    //     $support->reservation_time = now();
+    //     $support->attended_at = now()->addHour();
+    //     $support->created_by = Auth::id();
+    //     $support->external_state_id = 1;
+    //     $support->internal_state_id = 2;
+    //     $support->id_tipo_cita = 1;
+    //     $support->type_id = 3;
+    //     $support->area_id = 1;
+    //     $support->derived = $request->input('derived', '');
+    //     $support->id_motivos_cita = 28;
+    //     $support->project_id = $request->project_id;
+    //     $support->Manzana = $request->input('Manzana');
+    //     $support->Lote = $request->input('Lote');
 
 
+    //     if ($request->hasFile('attachment')) {
+    //         $support->attachment = fileStore($request->file('attachment'), 'uploads');
+    //     }
 
-        ]);
+    //     $support->save();
 
-        broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
-
-
-        $clientId = $request->input('client_id');
-        $data = $request->only(['dni', 'cellphone', 'email', 'address']);
-
-        dispatch(function () use ($clientId, $data) {
-            $client = Client::find($clientId);
-            if ($client) {
-                $client->updateFromSupport($data);
-            }
-        });
-
-        ///////////////////////
-
-        dispatch(function () use ($support) {
-            $atcUsers = User::role('ATC')->get();
-            $support->load([
-                'creator:id,names,email',
-                'client:id_cliente,Razon_Social',
-                'area:id_area,descripcion',
-                'project:id_proyecto,descripcion'
-            ]);
-
-            Notification::send($atcUsers, new NewSupportAtcNotification($support, 'created'));
-
-        });
-
-        return response()->json([
-            'message' => '✅ Ticket de soporte creado correctamente',
-            'support' => $support,
-        ]);
-    }
+    //     // 🔄 Cargar relaciones igual que en el index
+    //     $support->load([
+    //         'area:id_area,descripcion',
+    //         'creator:id,firstname,lastname,names',
+    //         'client:id_cliente,Razon_Social',
+    //         'motivoCita:id_motivos_cita,nombre_motivo',
+    //         'tipoCita:id_tipo_cita,tipo',
+    //         'diaEspera:id_dias_espera,dias',
+    //         'internalState:id,description',
+    //         'externalState:id,description',
+    //         'supportType:id,description',
+    //         'project:id_proyecto,descripcion',
 
 
 
+    //     ]);
 
-    public function update(Request $request, $id)
-    {
-        $support = Support::findOrFail($id);
-
-        // Asignación específica SIN valores por defecto
-        $support->subject = $request->input('subject');
-        $support->description = $request->input('description');
-        $support->client_id = $request->input('client_id');
-        $support->cellphone = $request->input('cellphone');
-        $support->priority = $request->input('priority');
-        $support->status = $request->input('status');
-        $support->reservation_time = $request->input('reservation_time');
-        $support->attended_at = $request->input('attended_at');
-        $support->area_id = $request->input('area_id');
-        $support->derived = $request->input('derived');
-        $support->id_motivos_cita = $request->input('id_motivos_cita');
-        $support->id_tipo_cita = $request->input('id_tipo_cita');
-        $support->id_dia_espera = $request->input('id_dia_espera');
-        $support->internal_state_id = $request->input('internal_state_id');
-        $support->external_state_id = $request->input('external_state_id');
-        $support->type_id = $request->input('type_id');
-        $support->project_id = $request->input('project_id');
-        $support->Manzana = $request->input('Manzana');
-        $support->Lote = $request->input('Lote');
-
-        // Procesar archivo adjunto
-        if ($request->hasFile('attachment')) {
-            $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
-        }
-
-        $support->save();
-
-        // Log para auditoría
-        Log::info('📝 Soporte actualizado', [
-            'support_id' => $support->id,
-            'user_id' => Auth::id(),
-            'updated_fields' => $request->except(['_method', '_token']),
-        ]);
-        $support->load([
-            'area:id_area,descripcion',
-            'creator:id,firstname,lastname,names',
-            'client:id_cliente,Razon_Social',
-            'motivoCita:id_motivos_cita,nombre_motivo',
-            'tipoCita:id_tipo_cita,tipo',
-            'diaEspera:id_dias_espera,dias',
-            'internalState:id,description',
-            'externalState:id,description',
-            'supportType:id,description',
-            'project:id_proyecto,descripcion',
-        ]);
+    //     broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
 
 
-        $areaRoleName = $support->area->descripcion ?? null;
+    //     $clientId = $request->input('client_id');
+    //     $data = $request->only(['dni', 'cellphone', 'email', 'address']);
 
-        // Verificar que el rol existe antes de usarlo
-        if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
-            $usersToNotify = User::role($areaRoleName)->get();
+    //     dispatch(function () use ($clientId, $data) {
+    //         $client = Client::find($clientId);
+    //         if ($client) {
+    //             $client->updateFromSupport($data);
+    //         }
+    //     });
 
-            Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
-                'user_ids' => $usersToNotify->pluck('id'),
-                'user_emails' => $usersToNotify->pluck('email'),
-                'user_names' => $usersToNotify->pluck('name'),
-                'support_id' => $support->id,
-            ]);
+    //     ///////////////////////
 
-            dispatch(function () use ($usersToNotify, $support) {
-                Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
+    //     dispatch(function () use ($support) {
+    //         $atcUsers = User::role('ATC')->get();
+    //         $support->load([
+    //             'creator:id,names,email',
+    //             'client:id_cliente,Razon_Social',
+    //             'area:id_area,descripcion',
+    //             'project:id_proyecto,descripcion'
+    //         ]);
+
+    //         Notification::send($atcUsers, new NewSupportAtcNotification($support, 'created'));
+
+    //     });
+
+    //     return response()->json([
+    //         'message' => '✅ Ticket de soporte creado correctamente',
+    //         'support' => $support,
+    //     ]);
+    // }
 
 
-            });
-        } else {
-            Log::warning("⚠️ No se notificó a ningún usuario porque no existe un rol '{$areaRoleName}'");
-        }
 
-        // Emitir evento
-        broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
-        return response()->json([
-            'message' => '✅ Ticket de soporte actualizado correctamente',
-            'support' => $support,
-        ]);
-    }
+    // public function update(Request $request, $id)
+    // {
+    //     $support = Support::findOrFail($id);
+
+    //     // Asignación específica SIN valores por defecto
+    //     $support->subject = $request->input('subject');
+    //     $support->description = $request->input('description');
+    //     $support->client_id = $request->input('client_id');
+    //     $support->cellphone = $request->input('cellphone');
+    //     $support->priority = $request->input('priority');
+    //     $support->status = $request->input('status');
+    //     $support->reservation_time = $request->input('reservation_time');
+    //     $support->attended_at = $request->input('attended_at');
+    //     $support->area_id = $request->input('area_id');
+    //     $support->derived = $request->input('derived');
+    //     $support->id_motivos_cita = $request->input('id_motivos_cita');
+    //     $support->id_tipo_cita = $request->input('id_tipo_cita');
+    //     $support->id_dia_espera = $request->input('id_dia_espera');
+    //     $support->internal_state_id = $request->input('internal_state_id');
+    //     $support->external_state_id = $request->input('external_state_id');
+    //     $support->type_id = $request->input('type_id');
+    //     $support->project_id = $request->input('project_id');
+    //     $support->Manzana = $request->input('Manzana');
+    //     $support->Lote = $request->input('Lote');
+
+    //     // Procesar archivo adjunto
+    //     if ($request->hasFile('attachment')) {
+    //         $support->attachment = fileUpdate($request->file('attachment'), 'attachments', $support->attachment);
+    //     }
+
+    //     $support->save();
+
+    //     // Log para auditoría
+    //     Log::info('📝 Soporte actualizado', [
+    //         'support_id' => $support->id,
+    //         'user_id' => Auth::id(),
+    //         'updated_fields' => $request->except(['_method', '_token']),
+    //     ]);
+    //     $support->load([
+    //         'area:id_area,descripcion',
+    //         'creator:id,firstname,lastname,names',
+    //         'client:id_cliente,Razon_Social',
+    //         'motivoCita:id_motivos_cita,nombre_motivo',
+    //         'tipoCita:id_tipo_cita,tipo',
+    //         'diaEspera:id_dias_espera,dias',
+    //         'internalState:id,description',
+    //         'externalState:id,description',
+    //         'supportType:id,description',
+    //         'project:id_proyecto,descripcion',
+    //     ]);
+
+
+    //     $areaRoleName = $support->area->descripcion ?? null;
+
+    //     // Verificar que el rol existe antes de usarlo
+    //     if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
+    //         $usersToNotify = User::role($areaRoleName)->get();
+
+    //         Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
+    //             'user_ids' => $usersToNotify->pluck('id'),
+    //             'user_emails' => $usersToNotify->pluck('email'),
+    //             'user_names' => $usersToNotify->pluck('name'),
+    //             'support_id' => $support->id,
+    //         ]);
+
+    //         dispatch(function () use ($usersToNotify, $support) {
+    //             Notification::send($usersToNotify, new NewSupportAtcNotification($support, 'updated'));
+
+
+    //         });
+    //     } else {
+    //         Log::warning("⚠️ No se notificó a ningún usuario porque no existe un rol '{$areaRoleName}'");
+    //     }
+
+    //     // Emitir evento
+    //     broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
+
+    //     return response()->json([
+    //         'message' => '✅ Ticket de soporte actualizado correctamente',
+    //         'support' => $support,
+    //     ]);
+    // }
 
 
     public function show($id)
