@@ -24,6 +24,7 @@ use App\Notifications\NewSupportAtcNotification;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Carbon;
 class SupportController extends Controller
 {
  public function index(Request $request)
@@ -205,11 +206,11 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
                 'priority' => $detail['priority'] ?? 'Normal',
                 'type' => $detail['type'] ?? 'Consulta',
                 'status' => $detail['status'] ?? 'Pendiente',
-                'reservation_time' => $detail['reservation_time'] ?? now(),
-                'attended_at' => $detail['attended_at'] ?? now()->addHour(),
+               'reservation_time' => isset($detail['reservation_time']) ? Carbon::parse($detail['reservation_time'])->format('Y-m-d H:i:s') : now(),
+'attended_at' => isset($detail['attended_at']) ? Carbon::parse($detail['attended_at'])->format('Y-m-d H:i:s') : now()->addHour(),
                 'derived' => $detail['derived'] ?? null,
                 'project_id' => $detail['project_id'] ?? null,
-                'area_id' => $detail['area_id'] ?? null,
+                'area_id' => $detail['area_id'] ?? 1,
                 'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
                 'id_tipo_cita' => $detail['id_tipo_cita'] ?? null,
                 'id_dia_espera' => $detail['id_dia_espera'] ?? null,
