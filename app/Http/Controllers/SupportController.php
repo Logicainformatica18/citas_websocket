@@ -92,9 +92,10 @@ class SupportController extends Controller
 // SupportController.php
 public function fetch(Request $request)
 {
+
  $query = $request->input('q');
 $detailId = null;
-
+Log::info('🔍 Valor recibido de q:', ['q' => $query]);
 if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
     $detailId = (int) $matches[1];
 }
