@@ -254,18 +254,9 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
                                         <td className="px-2 py-1">{support.client?.dni || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
-
-                                        {/* <td className="px-2 py-1 max-w-[150px] truncate">
-                                            {support.details[0]?.subject ?? '-'}
-                                            </td> */}
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
-
-
-
-
-
                                         <td className="px-2 py-1">
                                             {support.details[0]?.external_state?.description ? (
                                                 <span
@@ -289,8 +280,6 @@ export default function SupportTable({
                                                 '-'
                                             )}
                                         </td>
-
-
                                         <td className="px-2 py-1">
                                             {support.created_at
                                                 ? new Date(support.created_at).toLocaleString('es-PE', {
@@ -427,17 +416,11 @@ export default function SupportTable({
                                         )}
                                     </tr>
 
-                                    {/* Fila expandida (si aplica) */}
-                                    {expanded.includes(support.id) && support.details.length > 1 && (
+
+                                    {/* {expanded.includes(support.id) && support.details.length > 1 && (
                                         <tr className="bg-gray-50 dark:bg-gray-900 border-4 border-cyan-400 shadow-[0_0_8px_#00ccff]">
-
-
-
-
                                             <td colSpan={16}>
                                                 <div className="p-3 text-sm">
-
-
                                                     <table className="w-full text-sm text-left border border-gray-300 dark:border-gray-700">
                                                         <thead className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
                                                             <tr>
@@ -446,14 +429,8 @@ export default function SupportTable({
                                                                 <th className="px-2 py-1 border">Proyecto</th>
                                                                 <th className="px-2 py-1 border">Manzana</th>
                                                                 <th className="px-2 py-1 border">Lote</th>
-
                                                                 <th className=" py-1 border">Estado de Atención</th>
-
                                                                 <th className="px-2 py-1 border">Área Responsable</th>
-
-
-
-
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
                                                                 <th className="px-2 py-1 border">Prioridad</th>
 
@@ -466,8 +443,6 @@ export default function SupportTable({
                                                             {support.details.slice(1).map((detail, index) => (
                                                                 <tr key={detail.id} className="border-t dark:border-gray-600">
                                                                     <td className="px-2 py-1 border">Tk-{String(detail.id ).padStart(5, '0')}</td>
-                                                                    {/* <td className="px-2 py-1">Tk-{String(support.details[0]?.id).padStart(5, '0')}</td> */}
-
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>
                                                                     <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
@@ -488,7 +463,7 @@ export default function SupportTable({
                                                                     <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
 
 
-                                                                    {/* <td className="px-2 py-1 border">{detail.dia_espera?.dias || '-'}</td> */}
+
                                                                     <td className="px-2 py-1 border">
                                                                         {detail.internal_state?.description ? (
                                                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
@@ -502,17 +477,6 @@ export default function SupportTable({
 
                                                                     <td className="px-2 py-1 border">{detail.priority}</td>
 
-                                                                    {/* <td className="px-2 py-1 whitespace-nowrap">
-                                                                        {detail.attachment && (
-                                                                            <a
-                                                                                href={`/uploads/${detail.attachment}`}
-                                                                                download
-                                                                                className="text-blue-600 underline dark:text-blue-400"
-                                                                            >
-                                                                                {detail.attachment}
-                                                                            </a>
-                                                                        )}
-                                                                    </td> */}
                                                                     {canEdit && (
                                                                         <td className="px-2 py-1 border">
                                                                             <button
@@ -535,18 +499,13 @@ export default function SupportTable({
                                                                                 onClick={() => {
                                                                                     console.log('Editando detalle:', detail.id);
                                                                                     setSelectedSupportId(support.id);
-                                                                                    setSelectedDetailSupportId(detail.id); // ✅ usa este en lugar de setSupportDetailId
+                                                                                    setSelectedDetailSupportId(detail.id);
                                                                                     setSupportDetailToEdit(detail);
                                                                                     setShowAreaModal(true);
                                                                                 }}
                                                                             >
                                                                                 <MapPin className="w-4 h-4" />
                                                                             </button>
-
-
-
-
-
                                                                         </td>
                                                                     )}
                                                                 </tr>
@@ -556,7 +515,7 @@ export default function SupportTable({
                                                 </div>
                                             </td>
                                         </tr>
-                                    )}
+                                    )} */}
                                 </React.Fragment>
                             ))}
                         </tbody>

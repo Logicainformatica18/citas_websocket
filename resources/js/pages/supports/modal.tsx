@@ -583,10 +583,9 @@ const SupportModal = ({
                             onChange={handleDetailChange}
                             className="col-span-3 border rounded"
                         >
-                            <option value="Urgente">Urgente</option>
-                            <option value="Moderado">Moderado</option>
+                            <option value="Alta">Alta</option>
                             <option value="Normal">Normal</option>
-                            <option value="Baja Prioridad">Baja Prioridad</option>
+                            <option value="Baja">Baja</option>
                         </select>
                     </div>
                 </div>
