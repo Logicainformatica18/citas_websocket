@@ -106,7 +106,7 @@ class SupportDetailController extends Controller
         $support = Support::find($support_detail->support_id);
 
         $support->load([
-            'client:id_cliente,Razon_Social,telefono,email,direccion',
+            'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names,email',
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
             'details.area:id_area,descripcion',
@@ -126,7 +126,7 @@ class SupportDetailController extends Controller
 
         dispatch(function () use ($support, $clientEmail) {
             $supportLoaded = $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
                 'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',
@@ -160,7 +160,7 @@ class SupportDetailController extends Controller
         return response()->json([
             'message' => '✅ Ticket de Solicitud actualizada correctamente',
             'support' => $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
                 'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',
