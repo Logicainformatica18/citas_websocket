@@ -66,7 +66,7 @@ const SupportModal = ({
         created_by: 1,
         client_id: 1,
 
-        status_global: 'Incompleto', // ✅ este es el que falta
+        status_global: 'No', // ✅ este es el que falta
 
     });
 
@@ -87,7 +87,7 @@ const SupportModal = ({
     const [currentDetail, setCurrentDetail] = useState<any>({
         subject: '',
         description: '',
-        priority: 'Media',
+        priority: 'Baja',
         type: 'Consulta',
         status: 'Pendiente',
         reservation_time: getNowPlusHours(0),
@@ -239,7 +239,7 @@ const SupportModal = ({
             cellphone: client?.Telefono ?? '',
             email: client?.Email ?? '',
             address: client?.Direccion ?? '',
-            status_global: supportToEdit.status_global || 'Incompleto',
+            status_global: supportToEdit.status_global || 'No',
 
         }));
 
@@ -449,43 +449,56 @@ const SupportModal = ({
                     </div>
                 </div>
 
- {canEditAdvancedFields && (
-                <div
-                    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
-    ${formData.status_global === 'Completo'
-                            ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
-                            : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
-                        }
-  `}
-                >
-                    <Label
-                        className={`text-left font-semibold
-      ${formData.status_global === 'Completo'
-                                ? 'text-blue-800 dark:text-blue-200'
-                                : 'text-red-800 dark:text-red-200'
-                            }
-    `}
-                    >
-                        ⚠ Estado Global
-                    </Label>
 
-                    <select
-                        name="status_global"
-                        value={formData.status_global}
-                        onChange={handleChange}
-                        className={`col-span-3 text-sm h-7 px-2 py-1 rounded-md font-bold
-      ${formData.status_global === 'Completo'
-                                ? 'border border-blue-600 bg-white dark:bg-black text-blue-700 dark:text-blue-200'
-                                : 'border border-red-600 bg-white dark:bg-black text-red-700 dark:text-red-200'
-                            }
+
+  <div
+    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
+      ${
+        formData.status_global === 'Sí'
+          ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
+          : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
+      }
     `}
-                    >
-                        <option value="">Elija un Estado de Atención Global</option>
-                        <option value="Incompleto">Incompleto</option>
-                        <option value="Completo">Completo</option>
-                    </select>
-                </div>
- )}
+  >
+    <Label
+      className={`text-left font-semibold
+        ${
+          formData.status_global === 'Sí'
+            ? 'text-blue-800 dark:text-blue-200'
+            : 'text-red-800 dark:text-red-200'
+        }
+      `}
+    >
+      📅 ¿Con cita?
+    </Label>
+
+    <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
+      <label className="flex items-center gap-2">
+        <input
+          type="radio"
+          name="status_global"
+          value="Sí"
+          checked={formData.status_global === 'Sí'}
+          onChange={handleChange}
+        />
+        Sí
+      </label>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="radio"
+          name="status_global"
+          value="No"
+          checked={formData.status_global === 'No'}
+          onChange={handleChange}
+        />
+        No
+      </label>
+    </div>
+  </div>
+
+
+
 
 
 
@@ -501,15 +514,32 @@ const SupportModal = ({
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left col-span-1">Asunto</Label>
                             <div className="col-span-3">
-                                <LimitedInput
+                                <select
                                     name="subject"
                                     value={currentDetail.subject}
                                     onChange={handleDetailChange}
-                                    maxLength={150}
-                                    label="Asunto"
-                                />
+                                    className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
+                                >
+                                    <option value="">Seleccione un asunto</option>
+                                    <option value="Boletas">Boletas</option>
+                                    <option value="EE.CC">EE.CC</option>
+                                    <option value="Pagos">Pagos</option>
+                                    <option value="Recojo de Letras">Recojo de Letras</option>
+                                    <option value="Información de su lote">Información de su lote</option>
+                                    <option value="Avance de Proyecto">Avance de Proyecto</option>
+                                    <option value="Desestimiento">Desestimiento</option>
+                                    <option value="Traspaso de aportes">Traspaso de aportes</option>
+                                    <option value="Cesion">Cesión</option>
+                                    <option value="Constancia de no adeudo">Constancia de no adeudo</option>
+                                    <option value="Certificado de lote">Certificado de lote</option>
+                                    <option value="Recojo de contrato">Recojo de contrato</option>
+                                    <option value="Formalización">Formalización</option>
+                                    <option value="Cita con legal">Cita con legal</option>
+                                    <option value="Visita a proyecto">Visita a proyecto</option>
+                                </select>
                             </div>
                         </div>
+
                     </div>
 
                     <div className="grid grid-cols-4 items-start gap-4">
@@ -638,7 +668,7 @@ const SupportModal = ({
                             )}
                         </div>
 
-                        {canEditAdvancedFields && (
+                        {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-left">Motivo de Cita</Label>
                                 <select
@@ -647,7 +677,7 @@ const SupportModal = ({
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
-                                    <option value="">Seleccione un Motivo</option> {/* ✅ línea importante */}
+                                    <option value="">Seleccione un Motivo</option>
                                     {motives.map(m => (
                                         <option key={m.id} value={m.id}>
                                             {m.nombre_motivo}
@@ -655,7 +685,7 @@ const SupportModal = ({
                                     ))}
                                 </select>
                             </div>
-                        )}
+                        )} */}
 
                         {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -787,7 +817,7 @@ const SupportModal = ({
 
                             <th className="border px-2">Proyecto</th>
                             <th className="border px-2">Area</th>
-                            <th className="border px-2">Motivo Cita</th>
+                            <th className="border px-2">Asunto</th>
                             <th className="border px-2">Prioridad</th>
                             <th className="border px-2">Estado Interno</th>
                             <th className="border px-2">Estado ATC</th>
@@ -802,7 +832,7 @@ const SupportModal = ({
 
                                 <td className="border px-2">{detail.project?.descripcion}</td>
                                 <td className="border px-2">{detail.area?.descripcion}</td>
-                                <td className="border px-2">{detail.motivo_cita?.nombre_motivo}</td>
+                                <td className="border px-2">{detail.subject}</td>
                                 <td className="border px-2">{detail.priority}</td>
                                 <td className="border px-2">{detail.internal_state?.description}</td>
                                 <td className="border px-2">{detail.external_state?.description}</td>

@@ -204,7 +204,7 @@ class SupportController extends Controller
             $support->details()->create([
                 'subject' => $detail['subject'],
                 'description' => $detail['description'] ?? null,
-                'priority' => $detail['priority'] ?? 'Normal',
+                'priority' => $detail['priority'] ?? 'Baja',
                 'type' => $detail['type'] ?? 'Consulta',
                 'status' => $detail['status'] ?? 'Pendiente',
                 'reservation_time' => isset($detail['reservation_time']) ? Carbon::parse($detail['reservation_time'])->format('Y-m-d H:i:s') : now(),
@@ -519,7 +519,7 @@ class SupportController extends Controller
         $request->validate([
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'priority' => 'required|in:Normal,Urgente,Preferencial',
+            'priority' => 'required|in:Baja,Media,Alta',
             'type' => 'required|string|max:50',
             'attachment' => 'nullable|file|max:2048',
             'area_id' => 'nullable|exists:areas,id_area',

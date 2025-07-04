@@ -212,7 +212,7 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Estado Interno</th>
 
                                 <th className="px-2 py-1">Creación</th>
-                                <th className="px-2 py-1">Estado Global</th>
+                                <th className="px-2 py-1">¿Con cita?</th>
                                 <th className="px-2 py-1">Prioridad</th>
 
                                 <th className="px-2 py-1 text-center">
