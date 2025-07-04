@@ -27,38 +27,53 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Carbon;
 class SupportController extends Controller
 {
- public function index(Request $request)
-{
-    $supports = Support::with([
-        'creator:id,firstname,lastname,names',
-        'client:id_cliente,Razon_Social,dni,telefono,email',
-        'details.area:id_area,descripcion',
-        'details.project:id_proyecto,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-        'details.type:id,description',
-    ])
-    ->latest()
-    ->paginate(7);
+    public function index(Request $request)
+    {
+        $supports = Support::with([
+            'creator:id,firstname,lastname,names',
+            'client:id_cliente,Razon_Social,dni,telefono,email',
+            'details.area:id_area,descripcion',
+            'details.project:id_proyecto,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+            'details.type:id,description',
+        ])
+            ->latest()
+            ->paginate(7);
 
-    // Datos auxiliares
-    $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
-    $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
-    $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
-    $internalStates = InternalState::select('id', 'description')->get();
-    $externalStates = ExternalState::select('id', 'description')->get();
-    $types = Type::select('id', 'description')->get();
-    $projects = Project::select('id_proyecto', 'descripcion')->get();
-    $areas = Area::select('id_area', 'descripcion')->get();
-    $users = User::select('id', 'names', 'email')->get();
+        // Datos auxiliares
+        $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
+        $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
+        $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
+        $internalStates = InternalState::select('id', 'description')->get();
+        $externalStates = ExternalState::select('id', 'description')->get();
+        $types = Type::select('id', 'description')->get();
+        $projects = Project::select('id_proyecto', 'descripcion')->get();
+        $areas = Area::select('id_area', 'descripcion')->get();
+        $users = User::select('id', 'names', 'email')->get();
 
-    // 📱 Si es API (ej. desde React Native), devuelve JSON
-    if ($request->wantsJson()) {
-        return response()->json([
+        // 📱 Si es API (ej. desde React Native), devuelve JSON
+        if ($request->wantsJson()) {
+            return response()->json([
+                'supports' => $supports,
+                'motives' => $motives,
+                'appointmentTypes' => $appointmentTypes,
+                'waitingDays' => $waitingDays,
+                'internalStates' => $internalStates,
+                'externalStates' => $externalStates,
+                'types' => $types,
+                'projects' => $projects,
+                'areas' => $areas,
+                'users' => $users,
+            ]);
+        }
+
+        // 💻 Si es Inertia (web), renderiza la vista
+        return Inertia::render('supports/index', [
             'supports' => $supports,
             'motives' => $motives,
             'appointmentTypes' => $appointmentTypes,
@@ -72,68 +87,53 @@ class SupportController extends Controller
         ]);
     }
 
-    // 💻 Si es Inertia (web), renderiza la vista
-    return Inertia::render('supports/index', [
-        'supports' => $supports,
-        'motives' => $motives,
-        'appointmentTypes' => $appointmentTypes,
-        'waitingDays' => $waitingDays,
-        'internalStates' => $internalStates,
-        'externalStates' => $externalStates,
-        'types' => $types,
-        'projects' => $projects,
-        'areas' => $areas,
-        'users' => $users,
-    ]);
-}
 
 
+    // SupportController.php
+    public function fetch(Request $request)
+    {
 
-// SupportController.php
-public function fetch(Request $request)
-{
+        $query = $request->input('q');
+        $detailId = null;
+        Log::info('🔍 Valor recibido de q:', ['q' => $query]);
+        if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
+            $detailId = (int) $matches[1];
+        }
 
- $query = $request->input('q');
-$detailId = null;
-Log::info('🔍 Valor recibido de q:', ['q' => $query]);
-if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
-    $detailId = (int) $matches[1];
-}
+        $supports = Support::with([
+            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+            'creator:id,firstname,lastname,names',
+            'details.project:id_proyecto,descripcion',
+            'details.area:id_area,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+        ])
+            ->when($query, function ($q) use ($query, $detailId) {
+                $q->where(function ($subQuery) use ($query, $detailId) {
+                    $subQuery->whereHas('client', function ($sub) use ($query) {
+                        $sub->where('dni', 'like', "%{$query}%")
+                            ->orWhere('Razon_Social', 'like', "%{$query}%");
+                    });
 
-    $supports = Support::with([
-        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-        'creator:id,firstname,lastname,names',
-        'details.project:id_proyecto,descripcion',
-        'details.area:id_area,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-    ])
-   ->when($query, function ($q) use ($query, $detailId) {
-        $q->where(function ($subQuery) use ($query, $detailId) {
-            $subQuery->whereHas('client', function ($sub) use ($query) {
-                $sub->where('dni', 'like', "%{$query}%")
-                     ->orWhere('Razon_Social', 'like', "%{$query}%");
-            });
-
-            if ($detailId) {
-                $subQuery->orWhereHas('details', function ($sub) use ($detailId) {
-                    $sub->where('id', $detailId);
+                    if ($detailId) {
+                        $subQuery->orWhereHas('details', function ($sub) use ($detailId) {
+                            $sub->where('id', $detailId);
+                        });
+                    }
                 });
-            }
-        });
-    })
-    ->latest()
-    ->paginate(7);
+            })
+            ->latest()
+            ->paginate(7);
 
 
-    return response()->json([
-        'supports' => $supports,
-    ]);
-}
+        return response()->json([
+            'supports' => $supports,
+        ]);
+    }
 
 
 
@@ -171,17 +171,17 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
     public function store(Request $request)
     {
         // 🧾 Log completo de entrada
-    Log::info('📥 Datos recibidos en store():', $request->all());
+        Log::info('📥 Datos recibidos en store():', $request->all());
 
-    // 🧪 Verificar manualmente campos importantes
-    Log::info('🔍 status_global recibido:', ['status_global' => $request->status_global]);
+        // 🧪 Verificar manualmente campos importantes
+        Log::info('🔍 status_global recibido:', ['status_global' => $request->status_global]);
 
 
         // 1. Crear soporte base
         $support = Support::create([
             'client_id' => $request->client_id,
             'state' => $request->state,
-       'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
+            'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
             'created_by' => Auth::id(),
         ]);
 
@@ -207,8 +207,8 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
                 'priority' => $detail['priority'] ?? 'Normal',
                 'type' => $detail['type'] ?? 'Consulta',
                 'status' => $detail['status'] ?? 'Pendiente',
-               'reservation_time' => isset($detail['reservation_time']) ? Carbon::parse($detail['reservation_time'])->format('Y-m-d H:i:s') : now(),
-'attended_at' => isset($detail['attended_at']) ? Carbon::parse($detail['attended_at'])->format('Y-m-d H:i:s') : now()->addHour(),
+                'reservation_time' => isset($detail['reservation_time']) ? Carbon::parse($detail['reservation_time'])->format('Y-m-d H:i:s') : now(),
+                'attended_at' => isset($detail['attended_at']) ? Carbon::parse($detail['attended_at'])->format('Y-m-d H:i:s') : now()->addHour(),
                 'derived' => $detail['derived'] ?? null,
                 'project_id' => $detail['project_id'] ?? null,
                 'area_id' => $detail['area_id'] ?? 1,
@@ -225,7 +225,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
         }
 
 
-      $support->load([
+        $support->load([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'creator:id,firstname,lastname,names',
 
@@ -250,7 +250,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
         $data = $request->only(['dni', 'cellphone', 'email', 'address']);
 
         dispatch(function () use ($clientId, $data) {
-            $client = \App\Models\Client::find($clientId);
+            $client = Client::find($clientId);
             if ($client) {
                 $client->updateFromSupport($data);
             }
@@ -258,43 +258,43 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
 
 
 
-        // 📨 Notificar a usuarios ATC por correo usando cola
-        dispatch(function () use ($support) {
-            try {
-                Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
+        // // 📨 Notificar a usuarios ATC por correo usando cola
+        // dispatch(function () use ($support) {
+        //     try {
+        //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
 
-                $atcUsers = User::role('ATC')->get();
-                Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
+        //         $atcUsers = User::role('ATC')->get();
+        //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
 
-                $supportLoaded = $support->load([
-                    'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
-                    'creator:id,firstname,lastname,names,email',
-                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
-                    'details.area:id_area,descripcion',
-                    'details.project:id_proyecto,descripcion',
-                    'details.motivoCita:id_motivos_cita,nombre_motivo',
-                    'details.tipoCita:id_tipo_cita,tipo',
-                    'details.diaEspera:id_dias_espera,dias',
-                    'details.internalState:id,description',
-                    'details.externalState:id,description',
-                    'details.supportType:id,description',
-                ]);
+        //         $supportLoaded = $support->load([
+        //             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
+        //             'creator:id,firstname,lastname,names,email',
+        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+        //             'details.area:id_area,descripcion',
+        //             'details.project:id_proyecto,descripcion',
+        //             'details.motivoCita:id_motivos_cita,nombre_motivo',
+        //             'details.tipoCita:id_tipo_cita,tipo',
+        //             'details.diaEspera:id_dias_espera,dias',
+        //             'details.internalState:id,description',
+        //             'details.externalState:id,description',
+        //             'details.supportType:id,description',
+        //         ]);
 
-                Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
+        //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
 
-                Notification::send(
-                    $atcUsers,
-                    new NewSupportAtcNotification($supportLoaded, 'created')
-                );
+        //         Notification::send(
+        //             $atcUsers,
+        //             new NewSupportAtcNotification($supportLoaded, 'created')
+        //         );
 
-                Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
-            } catch (\Throwable $e) {
-                Log::error('[ATC Notification] Error al enviar notificaciones:', [
-                    'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-            }
-        });
+        //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
+        //     } catch (\Throwable $e) {
+        //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
+        //             'message' => $e->getMessage(),
+        //             'trace' => $e->getTraceAsString(),
+        //         ]);
+        //     }
+        // });
 
         // ✅ Retornar respuesta con soporte y relaciones cargadas
         return response()->json([
@@ -380,7 +380,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
 
         // 4. Recargar relaciones necesarias para el frontend
         $support->load([
-            'client:id_cliente,Razon_Social,telefono,email,direccion',
+            'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names',
 
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
@@ -414,7 +414,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
                 Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
 
                 $supportLoaded = $support->load([
-                    'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
+                    'client:id_cliente,Razon_Social,telefono,email,Direccion,dni',
                     'creator:id,firstname,lastname,names,email',
                     'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                     'details.area:id_area,descripcion',
@@ -452,7 +452,7 @@ if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
         return response()->json([
             'message' => '✅ Ticket de soporte actualizado correctamente',
             'support' => $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion',
+                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
                 'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',

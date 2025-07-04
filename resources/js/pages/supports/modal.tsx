@@ -87,7 +87,7 @@ const SupportModal = ({
     const [currentDetail, setCurrentDetail] = useState<any>({
         subject: '',
         description: '',
-        priority: 'Normal',
+        priority: 'Media',
         type: 'Consulta',
         status: 'Pendiente',
         reservation_time: getNowPlusHours(0),
@@ -124,7 +124,7 @@ const SupportModal = ({
     //     setCurrentDetail({
     //         subject: '',
     //         description: '',
-    //         priority: 'Normal',
+    //         priority: 'Media',
     //         type: 'Consulta',
     //         status: 'Pendiente',
     //         reservation_time: getNowPlusHours(0),
@@ -185,7 +185,7 @@ const SupportModal = ({
             dia_espera: waitingDays.find(d => d.id === Number(currentDetail.id_dia_espera)) || null,
             internal_state: internalStates.find(i => i.id === internalStateId) || { id: 3, description: 'Pendiente' },
             external_state: externalStates.find(e => e.id === externalStateId) || { id: 1, description: 'Por Asignar' },
-            priority: currentDetail.priority?.trim() || 'Normal',
+            priority: currentDetail.priority?.trim() || 'Media',
 
             support_type: types.find(t => t.id === Number(currentDetail.type_id)) || null,
         };
@@ -306,7 +306,7 @@ const SupportModal = ({
             const cleanedDetails = supportDetails.map((detail) => ({
                 subject: detail.subject,
                 description: detail.description,
-                priority: detail.priority?.trim() || 'Normal',
+                priority: detail.priority?.trim() || 'Media',
                 type: detail.type || 'Consulta',
                 status: detail.status || 'Pendiente',
                 reservation_time: detail.reservation_time,
@@ -584,7 +584,7 @@ const SupportModal = ({
                             className="col-span-3 border rounded"
                         >
                             <option value="Alta">Alta</option>
-                            <option value="Normal">Normal</option>
+                            <option value="Media">Media</option>
                             <option value="Baja">Baja</option>
                         </select>
                     </div>

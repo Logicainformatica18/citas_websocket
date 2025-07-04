@@ -102,7 +102,7 @@ class SupportDetailController extends Controller
 
         $support_detail->save();
 
-        // 🔁 Obtener el soporte relacionado y cargar TODO lo necesario
+        // 🔁 Obtener el Solicitud relacionado y cargar TODO lo necesario
         $support = Support::find($support_detail->support_id);
 
         $support->load([
@@ -139,7 +139,7 @@ class SupportDetailController extends Controller
                 'details.supportType:id,description',
             ]);
 
-            // Obtener los usuarios con el mismo rol del creador del soporte
+            // Obtener los usuarios con el mismo rol del creador del Solicitud
             $creatorRoles = $supportLoaded->creator->getRoleNames(); // Collection
             $atcUsers = User::role($creatorRoles)->get();    // todos los usuarios con al menos uno de esos roles
 
@@ -158,7 +158,7 @@ class SupportDetailController extends Controller
 
         // 📦 Retornar respuesta
         return response()->json([
-            'message' => '✅ Ticket de soporte actualizado correctamente',
+            'message' => '✅ Ticket de Solicitud actualizada correctamente',
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion',
                 'creator:id,firstname,lastname,names,email',
@@ -250,8 +250,8 @@ class SupportDetailController extends Controller
     // {
     //     $support = new Support();
 
-    //     $support->subject = $request->input('subject', 'Nuevo Ticket de Soporte');
-    //     $support->description = $request->input('description', 'Descripción del ticket de soporte');
+    //     $support->subject = $request->input('subject', 'Nuevo Ticket de Solicitud');
+    //     $support->description = $request->input('description', 'Descripción del ticket de Solicitud');
     //     $support->client_id = $request->input('client_id', 1);
     //     $support->cellphone = $request->input('cellphone', '0000000000');
     //     $support->priority = $request->input('priority');
@@ -323,7 +323,7 @@ class SupportDetailController extends Controller
     //     });
 
     //     return response()->json([
-    //         'message' => '✅ Ticket de soporte creado correctamente',
+    //         'message' => '✅ Ticket de Solicitud creado correctamente',
     //         'support' => $support,
     //     ]);
     // }
@@ -364,7 +364,7 @@ class SupportDetailController extends Controller
     //     $support->save();
 
     //     // Log para auditoría
-    //     Log::info('📝 Soporte actualizado', [
+    //     Log::info('📝 Solicitud actualizado', [
     //         'support_id' => $support->id,
     //         'user_id' => Auth::id(),
     //         'updated_fields' => $request->except(['_method', '_token']),
@@ -389,7 +389,7 @@ class SupportDetailController extends Controller
     //     if ($areaRoleName && Role::where('name', $areaRoleName)->where('guard_name', 'web')->exists()) {
     //         $usersToNotify = User::role($areaRoleName)->get();
 
-    //         Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del soporte #{$support->id}", [
+    //         Log::info("🔔 Notificando a usuarios con rol '{$areaRoleName}' tras actualización del Solicitud #{$support->id}", [
     //             'user_ids' => $usersToNotify->pluck('id'),
     //             'user_emails' => $usersToNotify->pluck('email'),
     //             'user_names' => $usersToNotify->pluck('name'),
@@ -409,7 +409,7 @@ class SupportDetailController extends Controller
     //     broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
     //     return response()->json([
-    //         'message' => '✅ Ticket de soporte actualizado correctamente',
+    //         'message' => '✅ Ticket de Solicitud actualizado correctamente',
     //         'support' => $support,
     //     ]);
     // }
@@ -455,7 +455,7 @@ public function destroy($id)
 
     $detail->delete();
 
-    // 🔄 Cargar el soporte actualizado con sus relaciones
+    // 🔄 Cargar el Solicitud actualizado con sus relaciones
     $support =  Support::with([
         'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
         'creator:id,firstname,lastname,names,email',
@@ -470,10 +470,10 @@ public function destroy($id)
         'details.supportType:id,description',
     ])->findOrFail($supportId);
 
-    // 📡 Emitir el soporte actualizado
+    // 📡 Emitir el Solicitud actualizado
     broadcast(new RecordChanged('Support', 'detail_deleted', $support->toArray()));
 
-    return redirect()->back()->with('success', 'Detalle eliminado correctamente.');
+    return redirect()->back()->with('success', 'Solicitud eliminada correctamente.');
 }
 
 

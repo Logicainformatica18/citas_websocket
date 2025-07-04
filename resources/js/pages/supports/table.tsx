@@ -304,7 +304,7 @@ export default function SupportTable({
                                                 <Notebook className="ml-1 w-4 h-4 text-red-600" />
 
                                             </Link>
-                                            {support.details.length > 1 && (
+                                            {/* {support.details.length > 1 && (
                                                 <button
                                                     onClick={() => toggleExpand(support.id)}
                                                     className="text-blue-600 underline text-sm"
@@ -315,7 +315,7 @@ export default function SupportTable({
                                                         <ChevronDown className="w-7 h-7 text-blue-600" />
                                                     )}
                                                 </button>
-                                            )}
+                                            )} */}
 
 
 
@@ -415,6 +415,108 @@ export default function SupportTable({
                                             </>
                                         )}
                                     </tr>
+                                    {support.details.length > 1 && support.details.slice(1).map((detail) => (
+                                        <tr key={detail.id} className="bg-gray-50 dark:bg-gray-900 text-sm border-t">
+                                            <td className="px-2 py-1 border">Tk-{String(detail.id).padStart(5, '0')}</td>
+                                            <td className="px-2 py-1 border">{support.client?.Razon_Social || '-'}</td>
+                                            <td className="px-2 py-1 border">{support.client?.dni || '-'}</td>
+                                            <td className="px-2 py-1 border">{detail.subject || '-'}</td>
+                                            <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
+                                            <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
+                                            <td className="px-2 py-1 border">{detail.Lote || '-'}</td>
+
+                                            <td className="px-2 py-1 border">
+                                                {detail.external_state?.description ? (
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(detail.external_state.description)}`}>
+                                                        {detail.external_state.description}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                                )}
+                                            </td>
+
+                                            <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
+
+                                            <td className="px-2 py-1 border">
+                                                {detail.internal_state?.description ? (
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
+                                                        {detail.internal_state.description}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+
+                                            <td className="px-2 py-1 border">
+                                                {support.created_at
+                                                    ? new Date(support.created_at).toLocaleString('es-PE', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        hour12: false,
+                                                    }).replace(',', ' ')
+                                                    : '—'}
+                                            </td>
+
+                                            <td className="px-2 py-1 border">{support.status_global ?? '-'}</td>
+                                            <td className="px-2 py-1 border">{detail.priority ?? '-'}</td>
+
+                                            <td className="px-2 py-1 border text-center">
+                                                <Link
+                                                    href={`/reports/${support.id}`}
+                                                    className="text-blue-600 underline hover:text-blue-800 text-sm"
+                                                >
+                                                    <Notebook className="ml-1 w-4 h-4 text-red-600" />
+                                                </Link>
+                                            </td>
+
+                                            {canEdit && (
+                                                <>
+                                                    <td className="px-2 py-1 border">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.includes(support.id)}
+                                                            onChange={(e) =>
+                                                                setSelectedIds((prev) =>
+                                                                    e.target.checked
+                                                                        ? [...prev, support.id]
+                                                                        : prev.filter((id) => id !== support.id)
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td className="px-2 py-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                console.log('Editando detalle:', detail.id);
+                                                                setSelectedSupportId(support.id);
+                                                                setSelectedDetailSupportId(detail.id);
+                                                                setSupportDetailToEdit(detail);
+                                                                setShowAreaModal(true);
+                                                            }}
+                                                        >
+                                                            <MapPin className="w-4 h-4" />
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('¿Estás seguro de eliminar este detalle?')) {
+                                                                    router.delete(`/support-details/${detail.id}`, {
+                                                                        onSuccess: () => toast.success('Detalle eliminado'),
+                                                                        onError: () => toast.error('Error al eliminar'),
+                                                                        preserveScroll: true,
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="text-red-600 hover:text-red-800 text-xs"
+                                                        >
+                                                             <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    ))}
 
 
                                     {/* {expanded.includes(support.id) && support.details.length > 1 && (
