@@ -141,6 +141,7 @@ class SupportDetailController extends Controller
 
             // Obtener los usuarios con el mismo rol del creador del Solicitud
             $creatorRoles = $supportLoaded->creator->getRoleNames(); // Collection
+
             $atcUsers = User::role($creatorRoles)->get();    // todos los usuarios con al menos uno de esos roles
 
             // Preparar lista de notifiables
