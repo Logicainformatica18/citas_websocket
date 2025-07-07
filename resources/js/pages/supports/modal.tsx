@@ -78,7 +78,7 @@ const SupportModal = ({
     const [uploading, setUploading] = useState(false);
     const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
-
+    const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('atc') || permissions.includes('reserva');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
@@ -492,7 +492,7 @@ const SupportModal = ({
                 </div>
 
 
-{canEditAdvancedFields && (
+{canEdiAdminAtcReservaFields && (
                 <div
                     className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
       ${formData.status_global === 'Sí'
