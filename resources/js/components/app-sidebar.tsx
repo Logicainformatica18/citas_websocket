@@ -59,6 +59,8 @@ export function AppSidebar() {
   const isAdmin = has('administrar');
   const isReserva = has('reserva');
   const isATC = has('atc');
+  const isAtento = has('atento');
+
 
 const allGroupTitles = ['Admin', 'Gestión', 'Parámetros', 'Solicitud'];
 
@@ -106,7 +108,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
     {
       title: 'Solicitud',
-      show: isAdmin || isATC || isReserva,
+      show: isAdmin || isATC || isReserva || isAtento,
       items: [
         { title: 'Solicitudes', href: '/supports', icon: Headphones },
       ],

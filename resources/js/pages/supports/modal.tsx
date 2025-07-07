@@ -78,6 +78,7 @@ const SupportModal = ({
     const [uploading, setUploading] = useState(false);
     const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
+
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
@@ -491,7 +492,7 @@ const SupportModal = ({
                 </div>
 
 
-
+{canEditAdvancedFields && (
                 <div
                     className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
       ${formData.status_global === 'Sí'
@@ -511,7 +512,7 @@ const SupportModal = ({
                         📅 ¿Con cita?
                     </Label>
 
-                    <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
+                   <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
                         <label className="flex items-center gap-2">
                             <input
                                 type="radio"
@@ -537,7 +538,7 @@ const SupportModal = ({
                 </div>
 
 
-
+ )}
 
 
 
@@ -649,19 +650,19 @@ const SupportModal = ({
                                 inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
                             />
                         </div> */}
-                         <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left">Prioridad</Label>
-                        <select
-                            name="priority"
-                            value={currentDetail.priority}
-                            onChange={handleDetailChange}
-                            className="col-span-3 border rounded"
-                        >
-                            <option value="Alta">Alta</option>
-                            <option value="Media">Media</option>
-                            <option value="Baja">Baja</option>
-                        </select>
-                    </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Prioridad</Label>
+                            <select
+                                name="priority"
+                                value={currentDetail.priority}
+                                onChange={handleDetailChange}
+                                className="col-span-3 border rounded"
+                            >
+                                <option value="Alta">Alta</option>
+                                <option value="Media">Media</option>
+                                <option value="Baja">Baja</option>
+                            </select>
+                        </div>
                     </div>
 
 

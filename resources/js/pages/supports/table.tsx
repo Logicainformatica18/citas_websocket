@@ -256,7 +256,7 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
 
-                                        <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
+                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
                                         <td className="px-2 py-1">
                                             {support.details[0]?.external_state?.description ? (
                                                 <span
