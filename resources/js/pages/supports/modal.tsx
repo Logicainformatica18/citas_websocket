@@ -81,8 +81,16 @@ const SupportModal = ({
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
+    const [salesFromClient, setSalesFromClient] = useState<any[]>([]);
+    const [availableLots, setAvailableLots] = useState<string[]>([]);
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
+
+    const clientProjects = Array.from(
+        new Map(
+            salesFromClient.map((s) => [s.project_id, s.project])
+        ).values()
+    );
 
     const [currentDetail, setCurrentDetail] = useState<any>({
         subject: '',
@@ -115,8 +123,26 @@ const SupportModal = ({
     });
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
+
+        if (name === 'project_id') {
+            const lots = salesFromClient
+                .filter((s) => s.project_id === Number(value))
+                .map((s) => s.mz_lote);
+
+            setAvailableLots(lots);
+
+            setCurrentDetail((prev) => ({
+                ...prev,
+                [name]: value,
+                Manzana: '',
+                Lote: '',
+            }));
+            return;
+        }
+
         setCurrentDetail((prev) => ({ ...prev, [name]: value }));
     };
+
 
 
     // const addDetail = () => {
@@ -387,8 +413,23 @@ const SupportModal = ({
                                         }));
                                         setSelectedClient(client);
                                         setClientQuery(client.names);
+
+                                        // ✅ Guardar ventas del cliente
+                                        setSalesFromClient(client.sales || []);
+
+                                        // ✅ Reiniciar proyecto/lote si cambia de cliente
+                                        setCurrentDetail((prev) => ({
+                                            ...prev,
+                                            project_id: '',
+                                            Manzana: '',
+                                            Lote: '',
+                                        }));
+
+                                        // Limpiar también lotes disponibles
+                                        setAvailableLots([]);
                                     }}
                                 />
+
                             )}
                         </div>
                     </div>
@@ -451,51 +492,49 @@ const SupportModal = ({
 
 
 
-  <div
-    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
-      ${
-        formData.status_global === 'Sí'
-          ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
-          : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
-      }
+                <div
+                    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
+      ${formData.status_global === 'Sí'
+                            ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
+                            : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
+                        }
     `}
-  >
-    <Label
-      className={`text-left font-semibold
-        ${
-          formData.status_global === 'Sí'
-            ? 'text-blue-800 dark:text-blue-200'
-            : 'text-red-800 dark:text-red-200'
-        }
+                >
+                    <Label
+                        className={`text-left font-semibold
+        ${formData.status_global === 'Sí'
+                                ? 'text-blue-800 dark:text-blue-200'
+                                : 'text-red-800 dark:text-red-200'
+                            }
       `}
-    >
-      📅 ¿Con cita?
-    </Label>
+                    >
+                        📅 ¿Con cita?
+                    </Label>
 
-    <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
-      <label className="flex items-center gap-2">
-        <input
-          type="radio"
-          name="status_global"
-          value="Sí"
-          checked={formData.status_global === 'Sí'}
-          onChange={handleChange}
-        />
-        Sí
-      </label>
+                    <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="status_global"
+                                value="Sí"
+                                checked={formData.status_global === 'Sí'}
+                                onChange={handleChange}
+                            />
+                            Sí
+                        </label>
 
-      <label className="flex items-center gap-2">
-        <input
-          type="radio"
-          name="status_global"
-          value="No"
-          checked={formData.status_global === 'No'}
-          onChange={handleChange}
-        />
-        No
-      </label>
-    </div>
-  </div>
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="status_global"
+                                value="No"
+                                checked={formData.status_global === 'No'}
+                                onChange={handleChange}
+                            />
+                            No
+                        </label>
+                    </div>
+                </div>
 
 
 
@@ -566,12 +605,13 @@ const SupportModal = ({
                                 className="w-full border rounded px-3 py-2 text-sm"
                             >
                                 <option value="">Seleccione un proyecto</option>
-                                {projects.map((p) => (
+                                {clientProjects.map((p) => (
                                     <option key={p.id_proyecto} value={p.id_proyecto}>
                                         {p.descripcion}
                                     </option>
                                 ))}
                             </select>
+
 
                         </div>
                     </div>
@@ -581,16 +621,22 @@ const SupportModal = ({
                             <Label className="text-left">Manzana</Label>
                         </div>
                         <div className="grid grid-cols-1 items-left">
-                            <LimitedInput
+                            <select
                                 name="Manzana"
-                                label="Manzana"
                                 value={currentDetail.Manzana}
                                 onChange={handleDetailChange}
-                                maxLength={12}
-                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md w-full"
-                            />
+                                className="w-full border rounded px-3 py-2 text-sm"
+                            >
+                                <option value="">Seleccione Manzana y Lote</option>
+                                {availableLots.map((mz) => (
+                                    <option key={mz} value={mz}>
+                                        {mz}
+                                    </option>
+                                ))}
+                            </select>
+
                         </div>
-                        <div className="grid grid-cols-1 items-center">
+                        {/* <div className="grid grid-cols-1 items-center">
                             <Label className="text-center col-span-1">Lote</Label>
                         </div>
                         <div className="grid grid-cols-1 items-center">
@@ -602,10 +648,8 @@ const SupportModal = ({
                                 maxLength={11}
                                 inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
                             />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
+                        </div> */}
+                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left">Prioridad</Label>
                         <select
                             name="priority"
@@ -618,6 +662,9 @@ const SupportModal = ({
                             <option value="Baja">Baja</option>
                         </select>
                     </div>
+                    </div>
+
+
                 </div>
 
                 <div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">

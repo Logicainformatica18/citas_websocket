@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Sale; // Asegúrate de importar el modelo Sale
 class Client extends Model
 {
     protected $table = 'clientes';
@@ -74,6 +74,9 @@ public function toFrontend()
         'email' => $this->Email,
         'address' => $this->Direccion,
     ];
+}
+public function sales() {
+    return $this->hasMany(Sale::class, 'id_cliente', 'id_cliente');
 }
 
 

@@ -17,6 +17,8 @@ export default function ClientSearch({
   const [internalSelectedClient, setInternalSelectedClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+const [salesFromClient, setSalesFromClient] = useState<any[]>([]);
+const [availableLots, setAvailableLots] = useState<string[]>([]);
 
 const search = async (q: string) => {
   if (!q || typeof q !== 'string') return; // ✅ protección extra

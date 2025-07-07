@@ -111,19 +111,31 @@ public function searchByName(Request $request)
 {
     $q = trim($request->input('q'));
 
-    return Client::query()
-        ->where('DNI', $q) // búsqueda exacta por DNI
-        ->orWhereRaw('LOWER(Razon_Social) LIKE ?', ["%" . strtolower($q) . "%"]) // búsqueda parcial por nombre
+    $clients = Client::query()
+        ->with(['sales' => function ($query) {
+            $query->select('id', 'id_cliente', 'project_id', 'mz_lote')
+                  ->with(['project:id_proyecto,descripcion']);
+        }])
+        ->where('DNI', $q)
+        ->orWhereRaw('LOWER(Razon_Social) LIKE ?', ["%" . strtolower($q) . "%"])
         ->limit(10)
-        ->get([
-            'id_cliente as id',
-            'DNI as dni',
-            'Razon_Social as names',
-            'Telefono as cellphone',
-            'Email as email',
-            'Direccion as address'
-        ]);
+        ->get() // 🔁 sin alias aquí
+        ->map(function ($client) {
+            return [
+                'id' => $client->id_cliente,
+                'dni' => $client->DNI,
+                'names' => $client->Razon_Social,
+                'cellphone' => $client->Telefono,
+                'email' => $client->Email,
+                'address' => $client->Direccion,
+                'sales' => $client->sales, // ventas ya con proyecto
+            ];
+        });
+
+    return response()->json($clients);
 }
+
+
 
 
 }
