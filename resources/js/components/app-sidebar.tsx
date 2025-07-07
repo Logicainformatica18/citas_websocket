@@ -113,6 +113,13 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
         { title: 'Solicitudes', href: '/supports', icon: Headphones },
       ],
     },
+    {
+      title: 'Ventas',
+      show: isAdmin || isATC,
+      items: [
+        { title: 'Ventas', href: '/sales', icon: FolderKanban },
+      ],
+    },
   ];
 
   const footerNavItems: NavItem[] = [

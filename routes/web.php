@@ -20,6 +20,7 @@ use App\Http\Controllers\ProjectController;
  use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportDetailController;
+use App\Http\Controllers\SaleController;
 
 
 
@@ -228,6 +229,13 @@ Route::post('/types/bulk-delete', [TypeController::class, 'bulkDelete']);
 
 
 
+Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
+Route::get('/sales/fetch', [SaleController::class, 'fetchPaginated']);
+Route::get('/sales/{id}', [SaleController::class, 'show']);
+Route::post('/sales', [SaleController::class, 'store']);
+Route::put('/sales/{id}', [SaleController::class, 'update']);
+Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
+Route::post('/sales/bulk-delete', [SaleController::class, 'bulkDelete']);
 
 
 
