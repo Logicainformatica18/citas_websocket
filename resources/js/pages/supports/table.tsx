@@ -204,8 +204,8 @@ export default function SupportTable({
 
                                 {/* <th className="px-2 py-1">Asunto</th> */}
                                 <th className="px-2 py-1">Proyecto</th>
-                                <th className="px-2 py-1">Manzana</th>
-                                <th className="px-2 py-1">Lote</th>
+                                <th className="px-2 py-1">Manzana/Lote</th>
+
 
                                 <th className="px-2 py-1">Estado de Atención</th>
                                 <th className="px-2 py-1">Área Responsable</th>
@@ -255,7 +255,7 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.client?.dni || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
+
                                         <td className="px-2 py-1">{support.details[0]?.Lote ?? '-'}</td>
                                         <td className="px-2 py-1">
                                             {support.details[0]?.external_state?.description ? (
@@ -423,7 +423,7 @@ export default function SupportTable({
                                             <td className="px-2 py-1 border">{detail.subject || '-'}</td>
                                             <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                             <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
-                                            <td className="px-2 py-1 border">{detail.Lote || '-'}</td>
+
 
                                             <td className="px-2 py-1 border">
                                                 {detail.external_state?.description ? (

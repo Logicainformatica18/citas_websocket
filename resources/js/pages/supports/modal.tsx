@@ -837,7 +837,7 @@ const SupportModal = ({
                     {canEditAdvancedFields && (
 
                         <div className="grid grid-cols-4 items-start gap-4">
-                            <Label className="text-left col-span-1">Derivado</Label>
+                            <Label className="text-left col-span-1">Estatus de Solicitud</Label>
 
                             <div className="col-span-3">
                                 <LimitedInput
