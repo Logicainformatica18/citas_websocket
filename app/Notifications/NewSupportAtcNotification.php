@@ -23,7 +23,7 @@ class NewSupportAtcNotification extends Notification implements ShouldQueue
         $this->support = $support->loadMissing([
              'client:id_cliente,Razon_Social,Telefono,Email,Direccion',
     'creator:id,firstname,lastname,names,email',
-    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
     'details.area:id_area,descripcion',
     'details.project:id_proyecto,descripcion',
     'details.motivoCita:id_motivos_cita,nombre_motivo',

@@ -152,7 +152,7 @@
                 <tr><th>Reservado:</th><td>{{ $detail->reservation_time ?? '-' }}</td></tr>
                 <tr><th>Atendido:</th><td>{{ $detail->attended_at ?? '-' }}</td></tr>
                 <tr><th>Manzana:</th><td>{{ $detail->Manzana ?? '-' }}</td></tr>
-                <tr><th>Lote:</th><td>{{ $detail->Lote ?? '-' }}</td></tr>
+                <tr><th>comment:</th><td>{{ $detail->comment ?? '-' }}</td></tr>
             </table>
         </div>
     </div>

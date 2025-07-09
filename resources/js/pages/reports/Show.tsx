@@ -77,7 +77,7 @@ export default function ReportShow({ support }: PageProps<{ support: any }>) {
                   <div><strong>Fecha de Reserva:</strong> {detail.reservation_time ?? '-'}</div>
                   <div><strong>Derivado:</strong> {detail.derived ?? '-'}</div>
                   <div><strong>Manzana:</strong> {detail.Manzana ?? '-'}</div>
-                  <div><strong>Lote:</strong> {detail.Lote ?? '-'}</div>
+                  <div><strong>comment:</strong> {detail.comment ?? '-'}</div>
 
                   {detail.attachment && (
                     <div className="col-span-2">

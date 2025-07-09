@@ -42,7 +42,7 @@ class SupportDetail extends Model
         'type_id',
         'project_id',
         'Manzana',
-        'Lote',
+        'comment',
         'support_id',
         'ticket'
 

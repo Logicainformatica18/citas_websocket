@@ -35,7 +35,7 @@ return new class extends Migration {
 
             // Ubicación
             $table->string('Manzana')->nullable();
-            $table->string('Lote')->nullable();
+            $table->string('comment')->nullable();
 
             $table->timestamps();
 

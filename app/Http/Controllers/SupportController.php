@@ -219,7 +219,7 @@ class SupportController extends Controller
                 'external_state_id' => $detail['external_state_id'] ?? 1,
                 'type_id' => $detail['type_id'] ?? null,
                 'Manzana' => $detail['Manzana'] ?? null,
-                'Lote' => $detail['Lote'] ?? null,
+                'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
             ]);
             // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
@@ -240,7 +240,7 @@ class SupportController extends Controller
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'creator:id,firstname,lastname,names',
 
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
 
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -280,7 +280,7 @@ class SupportController extends Controller
         //         $supportLoaded = $support->load([
         //             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
         //             'creator:id,firstname,lastname,names,email',
-        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
         //             'details.area:id_area,descripcion',
         //             'details.project:id_proyecto,descripcion',
         //             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -313,7 +313,7 @@ class SupportController extends Controller
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
                 'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -370,7 +370,7 @@ class SupportController extends Controller
                 'attended_at' => $detail['attended_at'] ?? null,
                 'derived' => $detail['derived'] ?? '',
                 'Manzana' => $detail['Manzana'] ?? '',
-                'Lote' => $detail['Lote'] ?? '',
+                'comment' => $detail['comment'] ?? '',
                 'project_id' => $detail['project_id'] ?? null,
                 'area_id' => $detail['area_id'] ?? null,
                 'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
@@ -394,7 +394,7 @@ class SupportController extends Controller
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names',
 
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
 
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -427,7 +427,7 @@ class SupportController extends Controller
                 $supportLoaded = $support->load([
                     'client:id_cliente,Razon_Social,telefono,email,Direccion,dni',
                     'creator:id,firstname,lastname,names,email',
-                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
                     'details.area:id_area,descripcion',
                     'details.project:id_proyecto,descripcion',
                     'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -465,7 +465,7 @@ class SupportController extends Controller
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
                 'details.motivoCita:id_motivos_cita,nombre_motivo',

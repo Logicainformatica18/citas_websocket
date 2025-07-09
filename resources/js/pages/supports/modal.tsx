@@ -111,7 +111,7 @@ const SupportModal = ({
         external_state_id: '1',
         type_id: '',
         Manzana: '',
-        Lote: '',
+        comment: '',
         attachment: null, // ✅ importante,
         //   status_global: 'Incompleto', // ✅ este es el que falta
         project: '',
@@ -136,7 +136,7 @@ const SupportModal = ({
                 ...prev,
                 [name]: value,
                 Manzana: '',
-                Lote: '',
+                comment: '',
             }));
             return;
         }
@@ -166,7 +166,7 @@ const SupportModal = ({
     //         external_state_id: '',
     //         type_id: '',
     //         Manzana: '',
-    //         Lote: ''
+    //         comment: ''
 
     //     });
     // };
@@ -230,7 +230,7 @@ const SupportModal = ({
             attended_at: getNowPlusHours(1),
             derived: '',
             Manzana: '',
-            Lote: '',
+            comment: '',
             project_id: '',
             area_id: '', // ahora lo vacías pero ya sabes que si está vacío luego usará el valor por defecto (ATC)
             id_motivos_cita: '',
@@ -351,7 +351,7 @@ const SupportModal = ({
                 type_id: detail.support_type?.id ?? null,
 
                 Manzana: detail.Manzana ?? '',
-                Lote: detail.Lote ?? '',
+                comment: detail.comment ?? '',
             }));
             data.append('details', JSON.stringify(cleanedDetails));
 
@@ -423,7 +423,7 @@ const SupportModal = ({
                                             ...prev,
                                             project_id: '',
                                             Manzana: '',
-                                            Lote: '',
+                                            comment: '',
                                         }));
 
                                         // Limpiar también lotes disponibles
@@ -492,181 +492,183 @@ const SupportModal = ({
                 </div>
 
 
-{canEdiAdminAtcReservaFields && (
-                <div
-                    className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
+                {/* {canEdiAdminAtcReservaFields && (
+                    <div
+                        className={`grid grid-cols-4 items-center gap-4 p-2 rounded-md shadow-md
       ${formData.status_global === 'Sí'
-                            ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
-                            : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
-                        }
-    `}
-                >
-                    <Label
-                        className={`text-left font-semibold
-        ${formData.status_global === 'Sí'
-                                ? 'text-blue-800 dark:text-blue-200'
-                                : 'text-red-800 dark:text-red-200'
+                                ? 'border-blue-600 bg-blue-100 dark:bg-blue-900 shadow-blue-400'
+                                : 'border-red-600 bg-red-100 dark:bg-red-900 shadow-red-400'
                             }
-      `}
+    `}
                     >
-                        📅 ¿Con cita?
-                    </Label>
+                        <Label
+                            className={`text-left font-semibold
+        ${formData.status_global === 'Sí'
+                                    ? 'text-blue-800 dark:text-blue-200'
+                                    : 'text-red-800 dark:text-red-200'
+                                }
+      `}
+                        >
+                            📅 ¿Con cita?
+                        </Label>
 
-                   <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="radio"
-                                name="status_global"
-                                value="Sí"
-                                checked={formData.status_global === 'Sí'}
-                                onChange={handleChange}
-                            />
-                            Sí
-                        </label>
+                        <div className="col-span-3 flex gap-6 items-center text-sm font-semibold">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="status_global"
+                                    value="Sí"
+                                    checked={formData.status_global === 'Sí'}
+                                    onChange={handleChange}
+                                />
+                                Sí
+                            </label>
 
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="radio"
-                                name="status_global"
-                                value="No"
-                                checked={formData.status_global === 'No'}
-                                onChange={handleChange}
-                            />
-                            No
-                        </label>
-                    </div>
-                </div>
-
-
- )}
-
-
-
-                <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
-                    <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Detalle de Solicitud
-                    </div>
-
-                    <div className="grid grid-cols-1">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left col-span-1">Asunto</Label>
-                            <div className="col-span-3">
-                                <select
-                                    name="subject"
-                                    value={currentDetail.subject}
-                                    onChange={handleDetailChange}
-                                    className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
-                                >
-                                    <option value="">Seleccione un asunto</option>
-                                    <option value="Boletas">Boletas</option>
-                                    <option value="EE.CC">EE.CC</option>
-                                    <option value="Pagos">Pagos</option>
-                                    <option value="Recojo de Letras">Recojo de Letras</option>
-                                    <option value="Información de su lote">Información de su lote</option>
-                                    <option value="Avance de Proyecto">Avance de Proyecto</option>
-                                    <option value="Desestimiento">Desestimiento</option>
-                                    <option value="Traspaso de aportes">Traspaso de aportes</option>
-                                    <option value="Cesion">Cesión</option>
-                                    <option value="Constancia de no adeudo">Constancia de no adeudo</option>
-                                    <option value="Certificado de lote">Certificado de lote</option>
-                                    <option value="Recojo de contrato">Recojo de contrato</option>
-                                    <option value="Formalización">Formalización</option>
-                                    <option value="Cita con legal">Cita con legal</option>
-                                    <option value="Visita a proyecto">Visita a proyecto</option>
-                                </select>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-left col-span-1">Descripción</Label>
-                        <div className="col-span-3">
-                            <LimitedTextarea
-                                name="description"
-                                value={currentDetail.description}
-                                onChange={handleDetailChange}
-                                maxLength={800}
-                                textareaClassName="w-full border rounded px-3 py-2 text-sm"
-                            />
-
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-left col-span-1">Proyecto</Label>
-                        <div className="col-span-3">
-                            <select
-                                name="project_id"
-                                value={currentDetail.project_id}
-                                onChange={handleDetailChange}
-                                className="w-full border rounded px-3 py-2 text-sm"
-                            >
-                                <option value="">Seleccione un proyecto</option>
-                                {clientProjects.map((p) => (
-                                    <option key={p.id_proyecto} value={p.id_proyecto}>
-                                        {p.descripcion}
-                                    </option>
-                                ))}
-                            </select>
-
-
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4">
-                        <div className="grid grid-cols-4 items-left">
-                            <Label className="text-left">Manzana</Label>
-                        </div>
-                        <div className="grid grid-cols-1 items-left">
-                            <select
-                                name="Manzana"
-                                value={currentDetail.Manzana}
-                                onChange={handleDetailChange}
-                                className="w-full border rounded px-3 py-2 text-sm"
-                            >
-                                <option value="">Seleccione Manzana y Lote</option>
-                                {availableLots.map((mz) => (
-                                    <option key={mz} value={mz}>
-                                        {mz}
-                                    </option>
-                                ))}
-                            </select>
-
-                        </div>
-                        {/* <div className="grid grid-cols-1 items-center">
-                            <Label className="text-center col-span-1">Lote</Label>
-                        </div>
-                        <div className="grid grid-cols-1 items-center">
-                            <LimitedInput
-                                name="Lote"
-                                label="Lote"
-                                value={currentDetail.Lote}
-                                onChange={handleDetailChange}
-                                maxLength={11}
-                                inputClassName="col-span-1 text-sm h-7 px-2 py-1 rounded-md"
-                            />
-                        </div> */}
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Prioridad</Label>
-                            <select
-                                name="priority"
-                                value={currentDetail.priority}
-                                onChange={handleDetailChange}
-                                className="col-span-3 border rounded"
-                            >
-                                <option value="Alta">Alta</option>
-                                <option value="Media">Media</option>
-                                <option value="Baja">Baja</option>
-                            </select>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="status_global"
+                                    value="No"
+                                    checked={formData.status_global === 'No'}
+                                    onChange={handleChange}
+                                />
+                                No
+                            </label>
                         </div>
                     </div>
 
 
-                </div>
+                )} */}
+               <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
+  {/* Título */}
+  <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+    Detalle de Solicitud
+  </div>
+
+  {/* Asunto */}
+  <div className="grid grid-cols-4 items-center gap-4">
+    <Label className="text-left col-span-1">Asunto</Label>
+    <div className="col-span-3">
+      <select
+        name="subject"
+        value={currentDetail.subject}
+        onChange={handleDetailChange}
+        className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
+      >
+        <option value="">Seleccione un asunto</option>
+        {[
+          'Avance de Proyecto',
+          'Boletas',
+          'Cesion',
+          'Cita con legal',
+          'Certificado de lote',
+          'Constancia de no adeudo',
+          'Desestimiento',
+          'EE.CC',
+          'Formalización',
+          'Información de su lote',
+          'Pagos',
+          'Recojo de contrato',
+          'Recojo de Letras',
+          'Traspaso de aportes',
+          'Visita a proyecto',
+        ].sort().map((label) => (
+          <option key={label} value={label}>{label}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  {/* Descripción */}
+  <div className="grid grid-cols-4 items-start gap-4">
+    <Label className="text-left col-span-1">Descripción</Label>
+    <div className="col-span-3">
+      <LimitedTextarea
+        name="description"
+        value={currentDetail.description}
+        onChange={handleDetailChange}
+        maxLength={800}
+        textareaClassName="w-full border rounded px-3 py-2 text-sm"
+      />
+    </div>
+  </div>
+
+  {/* Proyecto */}
+  <div className="grid grid-cols-4 items-center gap-4">
+    <Label className="text-left col-span-1">Proyecto</Label>
+    <div className="col-span-3">
+      <select
+        name="project_id"
+        value={currentDetail.project_id}
+        onChange={handleDetailChange}
+        className="w-full border rounded px-3 py-2 text-sm"
+      >
+        <option value="">Seleccione un proyecto</option>
+        {clientProjects.map((p) => (
+          <option key={p.id_proyecto} value={p.id_proyecto}>
+            {p.descripcion}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  {/* Manzana y Prioridad */}
+{/* Manzana / Lote */}
+<div className="grid grid-cols-4 items-center gap-4">
+  <Label className="text-left col-span-1">Manzana / Lote</Label>
+  <div className="col-span-3">
+    <select
+      name="Manzana"
+      value={currentDetail.Manzana}
+      onChange={handleDetailChange}
+      className="w-full border rounded px-3 py-2 text-sm"
+    >
+      <option value="">Seleccione Manzana y Lote</option>
+      {availableLots.map((mz) => (
+        <option key={mz} value={mz}>{mz}</option>
+      ))}
+    </select>
+  </div>
+</div>
+
+{/* Prioridad */}
+<div className="grid grid-cols-4 items-center gap-4">
+  <Label className="text-left col-span-1">Prioridad</Label>
+  <div className="col-span-3">
+    <select
+      name="priority"
+      value={currentDetail.priority}
+      onChange={handleDetailChange}
+      className="w-full border rounded px-3 py-2 text-sm"
+    >
+      <option value="Alta">Alta</option>
+      <option value="Media">Media</option>
+      <option value="Baja">Baja</option>
+    </select>
+  </div>
+</div>
+
+
+
+  {/* Comentario */}
+  <div className="grid grid-cols-4 items-center gap-4">
+    <Label className="text-left col-span-1">Comentario</Label>
+    <div className="col-span-3">
+     <LimitedTextarea
+        name="comment"
+        value={currentDetail.comment}
+        onChange={handleDetailChange}
+        maxLength={350}
+        textareaClassName="w-full border rounded px-3 py-2 text-sm"
+      />
+    </div>
+  </div>
+</div>
+
 
                 <div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
                     <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">

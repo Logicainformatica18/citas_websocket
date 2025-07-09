@@ -22,7 +22,7 @@ interface SupportDetail {
     derived?: string;
     attachment?: string;
     Manzana?: string;
-    Lote?: string;
+    comment?: string;
     project?: { descripcion: string };
     area?: { descripcion: string };
     motivo_cita?: { nombre_motivo: string };
@@ -552,7 +552,7 @@ export default function SupportTable({
                                                                 <th className="px-2 py-1 border">Solicitud</th>
                                                                 <th className="px-2 py-1 border">Proyecto</th>
                                                                 <th className="px-2 py-1 border">Manzana</th>
-                                                                <th className="px-2 py-1 border">Lote</th>
+                                                                <th className="px-2 py-1 border">comment</th>
                                                                 <th className=" py-1 border">Estado de Atención</th>
                                                                 <th className="px-2 py-1 border">Área Responsable</th>
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
@@ -570,7 +570,7 @@ export default function SupportTable({
                                                                     <td className="px-2 py-1 border">{detail.subject}</td>
                                                                     <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
                                                                     <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
-                                                                    <td className="px-2 py-1 border">{detail.Lote || '-'}</td>
+                                                                    <td className="px-2 py-1 border">{detail.comment || '-'}</td>
                                                                     <td className="px-2 py-1 border">
                                                                         {detail.external_state?.description ? (
                                                                             <span

@@ -108,7 +108,7 @@ class SupportDetailController extends Controller
         $support->load([
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names,email',
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -128,7 +128,7 @@ class SupportDetailController extends Controller
             $supportLoaded = $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
                 'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -163,7 +163,7 @@ class SupportDetailController extends Controller
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
                 'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -269,7 +269,7 @@ class SupportDetailController extends Controller
     //     $support->id_motivos_cita = 28;
     //     $support->project_id = $request->project_id;
     //     $support->Manzana = $request->input('Manzana');
-    //     $support->Lote = $request->input('Lote');
+    //     $support->comment = $request->input('comment');
 
 
     //     if ($request->hasFile('attachment')) {
@@ -355,7 +355,7 @@ class SupportDetailController extends Controller
     //     $support->type_id = $request->input('type_id');
     //     $support->project_id = $request->input('project_id');
     //     $support->Manzana = $request->input('Manzana');
-    //     $support->Lote = $request->input('Lote');
+    //     $support->comment = $request->input('comment');
 
     //     // Procesar archivo adjunto
     //     if ($request->hasFile('attachment')) {
@@ -460,7 +460,7 @@ public function destroy($id)
     $support =  Support::with([
         'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
         'creator:id,firstname,lastname,names,email',
-        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,Lote,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
         'details.project:id_proyecto,descripcion',
         'details.area:id_area,descripcion',
         'details.motivoCita:id_motivos_cita,nombre_motivo',
