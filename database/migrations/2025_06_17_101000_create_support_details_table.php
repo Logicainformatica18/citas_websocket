@@ -49,6 +49,8 @@ return new class extends Migration {
             $table->foreign('internal_state_id')->references('id')->on('internal_states')->onDelete('set null');
             $table->foreign('external_state_id')->references('id')->on('external_states')->onDelete('set null');
             $table->foreign('type_id')->references('id')->on('types')->onDelete('set null');
+
+            $table->string('ticket')->nullable();
         });
     }
 

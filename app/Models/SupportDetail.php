@@ -43,7 +43,8 @@ class SupportDetail extends Model
         'project_id',
         'Manzana',
         'Lote',
-        'support_id'
+        'support_id',
+        'ticket'
 
     ];
 

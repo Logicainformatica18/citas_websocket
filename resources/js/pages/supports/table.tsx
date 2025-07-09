@@ -31,6 +31,7 @@ interface SupportDetail {
     internal_state?: { description: string };
     external_state?: { description: string };
     supportType?: { description: string };
+    ticket?: string; // Asegúrate de que este campo exista
 }
 
 interface Support {
@@ -250,7 +251,18 @@ export default function SupportTable({
                                             }`}
                                     >
 
-                                        <td className="px-2 py-1">Tk-{String(support.details[0]?.id).padStart(5, '0')}</td>
+                                        <td
+                                            className={`px-2 py-1 ${support.details[0]?.ticket === 'TK-'
+                                                ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                : ''
+                                                }`}
+                                        >
+                                            {support.details[0]?.ticket ?? (
+                                                <span className="text-gray-400 italic">Sin ticket</span>
+                                            )}
+                                        </td>
+
+
                                         <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
                                         <td className="px-2 py-1">{support.client?.dni || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
@@ -417,7 +429,17 @@ export default function SupportTable({
                                     </tr>
                                     {support.details.length > 1 && support.details.slice(1).map((detail) => (
                                         <tr key={detail.id} className="bg-gray-50 dark:bg-gray-900 text-sm border-t">
-                                            <td className="px-2 py-1 border">Tk-{String(detail.id).padStart(5, '0')}</td>
+                                            <td
+                                                className={`px-2 py-1 border ${detail.ticket === 'TK-'
+                                                        ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                        : ''
+                                                    }`}
+                                            >
+                                                {detail.ticket ?? (
+                                                    <span className="text-gray-400 italic">Sin ticket</span>
+                                                )}
+                                            </td>
+
                                             <td className="px-2 py-1 border">{support.client?.Razon_Social || '-'}</td>
                                             <td className="px-2 py-1 border">{support.client?.dni || '-'}</td>
                                             <td className="px-2 py-1 border">{detail.subject || '-'}</td>
@@ -510,7 +532,7 @@ export default function SupportTable({
                                                             }}
                                                             className="text-red-600 hover:text-red-800 text-xs"
                                                         >
-                                                             <Trash2 className="w-4 h-4" />
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </td>
                                                 </>
