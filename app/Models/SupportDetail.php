@@ -21,32 +21,37 @@ class SupportDetail extends Model
   protected $table = 'support_details';
 
 
-    protected $fillable = [
-        'subject',
-        'description',
-        'priority',
-        'type',
-        'attachment',
-        'area_id',
-        'created_by',
-        'status',
-        'reservation_time',
-        'attended_at',
-        'derived',
-        'cellphone',
-        'id_motivos_cita',
-        'id_tipo_cita',
-        'id_dia_espera',
-        'internal_state_id',
-        'external_state_id',
-        'type_id',
-        'project_id',
-        'Manzana',
-        'comment',
-        'support_id',
-        'ticket'
+   protected $fillable = [
+    'support_id',
+    'project_id',
+    'area_id',
+    'id_motivos_cita',
+    'id_tipo_cita',
+    'id_dia_espera',
+    'internal_state_id',
+    'external_state_id',
+    'type_id',
 
-    ];
+    'subject',
+    'description',
+    'priority',
+    'type',
+    'status',
+    'attachment',
+    'reservation_time',
+    'attended_at',
+    'derived',
+
+    'Manzana',
+    'comment',
+    'ticket',
+
+    'attended_start',
+    'attended_end',
+    'ticket_start',
+    'ticket_end',
+];
+
 
     // Relaciones existentes
     public function area()
@@ -54,15 +59,15 @@ class SupportDetail extends Model
         return $this->belongsTo(Area::class, 'area_id', 'id_area');
     }
 
-    public function creator()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
+    // public function creator()
+    // {
+    //     return $this->belongsTo(User::class, 'created_by');
+    // }
 
-    public function client()
-    {
-        return $this->belongsTo(Client::class, 'client_id', 'id_cliente');
-    }
+    // public function client()
+    // {
+    //     return $this->belongsTo(Client::class, 'client_id', 'id_cliente');
+    // }
 
     // Nuevas relaciones
     public function motivoCita()

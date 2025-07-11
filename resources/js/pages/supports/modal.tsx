@@ -95,6 +95,14 @@ const SupportModal = ({
         .filter(([_, project]) => !!project); // eliminar nulos
 
     const clientProjects = Array.from(new Map(projectMapEntries).values());
+    function formatDateTimeLocal(datetimeString: string | null): string {
+        if (!datetimeString) return '';
+        const date = new Date(datetimeString);
+        const offset = date.getTimezoneOffset(); // diferencia entre UTC y hora local
+        date.setMinutes(date.getMinutes() - offset); // convierte a hora local real
+        return date.toISOString().slice(0, 16); // formato: yyyy-MM-ddTHH:mm
+    }
+
 
 
     const [currentDetail, setCurrentDetail] = useState<any>({
@@ -116,8 +124,9 @@ const SupportModal = ({
         type_id: '',
         Manzana: '',
         comment: '',
-        attachment: null, // ✅ importante,
-        //   status_global: 'Incompleto', // ✅ este es el que falta
+        attachment: null,
+
+        // Relacionados (solo para mostrar)
         project: '',
         area: '',
         motivo_cita: '',
@@ -125,7 +134,15 @@ const SupportModal = ({
         dia_espera: '',
         internal_state: '',
         external_state: '',
+
+        // FALTANTES importantes
+        ticket: '',
+        attended_start: '',
+        attended_end: '',
+        ticket_start: '',
+        ticket_end: '',
     });
+
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
 
@@ -228,6 +245,7 @@ const SupportModal = ({
         setCurrentDetail({
             subject: '',
             description: '',
+            priority: 'Baja',
             type: '',
             status: '',
             reservation_time: getNowPlusHours(0),
@@ -235,15 +253,24 @@ const SupportModal = ({
             derived: '',
             Manzana: '',
             comment: '',
+            attachment: null,
+
             project_id: '',
-            area_id: '', // ahora lo vacías pero ya sabes que si está vacío luego usará el valor por defecto (ATC)
+            area_id: '',
             id_motivos_cita: '',
             id_tipo_cita: '',
             id_dia_espera: '',
             internal_state_id: '',
             external_state_id: '',
             type_id: '',
+
+            ticket: '',
+            attended_start: '',
+            attended_end: '',
+            ticket_start: '',
+            ticket_end: '',
         });
+
     };
 
 
@@ -329,6 +356,10 @@ const SupportModal = ({
                     external_state: detail.external_state ?? null,
                     support_type: detail.support_type ?? null,
                     attachment: null,
+                    ticket_start: formatDateTimeLocal(detail.ticket_start),
+                    ticket_end: formatDateTimeLocal(detail.ticket_end),
+
+
                 });
 
                 // Mapea lotes
@@ -643,7 +674,7 @@ const SupportModal = ({
                             </select>
                         </div>
                     </div>
- <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Asunto</Label>
                         <div className="col-span-3">
                             <select
@@ -871,32 +902,10 @@ const SupportModal = ({
 
                         )} */}
 
+                        <div className="grid grid-cols-8 items-start gap-4">
+                            <Label className="text-left col-span-4">Estatus de Solicitud</Label>
 
-                        {canEditAdvancedFields && (
-                            <>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left">Creación de Ticket</Label>
-                                    <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
-                                </div>
-
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left">Cierre de Ticket</Label>
-                                    <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
-                                </div>
-                            </>
-                        )}
-
-
-
-
-
-                    </div>
-                    {canEditAdvancedFields && (
-
-                        <div className="grid grid-cols-4 items-start gap-4">
-                            <Label className="text-left col-span-1">Estatus de Solicitud</Label>
-
-                            <div className="col-span-3">
+                            <div className="col-span-4">
                                 <LimitedInput
                                     name="derived"
                                     value={currentDetail.derived}
@@ -907,7 +916,45 @@ const SupportModal = ({
                             </div>
                         </div>
 
-                    )}
+                    
+                            <>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-left text-blue-800 font-semibold">Inicio de Ticket</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        name="ticket_start"
+                                        value={currentDetail.ticket_start}
+                                        onChange={handleDetailChange}
+                                        readOnly
+                                        className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-left text-blue-800 font-semibold">Cierre de Ticket</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        name="ticket_end"
+                                        value={currentDetail.ticket_end}
+                                        onChange={handleDetailChange}
+                                        readOnly
+                                        className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
+                                    />
+                                </div>
+
+
+                            </>
+                    
+
+
+
+
+
+                    </div>
+
+
+
+
                 </div>
                 <button type="button" onClick={handleAddDetail} className="bg-blue-600 text-white px-3 py-1 rounded">
                     Agregar Solicitud (Máximo 1)

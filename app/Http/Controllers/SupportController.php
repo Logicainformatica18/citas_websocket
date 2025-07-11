@@ -248,17 +248,14 @@ class SupportController extends Controller
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
                 'ticket' => $ticket ?? "TK-",
+                
             ]);
-            // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
-            // if (Auth::user()->can('generar_ticket')) {
-            //     $createdDetail->update([
-            //         'ticket' => 'TK-' . str_pad($createdDetail->id, 5, '0', STR_PAD_LEFT),
-            //     ]);
-            // } else {
-            //     $createdDetail->update([
-            //         'ticket' => 'TK-',
-            //     ]);
-            // }
+           // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
+            if (Auth::user()->can('generar_ticket')) {
+                $createdDetail->update([
+                    'ticket_start' =>  Carbon::now('America/Lima'),
+                ]);
+            } 
         }
 
 
