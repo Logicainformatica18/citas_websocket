@@ -1,5 +1,3 @@
-
-
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -7,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up(): void {
+    public function up(): void
+    {
         Schema::create('support_details', function (Blueprint $table) {
             $table->id();
 
@@ -26,8 +25,8 @@ return new class extends Migration {
             $table->string('subject');
             $table->text('description')->nullable();
             $table->string('priority')->default('Normal');
-            $table->string('type') ;
-            $table->string('status') ;
+            $table->string('type');
+            $table->string('status');
             $table->string('attachment')->nullable();
             $table->datetime('reservation_time')->nullable();
             $table->datetime('attended_at')->nullable();
@@ -51,10 +50,17 @@ return new class extends Migration {
             $table->foreign('type_id')->references('id')->on('types')->onDelete('set null');
 
             $table->string('ticket')->nullable();
+
+            $table->datetime('attended_start')->nullable();
+            $table->datetime('attended_end')->nullable();
+            $table->datetime('ticket_start')->nullable();
+            $table->datetime('ticket_end')->nullable();
+            
         });
     }
 
-    public function down(): void {
+    public function down(): void
+    {
         Schema::dropIfExists('support_details');
     }
 };

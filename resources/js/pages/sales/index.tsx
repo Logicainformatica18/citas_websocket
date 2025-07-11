@@ -13,7 +13,7 @@ type BreadcrumbItem = {
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Ventas', href: '/sales' },
+  { title: 'Detalle Cliente', href: '/sales' },
 ];
 
 type SaleItem = {
@@ -97,7 +97,7 @@ function getVisiblePages(current: number, last: number): (number | string)[] {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6">Ventas</h1>
+        <h1 className="text-2xl font-bold mb-6">Detalle Cliente</h1>
 
         <div className="flex items-center gap-2 mb-4">
           <button

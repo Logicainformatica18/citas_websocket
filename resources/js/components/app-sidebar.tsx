@@ -59,10 +59,10 @@ export function AppSidebar() {
   const isAdmin = has('administrar');
   const isReserva = has('reserva');
   const isATC = has('atc');
-  const isAtento = has('atento');
+  const isRecepcion = has('recepcion');
 
 
-const allGroupTitles = ['Admin', 'Gestión', 'Parámetros', 'Solicitud'];
+const allGroupTitles = ['Admin', 'Gestión', 'Parámetros', 'Solicitud','Detalle Cliente'];
 
 const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
   Object.fromEntries(allGroupTitles.map((title) => [title, true]))
@@ -94,6 +94,13 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
         { title: 'Proyectos', href: '/projects', icon: FolderKanban },
       ],
     },
+     {
+      title: 'Detalle Cliente',
+      show: isAdmin || isATC,
+      items: [
+        { title: 'Detalle Cliente', href: '/sales', icon: FolderKanban },
+      ],
+    },
     {
       title: 'Parámetros',
       show: isAdmin || isATC,
@@ -108,18 +115,12 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
     {
       title: 'Solicitud',
-      show: isAdmin || isATC || isReserva || isAtento,
+      show: isAdmin || isATC || isReserva || isRecepcion,
       items: [
         { title: 'Solicitudes', href: '/supports', icon: Headphones },
       ],
     },
-    {
-      title: 'Ventas',
-      show: isAdmin || isATC,
-      items: [
-        { title: 'Ventas', href: '/sales', icon: FolderKanban },
-      ],
-    },
+
   ];
 
   const footerNavItems: NavItem[] = [
@@ -204,7 +205,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
       </SidebarContent>
 
       <SidebarFooter>
-        <NavFooter items={footerNavItems} className="mt-auto" />
+        {/* <NavFooter items={footerNavItems} className="mt-auto" /> */}
         <NavUser />
       </SidebarFooter>
     </Sidebar>
