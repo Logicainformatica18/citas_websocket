@@ -87,11 +87,15 @@ const SupportModal = ({
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
 
-    const clientProjects = Array.from(
-        new Map(
-            salesFromClient.map((s) => [s.project_id, s.project])
-        ).values()
-    );
+    const projectMapEntries = salesFromClient
+        .map((s) => {
+            const project = s.project || projects.find(p => p.id_proyecto === s.project_id);
+            return [s.project_id, project] as [number, any];
+        })
+        .filter(([_, project]) => !!project); // eliminar nulos
+
+    const clientProjects = Array.from(new Map(projectMapEntries).values());
+
 
     const [currentDetail, setCurrentDetail] = useState<any>({
         subject: '',
@@ -250,7 +254,6 @@ const SupportModal = ({
 
         const { client, details, ...supportFields } = supportToEdit;
 
-        // Asegura datos base para inputs
         const cleanedSupport = Object.fromEntries(
             Object.entries(supportFields).map(([key, val]) => [
                 key,
@@ -267,10 +270,8 @@ const SupportModal = ({
             email: client?.Email ?? '',
             address: client?.Direccion ?? '',
             status_global: supportToEdit.status_global || 'No',
-
         }));
 
-        // Mostrar cliente si lo usas en búsqueda
         if (client) {
             setSelectedClient({
                 id: client.id_cliente,
@@ -280,14 +281,67 @@ const SupportModal = ({
                 email: client.Email,
                 address: client.Direccion,
             });
+
             setClientQuery(client.Razon_Social);
+
+            // 🔧 Agrega esto para asegurar los proyectos
+            const enrichedSales = (client.sales || []).map((s) => ({
+                ...s,
+                project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
+            }));
+            setSalesFromClient(enrichedSales);
         }
 
-        // Setear los detalles en la tabla
+
         if (details && Array.isArray(details)) {
             setSupportDetails(details);
+
+            const detail = details[0];
+
+            if (detail) {
+                setCurrentDetail({
+                    subject: detail.subject ?? '',
+                    description: detail.description ?? '',
+                    priority: detail.priority ?? 'Media',
+                    type: detail.type ?? 'Consulta',
+                    status: detail.status ?? 'Pendiente',
+                    reservation_time: detail.reservation_time ?? getNowPlusHours(0),
+                    attended_at: detail.attended_at ?? getNowPlusHours(1),
+                    derived: detail.derived ?? '',
+                    Manzana: detail.Manzana ?? '',
+                    comment: detail.comment ?? '',
+                    project_id: detail.project_id ?? '',
+                    area_id: detail.area_id ?? '1',
+                    id_motivos_cita: detail.id_motivos_cita ?? '',
+                    id_tipo_cita: detail.id_tipo_cita ?? '1',
+                    id_dia_espera: detail.id_dia_espera ?? '',
+                    internal_state_id: detail.internal_state_id ?? '3',
+                    external_state_id: detail.external_state_id ?? '1',
+                    type_id: detail.type_id ?? '',
+
+                    // relaciones completas
+                    project: detail.project ?? null,
+                    area: detail.area ?? null,
+                    motivo_cita: detail.motivo_cita ?? null,
+                    tipo_cita: detail.tipo_cita ?? null,
+                    dia_espera: detail.dia_espera ?? null,
+                    internal_state: detail.internal_state ?? null,
+                    external_state: detail.external_state ?? null,
+                    support_type: detail.support_type ?? null,
+                    attachment: null,
+                });
+
+                // Mapea lotes
+                if (detail.project_id) {
+                    const lots = (client?.sales || []).filter(
+                        (s) => s.project_id === Number(detail.project_id)
+                    ).map((s) => s.mz_lote);
+                    setAvailableLots(lots);
+                }
+            }
         }
     }, [supportToEdit]);
+
 
 
 
@@ -539,135 +593,135 @@ const SupportModal = ({
 
 
                 )} */}
-               <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
-  {/* Título */}
-  <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-    </svg>
-    Detalle de Solicitud
-  </div>
-
-  {/* Asunto */}
-  <div className="grid grid-cols-4 items-center gap-4">
-    <Label className="text-left col-span-1">Asunto</Label>
-    <div className="col-span-3">
-      <select
-        name="subject"
-        value={currentDetail.subject}
-        onChange={handleDetailChange}
-        className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
-      >
-        <option value="">Seleccione un asunto</option>
-        {[
-          'Avance de Proyecto',
-          'Boletas',
-          'Cesion',
-          'Cita con legal',
-          'Certificado de lote',
-          'Constancia de no adeudo',
-          'Desestimiento',
-          'EE.CC',
-          'Formalización',
-          'Información de su lote',
-          'Pagos',
-          'Recojo de contrato',
-          'Recojo de Letras',
-          'Traspaso de aportes',
-          'Visita a proyecto',
-        ].sort().map((label) => (
-          <option key={label} value={label}>{label}</option>
-        ))}
-      </select>
-    </div>
-  </div>
-
-  {/* Descripción */}
-  <div className="grid grid-cols-4 items-start gap-4">
-    <Label className="text-left col-span-1">Descripción</Label>
-    <div className="col-span-3">
-      <LimitedTextarea
-        name="description"
-        value={currentDetail.description}
-        onChange={handleDetailChange}
-        maxLength={800}
-        textareaClassName="w-full border rounded px-3 py-2 text-sm"
-      />
-    </div>
-  </div>
-
-  {/* Proyecto */}
-  <div className="grid grid-cols-4 items-center gap-4">
-    <Label className="text-left col-span-1">Proyecto</Label>
-    <div className="col-span-3">
-      <select
-        name="project_id"
-        value={currentDetail.project_id}
-        onChange={handleDetailChange}
-        className="w-full border rounded px-3 py-2 text-sm"
-      >
-        <option value="">Seleccione un proyecto</option>
-        {clientProjects.map((p) => (
-          <option key={p.id_proyecto} value={p.id_proyecto}>
-            {p.descripcion}
-          </option>
-        ))}
-      </select>
-    </div>
-  </div>
-
-  {/* Manzana y Prioridad */}
-{/* Manzana / Lote */}
-<div className="grid grid-cols-4 items-center gap-4">
-  <Label className="text-left col-span-1">Manzana / Lote</Label>
-  <div className="col-span-3">
-    <select
-      name="Manzana"
-      value={currentDetail.Manzana}
-      onChange={handleDetailChange}
-      className="w-full border rounded px-3 py-2 text-sm"
-    >
-      <option value="">Seleccione Manzana y Lote</option>
-      {availableLots.map((mz) => (
-        <option key={mz} value={mz}>{mz}</option>
-      ))}
-    </select>
-  </div>
-</div>
-
-{/* Prioridad */}
-<div className="grid grid-cols-4 items-center gap-4">
-  <Label className="text-left col-span-1">Prioridad</Label>
-  <div className="col-span-3">
-    <select
-      name="priority"
-      value={currentDetail.priority}
-      onChange={handleDetailChange}
-      className="w-full border rounded px-3 py-2 text-sm"
-    >
-      <option value="Alta">Alta</option>
-      <option value="Media">Media</option>
-      <option value="Baja">Baja</option>
-    </select>
-  </div>
-</div>
+                <div className="rounded-md bg-[#E0F4F7] p-4 space-y-4">
+                    {/* Título */}
+                    <div className="text-lg font-semibold flex items-center gap-2 text-yellow-700 dark:text-yellow-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Detalle de Solicitud
+                    </div>
 
 
 
-  {/* Comentario */}
-  <div className="grid grid-cols-4 items-center gap-4">
-    <Label className="text-left col-span-1">Comentario</Label>
-    <div className="col-span-3">
-     <LimitedTextarea
-        name="comment"
-        value={currentDetail.comment}
-        onChange={handleDetailChange}
-        maxLength={350}
-        textareaClassName="w-full border rounded px-3 py-2 text-sm"
-      />
-    </div>
-  </div>
-</div>
+
+                    {/* Proyecto */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Proyecto</Label>
+                        <div className="col-span-3">
+                            <select
+                                name="project_id"
+                                value={currentDetail.project_id}
+                                onChange={handleDetailChange}
+                                className="w-full border rounded px-3 py-2 text-sm"
+                            >
+                                <option value="">Seleccione un proyecto</option>
+                                {clientProjects.map((p) => (
+                                    <option key={p.id_proyecto} value={p.id_proyecto}>
+                                        {p.descripcion}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Manzana y Prioridad */}
+                    {/* Manzana / Lote */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Manzana / Lote</Label>
+                        <div className="col-span-3">
+                            <select
+                                name="Manzana"
+                                value={currentDetail.Manzana}
+                                onChange={handleDetailChange}
+                                className="w-full border rounded px-3 py-2 text-sm"
+                            >
+                                <option value="">Seleccione Manzana y Lote</option>
+                                {availableLots.map((mz) => (
+                                    <option key={mz} value={mz}>{mz}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+ <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Asunto</Label>
+                        <div className="col-span-3">
+                            <select
+                                name="subject"
+                                value={currentDetail.subject}
+                                onChange={handleDetailChange}
+                                className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
+                            >
+                                <option value="">Seleccione un asunto</option>
+                                {[
+                                    'Avance de Proyecto',
+                                    'Boletas',
+                                    'Cesion',
+                                    'Cita con legal',
+                                    'Certificado de lote',
+                                    'Constancia de no adeudo',
+                                    'Desestimiento',
+                                    'EE.CC',
+                                    'Formalización',
+                                    'Información de su lote',
+                                    'Pagos',
+                                    'Recojo de contrato',
+                                    'Recojo de Letras',
+                                    'Traspaso de aportes',
+                                    'Visita a proyecto',
+                                ].sort().map((label) => (
+                                    <option key={label} value={label}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-left col-span-1">Descripción</Label>
+                        <div className="col-span-3">
+                            <LimitedTextarea
+                                name="description"
+                                value={currentDetail.description}
+                                onChange={handleDetailChange}
+                                maxLength={800}
+                                textareaClassName="w-full border rounded px-3 py-2 text-sm"
+                            />
+                        </div>
+                    </div>
+                    {/* Prioridad */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Prioridad</Label>
+                        <div className="col-span-3">
+                            <select
+                                name="priority"
+                                value={currentDetail.priority}
+                                onChange={handleDetailChange}
+                                className="w-full border rounded px-3 py-2 text-sm"
+                            >
+                                <option value="Alta">Alta</option>
+                                <option value="Media">Media</option>
+                                <option value="Baja">Baja</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+
+                    {/* Comentario */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Comentario</Label>
+                        <div className="col-span-3">
+                            <LimitedTextarea
+                                name="comment"
+                                value={currentDetail.comment}
+                                onChange={handleDetailChange}
+                                maxLength={350}
+                                textareaClassName="w-full border rounded px-3 py-2 text-sm"
+                            />
+                        </div>
+                    </div>
+                </div>
 
 
                 <div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
@@ -675,7 +729,7 @@ const SupportModal = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v2m0 12v2m8.485-10.485l-1.414 1.414M4.929 19.071l-1.414-1.414M20 12h2M2 12H4m15.071 7.071l-1.414-1.414M4.929 4.929l1.414 1.414" />
                         </svg>
-                        Configuración Avanzada
+                        Detalle de Atención
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-2">
 
@@ -737,7 +791,7 @@ const SupportModal = ({
                             </div>
                         )} */}
 
-                        {canEditAdvancedFields && (
+                        {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-left">Tipo de Cita</Label>
                                 <select name="id_tipo_cita" value={currentDetail.id_tipo_cita} onChange={handleDetailChange} className={inputClass}>
@@ -745,9 +799,9 @@ const SupportModal = ({
                                     {appointmentTypes.map(t => <option key={t.id} value={t.id}>{t.tipo}</option>)}
                                 </select>
                             </div>
-                        )}
+                        )} */}
 
-                        {canEditAdvancedFields && (
+                        {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-left">Día de Espera</Label>
                                 <select
@@ -764,7 +818,7 @@ const SupportModal = ({
                                     ))}
                                 </select>
                             </div>
-                        )}
+                        )} */}
 
 
                         {canEditAdvancedFields && (
@@ -805,7 +859,7 @@ const SupportModal = ({
                             </div>
                         )}
 
-                        {canEditAdvancedFields && (
+                        {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-left">Tipo</Label>
                                 <select name="type_id" value={currentDetail.type_id} onChange={handleDetailChange} className={inputClass}>
@@ -815,18 +869,18 @@ const SupportModal = ({
                             </div>
 
 
-                        )}
+                        )} */}
 
 
                         {canEditAdvancedFields && (
                             <>
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left">Reserva</Label>
+                                    <Label className="text-left">Creación de Ticket</Label>
                                     <Input type="datetime-local" name="reservation_time" value={currentDetail.reservation_time} onChange={handleDetailChange} className="col-span-3" />
                                 </div>
 
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left">Atendido</Label>
+                                    <Label className="text-left">Cierre de Ticket</Label>
                                     <Input type="datetime-local" name="attended_at" value={currentDetail.attended_at} onChange={handleDetailChange} className="col-span-3" />
                                 </div>
                             </>
@@ -856,7 +910,7 @@ const SupportModal = ({
                     )}
                 </div>
                 <button type="button" onClick={handleAddDetail} className="bg-blue-600 text-white px-3 py-1 rounded">
-                    Agregar Detalle
+                    Agregar Solicitud (Máximo 1)
                 </button>
 
                 <table className="w-full mt-4 text-sm border">

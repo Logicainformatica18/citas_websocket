@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import React from 'react';
+import { Switch } from '@/components/ui/switch';
 
 interface AreaModalProps {
     open: boolean;
@@ -42,6 +43,7 @@ export default function AreaModal({
     const [selectedMotive, setSelectedMotive] = useState<number | ''>('');
     const [selectedInternalState, setSelectedInternalState] = useState<number | ''>('');
     const [loading, setLoading] = useState(false);
+    const [generateTicket, setGenerateTicket] = useState(false);
 
     useEffect(() => {
         if (detail) {
@@ -68,6 +70,7 @@ export default function AreaModal({
                 area_id: selectedArea,
                 id_motivos_cita: selectedMotive,
                 internal_state_id: selectedInternalState,
+                generate_ticket: generateTicket, // ✅ aquí va
             });
 
             toast.success('Detalle actualizado correctamente ✅');
@@ -97,6 +100,17 @@ export default function AreaModal({
                 </DialogHeader>
 
                 <div className="space-y-4">
+                    <div className="flex items-center gap-3 mt-4">
+                        <Switch
+                            id="generate-ticket"
+                            checked={generateTicket}
+                            onCheckedChange={setGenerateTicket}
+                        />
+                        <Label htmlFor="generate-ticket" className="text-sm font-medium">
+                            Generar Ticket de atención
+                        </Label>
+                    </div>
+
                     <div>
                         <Label className="block mb-1">Área</Label>
                         <select

@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 class SupportController extends Controller
 {
     public function index(Request $request)
@@ -163,6 +164,21 @@ class SupportController extends Controller
         ]);
     }
 
+    function generateNextSupportTicket(): string
+    {
+        $lastNumber = DB::table('support_details')
+            ->whereNotNull('ticket')
+            ->whereRaw("LENGTH(ticket) > 3") // excluye 'TK-'
+            ->whereRaw("ticket REGEXP '^TK-[0-9]+$'") // asegura formato tipo TK-00001
+            ->selectRaw("MAX(CAST(SUBSTRING(ticket, 4) AS UNSIGNED)) as max_ticket")
+            ->value('max_ticket');
+
+        $newNumber = ($lastNumber ?? 0) + 1;
+
+        return 'TK-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+    }
+
+
 
 
 
@@ -196,6 +212,16 @@ class SupportController extends Controller
 
         // Obtener archivos múltiples (puede venir como null si no se cargó nada)
         $attachments = $request->file('attachments'); // Puede ser array o null
+///////////////////////////////////////////////////////////////////////////////////////////////////
+        $generateTicket = auth()->user()?->can('generar_ticket');
+
+
+        $ticket = null;
+
+        if ($generateTicket) {
+            $ticket = $this->generateNextSupportTicket(); // ✅ uso limpio
+        }
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
         foreach ($details as $index => $detail) {
             // Buscar el archivo correspondiente a este índice (si existe)
@@ -221,18 +247,18 @@ class SupportController extends Controller
                 'Manzana' => $detail['Manzana'] ?? null,
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
+                'ticket' => $ticket ?? "TK-",
             ]);
             // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
-            if (Auth::user()->can('generar_ticket')) {
-                $createdDetail->update([
-                    'ticket' => 'TK-' . str_pad($createdDetail->id, 5, '0', STR_PAD_LEFT),
-                ]);
-            }
-            else{
-                 $createdDetail->update([
-                    'ticket' => 'TK-',
-                ]);
-            }
+            // if (Auth::user()->can('generar_ticket')) {
+            //     $createdDetail->update([
+            //         'ticket' => 'TK-' . str_pad($createdDetail->id, 5, '0', STR_PAD_LEFT),
+            //     ]);
+            // } else {
+            //     $createdDetail->update([
+            //         'ticket' => 'TK-',
+            //     ]);
+            // }
         }
 
 
@@ -484,8 +510,17 @@ class SupportController extends Controller
     public function show($id)
     {
         $support = Support::with([
+            // Cliente y sus ventas con proyecto incluido
             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
+            'client.sales' => function ($query) {
+                $query->select('id', 'id_cliente', 'project_id', 'mz_lote')
+                    ->with('project:id_proyecto,descripcion');
+            },
+
+            // Usuario que creó
             'creator:id,firstname,lastname,names',
+
+            // Detalles del soporte y sus relaciones
             'details',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',

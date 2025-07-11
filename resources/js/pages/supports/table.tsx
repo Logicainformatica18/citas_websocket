@@ -197,8 +197,8 @@ export default function SupportTable({
 
 
 
-
-                                <th className="px-2 py-1">TICKET</th>
+                                <th className="px-2 py-1">Ticket Registro</th>
+                                <th className="px-2 py-1">Ticket Atención</th>
                                 <th className="px-2 py-1">Cliente</th>
                                 <th className="px-2 py-1">Dni</th>
                                 <th className="px-2 py-1">Solicitud</th>
@@ -216,9 +216,9 @@ export default function SupportTable({
                                 <th className="px-2 py-1">¿Con cita?</th>
                                 <th className="px-2 py-1">Prioridad</th>
 
-                                <th className="px-2 py-1 text-center">
+                                {/* <th className="px-2 py-1 text-center">
                                     Detalle
-                                </th>
+                                </th> */}
                                 {canEdit && (
                                     <>
                                         <th className="px-2 py-1">
@@ -250,6 +250,11 @@ export default function SupportTable({
                                         className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
                                             }`}
                                     >
+                                        <td className='px-2 py-1'>
+                                            {support.details[0]
+                                                ? `TR-${String(support.details[0].id).padStart(5, '0')}`
+                                                : <span className="text-gray-400 italic">Sin ticket</span>}
+                                        </td>
 
                                         <td
                                             className={`px-2 py-1 ${support.details[0]?.ticket === 'TK-'
@@ -308,7 +313,7 @@ export default function SupportTable({
                                         <td className="px-2 py-1">{support.status_global ?? '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
 
-                                        <td className="px-2 py-1">
+                                        {/* <td className="px-2 py-1">
                                             <Link
                                                 href={`/reports/${support.id}`}
                                                 className="text-blue-600 underline hover:text-blue-800 text-sm"
@@ -316,7 +321,7 @@ export default function SupportTable({
                                                 <Notebook className="ml-1 w-4 h-4 text-red-600" />
 
                                             </Link>
-                                            {/* {support.details.length > 1 && (
+                                             {support.details.length > 1 && (
                                                 <button
                                                     onClick={() => toggleExpand(support.id)}
                                                     className="text-blue-600 underline text-sm"
@@ -327,11 +332,11 @@ export default function SupportTable({
                                                         <ChevronDown className="w-7 h-7 text-blue-600" />
                                                     )}
                                                 </button>
-                                            )} */}
+                                            )}
 
 
 
-                                        </td>
+                                        </td> */}
                                         {canEdit && (
                                             <>
                                                 <td className="px-2 py-1">
@@ -431,8 +436,8 @@ export default function SupportTable({
                                         <tr key={detail.id} className="bg-gray-50 dark:bg-gray-900 text-sm border-t">
                                             <td
                                                 className={`px-2 py-1 border ${detail.ticket === 'TK-'
-                                                        ? 'bg-pink-100 text-pink-800 font-semibold'
-                                                        : ''
+                                                    ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                    : ''
                                                     }`}
                                             >
                                                 {detail.ticket ?? (
