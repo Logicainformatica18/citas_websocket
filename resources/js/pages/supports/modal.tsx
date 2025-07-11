@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import ClientSearch from './clientSearch';
 import { usePage } from '@inertiajs/react';
-
+import GenerateTicketSwitch from './GenerateTicketSwitch';
 import LimitedInput from '@/components/LimitedInput';
 import LimitedTextarea from '@/components/LimitedTextarea';
 
@@ -165,8 +165,7 @@ const SupportModal = ({
         setCurrentDetail((prev) => ({ ...prev, [name]: value }));
     };
 
-
-
+   
     // const addDetail = () => {
     //     setSupportDetails([...supportDetails, currentDetail]);
     //     setCurrentDetail({
@@ -468,6 +467,8 @@ const SupportModal = ({
                     <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
 
+                <GenerateTicketSwitch supportId={currentDetail?.id} />
+
                 <div className="rounded-md bg-gray-100 dark:bg-gray-800 p-4 space-y-4">
                     <div className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -675,7 +676,7 @@ const SupportModal = ({
                         </div>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left col-span-1">Asunto</Label>
+                        <Label className="text-left col-span-1">Solicitud</Label>
                         <div className="col-span-3">
                             <select
                                 name="subject"
@@ -683,7 +684,7 @@ const SupportModal = ({
                                 onChange={handleDetailChange}
                                 className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
                             >
-                                <option value="">Seleccione un asunto</option>
+                                <option value="">Seleccione la Solicitud</option>
                                 {[
                                     'Avance de Proyecto',
                                     'Boletas',
@@ -739,8 +740,8 @@ const SupportModal = ({
 
 
 
-                    {/* Comentario */}
-                    <div className="grid grid-cols-4 items-center gap-4">
+                    {/* Comentario *    SOLO PARA ATC  /}
+                    {/* <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Comentario</Label>
                         <div className="col-span-3">
                             <LimitedTextarea
@@ -751,7 +752,7 @@ const SupportModal = ({
                                 textareaClassName="w-full border rounded px-3 py-2 text-sm"
                             />
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
 
@@ -916,35 +917,35 @@ const SupportModal = ({
                             </div>
                         </div>
 
-                    
-                            <>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left text-blue-800 font-semibold">Inicio de Ticket</Label>
-                                    <Input
-                                        type="datetime-local"
-                                        name="ticket_start"
-                                        value={currentDetail.ticket_start}
-                                        onChange={handleDetailChange}
-                                        readOnly
-                                        className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
-                                    />
-                                </div>
 
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label className="text-left text-blue-800 font-semibold">Cierre de Ticket</Label>
-                                    <Input
-                                        type="datetime-local"
-                                        name="ticket_end"
-                                        value={currentDetail.ticket_end}
-                                        onChange={handleDetailChange}
-                                        readOnly
-                                        className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
-                                    />
-                                </div>
+                        <>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left text-blue-800 font-semibold">Inicio de Ticket</Label>
+                                <Input
+                                    type="datetime-local"
+                                    name="ticket_start"
+                                    value={currentDetail.ticket_start}
+                                    onChange={handleDetailChange}
+                                    readOnly
+                                    className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left text-blue-800 font-semibold">Cierre de Ticket</Label>
+                                <Input
+                                    type="datetime-local"
+                                    name="ticket_end"
+                                    value={currentDetail.ticket_end}
+                                    onChange={handleDetailChange}
+                                    readOnly
+                                    className="col-span-3 border-2 border-blue-800 bg-blue-50 text-blue-900 font-semibold rounded-md"
+                                />
+                            </div>
 
 
-                            </>
-                    
+                        </>
+
 
 
 

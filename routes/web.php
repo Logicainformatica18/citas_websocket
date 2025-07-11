@@ -258,6 +258,7 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
 
 
 
+Route::post('/support-details/generate-ticket', [SupportDetailController::class, 'generateTicket']);
 
 
 });
