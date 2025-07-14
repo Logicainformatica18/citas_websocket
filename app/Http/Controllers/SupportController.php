@@ -164,19 +164,7 @@ class SupportController extends Controller
         ]);
     }
 
-    function generateNextSupportTicket(): string
-    {
-        $lastNumber = DB::table('support_details')
-            ->whereNotNull('ticket')
-            ->whereRaw("LENGTH(ticket) > 3") // excluye 'TK-'
-            ->whereRaw("ticket REGEXP '^TK-[0-9]+$'") // asegura formato tipo TK-00001
-            ->selectRaw("MAX(CAST(SUBSTRING(ticket, 4) AS UNSIGNED)) as max_ticket")
-            ->value('max_ticket');
 
-        $newNumber = ($lastNumber ?? 0) + 1;
-
-        return 'TK-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
-    }
 
 
 
@@ -219,7 +207,7 @@ class SupportController extends Controller
         $ticket = null;
 
         if ($generateTicket) {
-            $ticket = $this->generateNextSupportTicket(); // ✅ uso limpio
+            $ticket = (new SupportDetailController)->generateNextSupportTicket();
         }
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -248,14 +236,14 @@ class SupportController extends Controller
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
                 'ticket' => $ticket ?? "TK-",
-                
+
             ]);
-           // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
+            // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
             if (Auth::user()->can('generar_ticket')) {
                 $createdDetail->update([
-                    'ticket_start' =>  Carbon::now('America/Lima'),
+                    'ticket_start' => Carbon::now('America/Lima'),
                 ]);
-            } 
+            }
         }
 
 
@@ -374,42 +362,53 @@ class SupportController extends Controller
 
 
         // Elimina detalles actuales y reemplaza por los nuevos (opcionalmente podrías actualizar uno por uno)
-        $support->details()->delete();
+        //  $support->details()->delete();
 
         $details = $request->input('details', []);
-        // ✅ Solución clave
         if (is_string($details)) {
             $details = json_decode($details, true);
         }
 
-        foreach ($details as $index => $detail) {
-            $newDetail = $support->details()->create([
-                'subject' => $detail['subject'] ?? '',
-                'description' => $detail['description'] ?? '',
-                'priority' => $detail['priority'] ?? '',
-                'type' => $detail['type'] ?? '',
-                'status' => $detail['status'] ?? '',
-                'reservation_time' => $detail['reservation_time'] ?? null,
-                'attended_at' => $detail['attended_at'] ?? null,
-                'derived' => $detail['derived'] ?? '',
-                'Manzana' => $detail['Manzana'] ?? '',
-                'comment' => $detail['comment'] ?? '',
-                'project_id' => $detail['project_id'] ?? null,
-                'area_id' => $detail['area_id'] ?? null,
-                'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
-                'id_tipo_cita' => $detail['id_tipo_cita'] ?? null,
-                'id_dia_espera' => $detail['id_dia_espera'] ?? null,
-                'internal_state_id' => $detail['internal_state_id'] ?? null,
-                'external_state_id' => $detail['external_state_id'] ?? null,
-                'type_id' => $detail['type_id'] ?? null,
-            ]);
+        $detailData = $details[0] ?? null;
 
-            // Procesar archivo si viene por índice
-            if ($request->hasFile("attachments.$index")) {
-                $newDetail->attachment = fileUpdate($request->file("attachments.$index"), 'attachments');
-                $newDetail->save();
+        if ($detailData) {
+            $existingDetail = $support->details()->first(); // Solo tomamos el primero
+
+            if ($existingDetail) {
+                $existingDetail->update([
+                    'subject' => $detailData['subject'] ?? '',
+                    'description' => $detailData['description'] ?? '',
+                    'priority' => $detailData['priority'] ?? '',
+                    'type' => $detailData['type'] ?? '',
+                    'status' => $detailData['status'] ?? '',
+                    'reservation_time' => $detailData['reservation_time'] ?? null,
+                    'attended_at' => $detailData['attended_at'] ?? null,
+                    'derived' => $detailData['derived'] ?? '',
+                    'Manzana' => $detailData['Manzana'] ?? '',
+                    'comment' => $detailData['comment'] ?? '',
+                    'project_id' => $detailData['project_id'] ?? null,
+                    'area_id' => $detailData['area_id'] ?? null,
+                    'id_motivos_cita' => $detailData['id_motivos_cita'] ?? null,
+                    'id_tipo_cita' => $detailData['id_tipo_cita'] ?? null,
+                    'id_dia_espera' => $detailData['id_dia_espera'] ?? null,
+                    'internal_state_id' => $detailData['internal_state_id'] ?? null,
+                    'external_state_id' => $detailData['external_state_id'] ?? null,
+                    'type_id' => $detailData['type_id'] ?? null,
+                    // OJO: no tocar el ticket
+                ]);
+
+                // Procesar archivo
+                if ($request->hasFile("attachments.0")) {
+                    $existingDetail->attachment = fileUpdate(
+                        $request->file("attachments.0"),
+                        'attachments',
+                        $existingDetail->attachment
+                    );
+                    $existingDetail->save();
+                }
             }
         }
+
 
 
         // 4. Recargar relaciones necesarias para el frontend

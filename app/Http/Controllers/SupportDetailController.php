@@ -24,6 +24,12 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\SupportDetail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
+
+use Illuminate\Support\Facades\Broadcast; // opcional, pero `broadcast()` ya viene global
+
 class SupportDetailController extends Controller
 {
     // public function index()
@@ -88,12 +94,11 @@ class SupportDetailController extends Controller
 
         // ✏️ Actualizar campos
         $support_detail->area_id = $request->area_id;
-        if($request->area_id!=1){
-            $support_detail->external_state_id=2;
+        if ($request->area_id != 1) {
+            $support_detail->external_state_id = 2;
 
-        }
-        else{
-             $support_detail->external_state_id=1;
+        } else {
+            $support_detail->external_state_id = 1;
 
         }
 
@@ -161,20 +166,72 @@ class SupportDetailController extends Controller
         return response()->json([
             'message' => '✅ Ticket de Solicitud actualizada correctamente',
             'support' => $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
-                'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
-                'details.area:id_area,descripcion',
-                'details.project:id_proyecto,descripcion',
-                'details.motivoCita:id_motivos_cita,nombre_motivo',
-                'details.tipoCita:id_tipo_cita,tipo',
-                'details.diaEspera:id_dias_espera,dias',
-                'details.internalState:id,description',
-                'details.externalState:id,description',
-                'details.supportType:id,description',
-            ]),
+                        'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
+                        'creator:id,firstname,lastname,names,email',
+                        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+                        'details.area:id_area,descripcion',
+                        'details.project:id_proyecto,descripcion',
+                        'details.motivoCita:id_motivos_cita,nombre_motivo',
+                        'details.tipoCita:id_tipo_cita,tipo',
+                        'details.diaEspera:id_dias_espera,dias',
+                        'details.internalState:id,description',
+                        'details.externalState:id,description',
+                        'details.supportType:id,description',
+                    ]),
         ]);
     }
+    function generateNextSupportTicket(): string
+    {
+        $lastNumber = DB::table('support_details')
+            ->whereNotNull('ticket')
+            ->whereRaw("LENGTH(ticket) > 3") // excluye 'TK-'
+            ->whereRaw("ticket REGEXP '^TK-[0-9]+$'") // asegura formato tipo TK-00001
+            ->selectRaw("MAX(CAST(SUBSTRING(ticket, 4) AS UNSIGNED)) as max_ticket")
+            ->value('max_ticket');
+
+        $newNumber = ($lastNumber ?? 0) + 1;
+
+        return 'TK-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+    }
+  public function generateTicket()
+{
+    $supportDetail = SupportDetail::findOrFail(request()->input('support_id'));
+    $ticket = $this->generateNextSupportTicket();
+
+    $supportDetail->update([
+        'ticket' => $ticket,
+    ]);
+
+    // Cargar el soporte una sola vez con relaciones
+    $support = $supportDetail->support()->with([
+        'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
+        'creator:id,firstname,lastname,names,email',
+        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+    ])->first();
+
+    if (!$support) {
+        return response()->json([
+            'message' => '❌ No se encontró el soporte relacionado',
+        ], 404);
+    }
+
+    // Emitir evento websocket
+    broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
+
+    return response()->json([
+        'message' => '✅ Ticket de soporte creado con sus detalles',
+        'support' => $support,
+    ]);
+}
+
 
     //     public function updateAreaMotivo(Request $request, $supportDetailId)
 // {
@@ -449,33 +506,33 @@ class SupportDetailController extends Controller
 
     //     return response()->json(['success' => true]);
     // }
-public function destroy($id)
-{
-    $detail = SupportDetail::findOrFail($id);
-    $supportId = $detail->support_id;
+    public function destroy($id)
+    {
+        $detail = SupportDetail::findOrFail($id);
+        $supportId = $detail->support_id;
 
-    $detail->delete();
+        $detail->delete();
 
-    // 🔄 Cargar el Solicitud actualizado con sus relaciones
-    $support =  Support::with([
-        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-        'creator:id,firstname,lastname,names,email',
-        'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
-        'details.project:id_proyecto,descripcion',
-        'details.area:id_area,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-    ])->findOrFail($supportId);
+        // 🔄 Cargar el Solicitud actualizado con sus relaciones
+        $support = Support::with([
+            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+            'creator:id,firstname,lastname,names,email',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+            'details.project:id_proyecto,descripcion',
+            'details.area:id_area,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+        ])->findOrFail($supportId);
 
-    // 📡 Emitir el Solicitud actualizado
-    broadcast(new RecordChanged('Support', 'detail_deleted', $support->toArray()));
+        // 📡 Emitir el Solicitud actualizado
+        broadcast(new RecordChanged('Support', 'detail_deleted', $support->toArray()));
 
-    return redirect()->back()->with('success', 'Solicitud eliminada correctamente.');
-}
+        return redirect()->back()->with('success', 'Solicitud eliminada correctamente.');
+    }
 
 
     public function bulkDelete(Request $request)

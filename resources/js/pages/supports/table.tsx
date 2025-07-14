@@ -1,4 +1,4 @@
-import { Paintbrush, Trash2 } from 'lucide-react';
+import { Paintbrush, Trash2,Pencil } from 'lucide-react';
 import HourglassLoader from '@/components/HourglassLoader';
 import { useState } from 'react';
 import axios from 'axios';
@@ -9,7 +9,8 @@ import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import React, { useRef } from 'react';
 import { Wrench, Search, Notebook, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
-
+import GenerateTicketSwitch from './GenerateTicketSwitch';
+ 
 interface SupportDetail {
     id: number;
     subject: string;
@@ -109,7 +110,8 @@ export default function SupportTable({
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const { permissions } = usePage<PageProps>().props;
-    const canEdit = permissions.includes('administrar') || permissions.includes('atc');
+    const canEdit = permissions.includes('administrar') || permissions.includes('atc') || permissions.includes('call_center');
+    const canGenerateTicket = permissions.includes('generar_ticket');
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
@@ -199,6 +201,9 @@ export default function SupportTable({
 
                                 <th className="px-2 py-1">Ticket Registro</th>
                                 <th className="px-2 py-1">Ticket Atención</th>
+                                {canGenerateTicket && (
+                                    <th className="px-2 py-1">Generar Ticket</th>
+                                )}
                                 <th className="px-2 py-1">Cliente</th>
                                 <th className="px-2 py-1">Dni</th>
                                 <th className="px-2 py-1">Solicitud</th>
@@ -267,7 +272,15 @@ export default function SupportTable({
                                             )}
                                         </td>
 
+                                        {canGenerateTicket && (
+                                            <td className="px-2 py-1">
+                                                <GenerateTicketSwitch
+                                                    supportId={support.details[0]?.id}
+                                                    ticket={support.details[0]?.ticket}
+                                                />
 
+                                            </td>
+                                        )}
                                         <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
                                         <td className="px-2 py-1">{support.client?.dni || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
@@ -384,7 +397,7 @@ export default function SupportTable({
                                                             <HourglassLoader />
                                                         ) : (
                                                             <>
-                                                                <Paintbrush className="w-4 h-4" />
+                                                                <Pencil className="w-4 h-4" /> {/* 🖊 Ícono de lápiz en lugar de brocha */}
                                                             </>
                                                         )}
                                                     </button>

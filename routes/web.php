@@ -21,7 +21,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportDetailController;
 use App\Http\Controllers\SaleController;
-
+use App\Http\Controllers\CommentController;
 
 
 Route::get('/', function () {
@@ -259,7 +259,8 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
 
 
 Route::post('/support-details/generate-ticket', [SupportDetailController::class, 'generateTicket']);
-
+Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
+Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
 });
 

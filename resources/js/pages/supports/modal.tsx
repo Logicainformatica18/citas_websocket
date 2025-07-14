@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import ClientSearch from './clientSearch';
 import { usePage } from '@inertiajs/react';
-import GenerateTicketSwitch from './GenerateTicketSwitch';
+import SupportCommentSection from './SupportCommentSection'; // ajusta la ruta si es necesaria
+
 import LimitedInput from '@/components/LimitedInput';
 import LimitedTextarea from '@/components/LimitedTextarea';
 
@@ -106,6 +107,7 @@ const SupportModal = ({
 
 
     const [currentDetail, setCurrentDetail] = useState<any>({
+       id: null, // Agrega un ID para identificar el detalle;
         subject: '',
         description: '',
         priority: 'Baja',
@@ -165,7 +167,7 @@ const SupportModal = ({
         setCurrentDetail((prev) => ({ ...prev, [name]: value }));
     };
 
-   
+
     // const addDetail = () => {
     //     setSupportDetails([...supportDetails, currentDetail]);
     //     setCurrentDetail({
@@ -242,6 +244,7 @@ const SupportModal = ({
 
         // Limpiar el formulario
         setCurrentDetail({
+            id: null, // Reiniciar ID
             subject: '',
             description: '',
             priority: 'Baja',
@@ -326,6 +329,7 @@ const SupportModal = ({
 
             if (detail) {
                 setCurrentDetail({
+                    id: detail.id, // Asegura que el ID esté presente
                     subject: detail.subject ?? '',
                     description: detail.description ?? '',
                     priority: detail.priority ?? 'Media',
@@ -467,7 +471,7 @@ const SupportModal = ({
                     <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
 
-                <GenerateTicketSwitch supportId={currentDetail?.id} />
+
 
                 <div className="rounded-md bg-gray-100 dark:bg-gray-800 p-4 space-y-4">
                     <div className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
@@ -739,10 +743,16 @@ const SupportModal = ({
                     </div>
 
 
+ <div className="mt-4">
+   
+      <SupportCommentSection supportDetailId={currentDetail.id} />
+    
+  </div>
 
-                    {/* Comentario *    SOLO PARA ATC  /}
-                    {/* <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left col-span-1">Comentario</Label>
+
+                     {/* Comentario *    SOLO PARA ATC  */}
+                     {/* <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left col-span-1">Comentario{currentDetail.id}w </Label>
                         <div className="col-span-3">
                             <LimitedTextarea
                                 name="comment"
@@ -752,7 +762,7 @@ const SupportModal = ({
                                 textareaClassName="w-full border rounded px-3 py-2 text-sm"
                             />
                         </div>
-                    </div> */}
+                    </div>  */}
                 </div>
 
 

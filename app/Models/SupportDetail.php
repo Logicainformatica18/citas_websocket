@@ -109,5 +109,10 @@ public function externalState()
     {
         return $this->belongsTo(Type::class, 'type_id');
     }
+// app/Models/SupportDetail.php
+public function support()
+{
+    return $this->belongsTo(Support::class);
+}
 
 }
