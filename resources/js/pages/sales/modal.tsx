@@ -93,7 +93,7 @@ export default function SaleModal({ open, onClose, onSaved, itemToEdit }: Props)
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{form.id ? 'Editar Venta' : 'Nueva Venta'}</DialogTitle>
+                    <DialogTitle>{form.id ? 'Editar Detalle de cliente' : 'Nuevo Detalle de cliente'}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">

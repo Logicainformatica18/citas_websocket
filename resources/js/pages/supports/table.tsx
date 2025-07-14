@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import React, { useRef } from 'react';
 import { Wrench, Search, Notebook, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import GenerateTicketSwitch from './GenerateTicketSwitch';
- 
+
 interface SupportDetail {
     id: number;
     subject: string;
@@ -251,10 +251,12 @@ export default function SupportTable({
                             {supports.map((support) => (
                                 <React.Fragment key={support.id}>
                                     {/* Fila principal */}
-                                    <tr
-                                        className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
-                                            }`}
-                                    >
+                                   <tr
+    className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 text-center align-middle ${
+        highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
+    }`}
+>
+
                                         <td className='px-2 py-1'>
                                             {support.details[0]
                                                 ? `TR-${String(support.details[0].id).padStart(5, '0')}`

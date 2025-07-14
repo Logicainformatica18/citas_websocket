@@ -87,7 +87,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
     {
       title: 'Gestión',
-      show: isAdmin || isATC,
+      show: isAdmin ,
       items: [
         { title: 'Clientes', href: '/clients', icon: UserCircle },
         { title: 'Áreas', href: '/areas', icon: LayoutDashboard },
@@ -103,7 +103,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
     {
       title: 'Parámetros',
-      show: isAdmin || isATC,
+      show: isAdmin ,
       items: [
         { title: 'Estados ATC', href: '/external-states', icon: ArrowUpRight },
         { title: 'Estados Internos', href: '/internal-states', icon: ArrowDownLeft },

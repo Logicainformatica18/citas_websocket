@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\Comment;
 class CommentController extends Controller
@@ -16,7 +16,9 @@ class CommentController extends Controller
     return response()->json($comments);
 }
 
-   public function store(Request $request)
+
+
+public function store(Request $request)
 {
     $request->validate([
         'support_detail_id' => 'required|exists:support_details,id',
@@ -33,7 +35,18 @@ class CommentController extends Controller
 
     return response()->json([
         'message' => 'Comentario agregado correctamente',
-        'comment' => $comment,
+        'comment' => [
+            'id' => $comment->id,
+            'comment' => $comment->comment,
+            'created_at' => Carbon::parse($comment->created_at)
+                ->timezone('America/Lima')
+                ->format('d/m/Y H:i'),
+            'user' => [
+                'names' => $comment->user->names,
+                'roles' => $comment->user->roles->map(fn ($r) => ['name' => $r->name]),
+            ],
+        ],
     ]);
 }
+
 }

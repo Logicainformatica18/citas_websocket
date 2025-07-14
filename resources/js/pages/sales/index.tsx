@@ -107,13 +107,13 @@ function getVisiblePages(current: number, last: number): (number | string)[] {
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded"
           >
-            Nueva Venta
+            Nueva Detalle
           </button>
 
           {selectedIds.length > 0 && (
             <button
               onClick={async () => {
-                if (confirm(`¿Eliminar ${selectedIds.length} venta(s)?`)) {
+                if (confirm(`¿Eliminar ${selectedIds.length} Detalle(s)?`)) {
                   await axios.post('/sales/bulk-delete', { ids: selectedIds });
                   setItems((prev) => prev.filter((i) => !selectedIds.includes(i.id)));
                   setSelectedIds([]);
@@ -177,7 +177,7 @@ function getVisiblePages(current: number, last: number): (number | string)[] {
 
                     <button
                       onClick={async () => {
-                        if (confirm('¿Eliminar esta venta?')) {
+                        if (confirm('¿Eliminar este detalle?')) {
                           try {
                             setDeletingId(item.id);
                             await axios.delete(`/sales/${item.id}`);

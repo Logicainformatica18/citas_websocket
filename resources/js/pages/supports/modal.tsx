@@ -30,6 +30,35 @@ const getNowPlusHours = (plus = 0) => {
     const mm = pad(now.getMinutes());
     return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
 };
+interface SupportDetailRaw {
+    id: number;
+    subject?: string;
+    description?: string;
+    priority?: string;
+    type?: string;
+    status?: string;
+    reservation_time?: string;
+    attended_at?: string;
+    derived?: string;
+    Manzana?: string;
+    comment?: string;
+    project_id?: number;
+    area_id?: number;
+    id_motivos_cita?: number;
+    id_tipo_cita?: number;
+    id_dia_espera?: number;
+    internal_state_id?: number;
+    external_state_id?: number;
+    type_id?: number;
+    project?: any;
+    area?: any;
+    motivo_cita?: any;
+    tipo_cita?: any;
+    dia_espera?: any;
+    internal_state?: any;
+    external_state?: any;
+    support_type?: any;
+}
 
 const SupportModal = ({
     open,
@@ -107,7 +136,7 @@ const SupportModal = ({
 
 
     const [currentDetail, setCurrentDetail] = useState<any>({
-       id: null, // Agrega un ID para identificar el detalle;
+        id: null, // Agrega un ID para identificar el detalle;
         subject: '',
         description: '',
         priority: 'Baja',
@@ -117,12 +146,12 @@ const SupportModal = ({
         attended_at: getNowPlusHours(1),
         derived: '',
         project_id: '',
-        area_id: '1',
+        area_id: '',
         id_motivos_cita: '',
-        id_tipo_cita: '1',
+        id_tipo_cita: '',
         id_dia_espera: '',
-        internal_state_id: '3',
-        external_state_id: '1',
+        internal_state_id: '',
+        external_state_id: '',
         type_id: '',
         Manzana: '',
         comment: '',
@@ -148,24 +177,97 @@ const SupportModal = ({
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
         const { name, value } = e.target;
 
+        // Relacionar IDs con objetos cuando aplica
+        if (name === 'internal_state_id') {
+            const selected = internalStates.find(i => i.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                internal_state_id: value,
+                internal_state: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'external_state_id') {
+            const selected = externalStates.find(e => e.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                external_state_id: value,
+                external_state: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'area_id') {
+            const selected = areas.find(a => a.id_area === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                area_id: value,
+                area: selected || null,
+            }));
+            return;
+        }
+
         if (name === 'project_id') {
             const lots = salesFromClient
                 .filter((s) => s.project_id === Number(value))
                 .map((s) => s.mz_lote);
-
+            const selected = projects.find(p => p.id_proyecto === Number(value));
             setAvailableLots(lots);
-
-            setCurrentDetail((prev) => ({
+            setCurrentDetail(prev => ({
                 ...prev,
-                [name]: value,
+                project_id: value,
+                project: selected || null,
                 Manzana: '',
                 comment: '',
             }));
             return;
         }
 
-        setCurrentDetail((prev) => ({ ...prev, [name]: value }));
+        if (name === 'id_motivos_cita') {
+            const selected = motives.find(m => m.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_motivos_cita: value,
+                motivo_cita: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'id_tipo_cita') {
+            const selected = appointmentTypes.find(t => t.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_tipo_cita: value,
+                tipo_cita: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'id_dia_espera') {
+            const selected = waitingDays.find(d => d.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_dia_espera: value,
+                dia_espera: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'type_id') {
+            const selected = types.find(t => t.id === Number(value));
+            setCurrentDetail(prev => ({
+                ...prev,
+                type_id: value,
+                support_type: selected || null,
+            }));
+            return;
+        }
+
+        // Por defecto: solo actualiza el valor
+        setCurrentDetail(prev => ({ ...prev, [name]: value }));
     };
+
 
 
     // const addDetail = () => {
@@ -276,8 +378,6 @@ const SupportModal = ({
     };
 
 
-
-
     useEffect(() => {
         if (!supportToEdit) return;
 
@@ -313,7 +413,6 @@ const SupportModal = ({
 
             setClientQuery(client.Razon_Social);
 
-            // 🔧 Agrega esto para asegurar los proyectos
             const enrichedSales = (client.sales || []).map((s) => ({
                 ...s,
                 project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
@@ -321,15 +420,25 @@ const SupportModal = ({
             setSalesFromClient(enrichedSales);
         }
 
-
         if (details && Array.isArray(details)) {
-            setSupportDetails(details);
+            const enrichedDetails = details.map((detail: any) => ({
+                ...detail,
+                area: detail.area ?? areas.find((a) => a.id_area === detail.area_id) ?? null,
+                motivo_cita: detail.motivo_cita ?? motives.find((m) => m.id === detail.id_motivos_cita) ?? null,
+                tipo_cita: detail.tipo_cita ?? appointmentTypes.find((t) => t.id === detail.id_tipo_cita) ?? null,
+                dia_espera: detail.dia_espera ?? waitingDays.find((d) => d.id === detail.id_dia_espera) ?? null,
+                internal_state: detail.internal_state ?? internalStates.find((i) => i.id === detail.internal_state_id) ?? null,
+                external_state: detail.external_state ?? externalStates.find((e) => e.id === detail.external_state_id) ?? null,
+                support_type: detail.support_type ?? types.find((t) => t.id === detail.type_id) ?? null,
+                project: detail.project ?? projects.find((p) => p.id_proyecto === detail.project_id) ?? null,
+            }));
 
-            const detail = details[0];
+            setSupportDetails(enrichedDetails);
 
+            const detail = enrichedDetails[0];
             if (detail) {
                 setCurrentDetail({
-                    id: detail.id, // Asegura que el ID esté presente
+                    id: detail.id,
                     subject: detail.subject ?? '',
                     description: detail.description ?? '',
                     priority: detail.priority ?? 'Media',
@@ -349,23 +458,21 @@ const SupportModal = ({
                     external_state_id: detail.external_state_id ?? '1',
                     type_id: detail.type_id ?? '',
 
-                    // relaciones completas
-                    project: detail.project ?? null,
-                    area: detail.area ?? null,
-                    motivo_cita: detail.motivo_cita ?? null,
-                    tipo_cita: detail.tipo_cita ?? null,
-                    dia_espera: detail.dia_espera ?? null,
-                    internal_state: detail.internal_state ?? null,
-                    external_state: detail.external_state ?? null,
-                    support_type: detail.support_type ?? null,
+                    // Relaciones enriquecidas
+                    project: detail.project,
+                    area: detail.area,
+                    motivo_cita: detail.motivo_cita,
+                    tipo_cita: detail.tipo_cita,
+                    dia_espera: detail.dia_espera,
+                    internal_state: detail.internal_state,
+                    external_state: detail.external_state,
+                    support_type: detail.support_type,
+
                     attachment: null,
                     ticket_start: formatDateTimeLocal(detail.ticket_start),
                     ticket_end: formatDateTimeLocal(detail.ticket_end),
-
-
                 });
 
-                // Mapea lotes
                 if (detail.project_id) {
                     const lots = (client?.sales || []).filter(
                         (s) => s.project_id === Number(detail.project_id)
@@ -375,6 +482,7 @@ const SupportModal = ({
             }
         }
     }, [supportToEdit]);
+
 
 
 
@@ -418,30 +526,32 @@ const SupportModal = ({
                 }
             });
 
-            const cleanedDetails = supportDetails.map((detail) => ({
-                subject: detail.subject,
-                description: detail.description,
-                priority: detail.priority?.trim() || 'Media',
-                type: detail.type || 'Consulta',
-                status: detail.status || 'Pendiente',
-                reservation_time: detail.reservation_time,
-                attended_at: detail.attended_at,
-                derived: detail.derived || '',
+            const cleanedDetail = {
+                subject: currentDetail.subject,
+                description: currentDetail.description,
+                priority: currentDetail.priority?.trim() || 'Media',
+                type: currentDetail.type || 'Consulta',
+                status: currentDetail.status || 'Pendiente',
+                reservation_time: currentDetail.reservation_time,
+                attended_at: currentDetail.attended_at,
+                derived: currentDetail.derived || '',
 
                 // Relaciones como IDs
-                project_id: detail.project?.id_proyecto ?? null,
-                area_id: detail.area?.id_area ?? 1,
-                id_motivos_cita: detail.motivo_cita?.id ?? null,
-                id_tipo_cita: detail.tipo_cita?.id ?? 1,
-                id_dia_espera: detail.dia_espera?.id ?? null,
-                internal_state_id: detail.internal_state?.id ?? 3,
-                external_state_id: detail.external_state?.id ?? 1,
-                type_id: detail.support_type?.id ?? null,
+                project_id: currentDetail.project?.id_proyecto ?? null,
+                area_id: currentDetail.area?.id_area ?? 1,
+                id_motivos_cita: currentDetail.motivo_cita?.id ?? null,
+                id_tipo_cita: currentDetail.tipo_cita?.id ?? 1,
+                id_dia_espera: currentDetail.dia_espera?.id ?? null,
+                internal_state_id: currentDetail.internal_state?.id ?? 3,
+                external_state_id: currentDetail.external_state?.id ?? 1,
+                type_id: currentDetail.support_type?.id ?? null,
 
-                Manzana: detail.Manzana ?? '',
-                comment: detail.comment ?? '',
-            }));
-            data.append('details', JSON.stringify(cleanedDetails));
+                Manzana: currentDetail.Manzana ?? '',
+                comment: currentDetail.comment ?? '',
+            };
+
+            data.append('details', JSON.stringify([cleanedDetail]));
+
 
 
             // 5. URL y método
@@ -743,15 +853,15 @@ const SupportModal = ({
                     </div>
 
 
- <div className="mt-4">
-   
-      <SupportCommentSection supportDetailId={currentDetail.id} />
-    
-  </div>
+                    <div className="mt-4">
+
+                        <SupportCommentSection supportDetailId={currentDetail.id} />
+
+                    </div>
 
 
-                     {/* Comentario *    SOLO PARA ATC  */}
-                     {/* <div className="grid grid-cols-4 items-center gap-4">
+                    {/* Comentario *    SOLO PARA ATC  */}
+                    {/* <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Comentario{currentDetail.id}w </Label>
                         <div className="col-span-3">
                             <LimitedTextarea
@@ -967,9 +1077,16 @@ const SupportModal = ({
 
 
                 </div>
-                <button type="button" onClick={handleAddDetail} className="bg-blue-600 text-white px-3 py-1 rounded">
-                    Agregar Solicitud (Máximo 1)
-                </button>
+              <button
+    type="button"
+    onClick={handleAddDetail}
+    className={`px-3 py-1 rounded ${supportDetails.length >= 1 ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
+    disabled={supportDetails.length >= 1}
+>
+    Agregar Solicitud (Máximo 1)
+</button>
+
+
 
                 <table className="w-full mt-4 text-sm border">
                     <thead>
@@ -983,7 +1100,7 @@ const SupportModal = ({
                             <th className="border px-2">Prioridad</th>
                             <th className="border px-2">Estado Interno</th>
                             <th className="border px-2">Estado ATC</th>
-                            <th className="border px-2">Acciones</th>
+                            {/* <th className="border px-2">Acciones</th> */}
                         </tr>
                     </thead>
                     <tbody>
@@ -998,7 +1115,7 @@ const SupportModal = ({
                                 <td className="border px-2">{detail.priority}</td>
                                 <td className="border px-2">{detail.internal_state?.description}</td>
                                 <td className="border px-2">{detail.external_state?.description}</td>
-                                <td className="border px-2">
+                                {/* <td className="border px-2">
                                     <button
                                         onClick={() =>
                                             setSupportDetails((prev) => prev.filter((_, i) => i !== idx))
@@ -1007,7 +1124,7 @@ const SupportModal = ({
                                     >
                                         Eliminar
                                     </button>
-                                </td>
+                                </td> */}
                             </tr>
                         ))}
                     </tbody>

@@ -97,7 +97,7 @@ class SupportController extends Controller
         $query = $request->input('q');
         $detailId = null;
         Log::info('🔍 Valor recibido de q:', ['q' => $query]);
-        if (preg_match('/tk[-]?0*(\d+)/i', $query, $matches)) {
+        if (preg_match('/tr[-]?0*(\d+)/i', $query, $matches)) {
             $detailId = (int) $matches[1];
         }
 
@@ -370,6 +370,7 @@ class SupportController extends Controller
         }
 
         $detailData = $details[0] ?? null;
+        Log::info('🔍 Detalle recibido para actualizar:', $detailData);
 
         if ($detailData) {
             $existingDetail = $support->details()->first(); // Solo tomamos el primero
