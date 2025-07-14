@@ -111,6 +111,8 @@ export default function SupportTable({
 
     const { permissions } = usePage<PageProps>().props;
     const canEdit = permissions.includes('administrar') || permissions.includes('atc') || permissions.includes('call_center');
+    const canDelete = permissions.includes('solicitudes.eliminar') || permissions.includes('administrar') ;
+
     const canGenerateTicket = permissions.includes('generar_ticket');
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
@@ -404,7 +406,7 @@ export default function SupportTable({
                                                         )}
                                                     </button>
 
-                                                    <button
+                                                    {/* <button
                                                         onClick={() => {
                                                             console.log('Editando detalle:', support.details[0]?.id);
                                                             setSelectedSupportId(support.id);
@@ -414,9 +416,10 @@ export default function SupportTable({
                                                         }}
                                                     >
                                                         <MapPin className="w-4 h-4" />
-                                                    </button>
+                                                    </button> */}
 
                                                     {/* Botón Eliminar */}
+                                                    {canDelete && (
                                                     <button
                                                         onClick={async () => {
                                                             if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
@@ -443,6 +446,7 @@ export default function SupportTable({
                                                             </>
                                                         )}
                                                     </button>
+                                                    )}
                                                 </td>
                                             </>
                                         )}

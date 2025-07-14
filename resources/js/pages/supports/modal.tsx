@@ -1077,14 +1077,14 @@ const SupportModal = ({
 
 
                 </div>
-              <button
-    type="button"
-    onClick={handleAddDetail}
-    className={`px-3 py-1 rounded ${supportDetails.length >= 1 ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
-    disabled={supportDetails.length >= 1}
->
-    Agregar Solicitud (Máximo 1)
-</button>
+                <button
+                    type="button"
+                    onClick={handleAddDetail}
+                    className={`px-3 py-1 rounded ${supportDetails.length >= 1 ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white'}`}
+                    disabled={supportDetails.length >= 1}
+                >
+                    Agregar Solicitud (Máximo 1)
+                </button>
 
 
 
