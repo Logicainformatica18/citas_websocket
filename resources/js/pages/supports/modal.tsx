@@ -146,12 +146,12 @@ const SupportModal = ({
         attended_at: getNowPlusHours(1),
         derived: '',
         project_id: '',
-        area_id: '',
+        area_id: '1',
         id_motivos_cita: '',
         id_tipo_cita: '',
         id_dia_espera: '',
-        internal_state_id: '',
-        external_state_id: '',
+        internal_state_id: '3',
+        external_state_id: '1',
         type_id: '',
         Manzana: '',
         comment: '',
@@ -504,72 +504,84 @@ const SupportModal = ({
         }
     };
 
-    const handleSubmit = async () => {
-        try {
-            setUploading(true);
-            const data = new FormData();
+const handleSubmit = async () => {
+    try {
+        setUploading(true);
+        const data = new FormData();
 
-            // 1. Campos principales del soporte
-            Object.entries(formData).forEach(([key, value]) => {
-                data.append(key, String(value ?? ''));
-            });
+        // 1. Campos principales del soporte
+        Object.entries(formData).forEach(([key, value]) => {
+            data.append(key, String(value ?? ''));
+        });
 
-            // 2. Archivo principal (como antes)
-            if (file) {
-                data.append('attachment', file);
+        // 2. Archivo principal
+        if (file) {
+            data.append('attachment', file);
+        }
+
+        // 3. Archivos por detalle
+        supportDetails.forEach((detail, index) => {
+            if (detail.attachment) {
+                data.append(`attachments[${index}]`, detail.attachment);
             }
+        });
 
-            // 3. Archivos por detalle
-            supportDetails.forEach((detail, index) => {
-                if (detail.attachment) {
-                    data.append(`attachments[${index}]`, detail.attachment);
-                }
-            });
+        // 4. Preparar detalles
+        const cleanedDetails = supportDetails.map((detail) => ({
+            subject: detail.subject,
+            description: detail.description,
+            priority: detail.priority,
+            type: detail.type,
+            status: detail.status,
+            reservation_time: detail.reservation_time,
+            attended_at: detail.attended_at,
+            derived: detail.derived,
+            project_id: detail.project?.id_proyecto ?? null,
+            area_id: detail.area?.id_area ?? 1,
+            id_motivos_cita: detail.motivo_cita?.id ?? null,
+            id_tipo_cita: detail.tipo_cita?.id ?? 1,
+            id_dia_espera: detail.dia_espera?.id ?? null,
+            internal_state_id: detail.internal_state?.id ?? 3,
+            external_state_id: detail.external_state?.id ?? 1,
+            type_id: detail.support_type?.id ?? null,
+            Manzana: detail.Manzana ?? '',
+            comment: detail.comment ?? '',
+        }));
+        data.append('details', JSON.stringify(cleanedDetails));
 
-            const cleanedDetail = {
-                subject: currentDetail.subject,
-                description: currentDetail.description,
-                priority: currentDetail.priority?.trim() || 'Media',
-                type: currentDetail.type || 'Consulta',
-                status: currentDetail.status || 'Pendiente',
-                reservation_time: currentDetail.reservation_time,
-                attended_at: currentDetail.attended_at,
-                derived: currentDetail.derived || '',
+        // 5. URL y método
+        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+        if (supportToEdit) data.append('_method', 'PUT');
 
-                // Relaciones como IDs
-                project_id: currentDetail.project?.id_proyecto ?? null,
-                area_id: currentDetail.area?.id_area ?? 1,
-                id_motivos_cita: currentDetail.motivo_cita?.id ?? null,
-                id_tipo_cita: currentDetail.tipo_cita?.id ?? 1,
-                id_dia_espera: currentDetail.dia_espera?.id ?? null,
-                internal_state_id: currentDetail.internal_state?.id ?? 3,
-                external_state_id: currentDetail.external_state?.id ?? 1,
-                type_id: currentDetail.support_type?.id ?? null,
+        // 6. Enviar petición
+        const response = await axios.post(url, data);
 
-                Manzana: currentDetail.Manzana ?? '',
-                comment: currentDetail.comment ?? '',
-            };
-
-            data.append('details', JSON.stringify([cleanedDetail]));
-
-
-
-            // 5. URL y método
-            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-            if (supportToEdit) data.append('_method', 'PUT');
-
-            const response = await axios.post(url, data);
-
+        if (response.data?.support) {
             toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
             onSaved(response.data.support);
             onClose();
-        } catch (error) {
-            console.error('❌ Error al guardar:', error);
-            toast.error('Hubo un error al guardar');
-        } finally {
-            setUploading(false);
+        } else if (response.data?.message) {
+          toast.warning(response.data.message, {
+    duration: Infinity,
+    action: {
+        label: 'Cerrar',
+        onClick: () => {},
+    },
+});
+
+
+        } else {
+            toast.error('Error desconocido del servidor');
         }
-    };
+
+    } catch (error) {
+        console.error('❌ Error al guardar:', error);
+        toast.error('Hubo un error al guardar');
+    } finally {
+        setUploading(false);
+    }
+};
+
 
 
 

@@ -159,13 +159,19 @@ export default function Supports() {
         };
     }, []);
 
-    const handleSupportSaved = (saved: Support) => {
-        setSupports((prev) => {
-            const exists = prev.find((p) => p.id === saved.id);
-            return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
-        });
-        setEditSupport(null);
-    };
+  const handleSupportSaved = (saved: Support | undefined) => {
+    if (!saved || !saved.id) {
+        console.warn('❗Se intentó guardar un soporte inválido:', saved);
+        return;
+    }
+
+    setSupports((prev) => {
+        const exists = prev.find((p) => p.id === saved.id);
+        return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
+    });
+    setEditSupport(null);
+};
+
 
     const fetchSupport = async (id: number) => {
         const res = await axios.get(`/supports/${id}`);

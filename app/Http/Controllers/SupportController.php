@@ -174,12 +174,30 @@ class SupportController extends Controller
 
     public function store(Request $request)
     {
-        // 🧾 Log completo de entrada
-        Log::info('📥 Datos recibidos en store():', $request->all());
 
-        // 🧪 Verificar manualmente campos importantes
-        Log::info('🔍 status_global recibido:', ['status_global' => $request->status_global]);
 
+
+
+
+
+
+
+        $details = json_decode($request->details, true);
+        $firstDetail = json_decode($request->details, true)[0] ?? null;
+
+        if (
+            $firstDetail &&
+            ($duplicateCode = $this->hasDuplicateSupportDetailWithCode(
+                $request->client_id,
+                $firstDetail['project_id'] ?? null,
+                $firstDetail['subject'] ?? '',
+                $firstDetail['Manzana'] ?? ''
+            ))
+        ) {
+            return response()->json([
+                'message' => "Ya existe un soporte similar registrado con código {$duplicateCode}.",
+            ]);
+        }
 
         // 1. Crear soporte base
         $support = Support::create([
@@ -189,9 +207,6 @@ class SupportController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        Log::info('✅ Soporte creado:', $support->toArray());
-
-        $details = json_decode($request->details, true); // Convertir a array asociativo
 
         if (!is_array($details)) {
             Log::error('❌ Error: details no es un array válido', ['details' => $request->details]);
@@ -212,6 +227,11 @@ class SupportController extends Controller
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
         foreach ($details as $index => $detail) {
+            Log::info("🧪 Verificando detalle #{$index}:", [
+                'subject' => $detail['subject'] ?? null,
+                'project_id' => $detail['project_id'] ?? null,
+                'Manzana' => $detail['Manzana'] ?? null,
+            ]);
             // Buscar el archivo correspondiente a este índice (si existe)
             $attachment = isset($attachments[$index]) ? fileStore($attachments[$index], 'uploads') : null;
 
@@ -500,6 +520,25 @@ class SupportController extends Controller
             ]),
         ]);
     }
+
+    private function hasDuplicateSupportDetailWithCode($clientId, $projectId, $subject, $manzana): ?string
+    {
+        $detail = SupportDetail::whereHas('support', function ($query) use ($clientId) {
+            $query->where('client_id', $clientId);
+        })
+            ->where('project_id', $projectId)
+            ->where('subject', $subject)
+            ->where('Manzana', $manzana)
+            ->first();
+
+        if ($detail) {
+            return 'TR-' . str_pad($detail->id, 5, '0', STR_PAD_LEFT);
+        }
+
+        return null;
+    }
+
+
 
 
 
