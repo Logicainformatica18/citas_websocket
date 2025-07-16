@@ -23,4 +23,11 @@ class Comment extends Model
     {
         return $this->belongsTo(SupportDetail::class);
     }
+    // app/Models/Comment.php
+
+public function internalState()
+{
+    return $this->belongsTo(InternalState::class, 'internal_state_id');
+}
+
 }

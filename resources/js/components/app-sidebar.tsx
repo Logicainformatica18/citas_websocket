@@ -58,7 +58,7 @@ export function AppSidebar() {
   const has = (perm: string) => permissions.includes(perm);
   const isAdmin = has('administrar');
   const isReserva = has('reserva');
-  const isATC = has('atc');
+  const Solicitudes_ver = has('solicitudes.ver');
   const isRecepcion = has('recepcion');
 
 
@@ -96,7 +96,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
      {
       title: 'Detalle Cliente',
-      show: isAdmin || isATC,
+      show: isAdmin || Solicitudes_ver,
       items: [
         { title: 'Detalle Cliente', href: '/sales', icon: FolderKanban },
       ],
@@ -115,7 +115,7 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     },
     {
       title: 'Solicitud',
-      show: isAdmin || isATC || isReserva || isRecepcion,
+      show: isAdmin || Solicitudes_ver  ,
       items: [
         { title: 'Solicitudes', href: '/supports', icon: Headphones },
       ],

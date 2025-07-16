@@ -12,17 +12,19 @@ class RoleController extends Controller
     public function index()
     {
         return Inertia::render('roles/index', [
-    'roles' => Role::with('permissions')->paginate(10),
-    'all_permissions' => Permission::all(), // 👈 cambia aquí
-    'user_permissions' => auth()->user()
-        ? auth()->user()->getAllPermissions()->pluck('name')->toArray()
-        : [],
-    'sidebarOpen' => request()->cookie('sidebar_state', 'true') === 'true',
-    'auth' => [
-        'user' => auth()->user(),
-        'role' => optional(auth()->user()->roles()->first())->name,
-    ],
-]);
+            'roles' => Role::with('permissions')->paginate(10),
+            'all_permissions' => Permission::orderBy('name')->get(),
+
+
+            'user_permissions' => auth()->user()
+                ? auth()->user()->getAllPermissions()->pluck('name')->toArray()
+                : [],
+            'sidebarOpen' => request()->cookie('sidebar_state', 'true') === 'true',
+            'auth' => [
+                'user' => auth()->user(),
+                'role' => optional(auth()->user()->roles()->first())->name,
+            ],
+        ]);
 
 
     }

@@ -110,7 +110,7 @@ export default function SupportTable({
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const { permissions } = usePage<PageProps>().props;
-    const canEdit = permissions.includes('administrar') || permissions.includes('atc') || permissions.includes('call_center');
+    const can_ver = permissions.includes('administrar') || permissions.includes('solicitudes.ver')  ;
     const canDelete = permissions.includes('solicitudes.eliminar') || permissions.includes('administrar') ;
 
     const canGenerateTicket = permissions.includes('generar_ticket');
@@ -226,9 +226,9 @@ export default function SupportTable({
                                 {/* <th className="px-2 py-1 text-center">
                                     Detalle
                                 </th> */}
-                                {canEdit && (
+                                {can_ver && (
                                     <>
-                                        <th className="px-2 py-1">
+                                        {/* <th className="px-2 py-1">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.length === supports.length}
@@ -236,7 +236,7 @@ export default function SupportTable({
                                                     setSelectedIds(e.target.checked ? supports.map((s) => s.id) : [])
                                                 }
                                             />
-                                        </th>
+                                        </th> */}
 
                                         <th className="px-2 py-1 text-center" title="Acciones">
                                             <Wrench className="w-4 h-4 mx-auto text-gray-600" />
@@ -354,9 +354,9 @@ export default function SupportTable({
 
 
                                         </td> */}
-                                        {canEdit && (
+                                        {can_ver && (
                                             <>
-                                                <td className="px-2 py-1">
+                                                {/* <td className="px-2 py-1">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.includes(support.id)}
@@ -368,7 +368,7 @@ export default function SupportTable({
                                                             )
                                                         }
                                                     />
-                                                </td>
+                                                </td> */}
 
 
                                                 <td className="px-2 py-1 text-sm space-x-2">
@@ -516,7 +516,7 @@ export default function SupportTable({
                                                 </Link>
                                             </td>
 
-                                            {canEdit && (
+                                            {can_ver && (
                                                 <>
                                                     <td className="px-2 py-1 border">
                                                         <input
@@ -582,7 +582,7 @@ export default function SupportTable({
                                                                 <th className="px-2 py-1 border">Estado Interno</th>
                                                                 <th className="px-2 py-1 border">Prioridad</th>
 
-                                                                {canEdit && (
+                                                                {can_ver && (
                                                                     <th className="px-2 py-1 border">Acciones</th>
                                                                 )}
                                                             </tr>
@@ -625,7 +625,7 @@ export default function SupportTable({
 
                                                                     <td className="px-2 py-1 border">{detail.priority}</td>
 
-                                                                    {canEdit && (
+                                                                    {can_ver && (
                                                                         <td className="px-2 py-1 border">
                                                                             <button
                                                                                 onClick={() => {

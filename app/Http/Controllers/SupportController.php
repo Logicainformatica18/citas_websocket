@@ -195,7 +195,7 @@ class SupportController extends Controller
             ))
         ) {
             return response()->json([
-                'message' => "Ya existe un soporte similar registrado con código {$duplicateCode}.",
+                'message' => "Ya existe un soporte similar registrado  {$duplicateCode}.",
             ]);
         }
 
@@ -532,7 +532,7 @@ class SupportController extends Controller
             ->first();
 
         if ($detail) {
-            return 'TR-' . str_pad($detail->id, 5, '0', STR_PAD_LEFT);
+            return $detail->ticket ? $detail->ticket : null;
         }
 
         return null;

@@ -107,8 +107,8 @@ const SupportModal = ({
     //   const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
     const [uploading, setUploading] = useState(false);
     const { permissions } = usePage<{ permissions: string[] }>().props;
-    const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('atc');
-    const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('atc') || permissions.includes('reserva');
+    const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas');
+    const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas') || permissions.includes('reserva');
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
@@ -316,7 +316,7 @@ const SupportModal = ({
         ];
 
         // Valores por defecto
-        const defaultArea = { id_area: 1, descripcion: 'ATC' };
+        const defaultArea = { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' };
         const areaId = currentDetail.area_id === '' ? 1 : Number(currentDetail.area_id);
         const internalStateId = currentDetail.internal_state_id === '' ? 3 : Number(currentDetail.internal_state_id);
         const externalStateId = currentDetail.external_state_id === '' ? 1 : Number(currentDetail.external_state_id);
@@ -872,7 +872,7 @@ const handleSubmit = async () => {
                     </div>
 
 
-                    {/* Comentario *    SOLO PARA ATC  */}
+                    {/* Comentario *    SOLO PARA solicitudes.acciones_avanzadas  */}
                     {/* <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Comentario{currentDetail.id}w </Label>
                         <div className="col-span-3">
@@ -1006,14 +1006,14 @@ const handleSubmit = async () => {
 
                         {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado de ATC</Label>
+                                <Label className="text-left">Estado de solicitudes.acciones_avanzadas</Label>
                                 <select
                                     name="external_state_id"
                                     value={currentDetail.external_state_id}
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
-                                    <option value="">Seleccione un Estado de ATC</option>
+                                    <option value="">Seleccione un Estado de solicitudes.acciones_avanzadas</option>
                                     {externalStates.map(e => (
                                         <option key={e.id} value={e.id}>
                                             {e.description}
@@ -1111,7 +1111,7 @@ const handleSubmit = async () => {
                             <th className="border px-2">Asunto</th>
                             <th className="border px-2">Prioridad</th>
                             <th className="border px-2">Estado Interno</th>
-                            <th className="border px-2">Estado ATC</th>
+                            <th className="border px-2">Estado solicitudes.acciones_avanzadas</th>
                             {/* <th className="border px-2">Acciones</th> */}
                         </tr>
                     </thead>
