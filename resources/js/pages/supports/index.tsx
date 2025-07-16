@@ -105,7 +105,8 @@ export default function Supports() {
     const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
     const [showAreaModal, setShowAreaModal] = useState(false);
-
+ const { permissions } = usePage<PageProps>().props;
+    const canUpdate = permissions.includes('solicitudes.actualizar') ;
 
     // const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
 
@@ -212,10 +213,11 @@ export default function Supports() {
                     Nuevo Registro
                 </button>
 
+ {canUpdate && (
                 <button onClick={exportSupports} className="ml-4 mb-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
                 >Exportar Todo</button>
 
-
+ )}
                 <SupportTable
                     supports={supports}
                     setSupports={setSupports}
