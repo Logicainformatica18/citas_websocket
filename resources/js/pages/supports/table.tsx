@@ -10,6 +10,9 @@ import { toast } from 'sonner';
 import React, { useRef } from 'react';
 import { Wrench, Search, Notebook, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import GenerateTicketSwitch from './GenerateTicketSwitch';
+import SupportDetailModal from './SupportDetailModal'; // ajusta la ruta
+import { Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SupportDetail {
     id: number;
@@ -33,6 +36,10 @@ interface SupportDetail {
     external_state?: { description: string };
     supportType?: { description: string };
     ticket?: string; // Asegúrate de que este campo exista
+    last_comment?: {
+        internal_state?: { description: string };
+    };
+    last_comment_id?: number; // Asegúrate de que este campo exista
 }
 
 interface Support {
@@ -118,7 +125,16 @@ export default function SupportTable({
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
     const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
-    //  const [supportDetailId, setSupportDetailId] = useState<number | null>(null);
+
+    const [showDetailModal, setShowDetailModal] = useState(false);
+const [selectedSupport, setSelectedSupport] = useState<any>(null);
+
+const handleViewDetails = (support: any) => {
+  setSelectedSupport(support);
+  setShowDetailModal(true);
+};
+
+
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const getBadgeClass = (status: string) => {
         switch (status) {
@@ -148,6 +164,7 @@ export default function SupportTable({
 
     return (
 
+<>
 
         <div className="overflow-x-auto mt-0">
 
@@ -201,13 +218,14 @@ export default function SupportTable({
 
 
 
-                                <th className="px-2 py-1">Ticket Registro</th>
-                                <th className="px-2 py-1">Ticket Atención</th>
-                                {canGenerateTicket && (
-                                    <th className="px-2 py-1">Generar Ticket</th>
-                                )}
-                                <th className="px-2 py-1">Cliente</th>
-                                <th className="px-2 py-1">Dni</th>
+                               <th className="px-2 py-1 text-left">Ticket Registro</th>
+<th className="px-2 py-1 text-left">Ticket Atención</th>
+{canGenerateTicket && (
+  <th className="px-2 py-1 text-left">Generar Ticket</th>
+)}
+<th className="px-2 py-1 text-left">Cliente</th>
+<th className="px-2 py-1 text-left">Dni</th>
+
                                 <th className="px-2 py-1">Solicitud</th>
 
                                 {/* <th className="px-2 py-1">Asunto</th> */}
@@ -220,8 +238,9 @@ export default function SupportTable({
                                 <th className="px-2 py-1">Estado Interno</th>
 
                                 <th className="px-2 py-1">Creación</th>
-                                <th className="px-2 py-1">¿Con cita?</th>
+                                {/* <th className="px-2 py-1">¿Con cita?</th> */}
                                 <th className="px-2 py-1">Prioridad</th>
+<th className="px-2 py-1">Estado Area</th>
 
                                 {/* <th className="px-2 py-1 text-center">
                                     Detalle
@@ -259,34 +278,36 @@ export default function SupportTable({
     }`}
 >
 
-                                        <td className='px-2 py-1'>
-                                            {support.details[0]
-                                                ? `TR-${String(support.details[0].id).padStart(5, '0')}`
-                                                : <span className="text-gray-400 italic">Sin ticket</span>}
-                                        </td>
+                                     <td className="px-2 py-1 text-left">
+  {support.details[0]
+    ? `TR-${String(support.details[0].id).padStart(5, '0')}`
+    : <span className="text-gray-400 italic">Sin ticket</span>}
+</td>
 
-                                        <td
-                                            className={`px-2 py-1 ${support.details[0]?.ticket === 'TK-'
-                                                ? 'bg-pink-100 text-pink-800 font-semibold'
-                                                : ''
-                                                }`}
-                                        >
-                                            {support.details[0]?.ticket ?? (
-                                                <span className="text-gray-400 italic">Sin ticket</span>
-                                            )}
-                                        </td>
+<td
+  className={`px-2 py-1 text-left ${
+    support.details[0]?.ticket === 'TK-' 
+      ? 'bg-pink-100 text-pink-800 font-semibold' 
+      : ''
+  }`}
+>
+  {support.details[0]?.ticket ?? (
+    <span className="text-gray-400 italic">Sin ticket</span>
+  )}
+</td>
 
-                                        {canGenerateTicket && (
-                                            <td className="px-2 py-1">
-                                                <GenerateTicketSwitch
-                                                    supportId={support.details[0]?.id}
-                                                    ticket={support.details[0]?.ticket}
-                                                />
+{canGenerateTicket && (
+  <td className="px-2 py-1 text-left">
+    <GenerateTicketSwitch
+      supportId={support.details[0]?.id}
+      ticket={support.details[0]?.ticket}
+    />
+  </td>
+)}
 
-                                            </td>
-                                        )}
-                                        <td className="px-2 py-1">{support.client?.Razon_Social || '-'}</td>
-                                        <td className="px-2 py-1">{support.client?.dni || '-'}</td>
+<td className="px-2 py-1 text-left">{support.client?.Razon_Social || '-'}</td>
+<td className="px-2 py-1 text-left">{support.client?.dni || '-'}</td>
+
                                         <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
                                         <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
 
@@ -327,8 +348,18 @@ export default function SupportTable({
                                                 : '—'}
                                         </td>
 
-                                        <td className="px-2 py-1">{support.status_global ?? '-'}</td>
+                                        {/* <td className="px-2 py-1">{support.status_global ?? '-'}</td> */}
                                         <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+                                       <td className="px-2 py-1">
+  {support.details[0]?.last_comment?.internal_state?.description ? (
+    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].last_comment.internal_state.description)}`}>
+      {support.details[0].last_comment.internal_state.description}
+    </span>
+  ) : (
+    <span className="text-gray-400 italic text-xs">Sin seguimiento</span>
+  )}
+</td>
+
 
                                         {/* <td className="px-2 py-1">
                                             <Link
@@ -381,14 +412,14 @@ export default function SupportTable({
                                                                 const response = await axios.get(`/supports/${support.id}`);
                                                                 const fullSupport = response.data; // Asegúrate que el backend retorne support + details
 
-                                                                // Aquí puedes abrir tu modal y pasarle el soporte completo
+                                                                // Aquí puedes abrir tu modal y pasarle el la Solicitud completo
                                                                 // Por ejemplo:
                                                                 setSelectedSupportId(support.id);
                                                                 setEditSupport(fullSupport);
                                                                 setShowModal(true);
 
                                                             } catch (error) {
-                                                                console.error('Error al cargar soporte:', error);
+                                                                console.error('Error al cargar la Solicitud:', error);
                                                                 toast.error('No se pudo cargar la atención');
                                                             } finally {
                                                                 setEditingId(null);
@@ -418,11 +449,15 @@ export default function SupportTable({
                                                         <MapPin className="w-4 h-4" />
                                                     </button> */}
 
+<Button variant="ghost" size="icon" onClick={() => handleViewDetails(support)}>
+  <Search className="w-5 h-5 text-blue-500" />
+</Button>
+
                                                     {/* Botón Eliminar */}
                                                     {canDelete && (
                                                     <button
                                                         onClick={async () => {
-                                                            if (confirm(`¿Eliminar soporte "${support.details[0]?.subject}"?`)) {
+                                                            if (confirm(`¿Eliminar la Solicitud "${support.details[0]?.subject}"?`)) {
                                                                 try {
                                                                     setDeletingId(support.id);
                                                                     await axios.delete(`/supports/${support.id}`);
@@ -691,7 +726,15 @@ export default function SupportTable({
                 </div>
             </>
         </div>
-    );
+        
+        
+  
 
-
+<SupportDetailModal
+  open={showDetailModal}
+  onClose={() => setShowDetailModal(false)}
+  support={selectedSupport}
+/>
+</>
+  );
 }

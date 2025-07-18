@@ -162,7 +162,7 @@ export default function Supports() {
 
   const handleSupportSaved = (saved: Support | undefined) => {
     if (!saved || !saved.id) {
-        console.warn('❗Se intentó guardar un soporte inválido:', saved);
+        console.warn('❗Se intentó guardar un la solicitud inválido:', saved);
         return;
     }
 
@@ -279,8 +279,8 @@ export default function Supports() {
                     if (selectedSupportId) {
                         fetchSupport(selectedSupportId)
                             .catch((err) => {
-                                console.error('Error al actualizar soporte:', err);
-                                // toast.error('Error al actualizar el soporte.');
+                                console.error('Error al actualizar la solicitud:', err);
+                                // toast.error('Error al actualizar el la solicitud.');
                             });
                     }
                 }}

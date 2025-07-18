@@ -50,6 +50,8 @@ class SupportDetail extends Model
     'attended_end',
     'ticket_start',
     'ticket_end',
+    'channel',
+    
 ];
 
 
@@ -113,6 +115,10 @@ public function externalState()
 public function support()
 {
     return $this->belongsTo(Support::class);
+}
+public function lastComment()
+{
+    return $this->hasOne(Comment::class, 'support_detail_id')->latestOfMany()->with('internalState');
 }
 
 }

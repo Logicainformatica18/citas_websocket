@@ -42,6 +42,8 @@ class SupportController extends Controller
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
+            'details.lastComment.internalState:id,description',
+
         ])
             ->latest()
             ->paginate(7);
@@ -50,7 +52,10 @@ class SupportController extends Controller
         $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
         $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
         $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
-        $internalStates = InternalState::select('id', 'description')->get();
+        $internalStates = InternalState::select('id', 'description')
+    ->where('description', '!=', 'Atendido')
+    ->get();
+
         $externalStates = ExternalState::select('id', 'description')->get();
         $types = Type::select('id', 'description')->get();
         $projects = Project::select('id_proyecto', 'descripcion')->get();
@@ -225,6 +230,19 @@ class SupportController extends Controller
             $ticket = (new SupportDetailController)->generateNextSupportTicket();
         }
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
+$permissions = Auth::user()->getAllPermissions();
+
+$channelPermission = $permissions->first(function ($perm) {
+    return str_starts_with($perm->name, 'Canal.');
+});
+
+$channelName = $channelPermission ? str_replace('Canal.', '', $channelPermission->name) : null;
+
+Log::info("🔍 Canal detectado desde permisos:", [
+    'canales' => $permissions->pluck('name'),
+    'canal_detectado' => $channelName,
+]);
+ 
 
         foreach ($details as $index => $detail) {
             Log::info("🧪 Verificando detalle #{$index}:", [
@@ -256,6 +274,8 @@ class SupportController extends Controller
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
                 'ticket' => $ticket ?? "TK-",
+                'channel' => $channelName,
+
 
             ]);
             // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
@@ -271,7 +291,7 @@ class SupportController extends Controller
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'creator:id,firstname,lastname,names',
 
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
 
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -344,7 +364,7 @@ class SupportController extends Controller
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket',
+                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
                 'details.motivoCita:id_motivos_cita,nombre_motivo',

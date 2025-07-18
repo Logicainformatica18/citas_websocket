@@ -26,6 +26,22 @@ interface InternalState {
 
 const MAX_CHARACTERS = 400;
 
+// 🔷 Badge local exclusivo para estados internos
+const getInternalStateBadgeClass = (description: string) => {
+    switch (description) {
+        case 'Atendido':
+            return 'bg-green-100 text-green-800';
+        case 'Pendiente':
+            return 'bg-blue-100 text-blue-800';
+        case 'Observado':
+            return 'bg-yellow-100 text-yellow-800';
+        case 'Cerrado':
+            return 'bg-gray-200 text-gray-800';
+        default:
+            return 'bg-gray-100 text-gray-600';
+    }
+};
+
 export default function SupportCommentSection({ supportDetailId }: { supportDetailId: number }) {
     const [commentText, setCommentText] = useState('');
     const [comments, setComments] = useState<Comment[]>([]);
@@ -54,7 +70,7 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
             setInternalStates(res.data.internal_states);
             setInitialLoaded(true);
         } catch {
-            toast.error('❌ Error al cargar comentarios');
+            toast.error('❌ Error al cargar datos');
         }
     };
 
@@ -74,10 +90,10 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
             setCommentText('');
             setSelectedInternalStateId('');
             await fetchComments();
-            toast.success('✅ Comentario agregado');
+            toast.success('✅ Seguimiento agregado');
         } catch (error: any) {
             console.error(error.response?.data);
-            toast.error('❌ Error al enviar comentario');
+            toast.error('❌ Error al enviar Seguimiento');
         } finally {
             setLoading(false);
         }
@@ -95,7 +111,7 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                 className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:underline"
             >
                 {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                {expanded ? 'Ocultar comentarios' : 'Mostrar comentarios'}
+                {expanded ? 'Ocultar Seguimiento de atención' : 'Mostrar Seguimiento de atención'}
             </button>
 
             {expanded && (
@@ -117,7 +133,7 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                                 setSelectedInternalStateId(value === '' ? '' : parseInt(value));
                             }}
                         >
-                            <option value="">Selecciona un estado interno (opcional)</option>
+                            <option value="">Selecciona un estado interno</option>
                             {internalStates.map((state) => (
                                 <option key={state.id} value={state.id}>
                                     {state.description}
@@ -150,7 +166,7 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
 
                     <div className="space-y-3 border-t pt-4">
                         {comments.length === 0 ? (
-                            <p className="text-sm text-gray-400 italic">No hay comentarios aún.</p>
+                            <p className="text-sm text-gray-400 italic">Sin seguimiento.</p>
                         ) : (
                             comments.map((c) => (
                                 <div
@@ -158,11 +174,20 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                                     className="border p-3 rounded-md bg-white dark:bg-zinc-800 shadow-sm"
                                 >
                                     <p className="text-sm text-black dark:text-gray-100">{c.comment}</p>
-                                    {c.internal_state && (
-                                        <p className="text-xs text-blue-700 font-semibold mt-1">
-                                            Estado interno: {c.internal_state.description}
-                                        </p>
-                                    )}
+
+                                   {c.internal_state?.description && (
+  <span className="inline-block mt-2 rounded-full p-[2px] bg-gradient-to-r from-red-500 to-red-700">
+    <span
+      className={`block px-2 py-0.5 text-xs font-semibold rounded-full ${getInternalStateBadgeClass(
+        c.internal_state.description
+      )} bg-white dark:bg-zinc-800`}
+    >
+      {c.internal_state.description}
+    </span>
+  </span>
+)}
+
+
                                     <p className="text-xs text-gray-500 mt-1 font-medium">
                                         {c.user?.roles?.[0]?.name ?? 'Sin rol'} — {c.user?.names}
                                         <span className="mx-2">•</span>

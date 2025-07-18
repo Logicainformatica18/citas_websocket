@@ -5,9 +5,10 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\Comment;
 use App\Models\InternalState;
+use Illuminate\Support\Facades\Log; // ✅ añadimos Log para registrar errores
 class CommentController extends Controller
 {
- 
+
 
 public function index($supportDetailId)
 {
@@ -16,7 +17,9 @@ public function index($supportDetailId)
         ->latest()
         ->get();
 
-    $internalStates = InternalState::select('id', 'description')->get(); // ✅ lista para el select
+      $internalStates = InternalState::select('id', 'description')
+    ->where('description', '!=', 'Cerrado')
+    ->get();
 
     return response()->json([
         'comments' => $comments,
@@ -29,10 +32,12 @@ public function index($supportDetailId)
 
 public function store(Request $request)
 {
+
+
     $request->validate([
         'support_detail_id'   => 'required|exists:support_details,id',
         'comment'             => 'required|string',
-        'internal_state_id'   => 'nullable|exists:internal_states,id', // ✅ validación añadida
+        'internal_state_id'   => 'required|exists:internal_states,id', // ✅ validación añadida
     ]);
 
     $comment = Comment::create([

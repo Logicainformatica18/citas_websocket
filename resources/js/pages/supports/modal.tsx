@@ -1006,14 +1006,14 @@ const handleSubmit = async () => {
 
                         {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado de solicitudes.acciones_avanzadas</Label>
+                                <Label className="text-left">Estado de Atención</Label>
                                 <select
                                     name="external_state_id"
                                     value={currentDetail.external_state_id}
                                     onChange={handleDetailChange}
                                     className={inputClass}
                                 >
-                                    <option value="">Seleccione un Estado de solicitudes.acciones_avanzadas</option>
+                                    <option value="">Seleccione un Atención  </option>
                                     {externalStates.map(e => (
                                         <option key={e.id} value={e.id}>
                                             {e.description}
@@ -1111,7 +1111,7 @@ const handleSubmit = async () => {
                             <th className="border px-2">Asunto</th>
                             <th className="border px-2">Prioridad</th>
                             <th className="border px-2">Estado Interno</th>
-                            <th className="border px-2">Estado solicitudes.acciones_avanzadas</th>
+                            <th className="border px-2">Estado de Atención</th>
                             {/* <th className="border px-2">Acciones</th> */}
                         </tr>
                     </thead>
