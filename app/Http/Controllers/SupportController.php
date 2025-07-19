@@ -417,8 +417,9 @@ class SupportController extends Controller
             $details = json_decode($details, true);
         }
 
-        $detailData = $details[0] ?? null;
-        Log::info('🔍 Detalle recibido para actualizar:', $detailData);
+       $detailData = $details[0] ?? null;
+Log::info('🔍 Detalle recibido para actualizar:', ['data' => $detailData]); // ✅ siempre array
+
 
         if ($detailData) {
             $existingDetail = $support->details()->first(); // Solo tomamos el primero
