@@ -109,6 +109,8 @@ const SupportModal = ({
     const { permissions } = usePage<{ permissions: string[] }>().props;
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas');
     const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas') || permissions.includes('reserva');
+    const canEditChannelSelect = permissions.includes('Canal.whatsapp_presencial');
+
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
@@ -172,6 +174,8 @@ const SupportModal = ({
         attended_end: '',
         ticket_start: '',
         ticket_end: '',
+         channel: '',
+
     });
 
     const handleDetailChange = (e: React.ChangeEvent<any>) => {
@@ -373,6 +377,7 @@ const SupportModal = ({
             attended_end: '',
             ticket_start: '',
             ticket_end: '',
+             channel: '',
         });
 
     };
@@ -471,6 +476,12 @@ const SupportModal = ({
                     attachment: null,
                     ticket_start: formatDateTimeLocal(detail.ticket_start),
                     ticket_end: formatDateTimeLocal(detail.ticket_end),
+                    // attended_start: formatDateTimeLocal(detail.attended_start),
+                    // attended_end: formatDateTimeLocal(detail.attended_end),
+                    ticket: detail.ticket || '',
+                     channel: detail.channel || '',
+
+
                 });
 
                 if (detail.project_id) {
@@ -546,6 +557,7 @@ const handleSubmit = async () => {
             type_id: detail.support_type?.id ?? null,
             Manzana: detail.Manzana ?? '',
             comment: detail.comment ?? '',
+
         }));
         data.append('details', JSON.stringify(cleanedDetails));
 
@@ -592,6 +604,24 @@ const handleSubmit = async () => {
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
+{canEditChannelSelect && (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Canal
+    </label>
+    <select
+      value={formData.channel || ''}
+      onChange={(e) =>
+        setFormData({ ...formData, channel: e.target.value })
+      }
+      className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
+    >
+      <option value="">Seleccione un canal</option>
+      <option value="whatsapp">WhatsApp</option>
+      <option value="presencial">Presencial</option>
+    </select>
+  </div>
+)}
 
 
 
