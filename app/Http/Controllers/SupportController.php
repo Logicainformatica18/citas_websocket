@@ -490,50 +490,50 @@ class SupportController extends Controller
         // 6. Emitir evento
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
-        dispatch(function () use ($support) {
-            try {
-                Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
+        // dispatch(function () use ($support) {
+        //     try {
+        //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
 
-                $atcUsers = User::role('ATC')->get();
-                Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
+        //         $atcUsers = User::role('ATC')->get();
+        //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
 
-                $supportLoaded = $support->load([
-                    'client:id_cliente,Razon_Social,telefono,email,Direccion,dni',
-                    'creator:id,firstname,lastname,names,email',
-                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-                    'details.area:id_area,descripcion',
-                    'details.project:id_proyecto,descripcion',
-                    'details.motivoCita:id_motivos_cita,nombre_motivo',
-                    'details.tipoCita:id_tipo_cita,tipo',
-                    'details.diaEspera:id_dias_espera,dias',
-                    'details.internalState:id,description',
-                    'details.externalState:id,description',
-                    'details.supportType:id,description',
-                    'details.type:id,description',
-                    'details.lastComment.internalState:id,description',
-                ]);
+        //         $supportLoaded = $support->load([
+        //             'client:id_cliente,Razon_Social,telefono,email,Direccion,dni',
+        //             'creator:id,firstname,lastname,names,email',
+        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+        //             'details.area:id_area,descripcion',
+        //             'details.project:id_proyecto,descripcion',
+        //             'details.motivoCita:id_motivos_cita,nombre_motivo',
+        //             'details.tipoCita:id_tipo_cita,tipo',
+        //             'details.diaEspera:id_dias_espera,dias',
+        //             'details.internalState:id,description',
+        //             'details.externalState:id,description',
+        //             'details.supportType:id,description',
+        //             'details.type:id,description',
+        //             'details.lastComment.internalState:id,description',
+        //         ]);
 
-                Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
+        //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
 
-                Notification::send(
-                    array_merge(
-                        $atcUsers->all(), // usuarios notificables
-                        [
-                            Notification::route('mail', $supportLoaded->client->Email)
-                        ]
-                    ),
-                    new NewSupportAtcNotification($supportLoaded, 'updated')
-                );
+        //         Notification::send(
+        //             array_merge(
+        //                 $atcUsers->all(), // usuarios notificables
+        //                 [
+        //                     Notification::route('mail', $supportLoaded->client->Email)
+        //                 ]
+        //             ),
+        //             new NewSupportAtcNotification($supportLoaded, 'updated')
+        //         );
 
 
-                Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
-            } catch (\Throwable $e) {
-                Log::error('[ATC Notification] Error al enviar notificaciones:', [
-                    'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-            }
-        });
+        //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
+        //     } catch (\Throwable $e) {
+        //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
+        //             'message' => $e->getMessage(),
+        //             'trace' => $e->getTraceAsString(),
+        //         ]);
+        //     }
+        // });
 
         return response()->json([
             'message' => '✅ Ticket de soporte actualizado correctamente',

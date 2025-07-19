@@ -119,6 +119,8 @@ const SupportModal = ({
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
 
+
+
     const projectMapEntries = salesFromClient
         .map((s) => {
             const project = s.project || projects.find(p => p.id_proyecto === s.project_id);
@@ -137,140 +139,145 @@ const SupportModal = ({
 
 
 
-    const [currentDetail, setCurrentDetail] = useState<any>({
-        id: null, // Agrega un ID para identificar el detalle;
-        subject: '',
-        description: '',
-        priority: 'Baja',
-        type: 'Consulta',
-        status: 'Pendiente',
-        reservation_time: getNowPlusHours(0),
-        attended_at: getNowPlusHours(1),
-        derived: '',
-        project_id: '',
-        area_id: '1',
-        id_motivos_cita: '',
-        id_tipo_cita: '',
-        id_dia_espera: '',
-        internal_state_id: '3',
-        external_state_id: '1',
-        type_id: '',
-        Manzana: '',
-        comment: '',
-        attachment: null,
+const [currentDetail, setCurrentDetail] = useState<any>({
+    id: null,
+    subject: '',
+    description: '',
+    priority: 'Baja',
+    type: 'Consulta',
+    status: 'Pendiente',
+    reservation_time: getNowPlusHours(0),
+    attended_at: getNowPlusHours(1),
+    derived: '',
+    project_id: null,
+    area_id: null, // ✅ valor numérico
+    id_motivos_cita: null,
+    id_tipo_cita: 1,
+    id_dia_espera: null,
+    internal_state_id: 3,
+    external_state_id: 1,
+    type_id: null,
+    Manzana: '',
+    comment: '',
+    attachment: null,
 
-        // Relacionados (solo para mostrar)
-        project: '',
-        area: '',
-        motivo_cita: '',
-        tipo_cita: '',
-        dia_espera: '',
-        internal_state: '',
-        external_state: '',
+    // Relaciones enriquecidas
+    project: null,
+    area: null,
+    motivo_cita: null,
+    tipo_cita: null,
+    dia_espera: null,
+    internal_state: null,
+    external_state: null,
 
-        // FALTANTES importantes
-        ticket: '',
-        attended_start: '',
-        attended_end: '',
-        ticket_start: '',
-        ticket_end: '',
-         channel: '',
+    // Extras
+    ticket: '',
+    attended_start: '',
+    attended_end: '',
+    ticket_start: '',
+    ticket_end: '',
+    channel: '',
+});
 
-    });
 
-    const handleDetailChange = (e: React.ChangeEvent<any>) => {
-        const { name, value } = e.target;
+ const handleDetailChange = (e: React.ChangeEvent<any>) => {
 
-        // Relacionar IDs con objetos cuando aplica
-        if (name === 'internal_state_id') {
-            const selected = internalStates.find(i => i.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                internal_state_id: value,
-                internal_state: selected || null,
-            }));
-            return;
-        }
 
-        if (name === 'external_state_id') {
-            const selected = externalStates.find(e => e.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                external_state_id: value,
-                external_state: selected || null,
-            }));
-            return;
-        }
+     const { name, value } = e.target;
+    const numericValue = Number(value); // 👈 conversión común
+  console.log('🧪 Cambio detectado →', name, '=', value); // ✅ Agregado
 
-        if (name === 'area_id') {
-            const selected = areas.find(a => a.id_area === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                area_id: value,
-                area: selected || null,
-            }));
-            return;
-        }
+    // Relacionar IDs con objetos cuando aplica
+    if (name === 'internal_state_id') {
+        const selected = internalStates.find(i => i.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            internal_state_id: numericValue,
+            internal_state: selected || null,
+        }));
+        return;
+    }
 
-        if (name === 'project_id') {
-            const lots = salesFromClient
-                .filter((s) => s.project_id === Number(value))
-                .map((s) => s.mz_lote);
-            const selected = projects.find(p => p.id_proyecto === Number(value));
-            setAvailableLots(lots);
-            setCurrentDetail(prev => ({
-                ...prev,
-                project_id: value,
-                project: selected || null,
-                Manzana: '',
-                comment: '',
-            }));
-            return;
-        }
+    if (name === 'external_state_id') {
+        const selected = externalStates.find(e => e.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            external_state_id: numericValue,
+            external_state: selected || null,
+        }));
+        return;
+    }
 
-        if (name === 'id_motivos_cita') {
-            const selected = motives.find(m => m.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                id_motivos_cita: value,
-                motivo_cita: selected || null,
-            }));
-            return;
-        }
+    if (name === 'area_id') {
+        const selected = areas.find(a => a.id_area === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            area_id: numericValue,
+            area: selected || null,
+        }));
+        return;
+    }
 
-        if (name === 'id_tipo_cita') {
-            const selected = appointmentTypes.find(t => t.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                id_tipo_cita: value,
-                tipo_cita: selected || null,
-            }));
-            return;
-        }
+    if (name === 'project_id') {
+        const lots = salesFromClient
+            .filter((s) => s.project_id === numericValue)
+            .map((s) => s.mz_lote);
+        const selected = projects.find(p => p.id_proyecto === numericValue);
+        setAvailableLots(lots);
+        setCurrentDetail(prev => ({
+            ...prev,
+            project_id: numericValue,
+            project: selected || null,
+            Manzana: '',
+            comment: '',
+        }));
+        return;
+    }
 
-        if (name === 'id_dia_espera') {
-            const selected = waitingDays.find(d => d.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                id_dia_espera: value,
-                dia_espera: selected || null,
-            }));
-            return;
-        }
+    if (name === 'id_motivos_cita') {
+        const selected = motives.find(m => m.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            id_motivos_cita: numericValue,
+            motivo_cita: selected || null,
+        }));
+        return;
+    }
 
-        if (name === 'type_id') {
-            const selected = types.find(t => t.id === Number(value));
-            setCurrentDetail(prev => ({
-                ...prev,
-                type_id: value,
-                support_type: selected || null,
-            }));
-            return;
-        }
+    if (name === 'id_tipo_cita') {
+        const selected = appointmentTypes.find(t => t.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            id_tipo_cita: numericValue,
+            tipo_cita: selected || null,
+        }));
+        return;
+    }
 
-        // Por defecto: solo actualiza el valor
-        setCurrentDetail(prev => ({ ...prev, [name]: value }));
-    };
+    if (name === 'id_dia_espera') {
+        const selected = waitingDays.find(d => d.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            id_dia_espera: numericValue,
+            dia_espera: selected || null,
+        }));
+        return;
+    }
+
+    if (name === 'type_id') {
+        const selected = types.find(t => t.id === numericValue);
+        setCurrentDetail(prev => ({
+            ...prev,
+            type_id: numericValue,
+            support_type: selected || null,
+        }));
+        return;
+    }
+
+    // Por defecto: solo actualiza el valor (para campos tipo texto)
+    setCurrentDetail(prev => ({ ...prev, [name]: value }));
+};
+
 
 
 
@@ -300,201 +307,212 @@ const SupportModal = ({
     // };
 
 
-    const handleAddDetail = () => {
-        // Validación básica
-        if (!currentDetail.subject.trim()) {
-            toast.error("El asunto es obligatorio");
-            return;
-        }
+   const handleAddDetail = () => {
+    // Validación básica
+    if (!currentDetail.subject?.trim()) {
+        toast.error("El asunto es obligatorio");
+        return;
+    }
 
-        // Lista de campos numéricos obligatorios que no deben ser string vacío
-        const numericFields = [
-            'project_id',
-            'area_id',
-            'id_motivos_cita',
-            'id_tipo_cita',
-            'id_dia_espera',
-            'internal_state_id',
-            'external_state_id',
-            'type_id',
-        ];
+    // Campos numéricos a forzar
+    const numericFields = [
+        'project_id',
+        'area_id',
+        'id_motivos_cita',
+        'id_tipo_cita',
+        'id_dia_espera',
+        'internal_state_id',
+        'external_state_id',
+        'type_id',
+    ];
 
-        // Valores por defecto
-        const defaultArea = { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' };
-        const areaId = currentDetail.area_id === '' ? 1 : Number(currentDetail.area_id);
-        const internalStateId = currentDetail.internal_state_id === '' ? 3 : Number(currentDetail.internal_state_id);
-        const externalStateId = currentDetail.external_state_id === '' ? 1 : Number(currentDetail.external_state_id);
+    // Convertir campos numéricos a number o null
+    const numericValues = Object.fromEntries(
+        numericFields.map((key) => [
+            key,
+            currentDetail[key] === '' || currentDetail[key] === null
+                ? null
+                : Number(currentDetail[key])
+        ])
+    );
 
-        const sanitizedDetail = {
-            ...currentDetail,
-            ...Object.fromEntries(
-                numericFields.map((key) => [
-                    key,
-                    currentDetail[key] === '' ? null : Number(currentDetail[key])
-                ])
-            ),
-            project: projects.find(p => p.id_proyecto === Number(currentDetail.project_id)) || null,
-            area: areas.find(a => a.id_area === areaId) || defaultArea,
-            motivo_cita: motives.find(m => m.id === Number(currentDetail.id_motivos_cita)) || null,
-            tipo_cita: appointmentTypes.find(t => t.id === Number(currentDetail.id_tipo_cita)) || null,
-            dia_espera: waitingDays.find(d => d.id === Number(currentDetail.id_dia_espera)) || null,
-            internal_state: internalStates.find(i => i.id === internalStateId) || { id: 3, description: 'Pendiente' },
-            external_state: externalStates.find(e => e.id === externalStateId) || { id: 1, description: 'Por Asignar' },
-            priority: currentDetail.priority?.trim() || 'Media',
+    const sanitizedDetail = {
+        ...currentDetail,
+        ...numericValues,
 
-            support_type: types.find(t => t.id === Number(currentDetail.type_id)) || null,
-        };
-
-        // Agregar a la lista de detalles
-        setSupportDetails((prev) => [...prev, sanitizedDetail]);
-
-        // Limpiar el formulario
-        setCurrentDetail({
-            id: null, // Reiniciar ID
-            subject: '',
-            description: '',
-            priority: 'Baja',
-            type: '',
-            status: '',
-            reservation_time: getNowPlusHours(0),
-            attended_at: getNowPlusHours(1),
-            derived: '',
-            Manzana: '',
-            comment: '',
-            attachment: null,
-
-            project_id: '',
-            area_id: '',
-            id_motivos_cita: '',
-            id_tipo_cita: '',
-            id_dia_espera: '',
-            internal_state_id: '',
-            external_state_id: '',
-            type_id: '',
-
-            ticket: '',
-            attended_start: '',
-            attended_end: '',
-            ticket_start: '',
-            ticket_end: '',
-             channel: '',
-        });
-
+        // Relaciones enriquecidas
+        project: projects.find(p => p.id_proyecto === numericValues.project_id) || null,
+      //  area: areas.find(a => a.id_area === numericValues.area_id) || { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' },
+        motivo_cita: motives.find(m => m.id === numericValues.id_motivos_cita) || null,
+        tipo_cita: appointmentTypes.find(t => t.id === numericValues.id_tipo_cita) || null,
+        dia_espera: waitingDays.find(d => d.id === numericValues.id_dia_espera) || null,
+        internal_state: internalStates.find(i => i.id === numericValues.internal_state_id) || { id: 3, description: 'Pendiente' },
+        external_state: externalStates.find(e => e.id === numericValues.external_state_id) || { id: 1, description: 'Por Asignar' },
+        support_type: types.find(t => t.id === numericValues.type_id) || null,
+        priority: currentDetail.priority?.trim() || 'Media',
     };
 
+    // Agregar detalle
+    setSupportDetails((prev) => [...prev, sanitizedDetail]);
 
-    useEffect(() => {
-        if (!supportToEdit) return;
 
-        const { client, details, ...supportFields } = supportToEdit;
+    // Reiniciar formulario con tipos coherentes
+    setCurrentDetail({
+        id: null,
+        subject: '',
+        description: '',
+        priority: 'Baja',
+        type: 'Consulta',
+        status: 'Pendiente',
+        reservation_time: getNowPlusHours(0),
+        attended_at: getNowPlusHours(1),
+        derived: '',
+        Manzana: '',
+        comment: '',
+        attachment: null,
 
-        const cleanedSupport = Object.fromEntries(
-            Object.entries(supportFields).map(([key, val]) => [
-                key,
-                val === null || typeof val === 'undefined' ? '' : val,
-            ])
-        );
+        project_id: null,
+        area_id: null,
+        id_motivos_cita: null,
+        id_tipo_cita: 1,
+        id_dia_espera: null,
+        internal_state_id: 3,
+        external_state_id: 1,
+        type_id: null,
 
-        setFormData((prev: any) => ({
-            ...prev,
-            ...cleanedSupport,
-            client_id: client?.id_cliente ?? '',
-            dni: client?.dni ?? '',
-            cellphone: client?.Telefono ?? '',
-            email: client?.Email ?? '',
-            address: client?.Direccion ?? '',
-            status_global: supportToEdit.status_global || 'No',
+        ticket: '',
+        attended_start: '',
+        attended_end: '',
+        ticket_start: '',
+        ticket_end: '',
+        channel: '',
+
+        // Relaciones limpias
+        project: null,
+        area: null,
+        motivo_cita: null,
+        tipo_cita: null,
+        dia_espera: null,
+        internal_state: null,
+        external_state: null,
+        support_type: null,
+    });
+};
+
+const [hasLoadedSupport, setHasLoadedSupport] = useState(false);
+
+
+useEffect(() => {
+    if (!supportToEdit || hasLoadedSupport) return;
+
+    const { client, details, ...supportFields } = supportToEdit;
+
+    const cleanedSupport = Object.fromEntries(
+        Object.entries(supportFields).map(([key, val]) => [
+            key,
+            val === null || typeof val === 'undefined' ? '' : val,
+        ])
+    );
+
+    setFormData((prev: any) => ({
+        ...prev,
+        ...cleanedSupport,
+        client_id: client?.id_cliente ?? '',
+        dni: client?.dni ?? '',
+        cellphone: client?.Telefono ?? '',
+        email: client?.Email ?? '',
+        address: client?.Direccion ?? '',
+        status_global: supportToEdit.status_global || 'No',
+    }));
+
+    if (client) {
+        setSelectedClient({
+            id: client.id_cliente,
+            names: client.Razon_Social,
+            dni: client.DNI,
+            cellphone: client.Telefono,
+            email: client.Email,
+            address: client.Direccion,
+        });
+
+        setClientQuery(client.Razon_Social);
+
+        const enrichedSales = (client.sales || []).map((s) => ({
+            ...s,
+            project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
+        }));
+        setSalesFromClient(enrichedSales);
+    }
+
+    if (details && Array.isArray(details)) {
+        const enrichedDetails = details.map((detail: any, idx: number) => ({
+            ...detail,
+            area: detail.area ?? areas.find((a) => a.id_area === detail.area_id) ?? null,
+            motivo_cita: detail.motivo_cita ?? motives.find((m) => m.id === detail.id_motivos_cita) ?? null,
+            tipo_cita: detail.tipo_cita ?? appointmentTypes.find((t) => t.id === detail.id_tipo_cita) ?? null,
+            dia_espera: detail.dia_espera ?? waitingDays.find((d) => d.id === detail.id_dia_espera) ?? null,
+            internal_state: detail.internal_state ?? internalStates.find((i) => i.id === detail.internal_state_id) ?? null,
+            external_state: detail.external_state ?? externalStates.find((e) => e.id === detail.external_state_id) ?? null,
+            support_type: detail.support_type ?? types.find((t) => t.id === detail.type_id) ?? null,
+            project: detail.project ?? projects.find((p) => p.id_proyecto === detail.project_id) ?? null,
         }));
 
-        if (client) {
-            setSelectedClient({
-                id: client.id_cliente,
-                names: client.Razon_Social,
-                dni: client.DNI,
-                cellphone: client.Telefono,
-                email: client.Email,
-                address: client.Direccion,
-            });
+        setSupportDetails(enrichedDetails);
 
-            setClientQuery(client.Razon_Social);
+        const detail = enrichedDetails[0];
+        if (detail) {
+            setCurrentDetail((prev) => ({
+                ...prev,
+                id: detail.id ?? null,
+                subject: detail.subject ?? '',
+                description: detail.description ?? '',
+                priority: detail.priority ?? 'Media',
+                type: detail.type ?? 'Consulta',
+                status: detail.status ?? 'Pendiente',
+                reservation_time: detail.reservation_time ?? getNowPlusHours(0),
+                attended_at: detail.attended_at ?? getNowPlusHours(1),
+                derived: detail.derived ?? '',
+                Manzana: detail.Manzana ?? '',
+                comment: detail.comment ?? '',
 
-            const enrichedSales = (client.sales || []).map((s) => ({
-                ...s,
-                project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
+                // IDs numéricos
+                project_id: detail.project_id ? Number(detail.project_id) : null,
+                area_id: detail.area_id ? Number(detail.area_id) : null,
+                id_motivos_cita: detail.id_motivos_cita ? Number(detail.id_motivos_cita) : null,
+                id_tipo_cita: detail.id_tipo_cita ? Number(detail.id_tipo_cita) : 1,
+                id_dia_espera: detail.id_dia_espera ? Number(detail.id_dia_espera) : null,
+                internal_state_id: detail.internal_state_id ? Number(detail.internal_state_id) : 3,
+                external_state_id: detail.external_state_id ? Number(detail.external_state_id) : 1,
+                type_id: detail.type_id ? Number(detail.type_id) : null,
+
+                // Relaciones enriquecidas
+                project: detail.project,
+                area: detail.area,
+                motivo_cita: detail.motivo_cita,
+                tipo_cita: detail.tipo_cita,
+                dia_espera: detail.dia_espera,
+                internal_state: detail.internal_state,
+                external_state: detail.external_state,
+                support_type: detail.support_type,
+
+                attachment: null,
+                ticket_start: formatDateTimeLocal(detail.ticket_start),
+                ticket_end: formatDateTimeLocal(detail.ticket_end),
+                ticket: detail.ticket || '',
+                channel: detail.channel || '',
             }));
-            setSalesFromClient(enrichedSales);
-        }
 
-        if (details && Array.isArray(details)) {
-            const enrichedDetails = details.map((detail: any) => ({
-                ...detail,
-                area: detail.area ?? areas.find((a) => a.id_area === detail.area_id) ?? null,
-                motivo_cita: detail.motivo_cita ?? motives.find((m) => m.id === detail.id_motivos_cita) ?? null,
-                tipo_cita: detail.tipo_cita ?? appointmentTypes.find((t) => t.id === detail.id_tipo_cita) ?? null,
-                dia_espera: detail.dia_espera ?? waitingDays.find((d) => d.id === detail.id_dia_espera) ?? null,
-                internal_state: detail.internal_state ?? internalStates.find((i) => i.id === detail.internal_state_id) ?? null,
-                external_state: detail.external_state ?? externalStates.find((e) => e.id === detail.external_state_id) ?? null,
-                support_type: detail.support_type ?? types.find((t) => t.id === detail.type_id) ?? null,
-                project: detail.project ?? projects.find((p) => p.id_proyecto === detail.project_id) ?? null,
-            }));
-
-            setSupportDetails(enrichedDetails);
-
-            const detail = enrichedDetails[0];
-            if (detail) {
-                setCurrentDetail({
-                    id: detail.id,
-                    subject: detail.subject ?? '',
-                    description: detail.description ?? '',
-                    priority: detail.priority ?? 'Media',
-                    type: detail.type ?? 'Consulta',
-                    status: detail.status ?? 'Pendiente',
-                    reservation_time: detail.reservation_time ?? getNowPlusHours(0),
-                    attended_at: detail.attended_at ?? getNowPlusHours(1),
-                    derived: detail.derived ?? '',
-                    Manzana: detail.Manzana ?? '',
-                    comment: detail.comment ?? '',
-                    project_id: detail.project_id ?? '',
-                    area_id: detail.area_id ?? '1',
-                    id_motivos_cita: detail.id_motivos_cita ?? '',
-                    id_tipo_cita: detail.id_tipo_cita ?? '1',
-                    id_dia_espera: detail.id_dia_espera ?? '',
-                    internal_state_id: detail.internal_state_id ?? '3',
-                    external_state_id: detail.external_state_id ?? '1',
-                    type_id: detail.type_id ?? '',
-
-                    // Relaciones enriquecidas
-                    project: detail.project,
-                    area: detail.area,
-                    motivo_cita: detail.motivo_cita,
-                    tipo_cita: detail.tipo_cita,
-                    dia_espera: detail.dia_espera,
-                    internal_state: detail.internal_state,
-                    external_state: detail.external_state,
-                    support_type: detail.support_type,
-
-                    attachment: null,
-                    ticket_start: formatDateTimeLocal(detail.ticket_start),
-                    ticket_end: formatDateTimeLocal(detail.ticket_end),
-                    // attended_start: formatDateTimeLocal(detail.attended_start),
-                    // attended_end: formatDateTimeLocal(detail.attended_end),
-                    ticket: detail.ticket || '',
-                     channel: detail.channel || '',
-
-
-                });
-
-                if (detail.project_id) {
-                    const lots = (client?.sales || []).filter(
-                        (s) => s.project_id === Number(detail.project_id)
-                    ).map((s) => s.mz_lote);
-                    setAvailableLots(lots);
-                }
+            if (detail.project_id) {
+                const lots = (client?.sales || [])
+                    .filter((s) => s.project_id === Number(detail.project_id))
+                    .map((s) => s.mz_lote);
+                setAvailableLots(lots);
             }
         }
-    }, [supportToEdit]);
+    }
 
-
+    setHasLoadedSupport(true);
+}, [supportToEdit, hasLoadedSupport]);
 
 
 
@@ -515,84 +533,96 @@ const SupportModal = ({
         }
     };
 
-const handleSubmit = async () => {
-    try {
-        setUploading(true);
-        const data = new FormData();
+    const handleSubmit = async () => {
+        try {
+            setUploading(true);
+            const data = new FormData();
 
-        // 1. Campos principales del soporte
-        Object.entries(formData).forEach(([key, value]) => {
-            data.append(key, String(value ?? ''));
-        });
+            // 1. Campos principales del soporte
+            Object.entries(formData).forEach(([key, value]) => {
+                data.append(key, String(value ?? ''));
+            });
 
-        // 2. Archivo principal
-        if (file) {
-            data.append('attachment', file);
-        }
-
-        // 3. Archivos por detalle
-        supportDetails.forEach((detail, index) => {
-            if (detail.attachment) {
-                data.append(`attachments[${index}]`, detail.attachment);
+            // 2. Archivo principal
+            if (file) {
+                data.append('attachment', file);
             }
-        });
 
-        // 4. Preparar detalles
-        const cleanedDetails = supportDetails.map((detail) => ({
-            subject: detail.subject,
-            description: detail.description,
-            priority: detail.priority,
-            type: detail.type,
-            status: detail.status,
-            reservation_time: detail.reservation_time,
-            attended_at: detail.attended_at,
-            derived: detail.derived,
-            project_id: detail.project?.id_proyecto ?? null,
-            area_id: detail.area?.id_area ?? 1,
-            id_motivos_cita: detail.motivo_cita?.id ?? null,
-            id_tipo_cita: detail.tipo_cita?.id ?? 1,
-            id_dia_espera: detail.dia_espera?.id ?? null,
-            internal_state_id: detail.internal_state?.id ?? 3,
-            external_state_id: detail.external_state?.id ?? 1,
-            type_id: detail.support_type?.id ?? null,
-            Manzana: detail.Manzana ?? '',
-            comment: detail.comment ?? '',
+            // 3. Archivos por detalle
+            supportDetails.forEach((detail, index) => {
+                if (detail.attachment) {
+                    data.append(`attachments[${index}]`, detail.attachment);
+                }
+            });
 
-        }));
-        data.append('details', JSON.stringify(cleanedDetails));
+           // Actualizar supportDetails con currentDetail (por ID)
+const updatedSupportDetails = supportDetails.map((detail) =>
+  detail.id === currentDetail.id ? { ...detail, ...currentDetail } : detail
+);
 
-        // 5. URL y método
-        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-        if (supportToEdit) data.append('_method', 'PUT');
+// Si es nuevo (sin ID), lo agregamos
+if (!currentDetail.id) {
+  updatedSupportDetails.push(currentDetail);
+}
 
-        // 6. Enviar petición
-        const response = await axios.post(url, data);
+// Ahora mapeamos con relaciones correctamente
+const cleanedDetails = updatedSupportDetails.map((detail) => ({
+  subject: detail.subject,
+  description: detail.description,
+  priority: detail.priority,
+  type: detail.type,
+  status: detail.status,
+  reservation_time: detail.reservation_time,
+  attended_at: detail.attended_at,
+  derived: detail.derived,
+  project_id: detail.project?.id_proyecto ?? detail.project_id ?? null,
+  area_id: detail.area?.id_area ?? detail.area_id ?? null,
+  id_motivos_cita: detail.motivo_cita?.id ?? detail.id_motivos_cita ?? null,
+  id_tipo_cita: detail.tipo_cita?.id ?? detail.id_tipo_cita ?? 1,
+  id_dia_espera: detail.dia_espera?.id ?? detail.id_dia_espera ?? null,
+  internal_state_id: detail.internal_state?.id ?? detail.internal_state_id ?? 3,
+  external_state_id: detail.external_state?.id ?? detail.external_state_id ?? 1,
+  type_id: detail.support_type?.id ?? detail.type_id ?? null,
+  Manzana: detail.Manzana ?? '',
+  comment: detail.comment ?? '',
+}));
 
-        if (response.data?.support) {
-            toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
-            onSaved(response.data.support);
-            onClose();
-        } else if (response.data?.message) {
-          toast.warning(response.data.message, {
-    duration: Infinity,
-    action: {
-        label: 'Cerrar',
-        onClick: () => {},
-    },
-});
+            console.log('🧪 Detalles preparados para enviar:', cleanedDetails);
+
+            data.append('details', JSON.stringify(cleanedDetails));
+
+            // 5. URL y método
+            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+            if (supportToEdit) data.append('_method', 'PUT');
+
+            // 6. Enviar petición
+            const response = await axios.post(url, data);
+
+            if (response.data?.support) {
+                toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+                onSaved(response.data.support);
+                onClose();
+            } else if (response.data?.message) {
+                toast.warning(response.data.message, {
+                    duration: Infinity,
+                    action: {
+                        label: 'Cerrar',
+                        onClick: () => { },
+                    },
+                });
 
 
-        } else {
-            toast.error('Error desconocido del servidor');
+            } else {
+                toast.error('Error desconocido del servidor');
+            }
+
+        } catch (error) {
+            console.error('❌ Error al guardar:', error);
+            toast.error('Hubo un error al guardar');
+        } finally {
+            setUploading(false);
         }
-
-    } catch (error) {
-        console.error('❌ Error al guardar:', error);
-        toast.error('Hubo un error al guardar');
-    } finally {
-        setUploading(false);
-    }
-};
+    };
 
 
 
@@ -604,24 +634,24 @@ const handleSubmit = async () => {
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
                 </DialogHeader>
-{canEditChannelSelect && (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      Canal
-    </label>
-    <select
-      value={formData.channel || ''}
-      onChange={(e) =>
-        setFormData({ ...formData, channel: e.target.value })
-      }
-      className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
-    >
-      <option value="">Seleccione un canal</option>
-      <option value="whatsapp">WhatsApp</option>
-      <option value="presencial">Presencial</option>
-    </select>
-  </div>
-)}
+                {canEditChannelSelect && (
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Canal
+                        </label>
+                        <select
+                            value={formData.channel || ''}
+                            onChange={(e) =>
+                                setFormData({ ...formData, channel: e.target.value })
+                            }
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
+                        >
+                            <option value="">Seleccione un canal</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="presencial">Presencial</option>
+                        </select>
+                    </div>
+                )}
 
 
 
@@ -927,22 +957,30 @@ const handleSubmit = async () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-2">
 
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Área Responsable</Label>
-                                <select
-                                    name="area_id"
-                                    value={currentDetail.area_id}
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un área</option> {/* ✅ línea importante */}
-                                    {areas.map((a) => (
-                                        <option key={a.id_area} value={a.id_area}>{a.descripcion}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                      {canEditAdvancedFields && (
+  <div className="grid grid-cols-4 items-center gap-4">
+    <Label className="text-left">Área Responsable</Label>
+    <select
+      name="area_id"
+      value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
+      onChange={handleDetailChange}
+      className={inputClass}
+    >
+      <option value="">Seleccione un área</option>
+      {areas.map((a) => (
+        <option key={a.id_area} value={String(a.id_area)}>
+          {a.descripcion}
+        </option>
+      ))}
+    </select>
+
+    {/* DEBUG opcional: muestra el valor actual de area_id */}
+    <p className="col-span-4 text-sm text-muted-foreground">
+      Área seleccionada actual: {currentDetail.area_id}
+    </p>
+  </div>
+)}
+
 
 
                         <div className="grid grid-cols-4 items-center gap-4">
