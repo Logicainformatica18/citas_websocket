@@ -96,52 +96,68 @@ class SupportController extends Controller
 
 
     // SupportController.php
-    public function fetch(Request $request)
-    {
+public function fetch(Request $request)
+{
+    $query = $request->input('q');
+    $detailId = null;
+    $ticketCode = null;
 
-        $query = $request->input('q');
-        $detailId = null;
-        Log::info('🔍 Valor recibido de q:', ['q' => $query]);
-        if (preg_match('/tr[-]?0*(\d+)/i', $query, $matches)) {
-            $detailId = (int) $matches[1];
-        }
+    Log::info('🔍 Valor recibido de q:', ['q' => $query]);
 
-        $supports = Support::with([
-            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'creator:id,firstname,lastname,names',
-            'details.project:id_proyecto,descripcion',
-            'details.area:id_area,descripcion',
-            'details.motivoCita:id_motivos_cita,nombre_motivo',
-            'details.tipoCita:id_tipo_cita,tipo',
-            'details.diaEspera:id_dias_espera,dias',
-            'details.internalState:id,description',
-            'details.externalState:id,description',
-            'details.supportType:id,description',
-            'details.type:id,description',
-            'details.lastComment.internalState:id,description',
-        ])
-            ->when($query, function ($q) use ($query, $detailId) {
-                $q->where(function ($subQuery) use ($query, $detailId) {
-                    $subQuery->whereHas('client', function ($sub) use ($query) {
-                        $sub->where('dni', 'like', "%{$query}%")
-                            ->orWhere('Razon_Social', 'like', "%{$query}%");
-                    });
-
-                    if ($detailId) {
-                        $subQuery->orWhereHas('details', function ($sub) use ($detailId) {
-                            $sub->where('id', $detailId);
-                        });
-                    }
-                });
-            })
-            ->latest()
-            ->paginate(7);
-
-
-        return response()->json([
-            'supports' => $supports,
-        ]);
+    // TR-00048 → ID (support_detail.id)
+    if (preg_match('/^tr[-]?0*(\d+)$/i', $query, $matches)) {
+        $detailId = (int) $matches[1];
     }
+
+    // TK-00048 → ticket exacto (support_detail.ticket)
+    if (preg_match('/^tk[-]?0*(\d+)$/i', $query, $matches)) {
+        $ticketCode = 'TK-' . str_pad((int) $matches[1], 5, '0', STR_PAD_LEFT);
+    }
+
+    $supportsQuery = Support::with([
+        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+        'creator:id,firstname,lastname,names',
+        'details.project:id_proyecto,descripcion',
+        'details.area:id_area,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+        'details.type:id,description',
+        'details.lastComment.internalState:id,description',
+    ]);
+
+    // 🥇 Prioridad 1: buscar por ticket (TK-xxxx)
+    if ($ticketCode) {
+        $supportsQuery->whereHas('details', function ($sub) use ($ticketCode) {
+            $sub->where('ticket', $ticketCode);
+        });
+    }
+    // 🥈 Prioridad 2: buscar por ID (TR-xxxx)
+    elseif ($detailId) {
+        $supportsQuery->whereHas('details', function ($sub) use ($detailId) {
+            $sub->where('id', $detailId);
+        });
+    }
+    // 🥉 Prioridad 3: búsqueda libre por cliente
+    elseif ($query) {
+        $supportsQuery->whereHas('client', function ($sub) use ($query) {
+            $sub->where('dni', 'like', "%{$query}%")
+                ->orWhere('Razon_Social', 'like', "%{$query}%");
+        });
+    }
+
+    $supports = $supportsQuery->latest()->paginate(7);
+
+    return response()->json([
+        'supports' => $supports,
+    ]);
+}
+
+
+
 
 
 
@@ -238,14 +254,20 @@ class SupportController extends Controller
         $generateTicket = auth()->user()?->can('generar_ticket');
         $ticket = $generateTicket ? (new SupportDetailController)->generateNextSupportTicket() : null;
 
-        $roles = Auth::user()->getRoleNames();
         $channelName = null;
 
-        if (!$roles->contains('ATC_Oficina')) {
-            $permissions = Auth::user()->getAllPermissions();
-            $channelPermission = $permissions->first(fn($perm) => str_starts_with($perm->name, 'Canal.'));
-            $channelName = $channelPermission ? str_replace('Canal.', '', $channelPermission->name) : null;
-        }
+        $permissions = Auth::user()->getAllPermissions();
+
+        $channelPermission = $permissions->first(function ($perm) {
+            // Evalúa solo permisos que comienzan con "Canal." y NO contienen guion bajo en la parte del canal
+            return str_starts_with($perm->name, 'Canal.')
+                && !str_contains(str_replace('Canal.', '', $perm->name), '_');
+        });
+
+        $channelName = $channelPermission
+            ? str_replace('Canal.', '', $channelPermission->name)
+            : ($request->input('channel') ?? null);
+
 
         $attachment = isset($attachments[0]) ? fileStore($attachments[0], 'uploads') : null;
 

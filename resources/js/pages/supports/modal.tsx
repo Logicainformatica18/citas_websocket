@@ -185,7 +185,7 @@ const SupportModal = ({
 
         const { name, value } = e.target;
         const numericValue = Number(value); // 👈 conversión común
-        console.log('🧪 Cambio detectado →', name, '=', value); // ✅ Agregado
+
 
         // Relacionar IDs con objetos cuando aplica
         if (name === 'internal_state_id') {
@@ -284,7 +284,7 @@ const SupportModal = ({
 
 
     const handleAddDetail = () => {
-           console.log('🟩 Se ejecutó handleAddDetail');
+
         // Validación básica
         if (!currentDetail.subject?.trim()) {
             toast.error("El asunto es obligatorio");
@@ -328,15 +328,15 @@ const SupportModal = ({
             support_type: types.find(t => t.id === numericValues.type_id) || null,
             priority: currentDetail.priority?.trim() || 'Media',
         };
-console.log('🧩 Detalle listo para agregar:', sanitizedDetail);
+
 
         // Agregar detalle
-  
-setSupportDetails((prev) => {
-    const updated = [...prev, sanitizedDetail];
-    console.log('✅ Lista de detalles actualizada:', updated);
-    return updated;
-});
+
+        setSupportDetails((prev) => {
+            const updated = [...prev, sanitizedDetail];
+
+            return updated;
+        });
 
 
         // Reiniciar formulario con tipos coherentes
@@ -516,107 +516,113 @@ setSupportDetails((prev) => {
     //     }
     // };
 
-const handleSubmit = async () => {
-    try {
-        setUploading(true);
-        const data = new FormData();
-
-        // 1. Campos del soporte general
-        Object.entries(formData).forEach(([key, value]) => {
-            data.append(key, String(value ?? ''));
-        });
-
-        // 2. Archivo general
-        if (file) {
-            data.append('attachment', file);
-        }
-
-        // 3. Archivos por detalle
-        supportDetails.forEach((detail, index) => {
-            if (detail.attachment) {
-                data.append(`attachments[${index}]`, detail.attachment);
+    const handleSubmit = async () => {
+        try {
+            setUploading(true);
+            if (canEditChannelSelect && !formData.channel) {
+                toast.warning('El campo "Canal" es obligatorio');
+                return;
             }
-        });
 
-        // 4. Determinar origen de detalles
-        let updatedSupportDetails = [...supportDetails];
 
-        // Si estás editando (PUT), reemplaza currentDetail en la lista
-        if (supportToEdit && currentDetail.id) {
-            updatedSupportDetails = supportDetails.map((detail) =>
-                detail.id === currentDetail.id ? { ...detail, ...currentDetail } : detail
-            );
-        }
+            const data = new FormData();
 
-        // Si estás creando (POST), ya diste clic en Agregar y solo hay 1 detalle
-        if (!supportToEdit && !currentDetail.id) {
-            // Sanidad extra: asegúrate que tenga un detalle válido
-            if (supportDetails.length === 0) {
+            // 1. Campos del soporte general
+            Object.entries(formData).forEach(([key, value]) => {
+                data.append(key, String(value ?? ''));
+            });
+
+            // 2. Archivo general
+            if (file) {
+                data.append('attachment', file);
+            }
+
+            // 3. Archivos por detalle
+            supportDetails.forEach((detail, index) => {
+                if (detail.attachment) {
+                    data.append(`attachments[${index}]`, detail.attachment);
+                }
+            });
+
+            // 4. Determinar origen de detalles
+            let updatedSupportDetails = [...supportDetails];
+
+            // Si estás editando (PUT), reemplaza currentDetail en la lista
+            if (supportToEdit && currentDetail.id) {
+                updatedSupportDetails = supportDetails.map((detail) =>
+                    detail.id === currentDetail.id ? { ...detail, ...currentDetail } : detail
+                );
+            }
+
+            // Si estás creando (POST), ya diste clic en Agregar y solo hay 1 detalle
+            if (!supportToEdit && !currentDetail.id) {
+                // Sanidad extra: asegúrate que tenga un detalle válido
+                if (supportDetails.length === 0) {
+                    toast.warning('Debes agregar al menos un detalle de atención');
+                    setUploading(false);
+                    return;
+                }
+            }
+
+            // 5. Mapeo limpio
+            const mappedDetails = updatedSupportDetails.map((detail) => ({
+                subject: detail.subject?.trim() || '',
+                description: detail.description?.trim() || '',
+                priority: detail.priority,
+                type: detail.type,
+                status: detail.status,
+                reservation_time: detail.reservation_time,
+                attended_at: detail.attended_at,
+                derived: detail.derived,
+                project_id: detail.project?.id_proyecto ?? detail.project_id ?? null,
+                area_id: detail.area?.id_area ?? detail.area_id ?? null,
+                id_motivos_cita: detail.motivo_cita?.id ?? detail.id_motivos_cita ?? null,
+                id_tipo_cita: detail.tipo_cita?.id ?? detail.id_tipo_cita ?? 1,
+                id_dia_espera: detail.dia_espera?.id ?? detail.id_dia_espera ?? null,
+                internal_state_id: detail.internal_state?.id ?? detail.internal_state_id ?? 3,
+                external_state_id: detail.external_state?.id ?? detail.external_state_id ?? 1,
+                type_id: detail.support_type?.id ?? detail.type_id ?? null,
+                Manzana: detail.Manzana?.trim() || '',
+                comment: detail.comment?.trim() || '',
+            }));
+
+            // 6. Validación obligatoria para nuevos
+            if (!supportToEdit && mappedDetails.length === 0) {
                 toast.warning('Debes agregar al menos un detalle de atención');
                 setUploading(false);
                 return;
             }
-        }
 
-        // 5. Mapeo limpio
-        const mappedDetails = updatedSupportDetails.map((detail) => ({
-            subject: detail.subject?.trim() || '',
-            description: detail.description?.trim() || '',
-            priority: detail.priority,
-            type: detail.type,
-            status: detail.status,
-            reservation_time: detail.reservation_time,
-            attended_at: detail.attended_at,
-            derived: detail.derived,
-            project_id: detail.project?.id_proyecto ?? detail.project_id ?? null,
-            area_id: detail.area?.id_area ?? detail.area_id ?? null,
-            id_motivos_cita: detail.motivo_cita?.id ?? detail.id_motivos_cita ?? null,
-            id_tipo_cita: detail.tipo_cita?.id ?? detail.id_tipo_cita ?? 1,
-            id_dia_espera: detail.dia_espera?.id ?? detail.id_dia_espera ?? null,
-            internal_state_id: detail.internal_state?.id ?? detail.internal_state_id ?? 3,
-            external_state_id: detail.external_state?.id ?? detail.external_state_id ?? 1,
-            type_id: detail.support_type?.id ?? detail.type_id ?? null,
-            Manzana: detail.Manzana?.trim() || '',
-            comment: detail.comment?.trim() || '',
-        }));
+            // 7. Agrega detalles
+            data.append('details', JSON.stringify(mappedDetails));
 
-        // 6. Validación obligatoria para nuevos
-        if (!supportToEdit && mappedDetails.length === 0) {
-            toast.warning('Debes agregar al menos un detalle de atención');
+            // 8. Método y URL
+            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+            if (supportToEdit) data.append('_method', 'PUT');
+
+            // 9. Enviar
+            const response = await axios.post(url, data);
+
+            if (response.data?.support) {
+                toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+                onSaved(response.data.support);
+                onClose();
+            } else if (response.data?.message) {
+                toast.warning(response.data.message, {
+                    duration: Infinity,
+                    action: { label: 'Cerrar', onClick: () => { } },
+                });
+            } else {
+                toast.error('Error desconocido del servidor');
+            }
+
+        } catch (error) {
+            console.error('❌ Error al guardar:', error);
+            toast.error('Hubo un error al guardar');
+        } finally {
             setUploading(false);
-            return;
         }
-
-        // 7. Agrega detalles
-        data.append('details', JSON.stringify(mappedDetails));
-
-        // 8. Método y URL
-        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-        if (supportToEdit) data.append('_method', 'PUT');
-
-        // 9. Enviar
-        const response = await axios.post(url, data);
-
-        if (response.data?.support) {
-            toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
-            onSaved(response.data.support);
-            onClose();
-        } else if (response.data?.message) {
-            toast.warning(response.data.message, {
-                duration: Infinity,
-                action: { label: 'Cerrar', onClick: () => {} },
-            });
-        } else {
-            toast.error('Error desconocido del servidor');
-        }
-
-    } catch (error) {
-        console.error('❌ Error al guardar:', error);
-        toast.error('Hubo un error al guardar');
-    } finally {
-        setUploading(false);
-    }
-};
+    };
 
 
 
