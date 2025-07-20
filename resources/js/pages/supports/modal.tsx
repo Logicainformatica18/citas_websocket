@@ -139,225 +139,7 @@ const SupportModal = ({
 
 
 
-const [currentDetail, setCurrentDetail] = useState<any>({
-    id: null,
-    subject: '',
-    description: '',
-    priority: 'Baja',
-    type: 'Consulta',
-    status: 'Pendiente',
-    reservation_time: getNowPlusHours(0),
-    attended_at: getNowPlusHours(1),
-    derived: '',
-    project_id: null,
-    area_id: null, // ✅ valor numérico
-    id_motivos_cita: null,
-    id_tipo_cita: 1,
-    id_dia_espera: null,
-    internal_state_id: 3,
-    external_state_id: 1,
-    type_id: null,
-    Manzana: '',
-    comment: '',
-    attachment: null,
-
-    // Relaciones enriquecidas
-    project: null,
-    area: null,
-    motivo_cita: null,
-    tipo_cita: null,
-    dia_espera: null,
-    internal_state: null,
-    external_state: null,
-
-    // Extras
-    ticket: '',
-    attended_start: '',
-    attended_end: '',
-    ticket_start: '',
-    ticket_end: '',
-    channel: '',
-});
-
-
- const handleDetailChange = (e: React.ChangeEvent<any>) => {
-
-
-     const { name, value } = e.target;
-    const numericValue = Number(value); // 👈 conversión común
-  console.log('🧪 Cambio detectado →', name, '=', value); // ✅ Agregado
-
-    // Relacionar IDs con objetos cuando aplica
-    if (name === 'internal_state_id') {
-        const selected = internalStates.find(i => i.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            internal_state_id: numericValue,
-            internal_state: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'external_state_id') {
-        const selected = externalStates.find(e => e.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            external_state_id: numericValue,
-            external_state: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'area_id') {
-        const selected = areas.find(a => a.id_area === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            area_id: numericValue,
-            area: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'project_id') {
-        const lots = salesFromClient
-            .filter((s) => s.project_id === numericValue)
-            .map((s) => s.mz_lote);
-        const selected = projects.find(p => p.id_proyecto === numericValue);
-        setAvailableLots(lots);
-        setCurrentDetail(prev => ({
-            ...prev,
-            project_id: numericValue,
-            project: selected || null,
-            Manzana: '',
-            comment: '',
-        }));
-        return;
-    }
-
-    if (name === 'id_motivos_cita') {
-        const selected = motives.find(m => m.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            id_motivos_cita: numericValue,
-            motivo_cita: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'id_tipo_cita') {
-        const selected = appointmentTypes.find(t => t.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            id_tipo_cita: numericValue,
-            tipo_cita: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'id_dia_espera') {
-        const selected = waitingDays.find(d => d.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            id_dia_espera: numericValue,
-            dia_espera: selected || null,
-        }));
-        return;
-    }
-
-    if (name === 'type_id') {
-        const selected = types.find(t => t.id === numericValue);
-        setCurrentDetail(prev => ({
-            ...prev,
-            type_id: numericValue,
-            support_type: selected || null,
-        }));
-        return;
-    }
-
-    // Por defecto: solo actualiza el valor (para campos tipo texto)
-    setCurrentDetail(prev => ({ ...prev, [name]: value }));
-};
-
-
-
-
-    // const addDetail = () => {
-    //     setSupportDetails([...supportDetails, currentDetail]);
-    //     setCurrentDetail({
-    //         subject: '',
-    //         description: '',
-    //         priority: 'Media',
-    //         type: 'Consulta',
-    //         status: 'Pendiente',
-    //         reservation_time: getNowPlusHours(0),
-    //         attended_at: getNowPlusHours(1),
-    //         derived: '',
-    //         project_id: '',
-    //         area_id: '',
-    //         id_motivos_cita: '',
-    //         id_tipo_cita: '',
-    //         id_dia_espera: '',
-    //         internal_state_id: '',
-    //         external_state_id: '',
-    //         type_id: '',
-    //         Manzana: '',
-    //         comment: ''
-
-    //     });
-    // };
-
-
-   const handleAddDetail = () => {
-    // Validación básica
-    if (!currentDetail.subject?.trim()) {
-        toast.error("El asunto es obligatorio");
-        return;
-    }
-
-    // Campos numéricos a forzar
-    const numericFields = [
-        'project_id',
-        'area_id',
-        'id_motivos_cita',
-        'id_tipo_cita',
-        'id_dia_espera',
-        'internal_state_id',
-        'external_state_id',
-        'type_id',
-    ];
-
-    // Convertir campos numéricos a number o null
-    const numericValues = Object.fromEntries(
-        numericFields.map((key) => [
-            key,
-            currentDetail[key] === '' || currentDetail[key] === null
-                ? null
-                : Number(currentDetail[key])
-        ])
-    );
-
-    const sanitizedDetail = {
-        ...currentDetail,
-        ...numericValues,
-
-        // Relaciones enriquecidas
-        project: projects.find(p => p.id_proyecto === numericValues.project_id) || null,
-      //  area: areas.find(a => a.id_area === numericValues.area_id) || { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' },
-        motivo_cita: motives.find(m => m.id === numericValues.id_motivos_cita) || null,
-        tipo_cita: appointmentTypes.find(t => t.id === numericValues.id_tipo_cita) || null,
-        dia_espera: waitingDays.find(d => d.id === numericValues.id_dia_espera) || null,
-        internal_state: internalStates.find(i => i.id === numericValues.internal_state_id) || { id: 3, description: 'Pendiente' },
-        external_state: externalStates.find(e => e.id === numericValues.external_state_id) || { id: 1, description: 'Por Asignar' },
-        support_type: types.find(t => t.id === numericValues.type_id) || null,
-        priority: currentDetail.priority?.trim() || 'Media',
-    };
-
-    // Agregar detalle
-    setSupportDetails((prev) => [...prev, sanitizedDetail]);
-
-
-    // Reiniciar formulario con tipos coherentes
-    setCurrentDetail({
+    const [currentDetail, setCurrentDetail] = useState<any>({
         id: null,
         subject: '',
         description: '',
@@ -367,27 +149,19 @@ const [currentDetail, setCurrentDetail] = useState<any>({
         reservation_time: getNowPlusHours(0),
         attended_at: getNowPlusHours(1),
         derived: '',
-        Manzana: '',
-        comment: '',
-        attachment: null,
-
         project_id: null,
-        area_id: null,
+        area_id: null, // ✅ valor numérico
         id_motivos_cita: null,
         id_tipo_cita: 1,
         id_dia_espera: null,
         internal_state_id: 3,
         external_state_id: 1,
         type_id: null,
+        Manzana: '',
+        comment: '',
+        attachment: null,
 
-        ticket: '',
-        attended_start: '',
-        attended_end: '',
-        ticket_start: '',
-        ticket_end: '',
-        channel: '',
-
-        // Relaciones limpias
+        // Relaciones enriquecidas
         project: null,
         area: null,
         motivo_cita: null,
@@ -395,124 +169,333 @@ const [currentDetail, setCurrentDetail] = useState<any>({
         dia_espera: null,
         internal_state: null,
         external_state: null,
-        support_type: null,
+
+        // Extras
+        ticket: '',
+        attended_start: '',
+        attended_end: '',
+        ticket_start: '',
+        ticket_end: '',
+        channel: '',
     });
-};
-
-const [hasLoadedSupport, setHasLoadedSupport] = useState(false);
 
 
-useEffect(() => {
-    if (!supportToEdit || hasLoadedSupport) return;
+    const handleDetailChange = (e: React.ChangeEvent<any>) => {
 
-    const { client, details, ...supportFields } = supportToEdit;
 
-    const cleanedSupport = Object.fromEntries(
-        Object.entries(supportFields).map(([key, val]) => [
-            key,
-            val === null || typeof val === 'undefined' ? '' : val,
-        ])
-    );
+        const { name, value } = e.target;
+        const numericValue = Number(value); // 👈 conversión común
+        console.log('🧪 Cambio detectado →', name, '=', value); // ✅ Agregado
 
-    setFormData((prev: any) => ({
-        ...prev,
-        ...cleanedSupport,
-        client_id: client?.id_cliente ?? '',
-        dni: client?.dni ?? '',
-        cellphone: client?.Telefono ?? '',
-        email: client?.Email ?? '',
-        address: client?.Direccion ?? '',
-        status_global: supportToEdit.status_global || 'No',
-    }));
-
-    if (client) {
-        setSelectedClient({
-            id: client.id_cliente,
-            names: client.Razon_Social,
-            dni: client.DNI,
-            cellphone: client.Telefono,
-            email: client.Email,
-            address: client.Direccion,
-        });
-
-        setClientQuery(client.Razon_Social);
-
-        const enrichedSales = (client.sales || []).map((s) => ({
-            ...s,
-            project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
-        }));
-        setSalesFromClient(enrichedSales);
-    }
-
-    if (details && Array.isArray(details)) {
-        const enrichedDetails = details.map((detail: any, idx: number) => ({
-            ...detail,
-            area: detail.area ?? areas.find((a) => a.id_area === detail.area_id) ?? null,
-            motivo_cita: detail.motivo_cita ?? motives.find((m) => m.id === detail.id_motivos_cita) ?? null,
-            tipo_cita: detail.tipo_cita ?? appointmentTypes.find((t) => t.id === detail.id_tipo_cita) ?? null,
-            dia_espera: detail.dia_espera ?? waitingDays.find((d) => d.id === detail.id_dia_espera) ?? null,
-            internal_state: detail.internal_state ?? internalStates.find((i) => i.id === detail.internal_state_id) ?? null,
-            external_state: detail.external_state ?? externalStates.find((e) => e.id === detail.external_state_id) ?? null,
-            support_type: detail.support_type ?? types.find((t) => t.id === detail.type_id) ?? null,
-            project: detail.project ?? projects.find((p) => p.id_proyecto === detail.project_id) ?? null,
-        }));
-
-        setSupportDetails(enrichedDetails);
-
-        const detail = enrichedDetails[0];
-        if (detail) {
-            setCurrentDetail((prev) => ({
+        // Relacionar IDs con objetos cuando aplica
+        if (name === 'internal_state_id') {
+            const selected = internalStates.find(i => i.id === numericValue);
+            setCurrentDetail(prev => ({
                 ...prev,
-                id: detail.id ?? null,
-                subject: detail.subject ?? '',
-                description: detail.description ?? '',
-                priority: detail.priority ?? 'Media',
-                type: detail.type ?? 'Consulta',
-                status: detail.status ?? 'Pendiente',
-                reservation_time: detail.reservation_time ?? getNowPlusHours(0),
-                attended_at: detail.attended_at ?? getNowPlusHours(1),
-                derived: detail.derived ?? '',
-                Manzana: detail.Manzana ?? '',
-                comment: detail.comment ?? '',
+                internal_state_id: numericValue,
+                internal_state: selected || null,
+            }));
+            return;
+        }
 
-                // IDs numéricos
-                project_id: detail.project_id ? Number(detail.project_id) : null,
-                area_id: detail.area_id ? Number(detail.area_id) : null,
-                id_motivos_cita: detail.id_motivos_cita ? Number(detail.id_motivos_cita) : null,
-                id_tipo_cita: detail.id_tipo_cita ? Number(detail.id_tipo_cita) : 1,
-                id_dia_espera: detail.id_dia_espera ? Number(detail.id_dia_espera) : null,
-                internal_state_id: detail.internal_state_id ? Number(detail.internal_state_id) : 3,
-                external_state_id: detail.external_state_id ? Number(detail.external_state_id) : 1,
-                type_id: detail.type_id ? Number(detail.type_id) : null,
+        if (name === 'external_state_id') {
+            const selected = externalStates.find(e => e.id === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                external_state_id: numericValue,
+                external_state: selected || null,
+            }));
+            return;
+        }
 
-                // Relaciones enriquecidas
-                project: detail.project,
-                area: detail.area,
-                motivo_cita: detail.motivo_cita,
-                tipo_cita: detail.tipo_cita,
-                dia_espera: detail.dia_espera,
-                internal_state: detail.internal_state,
-                external_state: detail.external_state,
-                support_type: detail.support_type,
+        if (name === 'area_id') {
+            const selected = areas.find(a => a.id_area === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                area_id: numericValue,
+                area: selected || null,
+            }));
+            return;
+        }
 
-                attachment: null,
-                ticket_start: formatDateTimeLocal(detail.ticket_start),
-                ticket_end: formatDateTimeLocal(detail.ticket_end),
-                ticket: detail.ticket || '',
-                channel: detail.channel || '',
+        if (name === 'project_id') {
+            const lots = salesFromClient
+                .filter((s) => s.project_id === numericValue)
+                .map((s) => s.mz_lote);
+            const selected = projects.find(p => p.id_proyecto === numericValue);
+            setAvailableLots(lots);
+            setCurrentDetail(prev => ({
+                ...prev,
+                project_id: numericValue,
+                project: selected || null,
+                Manzana: '',
+                comment: '',
+            }));
+            return;
+        }
+
+        if (name === 'id_motivos_cita') {
+            const selected = motives.find(m => m.id === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_motivos_cita: numericValue,
+                motivo_cita: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'id_tipo_cita') {
+            const selected = appointmentTypes.find(t => t.id === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_tipo_cita: numericValue,
+                tipo_cita: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'id_dia_espera') {
+            const selected = waitingDays.find(d => d.id === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                id_dia_espera: numericValue,
+                dia_espera: selected || null,
+            }));
+            return;
+        }
+
+        if (name === 'type_id') {
+            const selected = types.find(t => t.id === numericValue);
+            setCurrentDetail(prev => ({
+                ...prev,
+                type_id: numericValue,
+                support_type: selected || null,
+            }));
+            return;
+        }
+
+        // Por defecto: solo actualiza el valor (para campos tipo texto)
+        setCurrentDetail(prev => ({ ...prev, [name]: value }));
+    };
+
+
+
+
+
+
+    const handleAddDetail = () => {
+           console.log('🟩 Se ejecutó handleAddDetail');
+        // Validación básica
+        if (!currentDetail.subject?.trim()) {
+            toast.error("El asunto es obligatorio");
+            return;
+        }
+
+        // Campos numéricos a forzar
+        const numericFields = [
+            'project_id',
+            'area_id',
+            'id_motivos_cita',
+            'id_tipo_cita',
+            'id_dia_espera',
+            'internal_state_id',
+            'external_state_id',
+            'type_id',
+        ];
+
+        // Convertir campos numéricos a number o null
+        const numericValues = Object.fromEntries(
+            numericFields.map((key) => [
+                key,
+                currentDetail[key] === '' || currentDetail[key] === null
+                    ? null
+                    : Number(currentDetail[key])
+            ])
+        );
+
+        const sanitizedDetail = {
+            ...currentDetail,
+            ...numericValues,
+
+            // Relaciones enriquecidas
+            project: projects.find(p => p.id_proyecto === numericValues.project_id) || null,
+            //  area: areas.find(a => a.id_area === numericValues.area_id) || { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' },
+            motivo_cita: motives.find(m => m.id === numericValues.id_motivos_cita) || null,
+            tipo_cita: appointmentTypes.find(t => t.id === numericValues.id_tipo_cita) || null,
+            dia_espera: waitingDays.find(d => d.id === numericValues.id_dia_espera) || null,
+            internal_state: internalStates.find(i => i.id === numericValues.internal_state_id) || { id: 3, description: 'Pendiente' },
+            external_state: externalStates.find(e => e.id === numericValues.external_state_id) || { id: 1, description: 'Por Asignar' },
+            support_type: types.find(t => t.id === numericValues.type_id) || null,
+            priority: currentDetail.priority?.trim() || 'Media',
+        };
+console.log('🧩 Detalle listo para agregar:', sanitizedDetail);
+
+        // Agregar detalle
+  
+setSupportDetails((prev) => {
+    const updated = [...prev, sanitizedDetail];
+    console.log('✅ Lista de detalles actualizada:', updated);
+    return updated;
+});
+
+
+        // Reiniciar formulario con tipos coherentes
+        setCurrentDetail({
+            id: null,
+            subject: '',
+            description: '',
+            priority: 'Baja',
+            type: 'Consulta',
+            status: 'Pendiente',
+            reservation_time: getNowPlusHours(0),
+            attended_at: getNowPlusHours(1),
+            derived: '',
+            Manzana: '',
+            comment: '',
+            attachment: null,
+
+            project_id: null,
+            area_id: null,
+            id_motivos_cita: null,
+            id_tipo_cita: 1,
+            id_dia_espera: null,
+            internal_state_id: 3,
+            external_state_id: 1,
+            type_id: null,
+
+            ticket: '',
+            attended_start: '',
+            attended_end: '',
+            ticket_start: '',
+            ticket_end: '',
+            channel: '',
+
+            // Relaciones limpias
+            project: null,
+            area: null,
+            motivo_cita: null,
+            tipo_cita: null,
+            dia_espera: null,
+            internal_state: null,
+            external_state: null,
+            support_type: null,
+        });
+    };
+
+    const [hasLoadedSupport, setHasLoadedSupport] = useState(false);
+
+
+    useEffect(() => {
+        if (!supportToEdit || hasLoadedSupport) return;
+
+        const { client, details, ...supportFields } = supportToEdit;
+
+        const cleanedSupport = Object.fromEntries(
+            Object.entries(supportFields).map(([key, val]) => [
+                key,
+                val === null || typeof val === 'undefined' ? '' : val,
+            ])
+        );
+
+        setFormData((prev: any) => ({
+            ...prev,
+            ...cleanedSupport,
+            client_id: client?.id_cliente ?? '',
+            dni: client?.dni ?? '',
+            cellphone: client?.Telefono ?? '',
+            email: client?.Email ?? '',
+            address: client?.Direccion ?? '',
+            status_global: supportToEdit.status_global || 'No',
+        }));
+
+        if (client) {
+            setSelectedClient({
+                id: client.id_cliente,
+                names: client.Razon_Social,
+                dni: client.DNI,
+                cellphone: client.Telefono,
+                email: client.Email,
+                address: client.Direccion,
+            });
+
+            setClientQuery(client.Razon_Social);
+
+            const enrichedSales = (client.sales || []).map((s) => ({
+                ...s,
+                project: s.project || projects.find((p) => p.id_proyecto === s.project_id),
+            }));
+            setSalesFromClient(enrichedSales);
+        }
+
+        if (details && Array.isArray(details)) {
+            const enrichedDetails = details.map((detail: any, idx: number) => ({
+                ...detail,
+                area: detail.area ?? areas.find((a) => a.id_area === detail.area_id) ?? null,
+                motivo_cita: detail.motivo_cita ?? motives.find((m) => m.id === detail.id_motivos_cita) ?? null,
+                tipo_cita: detail.tipo_cita ?? appointmentTypes.find((t) => t.id === detail.id_tipo_cita) ?? null,
+                dia_espera: detail.dia_espera ?? waitingDays.find((d) => d.id === detail.id_dia_espera) ?? null,
+                internal_state: detail.internal_state ?? internalStates.find((i) => i.id === detail.internal_state_id) ?? null,
+                external_state: detail.external_state ?? externalStates.find((e) => e.id === detail.external_state_id) ?? null,
+                support_type: detail.support_type ?? types.find((t) => t.id === detail.type_id) ?? null,
+                project: detail.project ?? projects.find((p) => p.id_proyecto === detail.project_id) ?? null,
             }));
 
-            if (detail.project_id) {
-                const lots = (client?.sales || [])
-                    .filter((s) => s.project_id === Number(detail.project_id))
-                    .map((s) => s.mz_lote);
-                setAvailableLots(lots);
+            setSupportDetails(enrichedDetails);
+
+            const detail = enrichedDetails[0];
+            if (detail) {
+                setCurrentDetail((prev) => ({
+                    ...prev,
+                    id: detail.id ?? null,
+                    subject: detail.subject ?? '',
+                    description: detail.description ?? '',
+                    priority: detail.priority ?? 'Media',
+                    type: detail.type ?? 'Consulta',
+                    status: detail.status ?? 'Pendiente',
+                    reservation_time: detail.reservation_time ?? getNowPlusHours(0),
+                    attended_at: detail.attended_at ?? getNowPlusHours(1),
+                    derived: detail.derived ?? '',
+                    Manzana: detail.Manzana ?? '',
+                    comment: detail.comment ?? '',
+
+                    // IDs numéricos
+                    project_id: detail.project_id ? Number(detail.project_id) : null,
+                    area_id: detail.area_id ? Number(detail.area_id) : null,
+                    id_motivos_cita: detail.id_motivos_cita ? Number(detail.id_motivos_cita) : null,
+                    id_tipo_cita: detail.id_tipo_cita ? Number(detail.id_tipo_cita) : 1,
+                    id_dia_espera: detail.id_dia_espera ? Number(detail.id_dia_espera) : null,
+                    internal_state_id: detail.internal_state_id ? Number(detail.internal_state_id) : 3,
+                    external_state_id: detail.external_state_id ? Number(detail.external_state_id) : 1,
+                    type_id: detail.type_id ? Number(detail.type_id) : null,
+
+                    // Relaciones enriquecidas
+                    project: detail.project,
+                    area: detail.area,
+                    motivo_cita: detail.motivo_cita,
+                    tipo_cita: detail.tipo_cita,
+                    dia_espera: detail.dia_espera,
+                    internal_state: detail.internal_state,
+                    external_state: detail.external_state,
+                    support_type: detail.support_type,
+
+                    attachment: null,
+                    ticket_start: formatDateTimeLocal(detail.ticket_start),
+                    ticket_end: formatDateTimeLocal(detail.ticket_end),
+                    ticket: detail.ticket || '',
+                    channel: detail.channel || '',
+                }));
+
+                if (detail.project_id) {
+                    const lots = (client?.sales || [])
+                        .filter((s) => s.project_id === Number(detail.project_id))
+                        .map((s) => s.mz_lote);
+                    setAvailableLots(lots);
+                }
             }
         }
-    }
 
-    setHasLoadedSupport(true);
-}, [supportToEdit, hasLoadedSupport]);
+        setHasLoadedSupport(true);
+    }, [supportToEdit, hasLoadedSupport]);
 
 
 
@@ -525,104 +508,116 @@ useEffect(() => {
         }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selected = e.target.files?.[0] || null;
-        setFile(selected);
-        if (selected) {
-            setPreview(selected.type.startsWith('image') ? URL.createObjectURL(selected) : selected.name);
+    // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const selected = e.target.files?.[0] || null;
+    //     setFile(selected);
+    //     if (selected) {
+    //         setPreview(selected.type.startsWith('image') ? URL.createObjectURL(selected) : selected.name);
+    //     }
+    // };
+
+const handleSubmit = async () => {
+    try {
+        setUploading(true);
+        const data = new FormData();
+
+        // 1. Campos del soporte general
+        Object.entries(formData).forEach(([key, value]) => {
+            data.append(key, String(value ?? ''));
+        });
+
+        // 2. Archivo general
+        if (file) {
+            data.append('attachment', file);
         }
-    };
 
-    const handleSubmit = async () => {
-        try {
-            setUploading(true);
-            const data = new FormData();
-
-            // 1. Campos principales del soporte
-            Object.entries(formData).forEach(([key, value]) => {
-                data.append(key, String(value ?? ''));
-            });
-
-            // 2. Archivo principal
-            if (file) {
-                data.append('attachment', file);
+        // 3. Archivos por detalle
+        supportDetails.forEach((detail, index) => {
+            if (detail.attachment) {
+                data.append(`attachments[${index}]`, detail.attachment);
             }
+        });
 
-            // 3. Archivos por detalle
-            supportDetails.forEach((detail, index) => {
-                if (detail.attachment) {
-                    data.append(`attachments[${index}]`, detail.attachment);
-                }
-            });
+        // 4. Determinar origen de detalles
+        let updatedSupportDetails = [...supportDetails];
 
-           // Actualizar supportDetails con currentDetail (por ID)
-const updatedSupportDetails = supportDetails.map((detail) =>
-  detail.id === currentDetail.id ? { ...detail, ...currentDetail } : detail
-);
+        // Si estás editando (PUT), reemplaza currentDetail en la lista
+        if (supportToEdit && currentDetail.id) {
+            updatedSupportDetails = supportDetails.map((detail) =>
+                detail.id === currentDetail.id ? { ...detail, ...currentDetail } : detail
+            );
+        }
 
-// Si es nuevo (sin ID), lo agregamos
-if (!currentDetail.id) {
-  updatedSupportDetails.push(currentDetail);
-}
-
-// Ahora mapeamos con relaciones correctamente
-const cleanedDetails = updatedSupportDetails.map((detail) => ({
-  subject: detail.subject,
-  description: detail.description,
-  priority: detail.priority,
-  type: detail.type,
-  status: detail.status,
-  reservation_time: detail.reservation_time,
-  attended_at: detail.attended_at,
-  derived: detail.derived,
-  project_id: detail.project?.id_proyecto ?? detail.project_id ?? null,
-  area_id: detail.area?.id_area ?? detail.area_id ?? null,
-  id_motivos_cita: detail.motivo_cita?.id ?? detail.id_motivos_cita ?? null,
-  id_tipo_cita: detail.tipo_cita?.id ?? detail.id_tipo_cita ?? 1,
-  id_dia_espera: detail.dia_espera?.id ?? detail.id_dia_espera ?? null,
-  internal_state_id: detail.internal_state?.id ?? detail.internal_state_id ?? 3,
-  external_state_id: detail.external_state?.id ?? detail.external_state_id ?? 1,
-  type_id: detail.support_type?.id ?? detail.type_id ?? null,
-  Manzana: detail.Manzana ?? '',
-  comment: detail.comment ?? '',
-}));
-
-            console.log('🧪 Detalles preparados para enviar:', cleanedDetails);
-
-            data.append('details', JSON.stringify(cleanedDetails));
-
-            // 5. URL y método
-            const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
-            if (supportToEdit) data.append('_method', 'PUT');
-
-            // 6. Enviar petición
-            const response = await axios.post(url, data);
-
-            if (response.data?.support) {
-                toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
-                onSaved(response.data.support);
-                onClose();
-            } else if (response.data?.message) {
-                toast.warning(response.data.message, {
-                    duration: Infinity,
-                    action: {
-                        label: 'Cerrar',
-                        onClick: () => { },
-                    },
-                });
-
-
-            } else {
-                toast.error('Error desconocido del servidor');
+        // Si estás creando (POST), ya diste clic en Agregar y solo hay 1 detalle
+        if (!supportToEdit && !currentDetail.id) {
+            // Sanidad extra: asegúrate que tenga un detalle válido
+            if (supportDetails.length === 0) {
+                toast.warning('Debes agregar al menos un detalle de atención');
+                setUploading(false);
+                return;
             }
+        }
 
-        } catch (error) {
-            console.error('❌ Error al guardar:', error);
-            toast.error('Hubo un error al guardar');
-        } finally {
+        // 5. Mapeo limpio
+        const mappedDetails = updatedSupportDetails.map((detail) => ({
+            subject: detail.subject?.trim() || '',
+            description: detail.description?.trim() || '',
+            priority: detail.priority,
+            type: detail.type,
+            status: detail.status,
+            reservation_time: detail.reservation_time,
+            attended_at: detail.attended_at,
+            derived: detail.derived,
+            project_id: detail.project?.id_proyecto ?? detail.project_id ?? null,
+            area_id: detail.area?.id_area ?? detail.area_id ?? null,
+            id_motivos_cita: detail.motivo_cita?.id ?? detail.id_motivos_cita ?? null,
+            id_tipo_cita: detail.tipo_cita?.id ?? detail.id_tipo_cita ?? 1,
+            id_dia_espera: detail.dia_espera?.id ?? detail.id_dia_espera ?? null,
+            internal_state_id: detail.internal_state?.id ?? detail.internal_state_id ?? 3,
+            external_state_id: detail.external_state?.id ?? detail.external_state_id ?? 1,
+            type_id: detail.support_type?.id ?? detail.type_id ?? null,
+            Manzana: detail.Manzana?.trim() || '',
+            comment: detail.comment?.trim() || '',
+        }));
+
+        // 6. Validación obligatoria para nuevos
+        if (!supportToEdit && mappedDetails.length === 0) {
+            toast.warning('Debes agregar al menos un detalle de atención');
             setUploading(false);
+            return;
         }
-    };
+
+        // 7. Agrega detalles
+        data.append('details', JSON.stringify(mappedDetails));
+
+        // 8. Método y URL
+        const url = supportToEdit ? `/supports/${supportToEdit.id}` : '/supports';
+        if (supportToEdit) data.append('_method', 'PUT');
+
+        // 9. Enviar
+        const response = await axios.post(url, data);
+
+        if (response.data?.support) {
+            toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+            onSaved(response.data.support);
+            onClose();
+        } else if (response.data?.message) {
+            toast.warning(response.data.message, {
+                duration: Infinity,
+                action: { label: 'Cerrar', onClick: () => {} },
+            });
+        } else {
+            toast.error('Error desconocido del servidor');
+        }
+
+    } catch (error) {
+        console.error('❌ Error al guardar:', error);
+        toast.error('Hubo un error al guardar');
+    } finally {
+        setUploading(false);
+    }
+};
+
 
 
 
@@ -957,29 +952,29 @@ const cleanedDetails = updatedSupportDetails.map((detail) => ({
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-2">
 
-                      {canEditAdvancedFields && (
-  <div className="grid grid-cols-4 items-center gap-4">
-    <Label className="text-left">Área Responsable</Label>
-    <select
-      name="area_id"
-      value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
-      onChange={handleDetailChange}
-      className={inputClass}
-    >
-      <option value="">Seleccione un área</option>
-      {areas.map((a) => (
-        <option key={a.id_area} value={String(a.id_area)}>
-          {a.descripcion}
-        </option>
-      ))}
-    </select>
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Área Responsable</Label>
+                                <select
+                                    name="area_id"
+                                    value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">Seleccione un área</option>
+                                    {areas.map((a) => (
+                                        <option key={a.id_area} value={String(a.id_area)}>
+                                            {a.descripcion}
+                                        </option>
+                                    ))}
+                                </select>
 
-    {/* DEBUG opcional: muestra el valor actual de area_id */}
-    <p className="col-span-4 text-sm text-muted-foreground">
-      Área seleccionada actual: {currentDetail.area_id}
-    </p>
-  </div>
-)}
+                                {/* DEBUG opcional: muestra el valor actual de area_id */}
+                                <p className="col-span-4 text-sm text-muted-foreground">
+                                    Área seleccionada actual: {currentDetail.area_id}
+                                </p>
+                            </div>
+                        )}
 
 
 

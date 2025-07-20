@@ -183,9 +183,30 @@ class SupportController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('🧾 request->details:', ['details' => $request->input('details')]);
+        $details = json_decode($request->input('details'), true);
+        Log::info('🧾 Detalles parseados:', ['details' => $details]);
+
+
+        Log::info('📦 request->details (raw):', [
+            'details_raw' => $request->details,
+        ]);
+
+        try {
+            $detailsParsed = json_decode($request->details, true);
+            Log::info('✅ request->details (parseado):', [
+                'details' => $detailsParsed,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('❌ Error al parsear request->details', [
+                'error' => $e->getMessage(),
+                'raw' => $request->details,
+            ]);
+        }
+
 
         $details = json_decode($request->details, true);
-        $firstDetail = json_decode($request->details, true)[0] ?? null;
+        $firstDetail = $details[0] ?? null;
 
         if (
             $firstDetail &&
@@ -201,101 +222,67 @@ class SupportController extends Controller
             ]);
         }
 
-        // 1. Crear soporte base
         $support = Support::create([
             'client_id' => $request->client_id,
             'state' => $request->state,
-            'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
+            'status_global' => $request->status_global ?? 'Incompleto',
             'created_by' => Auth::id(),
         ]);
 
-
-        if (!is_array($details)) {
-            Log::error('❌ Error: details no es un array válido', ['details' => $request->details]);
+        if (!is_array($details) || !$firstDetail) {
+            Log::error('❌ Error: details inválido', ['details' => $request->details]);
             return response()->json(['message' => 'Detalles inválidos'], 422);
         }
 
-        // Obtener archivos múltiples (puede venir como null si no se cargó nada)
-        $attachments = $request->file('attachments'); // Puede ser array o null
-///////////////////////////////////////////////////////////////////////////////////////////////////
+        $attachments = $request->file('attachments'); // puede ser array o null
         $generateTicket = auth()->user()?->can('generar_ticket');
+        $ticket = $generateTicket ? (new SupportDetailController)->generateNextSupportTicket() : null;
 
-
-        $ticket = null;
-
-        if ($generateTicket) {
-            $ticket = (new SupportDetailController)->generateNextSupportTicket();
-        }
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////
         $roles = Auth::user()->getRoleNames();
+        $channelName = null;
 
-        if ($roles->contains('ATC_Oficina')) {
-            // Rol ATC_Oficina → ignorar canal
-            $channelName = null;
-            Log::info("ℹ️ Canal ignorado para rol ATC_Oficina");
-        } else {
-            // Otros roles → detectar canal
+        if (!$roles->contains('ATC_Oficina')) {
             $permissions = Auth::user()->getAllPermissions();
-
-            $channelPermission = $permissions->first(function ($perm) {
-                return str_starts_with($perm->name, 'Canal.');
-            });
-
+            $channelPermission = $permissions->first(fn($perm) => str_starts_with($perm->name, 'Canal.'));
             $channelName = $channelPermission ? str_replace('Canal.', '', $channelPermission->name) : null;
         }
 
+        $attachment = isset($attachments[0]) ? fileStore($attachments[0], 'uploads') : null;
 
+        $createdDetail = $support->details()->create([
+            'subject' => $firstDetail['subject'],
+            'description' => $firstDetail['description'] ?? null,
+            'priority' => $firstDetail['priority'] ?? 'Baja',
+            'type' => $firstDetail['type'] ?? 'Consulta',
+            'status' => $firstDetail['status'] ?? 'Pendiente',
+            'reservation_time' => isset($firstDetail['reservation_time']) ? Carbon::parse($firstDetail['reservation_time']) : now(),
+            'attended_at' => isset($firstDetail['attended_at']) ? Carbon::parse($firstDetail['attended_at']) : now()->addHour(),
+            'derived' => $firstDetail['derived'] ?? null,
+            'project_id' => $firstDetail['project_id'] ?? null,
+            'area_id' => $firstDetail['area_id'] ?? 1,
+            'id_motivos_cita' => $firstDetail['id_motivos_cita'] ?? null,
+            'id_tipo_cita' => $firstDetail['id_tipo_cita'] ?? null,
+            'id_dia_espera' => $firstDetail['id_dia_espera'] ?? null,
+            'internal_state_id' => $firstDetail['internal_state_id'] ?? 3,
+            'external_state_id' => $firstDetail['external_state_id'] ?? 1,
+            'type_id' => $firstDetail['type_id'] ?? null,
+            'Manzana' => $firstDetail['Manzana'] ?? null,
+            'comment' => $firstDetail['comment'] ?? null,
+            'attachment' => $attachment,
+            'ticket' => $ticket ?? "TK-",
+            'channel' => $channelName ?? ($firstDetail['channel'] ?? null),
+        ]);
 
-        foreach ($details as $index => $detail) {
-            Log::info("🧪 Verificando detalle #{$index}:", [
-                'subject' => $detail['subject'] ?? null,
-                'project_id' => $detail['project_id'] ?? null,
-                'Manzana' => $detail['Manzana'] ?? null,
+        if ($generateTicket) {
+            $createdDetail->update([
+                'ticket_start' => Carbon::now('America/Lima'),
             ]);
-            // Buscar el archivo correspondiente a este índice (si existe)
-            $attachment = isset($attachments[$index]) ? fileStore($attachments[$index], 'uploads') : null;
-
-            $createdDetail = $support->details()->create([
-                'subject' => $detail['subject'],
-                'description' => $detail['description'] ?? null,
-                'priority' => $detail['priority'] ?? 'Baja',
-                'type' => $detail['type'] ?? 'Consulta',
-                'status' => $detail['status'] ?? 'Pendiente',
-                'reservation_time' => isset($detail['reservation_time']) ? Carbon::parse($detail['reservation_time'])->format('Y-m-d H:i:s') : now(),
-                'attended_at' => isset($detail['attended_at']) ? Carbon::parse($detail['attended_at'])->format('Y-m-d H:i:s') : now()->addHour(),
-                'derived' => $detail['derived'] ?? null,
-                'project_id' => $detail['project_id'] ?? null,
-                'area_id' => $detail['area_id'] ?? 1,
-                'id_motivos_cita' => $detail['id_motivos_cita'] ?? null,
-                'id_tipo_cita' => $detail['id_tipo_cita'] ?? null,
-                'id_dia_espera' => $detail['id_dia_espera'] ?? null,
-                'internal_state_id' => $detail['internal_state_id'] ?? 3,
-                'external_state_id' => $detail['external_state_id'] ?? 1,
-                'type_id' => $detail['type_id'] ?? null,
-                'Manzana' => $detail['Manzana'] ?? null,
-                'comment' => $detail['comment'] ?? null,
-                'attachment' => $attachment,
-                'ticket' => $ticket ?? "TK-",
-              'channel' => $channelName ?? ($detail['channel'] ?? null),
-
-
-
-            ]);
-            // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
-            if (Auth::user()->can('generar_ticket')) {
-                $createdDetail->update([
-                    'ticket_start' => Carbon::now('America/Lima'),
-                ]);
-            }
         }
-
 
         $support->load([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
             'creator:id,firstname,lastname,names',
-
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -306,12 +293,8 @@ class SupportController extends Controller
             'details.supportType:id,description',
             'details.type:id,description',
             'details.lastComment.internalState:id,description',
-
         ]);
 
-
-
-        // 🔊 Emitir evento por WebSocket (con relaciones ya cargadas)
         broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
 
         $clientId = $request->input('client_id');
@@ -325,68 +308,52 @@ class SupportController extends Controller
         });
 
 
-
-        // // 📨 Notificar a usuarios ATC por correo usando cola
-        // dispatch(function () use ($support) {
-        //     try {
-        //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
-
-        //         $atcUsers = User::role('ATC')->get();
-        //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
-
-        //         $supportLoaded = $support->load([
-        //             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
-        //             'creator:id,firstname,lastname,names,email',
-        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
-        //             'details.area:id_area,descripcion',
-        //             'details.project:id_proyecto,descripcion',
-        //             'details.motivoCita:id_motivos_cita,nombre_motivo',
-        //             'details.tipoCita:id_tipo_cita,tipo',
-        //             'details.diaEspera:id_dias_espera,dias',
-        //             'details.internalState:id,description',
-        //             'details.externalState:id,description',
-        //             'details.supportType:id,description',
-        //         ]);
-
-        //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
-
-        //         Notification::send(
-        //             $atcUsers,
-        //             new NewSupportAtcNotification($supportLoaded, 'created')
-        //         );
-
-        //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
-        //     } catch (\Throwable $e) {
-        //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
-        //             'message' => $e->getMessage(),
-        //             'trace' => $e->getTraceAsString(),
-        //         ]);
-        //     }
-        // });
-
-        // ✅ Retornar respuesta con soporte y relaciones cargadas
         return response()->json([
-            'message' => '✅ Ticket de soporte creado con sus detalles',
-            'support' => $support->load([
-                'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
-                'creator:id,firstname,lastname,names,email',
-                'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-                'details.area:id_area,descripcion',
-                'details.project:id_proyecto,descripcion',
-                'details.motivoCita:id_motivos_cita,nombre_motivo',
-                'details.tipoCita:id_tipo_cita,tipo',
-                'details.diaEspera:id_dias_espera,dias',
-                'details.internalState:id,description',
-                'details.externalState:id,description',
-                'details.supportType:id,description',
-                'details.type:id,description',
-                'details.lastComment.internalState:id,description',
-            ]), // ya tiene loaded relations
+            'message' => '✅ Ticket de soporte creado correctamente',
+            'support' => $support,
         ]);
     }
 
 
 
+
+    // // 📨 Notificar a usuarios ATC por correo usando cola
+    // dispatch(function () use ($support) {
+    //     try {
+    //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
+
+    //         $atcUsers = User::role('ATC')->get();
+    //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
+
+    //         $supportLoaded = $support->load([
+    //             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
+    //             'creator:id,firstname,lastname,names,email',
+    //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
+    //             'details.area:id_area,descripcion',
+    //             'details.project:id_proyecto,descripcion',
+    //             'details.motivoCita:id_motivos_cita,nombre_motivo',
+    //             'details.tipoCita:id_tipo_cita,tipo',
+    //             'details.diaEspera:id_dias_espera,dias',
+    //             'details.internalState:id,description',
+    //             'details.externalState:id,description',
+    //             'details.supportType:id,description',
+    //         ]);
+
+    //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
+
+    //         Notification::send(
+    //             $atcUsers,
+    //             new NewSupportAtcNotification($supportLoaded, 'created')
+    //         );
+
+    //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
+    //     } catch (\Throwable $e) {
+    //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
+    //             'message' => $e->getMessage(),
+    //             'trace' => $e->getTraceAsString(),
+    //         ]);
+    //     }
+    // });
 
 
     public function update(Request $request, $id)
