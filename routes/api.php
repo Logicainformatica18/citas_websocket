@@ -120,6 +120,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ----------------------------
     Route::get('/supports', [SupportController::class, 'index']);
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
+    Route::middleware('auth:sanctum')->get('/supports/search', [SupportController::class, 'fetch']);
+
     Route::get('/supports/{id}', [SupportController::class, 'show']);
     Route::post('/supports', [SupportController::class, 'store']);
     Route::put('/supports/{id}', [SupportController::class, 'update']);
