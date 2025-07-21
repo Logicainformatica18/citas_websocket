@@ -519,10 +519,10 @@ const SupportModal = ({
     const handleSubmit = async () => {
         try {
             setUploading(true);
-            if (canEditChannelSelect && !formData.channel) {
-                toast.warning('El campo "Canal" es obligatorio');
-                return;
-            }
+            // if (canEditChannelSelect && !formData.channel) {
+            //     toast.warning('El campo "Canal" es obligatorio');
+            //     return;
+            // }
 
 
             const data = new FormData();
@@ -604,7 +604,7 @@ const SupportModal = ({
             const response = await axios.post(url, data);
 
             if (response.data?.support) {
-                toast.success(supportToEdit ? 'Soporte actualizado ✅' : 'Soporte creado ✅');
+                toast.success(supportToEdit ? 'Solicitud actualizada ✅' : 'Solicitud creada ✅');
                 onSaved(response.data.support);
                 onClose();
             } else if (response.data?.message) {
@@ -633,7 +633,7 @@ const SupportModal = ({
         <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
             <DialogContent className="sm:max-w-6xl h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nuevo Registro'}</DialogTitle>
+                    <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nueva Solicitud'}</DialogTitle>
                 </DialogHeader>
                 {canEditChannelSelect && (
                     <div className="mb-4">
@@ -818,7 +818,7 @@ const SupportModal = ({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Detalle de Solicitud
+                       SOLICITUD A GESTIONAR
                     </div>
 
 
@@ -926,65 +926,9 @@ const SupportModal = ({
                     </div>
 
 
-                    <div className="mt-4">
+                 
 
-                        <SupportCommentSection supportDetailId={currentDetail.id} />
-
-                    </div>
-
-
-                    {/* Comentario *    SOLO PARA solicitudes.acciones_avanzadas  */}
-                    {/* <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-left col-span-1">Comentario{currentDetail.id}w </Label>
-                        <div className="col-span-3">
-                            <LimitedTextarea
-                                name="comment"
-                                value={currentDetail.comment}
-                                onChange={handleDetailChange}
-                                maxLength={350}
-                                textareaClassName="w-full border rounded px-3 py-2 text-sm"
-                            />
-                        </div>
-                    </div>  */}
-                </div>
-
-
-                <div className="rounded-md bg-[#FAF3E0] p-4 space-y-4 mt-0">
-                    <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v2m0 12v2m8.485-10.485l-1.414 1.414M4.929 19.071l-1.414-1.414M20 12h2M2 12H4m15.071 7.071l-1.414-1.414M4.929 4.929l1.414 1.414" />
-                        </svg>
-                        Detalle de Atención
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-2">
-
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Área Responsable</Label>
-                                <select
-                                    name="area_id"
-                                    value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un área</option>
-                                    {areas.map((a) => (
-                                        <option key={a.id_area} value={String(a.id_area)}>
-                                            {a.descripcion}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {/* DEBUG opcional: muestra el valor actual de area_id */}
-                                <p className="col-span-4 text-sm text-muted-foreground">
-                                    Área seleccionada actual: {currentDetail.area_id}
-                                </p>
-                            </div>
-                        )}
-
-
-
-                        <div className="grid grid-cols-4 items-center gap-4">
+                       <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left">Archivo</Label>
                             <input
                                 type="file"
@@ -1004,6 +948,78 @@ const SupportModal = ({
                                 <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
                             )}
                         </div>
+                          {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Área Responsable</Label>
+                                <select
+                                    name="area_id"
+                                    value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">Seleccione un área</option>
+                                    {areas.map((a) => (
+                                        <option key={a.id_area} value={String(a.id_area)}>
+                                            {a.descripcion}
+                                        </option>
+                                    ))}
+                                </select>
+
+                               
+                            </div>
+                        )}
+                         {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Estado Interno</Label>
+                                <select
+                                    name="internal_state_id"
+                                    value={currentDetail.internal_state_id}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">Seleccione un Estado Interno</option>
+                                    {internalStates.map(i => (
+                                        <option key={i.id} value={i.id}>
+                                            {i.description}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {canEditAdvancedFields && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-left">Estado de Atención</Label>
+                                <select
+                                    name="external_state_id"
+                                    value={currentDetail.external_state_id}
+                                    onChange={handleDetailChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">Seleccione un Atención  </option>
+                                    {externalStates.map(e => (
+                                        <option key={e.id} value={e.id}>
+                                            {e.description}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                </div>
+
+
+                <div className="rounded-md bg-[#FAF3E0] p-4 space-y-0 mt-0">
+                    <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
+                      
+                    
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+
+                      
+
+
+
+                     
 
                         {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -1054,43 +1070,7 @@ const SupportModal = ({
                         )} */}
 
 
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado Interno</Label>
-                                <select
-                                    name="internal_state_id"
-                                    value={currentDetail.internal_state_id}
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un Estado Interno</option>
-                                    {internalStates.map(i => (
-                                        <option key={i.id} value={i.id}>
-                                            {i.description}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado de Atención</Label>
-                                <select
-                                    name="external_state_id"
-                                    value={currentDetail.external_state_id}
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un Atención  </option>
-                                    {externalStates.map(e => (
-                                        <option key={e.id} value={e.id}>
-                                            {e.description}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                       
 
                         {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -1104,19 +1084,7 @@ const SupportModal = ({
 
                         )} */}
 
-                        <div className="grid grid-cols-8 items-start gap-4">
-                            <Label className="text-left col-span-4">Estatus de Solicitud</Label>
-
-                            <div className="col-span-4">
-                                <LimitedInput
-                                    name="derived"
-                                    value={currentDetail.derived}
-                                    onChange={handleDetailChange}
-                                    maxLength={150}
-                                    inputClassName="w-full text-sm h-7 px-2 py-1 rounded-md"
-                                />
-                            </div>
-                        </div>
+                        
 
 
                         <>
@@ -1158,6 +1126,11 @@ const SupportModal = ({
 
 
                 </div>
+                    <div className="mt-4">
+
+                        <SupportCommentSection supportDetailId={currentDetail.id} />
+
+                    </div>
                 <button
                     type="button"
                     onClick={handleAddDetail}
