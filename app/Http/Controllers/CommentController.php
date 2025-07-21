@@ -50,7 +50,12 @@ class CommentController extends Controller
             'comment' => $request->comment,
             'internal_state_id' => $request->internal_state_id, // ✅ nuevo campo
         ]);
-
+$file = $request->file('file_1');
+if ($file) {
+    $filename = fileStore($file, 'uploads', 'file'); // guarda en public/comments
+    $comment->file_1 = $filename;
+    $comment->save();
+}
         $comment->load('user.roles', 'internalState'); // ✅ carga relación
         $support = Support::whereHas('details', function ($q) use ($comment) {
             $q->where('id', $comment->support_detail_id);
