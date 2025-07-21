@@ -107,7 +107,7 @@ Route::get('/supports/search', [SupportController::class, 'fetch'])->name('suppo
 
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
 
-    
+
     Route::get('/supports', [SupportController::class, 'index'])->name('supports.index');
     Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export');
 
@@ -301,4 +301,12 @@ Route::get('/debug-broadcast', function () {
     ]));
 
     return response()->json(['success' => true, 'message' => 'Evento emitido']);
+
+
+});
+Route::get('/aybar_app', function () {
+    $file = public_path('aybar_app.apk');
+    return response()->download($file, 'aybar_app.apk', [
+        'Content-Type' => 'application/vnd.android.package-archive',
+    ]);
 });
