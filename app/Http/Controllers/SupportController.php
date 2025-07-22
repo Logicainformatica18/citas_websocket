@@ -59,7 +59,10 @@ class SupportController extends Controller
         $externalStates = ExternalState::select('id', 'description')->get();
         $types = Type::select('id', 'description')->get();
         $projects = Project::select('id_proyecto', 'descripcion')->get();
-        $areas = Area::select('id_area', 'descripcion')->get();
+       $areas = Area::select('id_area', 'descripcion')
+    ->whereIn('id_area', [1, 2, 7, 10])
+    ->get();
+
         $users = User::select('id', 'names', 'email')->get();
 
         // 📱 Si es API (ej. desde React Native), devuelve JSON
@@ -96,65 +99,65 @@ class SupportController extends Controller
 
 
     // SupportController.php
-public function fetch(Request $request)
-{
-    $query = $request->input('q');
-    $detailId = null;
-    $ticketCode = null;
+    public function fetch(Request $request)
+    {
+        $query = $request->input('q');
+        $detailId = null;
+        $ticketCode = null;
 
-    Log::info('🔍 Valor recibido de q:', ['q' => $query]);
+        Log::info('🔍 Valor recibido de q:', ['q' => $query]);
 
-    // TR-00048 → ID (support_detail.id)
-    if (preg_match('/^tr[-]?0*(\d+)$/i', $query, $matches)) {
-        $detailId = (int) $matches[1];
+        // TR-00048 → ID (support_detail.id)
+        if (preg_match('/^tr[-]?0*(\d+)$/i', $query, $matches)) {
+            $detailId = (int) $matches[1];
+        }
+
+        // TK-00048 → ticket exacto (support_detail.ticket)
+        if (preg_match('/^tk[-]?0*(\d+)$/i', $query, $matches)) {
+            $ticketCode = 'TK-' . str_pad((int) $matches[1], 5, '0', STR_PAD_LEFT);
+        }
+
+        $supportsQuery = Support::with([
+            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+            'creator:id,firstname,lastname,names',
+            'details.project:id_proyecto,descripcion',
+            'details.area:id_area,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+            'details.type:id,description',
+            'details.lastComment.internalState:id,description',
+        ]);
+
+        // 🥇 Prioridad 1: buscar por ticket (TK-xxxx)
+        if ($ticketCode) {
+            $supportsQuery->whereHas('details', function ($sub) use ($ticketCode) {
+                $sub->where('ticket', $ticketCode);
+            });
+        }
+        // 🥈 Prioridad 2: buscar por ID (TR-xxxx)
+        elseif ($detailId) {
+            $supportsQuery->whereHas('details', function ($sub) use ($detailId) {
+                $sub->where('id', $detailId);
+            });
+        }
+        // 🥉 Prioridad 3: búsqueda libre por cliente
+        elseif ($query) {
+            $supportsQuery->whereHas('client', function ($sub) use ($query) {
+                $sub->where('dni', 'like', "%{$query}%")
+                    ->orWhere('Razon_Social', 'like', "%{$query}%");
+            });
+        }
+
+        $supports = $supportsQuery->latest()->paginate(7);
+
+        return response()->json([
+            'supports' => $supports,
+        ]);
     }
-
-    // TK-00048 → ticket exacto (support_detail.ticket)
-    if (preg_match('/^tk[-]?0*(\d+)$/i', $query, $matches)) {
-        $ticketCode = 'TK-' . str_pad((int) $matches[1], 5, '0', STR_PAD_LEFT);
-    }
-
-    $supportsQuery = Support::with([
-        'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-        'creator:id,firstname,lastname,names',
-        'details.project:id_proyecto,descripcion',
-        'details.area:id_area,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-        'details.type:id,description',
-        'details.lastComment.internalState:id,description',
-    ]);
-
-    // 🥇 Prioridad 1: buscar por ticket (TK-xxxx)
-    if ($ticketCode) {
-        $supportsQuery->whereHas('details', function ($sub) use ($ticketCode) {
-            $sub->where('ticket', $ticketCode);
-        });
-    }
-    // 🥈 Prioridad 2: buscar por ID (TR-xxxx)
-    elseif ($detailId) {
-        $supportsQuery->whereHas('details', function ($sub) use ($detailId) {
-            $sub->where('id', $detailId);
-        });
-    }
-    // 🥉 Prioridad 3: búsqueda libre por cliente
-    elseif ($query) {
-        $supportsQuery->whereHas('client', function ($sub) use ($query) {
-            $sub->where('dni', 'like', "%{$query}%")
-                ->orWhere('Razon_Social', 'like', "%{$query}%");
-        });
-    }
-
-    $supports = $supportsQuery->latest()->paginate(7);
-
-    return response()->json([
-        'supports' => $supports,
-    ]);
-}
 
 
 
@@ -328,7 +331,86 @@ public function fetch(Request $request)
                 $client->updateFromSupport($data);
             }
         });
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        dispatch(function () use ($support) {
+            try {
+                Log::info('[ATC Notification] Iniciando notificación directa por correo según área_id.');
+
+                $supportLoaded = $support->load([
+                    'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+                    'creator:id,firstname,lastname,names',
+                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+                    'details.area:id_area,descripcion',
+                    'details.project:id_proyecto,descripcion',
+                    'details.motivoCita:id_motivos_cita,nombre_motivo',
+                    'details.tipoCita:id_tipo_cita,tipo',
+                    'details.diaEspera:id_dias_espera,dias',
+                    'details.internalState:id,description',
+                    'details.externalState:id,description',
+                    'details.supportType:id,description',
+                    'details.type:id,description',
+                    'details.lastComment.internalState:id,description',
+                ]);
+
+                Log::info('[ATC Notification] Soporte cargado:', ['id' => $supportLoaded->id]);
+
+                $detail = $supportLoaded->details->first();
+                if (!$detail) {
+                    Log::warning('[ATC Notification] No se encontró ningún detalle para el soporte.');
+                    return;
+                }
+
+                $areaId = $detail->area_id;
+                $toEmail = match ($areaId) {
+                    1 => 'GESTIONATC@aybar.com',                         // ATC
+                    2 => 'GESTIONATCLEGAL@aybar.com',                    // Legal
+                    7 => 'GESTIONATCVIVIENDAPARATODOS@aybar.com',        // Vivienda para Todos
+                    10 => 'GESTIONATCBO@aybar.com',                       // BackOffice
+                    default => null,
+                };
+
+                // Notificación combinada si el área es ATC o Legal
+                if (in_array($areaId, [1, 2])) {
+                    $toEmail = 'GESTIONATCLEGAL@aybar.com';
+                }
+
+                if (!$toEmail) {
+                    Log::info("[ATC Notification] No se notificará: área_id $areaId no está mapeado.");
+                    return;
+                }
+
+                Log::info("[ATC Notification] Correo a notificar: $toEmail");
+
+
+
+                // Enviar notificación
+                Notification::route('mail', $toEmail)
+                    ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
+
+                Log::info('[ATC Notification] Notificación enviada correctamente.');
+                // Notificar al cliente si tiene email válido
+                $clientEmail = $supportLoaded->client->email ?? null;
+
+                if ($clientEmail && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                    Log::info("[ATC Notification] Notificando también al cliente: $clientEmail");
+
+                    Notification::route('mail', $clientEmail)
+                        ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
+                }
+
+
+            } catch (\Throwable $e) {
+                Log::error('[ATC Notification] Error al enviar notificación:', [
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        });
+
+
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         return response()->json([
             'message' => '✅ Ticket de soporte creado correctamente',
@@ -339,43 +421,6 @@ public function fetch(Request $request)
 
 
 
-    // // 📨 Notificar a usuarios ATC por correo usando cola
-    // dispatch(function () use ($support) {
-    //     try {
-    //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
-
-    //         $atcUsers = User::role('ATC')->get();
-    //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
-
-    //         $supportLoaded = $support->load([
-    //             'client:id_cliente,Razon_Social,dni,Telefono,Email,Direccion',
-    //             'creator:id,firstname,lastname,names,email',
-    //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id',
-    //             'details.area:id_area,descripcion',
-    //             'details.project:id_proyecto,descripcion',
-    //             'details.motivoCita:id_motivos_cita,nombre_motivo',
-    //             'details.tipoCita:id_tipo_cita,tipo',
-    //             'details.diaEspera:id_dias_espera,dias',
-    //             'details.internalState:id,description',
-    //             'details.externalState:id,description',
-    //             'details.supportType:id,description',
-    //         ]);
-
-    //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
-
-    //         Notification::send(
-    //             $atcUsers,
-    //             new NewSupportAtcNotification($supportLoaded, 'created')
-    //         );
-
-    //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
-    //     } catch (\Throwable $e) {
-    //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
-    //             'message' => $e->getMessage(),
-    //             'trace' => $e->getTraceAsString(),
-    //         ]);
-    //     }
-    // });
 
 
     public function update(Request $request, $id)
@@ -479,50 +524,62 @@ public function fetch(Request $request)
         // 6. Emitir evento
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
-        // dispatch(function () use ($support) {
-        //     try {
-        //         Log::info('[ATC Notification] Iniciando proceso de notificación por cola.');
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        dispatch(function () use ($support) {
+            try {
+                Log::info('[ATC Notification] Iniciando notificación por actualización.');
 
-        //         $atcUsers = User::role('ATC')->get();
-        //         Log::info('[ATC Notification] Usuarios con rol ATC:', $atcUsers->pluck('email')->toArray());
+                $supportLoaded = $support->load([
+                    'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+                    'creator:id,firstname,lastname,names',
+                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+                    'details.area:id_area,descripcion',
+                    'details.project:id_proyecto,descripcion',
+                    'details.motivoCita:id_motivos_cita,nombre_motivo',
+                    'details.tipoCita:id_tipo_cita,tipo',
+                    'details.diaEspera:id_dias_espera,dias',
+                    'details.internalState:id,description',
+                    'details.externalState:id,description',
+                    'details.supportType:id,description',
+                    'details.type:id,description',
+                    'details.lastComment.internalState:id,description',
+                ]);
 
-        //         $supportLoaded = $support->load([
-        //             'client:id_cliente,Razon_Social,telefono,email,Direccion,dni',
-        //             'creator:id,firstname,lastname,names,email',
-        //             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-        //             'details.area:id_area,descripcion',
-        //             'details.project:id_proyecto,descripcion',
-        //             'details.motivoCita:id_motivos_cita,nombre_motivo',
-        //             'details.tipoCita:id_tipo_cita,tipo',
-        //             'details.diaEspera:id_dias_espera,dias',
-        //             'details.internalState:id,description',
-        //             'details.externalState:id,description',
-        //             'details.supportType:id,description',
-        //             'details.type:id,description',
-        //             'details.lastComment.internalState:id,description',
-        //         ]);
+                $detail = $supportLoaded->details->first();
+                if (!$detail) {
+                    Log::warning('[ATC Notification] No se encontró ningún detalle para el soporte.');
+                    return;
+                }
 
-        //         Log::info('[ATC Notification] Soporte cargado para notificación:', ['id' => $supportLoaded->id]);
+                $areaId = $detail->area_id;
 
-        //         Notification::send(
-        //             array_merge(
-        //                 $atcUsers->all(), // usuarios notificables
-        //                 [
-        //                     Notification::route('mail', $supportLoaded->client->Email)
-        //                 ]
-        //             ),
-        //             new NewSupportAtcNotification($supportLoaded, 'updated')
-        //         );
+                $toEmail = match (true) {
+                    in_array($areaId, [1, 2]) => 'GESTIONATCLEGAL@aybar.com',
+                    $areaId === 7 => 'GESTIONATCVIVIENDAPARATODOS@aybar.com',
+                    $areaId === 10 => 'GESTIONATCBO@aybar.com',
+                    default => null,
+                };
 
+                if (!$toEmail) {
+                    Log::info("[ATC Notification] No se notificará: área_id $areaId no está mapeado.");
+                    return;
+                }
 
-        //         Log::info('[ATC Notification] Notificaciones enviadas correctamente.');
-        //     } catch (\Throwable $e) {
-        //         Log::error('[ATC Notification] Error al enviar notificaciones:', [
-        //             'message' => $e->getMessage(),
-        //             'trace' => $e->getTraceAsString(),
-        //         ]);
-        //     }
-        // });
+                Log::info("[ATC Notification] Correo a notificar (update): $toEmail");
+
+                Notification::route('mail', $toEmail)
+                    ->notify(new NewSupportAtcNotification($supportLoaded, 'updated'));
+
+                Log::info('[ATC Notification] Notificación de actualización enviada correctamente.');
+            } catch (\Throwable $e) {
+                Log::error('[ATC Notification] Error al enviar notificación (update):', [
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        });
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         return response()->json([
             'message' => '✅ Ticket de soporte actualizado correctamente',

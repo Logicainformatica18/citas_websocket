@@ -33,7 +33,7 @@ interface SupportDetail {
     tipo_cita?: { tipo: string };
     dia_espera?: { dias: string };
     internal_state?: { description: string };
-    external_state?: { description: string };
+    external_state?: {  description: string };
     supportType?: { description: string };
     ticket?: string; // Asegúrate de que este campo exista
     last_comment?: {
@@ -298,10 +298,12 @@ const handleViewDetails = (support: any) => {
 
 {canGenerateTicket && (
   <td className="px-2 py-1 text-left">
-    <GenerateTicketSwitch
-      supportId={support.details[0]?.id}
-      ticket={support.details[0]?.ticket}
-    />
+   <GenerateTicketSwitch
+ supportId={support.details[0]?.id}
+  ticket={support.details[0]?.ticket}
+   externalStateDescription={support.details[0]?.external_state?.description} // 👈 Pasa el ID del estado externo
+/>
+
   </td>
 )}
 

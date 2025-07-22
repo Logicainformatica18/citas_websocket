@@ -1,9 +1,17 @@
-
 import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
+import axios from 'axios'; // ✅ Import axios
+
+// ✅ Configura el CSRF token global para Axios
+const token = document.head.querySelector('meta[name="csrf-token"]');
+if (token) {
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = token.getAttribute('content')!;
+} else {
+    console.warn('⚠️ CSRF token no encontrado en el <head>');
+}
 
 const appName = import.meta.env.VITE_APP_NAME || 'Aybar Corp';
 
@@ -12,7 +20,7 @@ createInertiaApp({
     resolve: (name) =>
         resolvePageComponent(
             `./pages/${name}.tsx`,
-            import.meta.glob('./pages/**/*.tsx') // ✅ permite subcarpetas como pages/articles/index.tsx
+            import.meta.glob('./pages/**/*.tsx')
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);
@@ -23,6 +31,5 @@ createInertiaApp({
     },
 });
 
-// Inicializa tema oscuro/claro según preferencia del usuario
+// Inicializa tema oscuro/claro
 initializeTheme();
-

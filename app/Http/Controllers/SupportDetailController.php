@@ -193,16 +193,20 @@ class SupportDetailController extends Controller
 
         return 'TK-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
     }
-  public function generateTicket()
+ 
+public function generateTicket(Request $request)
 {
-    $supportDetail = SupportDetail::findOrFail(request()->input('support_id'));
+    $validated = $request->validate([
+        'support_id' => 'required|exists:support_details,id',
+    ]);
+
+    $supportDetail = SupportDetail::findOrFail($validated['support_id']);
     $ticket = $this->generateNextSupportTicket();
 
     $supportDetail->update([
         'ticket' => $ticket,
     ]);
 
-    // Cargar el soporte una sola vez con relaciones
     $support = $supportDetail->support()->with([
         'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
         'creator:id,firstname,lastname,names,email',
@@ -223,7 +227,6 @@ class SupportDetailController extends Controller
         ], 404);
     }
 
-    // Emitir evento websocket
     broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
     return response()->json([
@@ -231,7 +234,6 @@ class SupportDetailController extends Controller
         'support' => $support,
     ]);
 }
-
 
     //     public function updateAreaMotivo(Request $request, $supportDetailId)
 // {

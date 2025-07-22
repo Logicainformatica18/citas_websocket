@@ -99,16 +99,33 @@
 </head>
 <body>
 
+@php
+    $isClient = str_starts_with($action, 'client.');
+    $isUpdate = str_ends_with($action, 'updated');
+@endphp
+
 <div class="title">
-    {{ $action === 'updated' ? 'Solicitud Actualizada' : 'Nueva Solicitud Registrada' }}
+    @if ($isClient)
+        {{ $isUpdate ? 'Actualización de su solicitud' : 'Registro de solicitud exitoso' }}
+    @else
+        {{ $isUpdate ? 'Solicitud Actualizada' : 'Nueva Solicitud Registrada' }}
+    @endif
 </div>
 
-<p>
-    Estimado equipo {{ $support->details[0]->area->descripcion ?? 'ATC' }},<br>
-    Se ha {{ $action === 'updated' ? 'actualizado' : 'registrado' }} una atención en el sistema con la siguiente información:
-</p>
+@if ($isClient)
+    <p>
+        Estimado/a {{ $support->client->Razon_Social ?? 'cliente' }},<br>
+        Su solicitud ha sido {{ $isUpdate ? 'actualizada' : 'registrada exitosamente' }}. Nuestro equipo de atención al cliente dará seguimiento lo antes posible.
+    </p>
+@else
+    <p>
+        Estimado equipo {{ $support->details[0]->area->descripcion ?? 'ATC' }},<br>
+        Se ha {{ $isUpdate ? 'actualizado' : 'registrado' }} una atención en el sistema con la siguiente información. Se recomienda dar seguimiento desde el panel de soporte.
+    </p>
 
-<a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte</a>
+    {{-- Botón principal al inicio para internos --}}
+    <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte</a>
+@endif
 
 <h3 class="section-title">Información General</h3>
 <div class="info-grid">
@@ -147,12 +164,9 @@
 
             <table>
                 <tr><th>Estado de Solicitud:</th><td>{{ $detail->internalState->description ?? '-' }}</td></tr>
-                <tr><th>Estado Global:</th><td>{{ $support->status_global ?? '-' }}</td></tr>
                 <tr><th>Estado ATC:</th><td>{{ $detail->externalState->description ?? '-' }}</td></tr>
-                <tr><th>Reservado:</th><td>{{ $detail->reservation_time ?? '-' }}</td></tr>
-                <tr><th>Atendido:</th><td>{{ $detail->attended_at ?? '-' }}</td></tr>
                 <tr><th>Manzana:</th><td>{{ $detail->Manzana ?? '-' }}</td></tr>
-                <tr><th>comment:</th><td>{{ $detail->comment ?? '-' }}</td></tr>
+             
             </table>
         </div>
     </div>
@@ -160,9 +174,11 @@
     <p>No hay detalles registrados.</p>
 @endforelse
 
-<div class="center-button">
-    <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte completo</a>
-</div>
+@if (! $isClient)
+    <div class="center-button">
+        <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte completo</a>
+    </div>
+@endif
 
 </body>
 </html>

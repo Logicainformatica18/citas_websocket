@@ -262,7 +262,7 @@ Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
 
 
 
-Route::post('/support-details/generate-ticket', [SupportDetailController::class, 'generateTicket']);
+Route::post('generate_ticket', [SupportDetailController::class, 'generateTicket']);
 Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
 Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
