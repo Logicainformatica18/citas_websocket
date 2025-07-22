@@ -372,7 +372,7 @@ class SupportController extends Controller
 
                 // Notificación combinada si el área es ATC o Legal
                 if (in_array($areaId, [1, 2])) {
-                    $toEmail = 'GESTIONATCLEGAL@aybar.com';
+                    $toEmail = 'GESTIONATCLEGAL@aybarsac.com';
                 }
 
                 if (!$toEmail) {
