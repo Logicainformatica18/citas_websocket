@@ -58,7 +58,7 @@ public function toMail(object $notifiable): MailMessage
 
     return (new MailMessage)
         ->subject($subject)
-        ->view('emails.support_notification', [
+        ->view('emails.support_created', [
             'support' => $this->support,
             'action' => $this->action,
             'ticketFormatted' => $ticketFormatted,
