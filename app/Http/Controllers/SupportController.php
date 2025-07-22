@@ -363,10 +363,10 @@ class SupportController extends Controller
 
                 $areaId = $detail->area_id;
                 $toEmail = match ($areaId) {
-                    1 => 'GESTIONATC@aybar.com',                         // ATC
-                    2 => 'GESTIONATCLEGAL@aybar.com',                    // Legal
-                    7 => 'GESTIONATCVIVIENDAPARATODOS@aybar.com',        // Vivienda para Todos
-                    10 => 'GESTIONATCBO@aybar.com',                       // BackOffice
+                    1 => 'GESTIONATC@aybarsac.com',                         // ATC
+                    2 => 'GESTIONATCLEGAL@aybarsac.com',                    // Legal
+                    7 => 'GESTIONATCVIVIENDAPARATODOS@aybarsac.com',        // Vivienda para Todos
+                    10 => 'GESTIONATCBO@aybarsac.com',                       // BackOffice
                     default => null,
                 };
 
