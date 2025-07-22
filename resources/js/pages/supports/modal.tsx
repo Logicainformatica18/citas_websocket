@@ -111,6 +111,11 @@ const SupportModal = ({
     const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas') || permissions.includes('reserva');
     const canEditChannelSelect = permissions.includes('Canal.whatsapp_presencial');
 
+const canCreate = permissions.includes('solicitudes.crear');
+const canUpdate = permissions.includes('solicitudes.actualizar');
+const canSubmit = supportToEdit ? canUpdate : canCreate;
+
+
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [details, setDetails] = useState<any[]>([]);
@@ -926,7 +931,7 @@ const SupportModal = ({
                     </div>
 
 
-                 
+
 
                        <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left">Archivo</Label>
@@ -965,7 +970,7 @@ const SupportModal = ({
                                     ))}
                                 </select>
 
-                               
+
                             </div>
                         )}
                          {canEditAdvancedFields && (
@@ -1010,16 +1015,16 @@ const SupportModal = ({
 
                 <div className="rounded-md bg-[#FAF3E0] p-4 space-y-0 mt-0">
                     <div className="text-lg font-semibold flex items-center gap-2 text-[#7A5C2E]">
-                      
-                    
+
+
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-2">
 
-                      
 
 
 
-                     
+
+
 
                         {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -1070,7 +1075,7 @@ const SupportModal = ({
                         )} */}
 
 
-                       
+
 
                         {/* {canEditAdvancedFields && (
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -1084,7 +1089,7 @@ const SupportModal = ({
 
                         )} */}
 
-                        
+
 
 
                         <>
@@ -1189,10 +1194,15 @@ const SupportModal = ({
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} disabled={uploading}>Cerrar</Button>
-                    <Button onClick={handleSubmit} disabled={uploading}>
-                        {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar
-                    </Button>
+                   <Button
+  onClick={handleSubmit}
+  disabled={uploading || !canSubmit}
+  title={!canSubmit ? 'No tiene permiso para guardar esta solicitud' : ''}
+>
+  {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+  Guardar
+</Button>
+
                 </DialogFooter>
             </DialogContent>
         </Dialog>
