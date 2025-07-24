@@ -139,13 +139,7 @@
         <tr><th>Dirección:</th><td>{{ $support->client->direccion ?? '-' }}</td></tr>
     </table>
 
-    <table>
-        <tr>
-            <th>Nombre:</th>
-            <td>{{ $support->creator->names ?? '' }} {{ $support->creator->firstname ?? '' }} {{ $support->creator->lastname ?? '' }}</td>
-        </tr>
-        <tr><th>Email:</th><td>{{ $support->creator->email ?? '-' }}</td></tr>
-    </table>
+   
 </div>
 
 <h3 class="section-title">Detalle de Solicitud</h3>
@@ -176,6 +170,12 @@
     <p>No hay detalles registrados.</p>
 @endforelse
 
+@if (!$isClient)
+    {{-- ✅ Solo visible para equipo interno --}}
+    <p style="margin-top: 30px; font-weight: bold; font-size: 14px; color: #004D5A;">
+        Registrado por: {{ $support->creator->firstname ?? '' }} {{ $support->creator->lastname ?? '' }} ({{ $support->creator->email ?? '' }})
+    </p>
+@endif
 
 
 </body>
