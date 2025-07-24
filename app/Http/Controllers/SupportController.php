@@ -59,9 +59,9 @@ class SupportController extends Controller
         $externalStates = ExternalState::select('id', 'description')->get();
         $types = Type::select('id', 'description')->get();
         $projects = Project::select('id_proyecto', 'descripcion')->get();
-       $areas = Area::select('id_area', 'descripcion')
-    ->whereIn('id_area', [1, 2, 7, 10])
-    ->get();
+        $areas = Area::select('id_area', 'descripcion')
+            ->whereIn('id_area', [1, 2, 7, 10])
+            ->get();
 
         $users = User::select('id', 'names', 'email')->get();
 
@@ -479,6 +479,11 @@ class SupportController extends Controller
                     'type_id' => $detailData['type_id'] ?? null,
                     // OJO: no tocar el ticket
                 ]);
+                if (($detailData['internal_state_id'] ?? null) == 5) {
+                    $existingDetail->ticket_end = \Carbon\Carbon::now('America/Lima');
+
+                    $existingDetail->save();
+                }
 
                 // Procesar archivo
                 if ($request->hasFile("attachments.0")) {
