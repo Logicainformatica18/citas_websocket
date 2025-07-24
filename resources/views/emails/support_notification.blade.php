@@ -135,8 +135,8 @@
         <tr><th>Cliente:</th><td>{{ $support->client->Razon_Social ?? '-' }}</td></tr>
         <tr><th>Celular:</th><td>{{ $support->client->Telefono ?? '-' }}</td></tr>
         <tr><th>DNI:</th><td>{{ $support->client->dni ?? '-' }}</td></tr>
-        <tr><th>Correo:</th><td>{{ $support->client->email ?? '-' }}</td></tr>
-        <tr><th>Dirección:</th><td>{{ $support->client->direccion ?? '-' }}</td></tr>
+        <tr><th>Correo:</th><td>{{ $support->client->Email ?? '-' }}</td></tr>
+        <tr><th>Dirección:</th><td>{{ $support->client->Direccion ?? '-' }}</td></tr>
     </table>
 
    
