@@ -370,8 +370,8 @@ class SupportController extends Controller
                     default => null,
                 };
 
-                // Notificación combinada si el área es ATC o Legal
-                if (in_array($areaId, [1, 2])) {
+                // Notificación combinada si el área es Legal
+                if (in_array($areaId, [2])) {
                     $toEmail = 'GESTIONATCLEGAL@aybarsac.com';
                 }
 

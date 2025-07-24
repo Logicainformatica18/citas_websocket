@@ -111,9 +111,9 @@ const SupportModal = ({
     const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas') || permissions.includes('reserva');
     const canEditChannelSelect = permissions.includes('Canal.whatsapp_presencial');
 
-const canCreate = permissions.includes('solicitudes.crear');
-const canUpdate = permissions.includes('solicitudes.actualizar');
-const canSubmit = supportToEdit ? canUpdate : canCreate;
+    const canCreate = permissions.includes('solicitudes.crear');
+    const canUpdate = permissions.includes('solicitudes.actualizar');
+    const canSubmit = supportToEdit ? canUpdate : canCreate;
 
 
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
@@ -155,7 +155,7 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
         attended_at: getNowPlusHours(1),
         derived: '',
         project_id: null,
-        area_id: null, // ✅ valor numérico
+        area_id: 1, // ✅ valor numérico
         id_motivos_cita: null,
         id_tipo_cita: 1,
         id_dia_espera: null,
@@ -288,104 +288,112 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
 
 
 
-    const handleAddDetail = () => {
+ const handleAddDetail = () => {
+    // Validación básica
+    if (!currentDetail.subject?.trim()) {
+        toast.error("El asunto es obligatorios");
+        return;
+    }
 
-        // Validación básica
-        if (!currentDetail.subject?.trim()) {
-            toast.error("El asunto es obligatorio");
-            return;
-        }
+    // Campos numéricos a forzar
+    const numericFields = [
+        'project_id',
+        'area_id',
+        'id_motivos_cita',
+        'id_tipo_cita',
+        'id_dia_espera',
+        'internal_state_id',
+        'external_state_id',
+        'type_id',
+    ];
 
-        // Campos numéricos a forzar
-        const numericFields = [
-            'project_id',
-            'area_id',
-            'id_motivos_cita',
-            'id_tipo_cita',
-            'id_dia_espera',
-            'internal_state_id',
-            'external_state_id',
-            'type_id',
-        ];
+    // Convertir campos numéricos a number o null
+    const numericValues = Object.fromEntries(
+        numericFields.map((key) => [
+            key,
+            currentDetail[key] === '' || currentDetail[key] === null
+                ? null
+                : Number(currentDetail[key])
+        ])
+    );
 
-        // Convertir campos numéricos a number o null
-        const numericValues = Object.fromEntries(
-            numericFields.map((key) => [
-                key,
-                currentDetail[key] === '' || currentDetail[key] === null
-                    ? null
-                    : Number(currentDetail[key])
-            ])
-        );
+    // 🚫 Validación: si área ≠ 1 y estado es 1 ("Por Asignar")
+    const areaId = numericValues.area_id ;
+    
+    const externalStateId = numericValues.external_state_id;
 
-        const sanitizedDetail = {
-            ...currentDetail,
-            ...numericValues,
+    console.log('🔍 Validación detalle:', { areaId, externalStateId });
 
-            // Relaciones enriquecidas
-            project: projects.find(p => p.id_proyecto === numericValues.project_id) || null,
-            //  area: areas.find(a => a.id_area === numericValues.area_id) || { id_area: 1, descripcion: 'solicitudes.acciones_avanzadas' },
-            motivo_cita: motives.find(m => m.id === numericValues.id_motivos_cita) || null,
-            tipo_cita: appointmentTypes.find(t => t.id === numericValues.id_tipo_cita) || null,
-            dia_espera: waitingDays.find(d => d.id === numericValues.id_dia_espera) || null,
-            internal_state: internalStates.find(i => i.id === numericValues.internal_state_id) || { id: 3, description: 'Pendiente' },
-            external_state: externalStates.find(e => e.id === numericValues.external_state_id) || { id: 1, description: 'Por Asignar' },
-            support_type: types.find(t => t.id === numericValues.type_id) || null,
-            priority: currentDetail.priority?.trim() || 'Media',
-        };
+    if (areaId !== 1 && externalStateId === 1) {
+        const estado = externalStates.find(e => e.id === 1)?.description ?? 'Por Asignar';
+       toast.warning(`El estado de atención no puede ser "${estado}" si el área responsable no es ATC.`);
 
 
-        // Agregar detalle
+        return;
+    }
 
-        setSupportDetails((prev) => {
-            const updated = [...prev, sanitizedDetail];
+    const sanitizedDetail = {
+        ...currentDetail,
+        ...numericValues,
 
-            return updated;
-        });
-
-
-        // Reiniciar formulario con tipos coherentes
-        setCurrentDetail({
-            id: null,
-            subject: '',
-            description: '',
-            priority: 'Baja',
-            type: 'Consulta',
-            status: 'Pendiente',
-            reservation_time: getNowPlusHours(0),
-            attended_at: getNowPlusHours(1),
-            derived: '',
-            Manzana: '',
-            comment: '',
-            attachment: null,
-
-            project_id: null,
-            area_id: null,
-            id_motivos_cita: null,
-            id_tipo_cita: 1,
-            id_dia_espera: null,
-            internal_state_id: 3,
-            external_state_id: 1,
-            type_id: null,
-
-            ticket: '',
-            attended_start: '',
-            attended_end: '',
-            ticket_start: '',
-            ticket_end: '',
-            channel: '',
-
-            // Relaciones limpias
-            project: null,
-            area: null,
-            motivo_cita: null,
-            tipo_cita: null,
-            dia_espera: null,
-            internal_state: null,
-            external_state: null,
-            support_type: null,
-        });
+        // Relaciones enriquecidas
+        project: projects.find(p => p.id_proyecto === numericValues.project_id) || null,
+        motivo_cita: motives.find(m => m.id === numericValues.id_motivos_cita) || null,
+        tipo_cita: appointmentTypes.find(t => t.id === numericValues.id_tipo_cita) || null,
+        dia_espera: waitingDays.find(d => d.id === numericValues.id_dia_espera) || null,
+        internal_state: internalStates.find(i => i.id === numericValues.internal_state_id) || { id: 3, description: 'Pendiente' },
+        external_state: externalStates.find(e => e.id === numericValues.external_state_id) || { id: 1, description: 'Por Asignar' },
+        support_type: types.find(t => t.id === numericValues.type_id) || null,
+        priority: currentDetail.priority?.trim() || 'Media',
     };
+
+    setSupportDetails((prev) => {
+        return [...prev, sanitizedDetail];
+    });
+
+    // Reiniciar formulario con tipos coherentes
+    setCurrentDetail({
+        id: null,
+        subject: '',
+        description: '',
+        priority: 'Baja',
+        type: 'Consulta',
+        status: 'Pendiente',
+        reservation_time: getNowPlusHours(0),
+        attended_at: getNowPlusHours(1),
+        derived: '',
+        Manzana: '',
+        comment: '',
+        attachment: null,
+
+        project_id: null,
+        area_id: null,
+        id_motivos_cita: null,
+        id_tipo_cita: 1,
+        id_dia_espera: null,
+        internal_state_id: 3,
+        external_state_id: 1,
+        type_id: null,
+
+        ticket: '',
+        attended_start: '',
+        attended_end: '',
+        ticket_start: '',
+        ticket_end: '',
+        channel: '',
+
+        // Relaciones limpias
+        project: null,
+        area: null,
+        motivo_cita: null,
+        tipo_cita: null,
+        dia_espera: null,
+        internal_state: null,
+        external_state: null,
+        support_type: null,
+    });
+};
+
 
     const [hasLoadedSupport, setHasLoadedSupport] = useState(false);
 
@@ -823,7 +831,7 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-4 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0012.586 4H8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                       SOLICITUD A GESTIONAR
+                        SOLICITUD A GESTIONAR
                     </div>
 
 
@@ -933,83 +941,83 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
 
 
 
-                       <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Archivo</Label>
-                            <input
-                                type="file"
-                                name="attachment"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0] || null;
-                                    setCurrentDetail((prev: any) => ({
-                                        ...prev,
-                                        attachment: file,
-                                        attachment_name: file?.name || null,
-                                    }));
-                                }}
-                                className="col-span-3 text-sm"
-                            />
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-left">Archivo</Label>
+                        <input
+                            type="file"
+                            name="attachment"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0] || null;
+                                setCurrentDetail((prev: any) => ({
+                                    ...prev,
+                                    attachment: file,
+                                    attachment_name: file?.name || null,
+                                }));
+                            }}
+                            className="col-span-3 text-sm"
+                        />
 
-                            {preview && preview.startsWith('blob:') && (
-                                <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
-                            )}
+                        {preview && preview.startsWith('blob:') && (
+                            <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
+                        )}
+                    </div>
+                    {canEditAdvancedFields && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Área Responsable</Label>
+                            <select
+                                name="area_id"
+                                value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
+                                onChange={handleDetailChange}
+                                className={inputClass}
+                            >
+                                <option value="">Seleccione un área</option>
+                                {areas.map((a) => (
+                                    <option key={a.id_area} value={String(a.id_area)}>
+                                        {a.descripcion}
+                                    </option>
+                                ))}
+                            </select>
+
+
                         </div>
-                          {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Área Responsable</Label>
-                                <select
-                                    name="area_id"
-                                    value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un área</option>
-                                    {areas.map((a) => (
-                                        <option key={a.id_area} value={String(a.id_area)}>
-                                            {a.descripcion}
-                                        </option>
-                                    ))}
-                                </select>
+                    )}
+                    {canEditAdvancedFields && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Estado Interno</Label>
+                            <select
+                                name="internal_state_id"
+                                value={currentDetail.internal_state_id}
+                                onChange={handleDetailChange}
+                                className={inputClass}
+                            >
+                                <option value="">Seleccione un Estado Interno</option>
+                                {internalStates.map(i => (
+                                    <option key={i.id} value={i.id}>
+                                        {i.description}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
-
-                            </div>
-                        )}
-                         {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado Interno</Label>
-                                <select
-                                    name="internal_state_id"
-                                    value={currentDetail.internal_state_id}
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un Estado Interno</option>
-                                    {internalStates.map(i => (
-                                        <option key={i.id} value={i.id}>
-                                            {i.description}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {canEditAdvancedFields && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-left">Estado de Atención</Label>
-                                <select
-                                    name="external_state_id"
-                                    value={currentDetail.external_state_id}
-                                    onChange={handleDetailChange}
-                                    className={inputClass}
-                                >
-                                    <option value="">Seleccione un Atención  </option>
-                                    {externalStates.map(e => (
-                                        <option key={e.id} value={e.id}>
-                                            {e.description}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                    {canEditAdvancedFields && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-left">Estado de Atención</Label>
+                            <select
+                                name="external_state_id"
+                                value={currentDetail.external_state_id}
+                                onChange={handleDetailChange}
+                                className={inputClass}
+                            >
+                                <option value="">Seleccione un Atención  </option>
+                                {externalStates.map(e => (
+                                    <option key={e.id} value={e.id}>
+                                        {e.description}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
 
@@ -1131,11 +1139,11 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
 
 
                 </div>
-                    <div className="mt-4">
+                <div className="mt-4">
 
-                        <SupportCommentSection supportDetailId={currentDetail.id} />
+                    <SupportCommentSection supportDetailId={currentDetail.id} />
 
-                    </div>
+                </div>
                 <button
                     type="button"
                     onClick={handleAddDetail}
@@ -1194,14 +1202,14 @@ const canSubmit = supportToEdit ? canUpdate : canCreate;
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} disabled={uploading}>Cerrar</Button>
-                   <Button
-  onClick={handleSubmit}
-  disabled={uploading || !canSubmit}
-  title={!canSubmit ? 'No tiene permiso para guardar esta solicitud' : ''}
->
-  {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-  Guardar
-</Button>
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={uploading || !canSubmit}
+                        title={!canSubmit ? 'No tiene permiso para guardar esta solicitud' : ''}
+                    >
+                        {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Guardar
+                    </Button>
 
                 </DialogFooter>
             </DialogContent>

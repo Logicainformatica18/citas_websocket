@@ -26,7 +26,6 @@ interface InternalState {
 
 const MAX_CHARACTERS = 400;
 
-// 🔷 Badge local exclusivo para estados internos
 const getInternalStateBadgeClass = (description: string) => {
     switch (description) {
         case 'Atendido':
@@ -44,6 +43,7 @@ const getInternalStateBadgeClass = (description: string) => {
 
 export default function SupportCommentSection({ supportDetailId }: { supportDetailId: number }) {
     const [commentText, setCommentText] = useState('');
+    const [file, setFile] = useState<File | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
     const [internalStates, setInternalStates] = useState<InternalState[]>([]);
     const [selectedInternalStateId, setSelectedInternalStateId] = useState<number | ''>('');
@@ -79,16 +79,23 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
 
         try {
             setLoading(true);
-            await axios.post(`/support-details/${supportDetailId}/comments`, {
-                support_detail_id: supportDetailId,
-                comment: commentText,
-                internal_state_id:
-                    selectedInternalStateId === '' || Number.isNaN(selectedInternalStateId)
-                        ? null
-                        : selectedInternalStateId,
+            const data = new FormData();
+            data.append('support_detail_id', String(supportDetailId));
+            data.append('comment', commentText);
+            if (selectedInternalStateId !== '') {
+                data.append('internal_state_id', String(selectedInternalStateId));
+            }
+            if (file) {
+                data.append('file_1', file); // ✅ Aquí va como lo espera tu backend
+            }
+
+            await axios.post(`/support-details/${supportDetailId}/comments`, data, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
+
             setCommentText('');
             setSelectedInternalStateId('');
+            setFile(null);
             await fetchComments();
             toast.success('✅ Seguimiento agregado');
         } catch (error: any) {
@@ -116,17 +123,9 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
 
             {expanded && (
                 <div className="mt-4 space-y-4">
-                    <div>
-                        <Textarea
-                            placeholder="Escribe un comentario..."
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            maxLength={MAX_CHARACTERS}
-                            className="min-h-[80px] w-full text-black"
-                        />
-
+                    <div className="space-y-2">
                         <select
-                            className="w-full mt-2 rounded-md border border-gray-300 p-2 text-sm text-black bg-white focus:ring-2 focus:ring-blue-500"
+                            className="w-full rounded-md border border-gray-300 p-2 text-sm text-black bg-white focus:ring-2 focus:ring-blue-500"
                             value={selectedInternalStateId}
                             onChange={(e) => {
                                 const value = e.target.value;
@@ -141,7 +140,21 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                             ))}
                         </select>
 
-                        <div className="flex justify-between mt-1 text-xs text-gray-600">
+                        <input
+                            type="file"
+                            onChange={(e) => setFile(e.target.files?.[0] || null)}
+                            className="w-full text-sm text-black bg-white border border-gray-300 rounded-md p-2"
+                        />
+
+                        <Textarea
+                            placeholder="Escribe un comentario..."
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            maxLength={MAX_CHARACTERS}
+                            className="min-h-[80px] w-full text-black"
+                        />
+
+                        <div className="flex justify-between text-xs text-gray-600">
                             <span>
                                 {commentText.length}/{MAX_CHARACTERS} caracteres
                             </span>
@@ -150,18 +163,15 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                             )}
                         </div>
 
-                        <div className="flex justify-end mt-2">
-                            <Button
-                                onClick={handleSubmit}
-                                disabled={
-                                    loading ||
-                                    !commentText.trim() ||
-                                    commentText.length > MAX_CHARACTERS
-                                }
-                            >
-                                {loading ? 'Enviando...' : 'Enviar'}
-                            </Button>
-                        </div>
+                        <Button
+                            className="w-full mt-2"
+                            onClick={handleSubmit}
+                            disabled={
+                                loading || !commentText.trim() || commentText.length > MAX_CHARACTERS
+                            }
+                        >
+                            {loading ? 'Enviando...' : 'Enviar comentario'}
+                        </Button>
                     </div>
 
                     <div className="space-y-3 border-t pt-4">
@@ -175,18 +185,29 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                                 >
                                     <p className="text-sm text-black dark:text-gray-100">{c.comment}</p>
 
-                                   {c.internal_state?.description && (
-  <span className="inline-block mt-2 rounded-full p-[2px] bg-gradient-to-r from-red-500 to-red-700">
-    <span
-      className={`block px-2 py-0.5 text-xs font-semibold rounded-full ${getInternalStateBadgeClass(
-        c.internal_state.description
-      )} bg-white dark:bg-zinc-800`}
+{(c as any).file_1 && (
+    <a
+        href={`/uploads/${(c as any).file_1}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 block text-blue-600 underline text-sm"
     >
-      {c.internal_state.description}
-    </span>
-  </span>
+        📎 Ver archivo adjunto
+    </a>
 )}
 
+
+                                    {c.internal_state?.description && (
+                                        <span className="inline-block mt-2 rounded-full p-[2px] bg-gradient-to-r from-red-500 to-red-700">
+                                            <span
+                                                className={`block px-2 py-0.5 text-xs font-semibold rounded-full ${getInternalStateBadgeClass(
+                                                    c.internal_state.description
+                                                )} bg-white dark:bg-zinc-800`}
+                                            >
+                                                {c.internal_state.description}
+                                            </span>
+                                        </span>
+                                    )}
 
                                     <p className="text-xs text-gray-500 mt-1 font-medium">
                                         {c.user?.roles?.[0]?.name ?? 'Sin rol'} — {c.user?.names}
