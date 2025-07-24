@@ -24,37 +24,17 @@ class ClientController extends Controller
         );
     }
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'id_slin' => 'required|string',
-            'Codigo' => 'required|string',
-            'Razon_Social' => 'required|string',
-            'T.Doc.' => 'required|string',
-            'DNI' => 'required|string',
-            'NIT' => 'required|string',
-            'Direccion' => 'required|string',
-            'Ubigeo' => 'required|string',
-            'Departamento' => 'required|string',
-            'Provincia' => 'required|string',
-            'Distrito' => 'required|string',
-            'Telefono' => 'required|string',
-            'Email' => 'required|email',
-            'clave' => 'required|string',
-            'c_clave' => 'required|boolean',
-            'ref_telefono1' => 'required|integer',
-            'ref_telefono2' => 'required|integer',
-            'comentario' => 'nullable|string',
-            'canal' => 'nullable|string',
-            'habilitado' => 'required|boolean',
-        ]);
+ public function store(Request $request)
+{
+    $data = $request->all(); // ✅ Obtener todos los datos sin validarlos
 
-        $validated['id_rol'] = 2;
+    $data['id_rol'] = 2; // Establece el rol predeterminado
 
-        Client::create($validated);
+    Client::create($data); // Crea el cliente
 
-        return redirect()->back()->with('success', 'Cliente creado con éxito');
-    }
+    return redirect()->back()->with('success', 'Cliente creado con éxito');
+}
+
 
     public function show($id)
     {
