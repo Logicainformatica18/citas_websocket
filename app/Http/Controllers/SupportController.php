@@ -104,8 +104,7 @@ class SupportController extends Controller
         $query = $request->input('q');
         $detailId = null;
         $ticketCode = null;
-
-        Log::info('🔍 Valor recibido de q:', ['q' => $query]);
+ 
 
         // TR-00048 → ID (support_detail.id)
         if (preg_match('/^tr[-]?0*(\d+)$/i', $query, $matches)) {
@@ -202,20 +201,13 @@ class SupportController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('🧾 request->details:', ['details' => $request->input('details')]);
+        
         $details = json_decode($request->input('details'), true);
-        Log::info('🧾 Detalles parseados:', ['details' => $details]);
-
-
-        Log::info('📦 request->details (raw):', [
-            'details_raw' => $request->details,
-        ]);
+       
 
         try {
             $detailsParsed = json_decode($request->details, true);
-            Log::info('✅ request->details (parseado):', [
-                'details' => $detailsParsed,
-            ]);
+            
         } catch (\Throwable $e) {
             Log::error('❌ Error al parsear request->details', [
                 'error' => $e->getMessage(),
@@ -249,7 +241,7 @@ class SupportController extends Controller
         ]);
 
         if (!is_array($details) || !$firstDetail) {
-            Log::error('❌ Error: details inválido', ['details' => $request->details]);
+        
             return response()->json(['message' => 'Detalles inválidos'], 422);
         }
 
@@ -335,8 +327,7 @@ class SupportController extends Controller
 
         dispatch(function () use ($support) {
             try {
-                Log::info('[ATC Notification] Iniciando notificación directa por correo según área_id.');
-
+                
                 $supportLoaded = $support->load([
                     'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
                     'creator:id,firstname,lastname,names',
@@ -353,11 +344,11 @@ class SupportController extends Controller
                     'details.lastComment.internalState:id,description',
                 ]);
 
-                Log::info('[ATC Notification] Soporte cargado:', ['id' => $supportLoaded->id]);
+               
 
                 $detail = $supportLoaded->details->first();
                 if (!$detail) {
-                    Log::warning('[ATC Notification] No se encontró ningún detalle para el soporte.');
+                  
                     return;
                 }
 
@@ -376,11 +367,11 @@ class SupportController extends Controller
                 }
 
                 if (!$toEmail) {
-                    Log::info("[ATC Notification] No se notificará: área_id $areaId no está mapeado.");
+                    
                     return;
                 }
 
-                Log::info("[ATC Notification] Correo a notificar: $toEmail");
+               
 
 
 
@@ -388,13 +379,12 @@ class SupportController extends Controller
                 Notification::route('mail', $toEmail)
                     ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
 
-                Log::info('[ATC Notification] Notificación enviada correctamente.');
+                 
                 // Notificar al cliente si tiene email válido
                 $clientEmail = $supportLoaded->client->email ?? null;
 
                 if ($clientEmail && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
-                    Log::info("[ATC Notification] Notificando también al cliente: $clientEmail");
-
+                   
                     Notification::route('mail', $clientEmail)
                         ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
                 }
@@ -452,7 +442,7 @@ class SupportController extends Controller
         }
 
         $detailData = $details[0] ?? null;
-        Log::info('🔍 Detalle recibido para actualizar:', $detailData);
+         
 
         if ($detailData) {
             $existingDetail = $support->details()->first(); // Solo tomamos el primero
@@ -519,12 +509,7 @@ class SupportController extends Controller
         ]);
 
 
-        // 5. Registrar en log
-        Log::info('📝 Soporte actualizado', [
-            'support_id' => $support->id,
-            'user_id' => Auth::id(),
-            'updated_fields' => $request->except(['_method', '_token']),
-        ]);
+       
 
         // 6. Emitir evento
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
@@ -532,7 +517,7 @@ class SupportController extends Controller
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         dispatch(function () use ($support) {
             try {
-                Log::info('[ATC Notification] Iniciando notificación por actualización.');
+                
 
                 $supportLoaded = $support->load([
                     'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
@@ -552,7 +537,7 @@ class SupportController extends Controller
 
                 $detail = $supportLoaded->details->first();
                 if (!$detail) {
-                    Log::warning('[ATC Notification] No se encontró ningún detalle para el soporte.');
+                   
                     return;
                 }
 
@@ -566,16 +551,16 @@ class SupportController extends Controller
                 };
 
                 if (!$toEmail) {
-                    Log::info("[ATC Notification] No se notificará: área_id $areaId no está mapeado.");
+                     
                     return;
                 }
 
-                Log::info("[ATC Notification] Correo a notificar (update): $toEmail");
+                 
 
                 Notification::route('mail', $toEmail)
                     ->notify(new NewSupportAtcNotification($supportLoaded, 'updated'));
 
-                Log::info('[ATC Notification] Notificación de actualización enviada correctamente.');
+                
             } catch (\Throwable $e) {
                 Log::error('[ATC Notification] Error al enviar notificación (update):', [
                     'message' => $e->getMessage(),
