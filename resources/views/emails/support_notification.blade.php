@@ -118,13 +118,15 @@
         Su solicitud ha sido {{ $isUpdate ? 'actualizada' : 'registrada exitosamente' }}. Nuestro equipo de atención al cliente dará seguimiento lo antes posible.
     </p>
 @else
-    <p>
-        Estimado equipo {{ $support->details[0]->area->descripcion ?? 'ATC' }},<br>
-        Se ha {{ $isUpdate ? 'actualizado' : 'registrado' }} una atención en el sistema con la siguiente información. Se recomienda dar seguimiento desde el panel de soporte.
-    </p>
+  <p>
+    Estimado equipo de {{ $support->details[0]->area->descripcion ?? 'ATC' }},<br>
+    Se ha {{ $isUpdate ? 'actualizado' : 'registrado' }} una atención en el sistema de atención al cliente.<br>
+   <b> Se recomienda dar seguimiento desde la plataforma de atención al cliente y mantener actualizado el estado de la atención del ticket.</b>
+</p>
+
 
     {{-- Botón principal al inicio para internos --}}
-    <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte</a>
+    <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver Ticket</a>
 @endif
 
 <h3 class="section-title">Información General</h3>
@@ -146,11 +148,11 @@
     </table>
 </div>
 
-<h3 class="section-title">Detalles de Solicitud</h3>
+<h3 class="section-title">Detalle de Solicitud</h3>
 
 @forelse($support->details as $detail)
     <div class="detail-block">
-        <div class="sub-title">📝 Solicitud #0{{ $loop->iteration }}</div>
+      
         <div class="detail-columns">
             <table>
                 <tr><th>Asunto:</th><td>{{ $detail->subject ?? '-' }}</td></tr>
@@ -159,7 +161,7 @@
                 <tr><th>Tipo:</th><td>{{ $detail->type ?? '-' }}</td></tr>
                 <tr><th>Área:</th><td>{{ $detail->area->descripcion ?? '-' }}</td></tr>
                 <tr><th>Proyecto:</th><td>{{ $detail->project->descripcion ?? '-' }}</td></tr>
-                <tr><th>Motivo:</th><td>{{ $detail->motivoCita->nombre_motivo ?? '-' }}</td></tr>
+                
             </table>
 
             <table>
@@ -174,11 +176,7 @@
     <p>No hay detalles registrados.</p>
 @endforelse
 
-@if (! $isClient)
-    <div class="center-button">
-        <a href="{{ url('/reports/' . $support->id) }}" class="button" target="_blank">🔍 Ver reporte completo</a>
-    </div>
-@endif
+
 
 </body>
 </html>
