@@ -95,6 +95,32 @@ interface Props {
 type PageProps = {
     permissions: string[];
 };
+function getPagination(current: number, last: number): (number | string)[] {
+    const delta = 2;
+    const range: (number | string)[] = [];
+    const rangeWithDots: (number | string)[] = [];
+    let l: number;
+
+    for (let i = 1; i <= last; i++) {
+        if (i === 1 || i === last || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+
+    for (let i of range) {
+        if (l) {
+            if (Number(i) - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (Number(i) - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = Number(i);
+    }
+
+    return rangeWithDots;
+}
 
 export default function SupportTable({
     supports,
@@ -720,24 +746,31 @@ export default function SupportTable({
                         </table>
                     </div>
 
-                    <div className="flex justify-center mt-6 space-x-2">
-                        {[...Array(pagination.last_page)].map((_, index) => {
-                            const page = index + 1;
-                            return (
-                                <button
-                                    key={page}
-                                    onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
-                                    className={`px-3 py-1 rounded text-sm font-medium transition ${pagination.current_page === page
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                        }`}
-                                    disabled={pagination.current_page === page}
-                                >
-                                    {page}
-                                </button>
-                            );
-                        })}
-                    </div>
+                 <div className="flex justify-center mt-6 space-x-2">
+    {getPagination(pagination.current_page, pagination.last_page).map((page, idx) => {
+        if (page === '...') {
+            return (
+                <span key={`dots-${idx}`} className="px-3 py-1 text-gray-500 select-none">…</span>
+            );
+        }
+
+        return (
+            <button
+                key={page}
+                onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
+                className={`px-3 py-1 rounded text-sm font-medium transition ${
+                    pagination.current_page === page
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
+                disabled={pagination.current_page === page}
+            >
+                {page}
+            </button>
+        );
+    })}
+</div>
+
                 </>
             </div>
 
