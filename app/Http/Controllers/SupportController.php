@@ -544,9 +544,9 @@ class SupportController extends Controller
                 $areaId = $detail->area_id;
 
                 $toEmail = match (true) {
-                    in_array($areaId, [2]) => 'GESTIONATCLEGAL@aybar.com',
-                    $areaId === 7 => 'GESTIONATCVIVIENDAPARATODOS@aybar.com',
-                    $areaId === 10 => 'GESTIONATCBO@aybar.com',
+                    in_array($areaId, [2]) => 'GESTIONATCLEGAL@aybarsac.com',
+                    $areaId === 7 => 'GESTIONATCVIVIENDAPARATODOS@aybarsac.com',
+                    $areaId === 10 => 'GESTIONATCBO@aybarsac.com',
                     default => null,
                 };
 
