@@ -126,7 +126,7 @@
 
 
     {{-- Botón principal al inicio para internos --}}
-    <a href="{{ url('/reports/' . $support->details[0]) }}" class="button" target="_blank">🔍 Ver Ticket</a>
+    <a href="{{ url('/reports/' . $support->details[0]->id) }}" class="button" target="_blank">🔍 Ver Ticket</a>
 @endif
 
 <h3 class="section-title">Información General</h3>
