@@ -329,19 +329,19 @@ class SupportController extends Controller
             try {
                 
                 $supportLoaded = $support->load([
-                    'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-                    'creator:id,firstname,lastname,names',
-                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-                    'details.area:id_area,descripcion',
-                    'details.project:id_proyecto,descripcion',
-                    'details.motivoCita:id_motivos_cita,nombre_motivo',
-                    'details.tipoCita:id_tipo_cita,tipo',
-                    'details.diaEspera:id_dias_espera,dias',
-                    'details.internalState:id,description',
-                    'details.externalState:id,description',
-                    'details.supportType:id,description',
-                    'details.type:id,description',
-                    'details.lastComment.internalState:id,description',
+                      'client:id_cliente,Razon_Social,Telefono,Email,Direccion,Dni',
+            'creator:id,firstname,lastname,names,email',
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+            'details.area:id_area,descripcion',
+            'details.project:id_proyecto,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+            'details.type:id,description',
+            'details.lastComment.internalState:id,description',
                 ]);
 
                
@@ -544,7 +544,7 @@ class SupportController extends Controller
                 $areaId = $detail->area_id;
 
                 $toEmail = match (true) {
-                    in_array($areaId, [1, 2]) => 'GESTIONATCLEGAL@aybar.com',
+                    in_array($areaId, [2]) => 'GESTIONATCLEGAL@aybar.com',
                     $areaId === 7 => 'GESTIONATCVIVIENDAPARATODOS@aybar.com',
                     $areaId === 10 => 'GESTIONATCBO@aybar.com',
                     default => null,
