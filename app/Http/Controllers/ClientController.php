@@ -41,37 +41,16 @@ class ClientController extends Controller
         return response()->json(Client::findOrFail($id));
     }
 
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'id_slin' => 'required|string',
-            'Codigo' => 'required|string',
-            'Razon_Social' => 'required|string',
-            'T.Doc.' => 'required|string',
-            'DNI' => 'required|string',
-            'NIT' => 'required|string',
-            'Direccion' => 'required|string',
-            'Ubigeo' => 'required|string',
-            'Departamento' => 'required|string',
-            'Provincia' => 'required|string',
-            'Distrito' => 'required|string',
-            'Telefono' => 'required|string',
-            'Email' => 'required|email',
-            'clave' => 'required|string',
-            'c_clave' => 'required|boolean',
-            'ref_telefono1' => 'required|integer',
-            'ref_telefono2' => 'required|integer',
-            'comentario' => 'nullable|string',
-            'canal' => 'nullable|string',
-            'habilitado' => 'required|boolean',
-        ]);
+   public function update(Request $request, $id)
+{
+    $data = $request->all();
+    $data['id_rol'] = 2;
 
-        $validated['id_rol'] = 2;
+    Client::findOrFail($id)->update($data);
 
-        Client::findOrFail($id)->update($validated);
+    return redirect()->back()->with('success', 'Cliente actualizado con éxito');
+}
 
-        return redirect()->back()->with('success', 'Cliente actualizado con éxito');
-    }
 
     public function destroy($id)
     {
