@@ -1,4 +1,4 @@
-import { Paintbrush, Trash2,Pencil } from 'lucide-react';
+import { Paintbrush, Trash2, Pencil } from 'lucide-react';
 import HourglassLoader from '@/components/HourglassLoader';
 import { useState } from 'react';
 import axios from 'axios';
@@ -13,6 +13,7 @@ import GenerateTicketSwitch from './GenerateTicketSwitch';
 import SupportDetailModal from './SupportDetailModal'; // ajusta la ruta
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useEffect } from 'react';
 
 interface SupportDetail {
     id: number;
@@ -33,7 +34,7 @@ interface SupportDetail {
     tipo_cita?: { tipo: string };
     dia_espera?: { dias: string };
     internal_state?: { description: string };
-    external_state?: {  description: string };
+    external_state?: { description: string };
     supportType?: { description: string };
     ticket?: string; // Asegúrate de que este campo exista
     last_comment?: {
@@ -117,8 +118,8 @@ export default function SupportTable({
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const { permissions } = usePage<PageProps>().props;
-    const can_ver = permissions.includes('administrar') || permissions.includes('solicitudes.ver')  ;
-    const canDelete = permissions.includes('solicitudes.eliminar') || permissions.includes('administrar') ;
+    const can_ver = permissions.includes('administrar') || permissions.includes('solicitudes.ver');
+    const canDelete = permissions.includes('solicitudes.eliminar') || permissions.includes('administrar');
 
     const canGenerateTicket = permissions.includes('generar_ticket');
     const [supportToEdit, setSupportToEdit] = useState<Support | null>(null);
@@ -127,12 +128,22 @@ export default function SupportTable({
     const [selectedSupportId, setSelectedSupportId] = useState<number | null>(null);
 
     const [showDetailModal, setShowDetailModal] = useState(false);
-const [selectedSupport, setSelectedSupport] = useState<any>(null);
+    const [selectedSupport, setSelectedSupport] = useState<any>(null);
 
-const handleViewDetails = (support: any) => {
-  setSelectedSupport(support);
-  setShowDetailModal(true);
-};
+    const handleViewDetails = (support: any) => {
+        setSelectedSupport(support);
+        setShowDetailModal(true);
+    };
+    const [searchInput, setSearchInput] = useState('');
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const q = params.get('q');
+        if (q) {
+            setSearchInput(q);
+            fetchPage(`/supports/search?q=${q}`);
+        }
+    }, []);
 
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -164,90 +175,93 @@ const handleViewDetails = (support: any) => {
 
     return (
 
-<>
+        <>
 
-        <div className="overflow-x-auto mt-0">
+            <div className="overflow-x-auto mt-0">
 
-            <div className="mb-1 flex items-center gap-2">
-                <input
-                    type="text"
-                    placeholder="Buscar por N° Ticket - DNI/CE o Razón Social"
-                    className="border px-3 py-2 w-90"
-                    onChange={(e) => {
-                        const value = e.target.value;
+                <div className="mb-1 flex items-center gap-2">
+                    <input
+                        type="text"
+                        placeholder="Buscar por N° Ticket - DNI/CE o Razón Social"
+                        className="border px-3 py-2 w-90"
+                        value={searchInput}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setSearchInput(value);
 
-                        if (debounceRef.current) {
-                            clearTimeout(debounceRef.current);
-                        }
-
-                        debounceRef.current = setTimeout(() => {
-                            fetchPage(`/supports/search?q=${value}`);
-                        }, 500);
-                    }}
-                />
-            </div>
-
-            <>
-                {selectedIds.length > 0 && (
-                    <button
-                        onClick={async () => {
-                            if (confirm(`¿Eliminar ${selectedIds.length} tickets?`)) {
-                                try {
-                                    await axios.post('/supports/bulk-delete', { ids: selectedIds });
-                                    setSupports((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
-                                    setSelectedIds([]);
-                                } catch (e) {
-                                    alert('Error al eliminar en Lote');
-                                    console.error(e);
-                                }
+                            if (debounceRef.current) {
+                                clearTimeout(debounceRef.current);
                             }
+
+                            debounceRef.current = setTimeout(() => {
+                                fetchPage(`/supports/search?q=${value}`);
+                            }, 500);
                         }}
-                        className="mb-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                    >
-                        Eliminar seleccionados
-                    </button>
-                )}
+                    />
 
-                <div className="w-full overflow-x-auto">
-                    <table className="min-w-[1200px] text-sm divide-y divide-gray-200 bg-white dark:bg-black shadow-md rounded">
-                        <thead className="bg-gray-100 dark:bg-gray-800">
-                            <tr>
+                </div>
+
+                <>
+                    {selectedIds.length > 0 && (
+                        <button
+                            onClick={async () => {
+                                if (confirm(`¿Eliminar ${selectedIds.length} tickets?`)) {
+                                    try {
+                                        await axios.post('/supports/bulk-delete', { ids: selectedIds });
+                                        setSupports((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
+                                        setSelectedIds([]);
+                                    } catch (e) {
+                                        alert('Error al eliminar en Lote');
+                                        console.error(e);
+                                    }
+                                }
+                            }}
+                            className="mb-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                        >
+                            Eliminar seleccionados
+                        </button>
+                    )}
+
+                    <div className="w-full overflow-x-auto">
+                        <table className="min-w-[1200px] text-sm divide-y divide-gray-200 bg-white dark:bg-black shadow-md rounded">
+                            <thead className="bg-gray-100 dark:bg-gray-800">
+                                <tr>
 
 
 
 
 
 
-                               <th className="px-2 py-1 text-left">Ticket Registro</th>
-<th className="px-2 py-1 text-left">Ticket Atención</th>
-{canGenerateTicket && (
-  <th className="px-2 py-1 text-left">Generar Ticket</th>
-)}
-<th className="px-2 py-1 text-left">Cliente</th>
-<th className="px-2 py-1 text-left">Dni</th>
+                                    <th className="px-2 py-1 text-left">Ticket Registro</th>
+                                    <th className="px-2 py-1 text-left">Ticket Atención</th>
+                                    {canGenerateTicket && (
+                                        <th className="px-2 py-1 text-left">Generar Ticket</th>
+                                    )}
+                                    <th className="px-2 py-1 text-left">Cliente</th>
+                                    <th className="px-2 py-1 text-left">Dni</th>
 
-                                <th className="px-2 py-1">Solicitud</th>
+                                    <th className="px-2 py-1">Solicitud</th>
 
-                                {/* <th className="px-2 py-1">Asunto</th> */}
-                                <th className="px-2 py-1">Proyecto</th>
-                                <th className="px-2 py-1">Manzana/Lote</th>
+                                    {/* <th className="px-2 py-1">Asunto</th> */}
+                                    <th className="px-2 py-1">Proyecto</th>
+                                    <th className="px-2 py-1">Manzana/Lote</th>
 
 
-                                <th className="px-2 py-1">Estado de Atención</th>
-                                <th className="px-2 py-1">Área Responsable</th>
-                                <th className="px-2 py-1">Estado Interno</th>
+                                    <th className="px-2 py-1">Estado de Atención</th>
+                                    <th className="px-2 py-1">Área Responsable</th>
+                                    <th className="px-2 py-1">Estado Interno</th>
 
-                                <th className="px-2 py-1">Creación</th>
-                                {/* <th className="px-2 py-1">¿Con cita?</th> */}
-                                <th className="px-2 py-1">Prioridad</th>
-<th className="px-2 py-1">Estado Area</th>
+                                    <th className="px-2 py-1">Creación</th>
+                                    {/* <th className="px-2 py-1">¿Con cita?</th> */}
+                                    <th className="px-2 py-1">Prioridad</th>
+                                    <th className="px-2 py-1">Estado Area</th>
 
-                                {/* <th className="px-2 py-1 text-center">
+                                    {/* <th className="px-2 py-1 text-center">
                                     Detalle
                                 </th> */}
-                                {can_ver && (
-                                    <>
-                                        {/* <th className="px-2 py-1">
+                                    {can_ver && (
+                                        <>
+                                            {/* <th className="px-2 py-1">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.length === supports.length}
@@ -257,113 +271,111 @@ const handleViewDetails = (support: any) => {
                                             />
                                         </th> */}
 
-                                        <th className="px-2 py-1 text-center" title="Acciones">
-                                            <Wrench className="w-4 h-4 mx-auto text-gray-600" />
-                                        </th>
-                                    </>
-                                )}
+                                            <th className="px-2 py-1 text-center" title="Acciones">
+                                                <Wrench className="w-4 h-4 mx-auto text-gray-600" />
+                                            </th>
+                                        </>
+                                    )}
 
-                            </tr>
-                        </thead>
+                                </tr>
+                            </thead>
 
 
 
-                        <tbody>
-                            {supports.map((support) => (
-                                <React.Fragment key={support.id}>
-                                    {/* Fila principal */}
-                                   <tr
-    className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 text-center align-middle ${
-        highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
-    }`}
->
+                            <tbody>
+                                {supports.map((support) => (
+                                    <React.Fragment key={support.id}>
+                                        {/* Fila principal */}
+                                        <tr
+                                            className={`border-t hover:bg-gray-50 dark:hover:bg-gray-700 text-center align-middle ${highlightedIds.includes(support.id) ? 'animate-border-glow' : ''
+                                                }`}
+                                        >
 
-                                     <td className="px-2 py-1 text-left">
-  {support.details[0]
-    ? `TR-${String(support.details[0].id).padStart(5, '0')}`
-    : <span className="text-gray-400 italic">Sin ticket</span>}
-</td>
+                                            <td className="px-2 py-1 text-left">
+                                                {support.details[0]
+                                                    ? `TR-${String(support.details[0].id).padStart(5, '0')}`
+                                                    : <span className="text-gray-400 italic">Sin ticket</span>}
+                                            </td>
 
-<td
-  className={`px-2 py-1 text-left ${
-    support.details[0]?.ticket === 'TK-' 
-      ? 'bg-pink-100 text-pink-800 font-semibold' 
-      : ''
-  }`}
->
-  {support.details[0]?.ticket ?? (
-    <span className="text-gray-400 italic">Sin ticket</span>
-  )}
-</td>
+                                            <td
+                                                className={`px-2 py-1 text-left ${support.details[0]?.ticket === 'TK-'
+                                                        ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                        : ''
+                                                    }`}
+                                            >
+                                                {support.details[0]?.ticket ?? (
+                                                    <span className="text-gray-400 italic">Sin ticket</span>
+                                                )}
+                                            </td>
 
-{canGenerateTicket && (
-  <td className="px-2 py-1 text-left">
-   <GenerateTicketSwitch
- supportId={support.details[0]?.id}
-  ticket={support.details[0]?.ticket}
-   externalStateDescription={support.details[0]?.external_state?.description} // 👈 Pasa el ID del estado externo
-/>
+                                            {canGenerateTicket && (
+                                                <td className="px-2 py-1 text-left">
+                                                    <GenerateTicketSwitch
+                                                        supportId={support.details[0]?.id}
+                                                        ticket={support.details[0]?.ticket}
+                                                        externalStateDescription={support.details[0]?.external_state?.description} // 👈 Pasa el ID del estado externo
+                                                    />
 
-  </td>
-)}
-
-<td className="px-2 py-1 text-left">{support.client?.Razon_Social || '-'}</td>
-<td className="px-2 py-1 text-left">{support.client?.dni || '-'}</td>
-
-                                        <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
-                                        <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
-
-                                        <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
-                                        <td className="px-2 py-1">
-                                            {support.details[0]?.external_state?.description ? (
-                                                <span
-                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
-                                                        support.details[0].external_state.description
-                                                    )}`}
-                                                >
-                                                    {support.details[0].external_state.description}
-                                                </span>
-                                            ) : (
-                                                <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                                </td>
                                             )}
-                                        </td>
-                                        <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
-                                        <td className="px-2 py-1">
-                                            {support.details[0]?.internal_state?.description ? (
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].internal_state.description)}`}>
-                                                    {support.details[0].internal_state.description}
-                                                </span>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </td>
-                                        <td className="px-2 py-1">
-                                            {support.created_at
-                                                ? new Date(support.created_at).toLocaleString('es-PE', {
-                                                    day: '2-digit',
-                                                    month: '2-digit',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                    hour12: false,
-                                                }).replace(',', ' ')
-                                                : '—'}
-                                        </td>
 
-                                        {/* <td className="px-2 py-1">{support.status_global ?? '-'}</td> */}
-                                        <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
-                                       <td className="px-2 py-1">
-  {support.details[0]?.last_comment?.internal_state?.description ? (
-    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].last_comment.internal_state.description)}`}>
-      {support.details[0].last_comment.internal_state.description}
-    </span>
-  ) : (
-    <span className="text-gray-400 italic text-xs">Sin seguimiento</span>
-  )}
-</td>
+                                            <td className="px-2 py-1 text-left">{support.client?.Razon_Social || '-'}</td>
+                                            <td className="px-2 py-1 text-left">{support.client?.dni || '-'}</td>
+
+                                            <td className="px-2 py-1">{support.details[0]?.subject || '-'}</td>
+                                            <td className="px-2 py-1">{support.details[0]?.project?.descripcion ?? '-'}</td>
+
+                                            <td className="px-2 py-1">{support.details[0]?.Manzana ?? '-'}</td>
+                                            <td className="px-2 py-1">
+                                                {support.details[0]?.external_state?.description ? (
+                                                    <span
+                                                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(
+                                                            support.details[0].external_state.description
+                                                        )}`}
+                                                    >
+                                                        {support.details[0].external_state.description}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                                )}
+                                            </td>
+                                            <td className="px-2 py-1">{support.details[0]?.area?.descripcion || '-'}</td>
+                                            <td className="px-2 py-1">
+                                                {support.details[0]?.internal_state?.description ? (
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].internal_state.description)}`}>
+                                                        {support.details[0].internal_state.description}
+                                                    </span>
+                                                ) : (
+                                                    '-'
+                                                )}
+                                            </td>
+                                            <td className="px-2 py-1">
+                                                {support.created_at
+                                                    ? new Date(support.created_at).toLocaleString('es-PE', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        hour12: false,
+                                                    }).replace(',', ' ')
+                                                    : '—'}
+                                            </td>
+
+                                            {/* <td className="px-2 py-1">{support.status_global ?? '-'}</td> */}
+                                            <td className="px-2 py-1">{support.details[0]?.priority ?? '-'}</td>
+                                            <td className="px-2 py-1">
+                                                {support.details[0]?.last_comment?.internal_state?.description ? (
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(support.details[0].last_comment.internal_state.description)}`}>
+                                                        {support.details[0].last_comment.internal_state.description}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-xs">Sin seguimiento</span>
+                                                )}
+                                            </td>
 
 
-                                        {/* <td className="px-2 py-1">
+                                            {/* <td className="px-2 py-1">
                                             <Link
                                                 href={`/reports/${support.id}`}
                                                 className="text-blue-600 underline hover:text-blue-800 text-sm"
@@ -387,9 +399,9 @@ const handleViewDetails = (support: any) => {
 
 
                                         </td> */}
-                                        {can_ver && (
-                                            <>
-                                                {/* <td className="px-2 py-1">
+                                            {can_ver && (
+                                                <>
+                                                    {/* <td className="px-2 py-1">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.includes(support.id)}
@@ -404,42 +416,42 @@ const handleViewDetails = (support: any) => {
                                                 </td> */}
 
 
-                                                <td className="px-2 py-1 text-sm space-x-2">
-                                                    {/* Botón Editar (si lo deseas habilitar en el futuro) */}
+                                                    <td className="px-2 py-1 text-sm space-x-2">
+                                                        {/* Botón Editar (si lo deseas habilitar en el futuro) */}
 
-                                                    <button
-                                                        onClick={async () => {
-                                                            setEditingId(support.id);
-                                                            try {
-                                                                const response = await axios.get(`/supports/${support.id}`);
-                                                                const fullSupport = response.data; // Asegúrate que el backend retorne support + details
+                                                        <button
+                                                            onClick={async () => {
+                                                                setEditingId(support.id);
+                                                                try {
+                                                                    const response = await axios.get(`/supports/${support.id}`);
+                                                                    const fullSupport = response.data; // Asegúrate que el backend retorne support + details
 
-                                                                // Aquí puedes abrir tu modal y pasarle el la Solicitud completo
-                                                                // Por ejemplo:
-                                                                setSelectedSupportId(support.id);
-                                                                setEditSupport(fullSupport);
-                                                                setShowModal(true);
+                                                                    // Aquí puedes abrir tu modal y pasarle el la Solicitud completo
+                                                                    // Por ejemplo:
+                                                                    setSelectedSupportId(support.id);
+                                                                    setEditSupport(fullSupport);
+                                                                    setShowModal(true);
 
-                                                            } catch (error) {
-                                                                console.error('Error al cargar la Solicitud:', error);
-                                                                toast.error('No se pudo cargar la atención');
-                                                            } finally {
-                                                                setEditingId(null);
-                                                            }
-                                                        }}
-                                                        disabled={editingId === support.id}
-                                                        className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
-                                                    >
-                                                        {editingId === support.id ? (
-                                                            <HourglassLoader />
-                                                        ) : (
-                                                            <>
-                                                                <Pencil className="w-4 h-4" /> {/* 🖊 Ícono de lápiz en lugar de brocha */}
-                                                            </>
-                                                        )}
-                                                    </button>
+                                                                } catch (error) {
+                                                                    console.error('Error al cargar la Solicitud:', error);
+                                                                    toast.error('No se pudo cargar la atención');
+                                                                } finally {
+                                                                    setEditingId(null);
+                                                                }
+                                                            }}
+                                                            disabled={editingId === support.id}
+                                                            className="text-blue-600 hover:underline dark:text-blue-400 flex items-center gap-1"
+                                                        >
+                                                            {editingId === support.id ? (
+                                                                <HourglassLoader />
+                                                            ) : (
+                                                                <>
+                                                                    <Pencil className="w-4 h-4" /> {/* 🖊 Ícono de lápiz en lugar de brocha */}
+                                                                </>
+                                                            )}
+                                                        </button>
 
-                                                    {/* <button
+                                                        {/* <button
                                                         onClick={() => {
                                                             console.log('Editando detalle:', support.details[0]?.id);
                                                             setSelectedSupportId(support.id);
@@ -451,158 +463,158 @@ const handleViewDetails = (support: any) => {
                                                         <MapPin className="w-4 h-4" />
                                                     </button> */}
 
-<Button variant="ghost" size="icon" onClick={() => handleViewDetails(support)}>
-  <Search className="w-5 h-5 text-blue-500" />
-</Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleViewDetails(support)}>
+                                                            <Search className="w-5 h-5 text-blue-500" />
+                                                        </Button>
 
-                                                    {/* Botón Eliminar */}
-                                                    {canDelete && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (confirm(`¿Eliminar la Solicitud "${support.details[0]?.subject}"?`)) {
-                                                                try {
-                                                                    setDeletingId(support.id);
-                                                                    await axios.delete(`/supports/${support.id}`);
-                                                                    setSupports((prev) => prev.filter((s) => s.id !== support.id));
-                                                                } catch (e) {
-                                                                    alert('Error al eliminar');
-                                                                    console.error(e);
-                                                                } finally {
-                                                                    setDeletingId(null);
-                                                                }
-                                                            }
-                                                        }}
-                                                        disabled={deletingId === support.id}
-                                                        className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
-                                                    >
-                                                        {deletingId === support.id ? (
-                                                            <HourglassLoader />
-                                                        ) : (
-                                                            <>
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </>
+                                                        {/* Botón Eliminar */}
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm(`¿Eliminar la Solicitud "${support.details[0]?.subject}"?`)) {
+                                                                        try {
+                                                                            setDeletingId(support.id);
+                                                                            await axios.delete(`/supports/${support.id}`);
+                                                                            setSupports((prev) => prev.filter((s) => s.id !== support.id));
+                                                                        } catch (e) {
+                                                                            alert('Error al eliminar');
+                                                                            console.error(e);
+                                                                        } finally {
+                                                                            setDeletingId(null);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                disabled={deletingId === support.id}
+                                                                className="text-red-600 hover:underline dark:text-red-400 flex items-center gap-1"
+                                                            >
+                                                                {deletingId === support.id ? (
+                                                                    <HourglassLoader />
+                                                                ) : (
+                                                                    <>
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </>
+                                                                )}
+                                                            </button>
                                                         )}
-                                                    </button>
-                                                    )}
-                                                </td>
-                                            </>
-                                        )}
-                                    </tr>
-                                    {support.details.length > 1 && support.details.slice(1).map((detail) => (
-                                        <tr key={detail.id} className="bg-gray-50 dark:bg-gray-900 text-sm border-t">
-                                            <td
-                                                className={`px-2 py-1 border ${detail.ticket === 'TK-'
-                                                    ? 'bg-pink-100 text-pink-800 font-semibold'
-                                                    : ''
-                                                    }`}
-                                            >
-                                                {detail.ticket ?? (
-                                                    <span className="text-gray-400 italic">Sin ticket</span>
-                                                )}
-                                            </td>
-
-                                            <td className="px-2 py-1 border">{support.client?.Razon_Social || '-'}</td>
-                                            <td className="px-2 py-1 border">{support.client?.dni || '-'}</td>
-                                            <td className="px-2 py-1 border">{detail.subject || '-'}</td>
-                                            <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
-                                            <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
-
-
-                                            <td className="px-2 py-1 border">
-                                                {detail.external_state?.description ? (
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(detail.external_state.description)}`}>
-                                                        {detail.external_state.description}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-red-500 text-xs">⚠️ No cargado</span>
-                                                )}
-                                            </td>
-
-                                            <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
-
-                                            <td className="px-2 py-1 border">
-                                                {detail.internal_state?.description ? (
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
-                                                        {detail.internal_state.description}
-                                                    </span>
-                                                ) : '-'}
-                                            </td>
-
-                                            <td className="px-2 py-1 border">
-                                                {support.created_at
-                                                    ? new Date(support.created_at).toLocaleString('es-PE', {
-                                                        day: '2-digit',
-                                                        month: '2-digit',
-                                                        year: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                        hour12: false,
-                                                    }).replace(',', ' ')
-                                                    : '—'}
-                                            </td>
-
-                                            <td className="px-2 py-1 border">{support.status_global ?? '-'}</td>
-                                            <td className="px-2 py-1 border">{detail.priority ?? '-'}</td>
-
-                                            <td className="px-2 py-1 border text-center">
-                                                <Link
-                                                    href={`/reports/${support.id}`}
-                                                    className="text-blue-600 underline hover:text-blue-800 text-sm"
-                                                >
-                                                    <Notebook className="ml-1 w-4 h-4 text-red-600" />
-                                                </Link>
-                                            </td>
-
-                                            {can_ver && (
-                                                <>
-                                                    <td className="px-2 py-1 border">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedIds.includes(support.id)}
-                                                            onChange={(e) =>
-                                                                setSelectedIds((prev) =>
-                                                                    e.target.checked
-                                                                        ? [...prev, support.id]
-                                                                        : prev.filter((id) => id !== support.id)
-                                                                )
-                                                            }
-                                                        />
-                                                    </td>
-                                                    <td className="px-2 py-1">
-                                                        <button
-                                                            onClick={() => {
-                                                                console.log('Editando detalle:', detail.id);
-                                                                setSelectedSupportId(support.id);
-                                                                setSelectedDetailSupportId(detail.id);
-                                                                setSupportDetailToEdit(detail);
-                                                                setShowAreaModal(true);
-                                                            }}
-                                                        >
-                                                            <MapPin className="w-4 h-4" />
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => {
-                                                                if (confirm('¿Estás seguro de eliminar este detalle?')) {
-                                                                    router.delete(`/support-details/${detail.id}`, {
-                                                                        onSuccess: () => toast.success('Detalle eliminado'),
-                                                                        onError: () => toast.error('Error al eliminar'),
-                                                                        preserveScroll: true,
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className="text-red-600 hover:text-red-800 text-xs"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
                                                     </td>
                                                 </>
                                             )}
                                         </tr>
-                                    ))}
+                                        {support.details.length > 1 && support.details.slice(1).map((detail) => (
+                                            <tr key={detail.id} className="bg-gray-50 dark:bg-gray-900 text-sm border-t">
+                                                <td
+                                                    className={`px-2 py-1 border ${detail.ticket === 'TK-'
+                                                        ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                        : ''
+                                                        }`}
+                                                >
+                                                    {detail.ticket ?? (
+                                                        <span className="text-gray-400 italic">Sin ticket</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-2 py-1 border">{support.client?.Razon_Social || '-'}</td>
+                                                <td className="px-2 py-1 border">{support.client?.dni || '-'}</td>
+                                                <td className="px-2 py-1 border">{detail.subject || '-'}</td>
+                                                <td className="px-2 py-1 border">{detail.project?.descripcion || '-'}</td>
+                                                <td className="px-2 py-1 border">{detail.Manzana || '-'}</td>
 
 
-                                    {/* {expanded.includes(support.id) && support.details.length > 1 && (
+                                                <td className="px-2 py-1 border">
+                                                    {detail.external_state?.description ? (
+                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getExternalStateBadgeClass(detail.external_state.description)}`}>
+                                                            {detail.external_state.description}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-red-500 text-xs">⚠️ No cargado</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-2 py-1 border">{detail.area?.descripcion || '-'}</td>
+
+                                                <td className="px-2 py-1 border">
+                                                    {detail.internal_state?.description ? (
+                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getBadgeClass(detail.internal_state.description)}`}>
+                                                            {detail.internal_state.description}
+                                                        </span>
+                                                    ) : '-'}
+                                                </td>
+
+                                                <td className="px-2 py-1 border">
+                                                    {support.created_at
+                                                        ? new Date(support.created_at).toLocaleString('es-PE', {
+                                                            day: '2-digit',
+                                                            month: '2-digit',
+                                                            year: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                            hour12: false,
+                                                        }).replace(',', ' ')
+                                                        : '—'}
+                                                </td>
+
+                                                <td className="px-2 py-1 border">{support.status_global ?? '-'}</td>
+                                                <td className="px-2 py-1 border">{detail.priority ?? '-'}</td>
+
+                                                <td className="px-2 py-1 border text-center">
+                                                    <Link
+                                                        href={`/reports/${support.id}`}
+                                                        className="text-blue-600 underline hover:text-blue-800 text-sm"
+                                                    >
+                                                        <Notebook className="ml-1 w-4 h-4 text-red-600" />
+                                                    </Link>
+                                                </td>
+
+                                                {can_ver && (
+                                                    <>
+                                                        <td className="px-2 py-1 border">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedIds.includes(support.id)}
+                                                                onChange={(e) =>
+                                                                    setSelectedIds((prev) =>
+                                                                        e.target.checked
+                                                                            ? [...prev, support.id]
+                                                                            : prev.filter((id) => id !== support.id)
+                                                                    )
+                                                                }
+                                                            />
+                                                        </td>
+                                                        <td className="px-2 py-1">
+                                                            <button
+                                                                onClick={() => {
+                                                                    console.log('Editando detalle:', detail.id);
+                                                                    setSelectedSupportId(support.id);
+                                                                    setSelectedDetailSupportId(detail.id);
+                                                                    setSupportDetailToEdit(detail);
+                                                                    setShowAreaModal(true);
+                                                                }}
+                                                            >
+                                                                <MapPin className="w-4 h-4" />
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (confirm('¿Estás seguro de eliminar este detalle?')) {
+                                                                        router.delete(`/support-details/${detail.id}`, {
+                                                                            onSuccess: () => toast.success('Detalle eliminado'),
+                                                                            onError: () => toast.error('Error al eliminar'),
+                                                                            preserveScroll: true,
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                className="text-red-600 hover:text-red-800 text-xs"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))}
+
+
+                                        {/* {expanded.includes(support.id) && support.details.length > 1 && (
                                         <tr className="bg-gray-50 dark:bg-gray-900 border-4 border-cyan-400 shadow-[0_0_8px_#00ccff]">
                                             <td colSpan={16}>
                                                 <div className="p-3 text-sm">
@@ -701,42 +713,42 @@ const handleViewDetails = (support: any) => {
                                             </td>
                                         </tr>
                                     )} */}
-                                </React.Fragment>
-                            ))}
-                        </tbody>
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
 
-                    </table>
-                </div>
+                        </table>
+                    </div>
 
-                <div className="flex justify-center mt-6 space-x-2">
-                    {[...Array(pagination.last_page)].map((_, index) => {
-                        const page = index + 1;
-                        return (
-                            <button
-                                key={page}
-                                onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
-                                className={`px-3 py-1 rounded text-sm font-medium transition ${pagination.current_page === page
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                    }`}
-                                disabled={pagination.current_page === page}
-                            >
-                                {page}
-                            </button>
-                        );
-                    })}
-                </div>
-            </>
-        </div>
-        
-        
-  
+                    <div className="flex justify-center mt-6 space-x-2">
+                        {[...Array(pagination.last_page)].map((_, index) => {
+                            const page = index + 1;
+                            return (
+                                <button
+                                    key={page}
+                                    onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
+                                    className={`px-3 py-1 rounded text-sm font-medium transition ${pagination.current_page === page
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                        }`}
+                                    disabled={pagination.current_page === page}
+                                >
+                                    {page}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
+            </div>
 
-<SupportDetailModal
-  open={showDetailModal}
-  onClose={() => setShowDetailModal(false)}
-  support={selectedSupport}
-/>
-</>
-  );
+
+
+
+            <SupportDetailModal
+                open={showDetailModal}
+                onClose={() => setShowDetailModal(false)}
+                support={selectedSupport}
+            />
+        </>
+    );
 }

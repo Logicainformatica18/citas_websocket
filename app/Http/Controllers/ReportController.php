@@ -31,7 +31,7 @@ class ReportController extends Controller
         //
     }
 
-    
+
     /**
      * Show the form for editing the specified resource.
      */
@@ -55,30 +55,38 @@ class ReportController extends Controller
     {
         //
     }
+// public function show($id)
+// {
+//     $support = Support::with([
+//         'client',
+//         'creator:id,names',
+//         'details.area:id_area,descripcion',
+//         'details.project:id_proyecto,descripcion',
+//         'details.motivoCita:id_motivos_cita,nombre_motivo',
+//         'details.tipoCita:id_tipo_cita,tipo',
+//         'details.diaEspera:id_dias_espera,dias',
+//         'details.internalState:id,description',
+//         'details.externalState:id,description',
+//         'details.supportType:id,description',
+//     ])->findOrFail($id);
+
+//     // Convertir el modelo a array para modificar el cliente
+//     $supportArray = $support->toArray();
+
+//     // Reemplazar el cliente con el formato frontend
+//     $supportArray['client'] = $support->client ? $support->client->toFrontend() : null;
+
+//     return Inertia::render('reports/Show', [
+//         'support' => $supportArray
+//     ]);
+// }
 public function show($id)
 {
-    $support = Support::with([
-        'client',
-        'creator:id,names',
-        'details.area:id_area,descripcion',
-        'details.project:id_proyecto,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-    ])->findOrFail($id);
+    // Arma el ticket en formato TK-00001
+    $ticket = 'TR-' . str_pad($id, 5, '0', STR_PAD_LEFT);
 
-    // Convertir el modelo a array para modificar el cliente
-    $supportArray = $support->toArray();
-
-    // Reemplazar el cliente con el formato frontend
-    $supportArray['client'] = $support->client ? $support->client->toFrontend() : null;
-
-    return Inertia::render('reports/Show', [
-        'support' => $supportArray
-    ]);
+    // Redirige al módulo de supports con la búsqueda aplicada
+    return redirect()->route('supports.index', ['q' => $ticket]);
 }
 
 
