@@ -6,6 +6,8 @@ import { initializeTheme } from './hooks/use-appearance';
 import axios from 'axios'; // ✅ Import axios
 
 // ✅ Configura el CSRF token global para Axios
+axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'; // <-- ESTA LÍNEA ES CRÍTICA
+
 const token = document.head.querySelector('meta[name="csrf-token"]');
 if (token) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = token.getAttribute('content')!;
