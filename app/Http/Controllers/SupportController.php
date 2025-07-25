@@ -31,7 +31,8 @@ class SupportController extends Controller
     public function index(Request $request)
     {
         $supports = Support::with([
-            'creator:id,firstname,lastname,names',
+             'creator:id,firstname,lastname,names,email',
+            'creator.roles:name', // 👈 Esto es lo que te falta
             'client:id_cliente,Razon_Social,dni,telefono,email',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -104,7 +105,7 @@ class SupportController extends Controller
         $query = $request->input('q');
         $detailId = null;
         $ticketCode = null;
- 
+
 
         // TR-00048 → ID (support_detail.id)
         if (preg_match('/^tr[-]?0*(\d+)$/i', $query, $matches)) {
@@ -118,7 +119,7 @@ class SupportController extends Controller
 
         $supportsQuery = Support::with([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'creator:id,firstname,lastname,names',
+           'creator:id,firstname,lastname,names,email',
             'details.project:id_proyecto,descripcion',
             'details.area:id_area,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -171,7 +172,8 @@ class SupportController extends Controller
     {
         $supports = Support::with([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'creator:id,firstname,lastname,names',
+           'creator:id,firstname,lastname,names,email',
+            'creator.roles:name', // 👈 Esto es lo que te falta
             'details.project:id_proyecto,descripcion',
             'details.area:id_area,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -201,13 +203,13 @@ class SupportController extends Controller
 
     public function store(Request $request)
     {
-        
+
         $details = json_decode($request->input('details'), true);
-       
+
 
         try {
             $detailsParsed = json_decode($request->details, true);
-            
+
         } catch (\Throwable $e) {
             Log::error('❌ Error al parsear request->details', [
                 'error' => $e->getMessage(),
@@ -241,7 +243,7 @@ class SupportController extends Controller
         ]);
 
         if (!is_array($details) || !$firstDetail) {
-        
+
             return response()->json(['message' => 'Detalles inválidos'], 422);
         }
 
@@ -298,7 +300,8 @@ class SupportController extends Controller
 
         $support->load([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'creator:id,firstname,lastname,names',
+              'creator:id,firstname,lastname,names,email',
+            'creator.roles:name', // 👈 Esto es lo que te falta
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -327,10 +330,11 @@ class SupportController extends Controller
 
         dispatch(function () use ($support) {
             try {
-                
+
                 $supportLoaded = $support->load([
                       'client:id_cliente,Razon_Social,Telefono,Email,Direccion,DNI',
-            'creator:id,firstname,lastname,names,email',
+             'creator:id,firstname,lastname,names,email',
+            'creator.roles:name', // 👈 Esto es lo que te falta
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -344,11 +348,11 @@ class SupportController extends Controller
             'details.lastComment.internalState:id,description',
                 ]);
 
-               
+
 
                 $detail = $supportLoaded->details->first();
                 if (!$detail) {
-                  
+
                     return;
                 }
 
@@ -367,11 +371,11 @@ class SupportController extends Controller
                 }
 
                 if (!$toEmail) {
-                    
+
                     return;
                 }
 
-               
+
 
 
 
@@ -379,12 +383,12 @@ class SupportController extends Controller
                 Notification::route('mail', $toEmail)
                     ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
 
-                 
+
                 // Notificar al cliente si tiene email válido
                 $clientEmail = $supportLoaded->client->email ?? null;
 
                 if ($clientEmail && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
-                   
+
                     Notification::route('mail', $clientEmail)
                         ->notify(new NewSupportAtcNotification($supportLoaded, 'created'));
                 }
@@ -442,7 +446,7 @@ class SupportController extends Controller
         }
 
         $detailData = $details[0] ?? null;
-         
+
 
         if ($detailData) {
             $existingDetail = $support->details()->first(); // Solo tomamos el primero
@@ -492,8 +496,8 @@ class SupportController extends Controller
         // 4. Recargar relaciones necesarias para el frontend
         $support->load([
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
-            'creator:id,firstname,lastname,names',
-
+            'creator:id,firstname,lastname,names,email',
+'creator.roles:name', // 👈 Esto es lo que te falta
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
 
             'details.area:id_area,descripcion',
@@ -509,7 +513,7 @@ class SupportController extends Controller
         ]);
 
 
-       
+
 
         // 6. Emitir evento
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
@@ -517,11 +521,12 @@ class SupportController extends Controller
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         dispatch(function () use ($support) {
             try {
-                
+
 
                 $supportLoaded = $support->load([
                     'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-                    'creator:id,firstname,lastname,names',
+                    'creator:id,firstname,lastname,names,email',
+                    'creator.roles:name', // 👈 Esto es lo que te falta
                     'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
                     'details.area:id_area,descripcion',
                     'details.project:id_proyecto,descripcion',
@@ -537,7 +542,7 @@ class SupportController extends Controller
 
                 $detail = $supportLoaded->details->first();
                 if (!$detail) {
-                   
+
                     return;
                 }
 
@@ -551,16 +556,16 @@ class SupportController extends Controller
                 };
 
                 if (!$toEmail) {
-                     
+
                     return;
                 }
 
-                 
+
 
                 Notification::route('mail', $toEmail)
                     ->notify(new NewSupportAtcNotification($supportLoaded, 'updated'));
 
-                
+
             } catch (\Throwable $e) {
                 Log::error('[ATC Notification] Error al enviar notificación (update):', [
                     'message' => $e->getMessage(),
@@ -576,6 +581,7 @@ class SupportController extends Controller
             'support' => $support->load([
                 'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
                 'creator:id,firstname,lastname,names,email',
+                'creator.roles:name', // 👈 Esto es lo que te falta
                 'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
                 'details.area:id_area,descripcion',
                 'details.project:id_proyecto,descripcion',
@@ -624,8 +630,8 @@ class SupportController extends Controller
             },
 
             // Usuario que creó
-            'creator:id,firstname,lastname,names',
-
+            'creator:id,firstname,lastname,names,email',
+'creator.roles:name', // 👈 Esto es lo que te falta
             // Detalles del soporte y sus relaciones
             'details',
             'details.area:id_area,descripcion',
