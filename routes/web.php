@@ -104,6 +104,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search');
 
+Route::get('/supports/filtros', [SupportController::class, 'filter']);
 
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
 
@@ -266,6 +267,8 @@ Route::post('generate_ticket', [SupportDetailController::class, 'generateTicket'
 Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
 Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
+
+
 });
 
 use App\Http\Controllers\WebSocketTestController;
@@ -310,3 +313,4 @@ Route::get('/aybar_app', function () {
         'Content-Type' => 'application/vnd.android.package-archive',
     ]);
 });
+

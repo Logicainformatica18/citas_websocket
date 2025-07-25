@@ -9,7 +9,7 @@ import SupportTable from './table';
 import ChatWidget from '@/components/ChatWidget';
 import NotificationBell from '@/components/NotificationBell';
 import AreaModal from './AreaModal';
-
+import SupportFilter from './SupportFilter';
 
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -105,8 +105,8 @@ export default function Supports() {
     const [selectedDetailSupportId, setSelectedDetailSupportId] = useState<number | null>(null);
     const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
     const [showAreaModal, setShowAreaModal] = useState(false);
- const { permissions } = usePage<PageProps>().props;
-    const canUpdate = permissions.includes('solicitudes.actualizar') ;
+    const { permissions } = usePage<PageProps>().props;
+    const canUpdate = permissions.includes('solicitudes.actualizar');
 
     // const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
 
@@ -120,6 +120,7 @@ export default function Supports() {
         );
     };
 
+    const [filters, setFilters] = useState({});
 
 
     useEffect(() => {
@@ -160,18 +161,18 @@ export default function Supports() {
         };
     }, []);
 
-  const handleSupportSaved = (saved: Support | undefined) => {
-    if (!saved || !saved.id) {
-        console.warn('❗Se intentó guardar un la solicitud inválido:', saved);
-        return;
-    }
+    const handleSupportSaved = (saved: Support | undefined) => {
+        if (!saved || !saved.id) {
+            console.warn('❗Se intentó guardar un la solicitud inválido:', saved);
+            return;
+        }
 
-    setSupports((prev) => {
-        const exists = prev.find((p) => p.id === saved.id);
-        return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
-    });
-    setEditSupport(null);
-};
+        setSupports((prev) => {
+            const exists = prev.find((p) => p.id === saved.id);
+            return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
+        });
+        setEditSupport(null);
+    };
 
 
     const fetchSupport = async (id: number) => {
@@ -182,13 +183,17 @@ export default function Supports() {
 
     const fetchPage = async (url: string) => {
         try {
-            const res = await axios.get(url);
+            const query = new URLSearchParams(filters as any).toString();
+            const finalUrl = url.includes('?') ? `${url}&${query}` : `${url}?${query}`;
+
+            const res = await axios.get(finalUrl);
             setSupports(res.data.supports.data);
             setPagination(res.data.supports);
         } catch (e) {
             console.error('Error al cargar página', e);
         }
     };
+
     const exportSupports = () => {
         window.open(route('supports.export'), '_blank');
     };
@@ -196,100 +201,112 @@ export default function Supports() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="flex justify-end items-center gap-4">
-                <NotificationBell />
-                {/* otros elementos como el usuario */}
-            </div>
-            <div className="p-2">
-                <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
+            <>
 
-                <button
-                    onClick={() => {
-                        setEditSupport(null);
-                        setShowModal(true);
-                    }}
-                    className="mb-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
-                    Nuevo Registro
-                </button>
 
- {canUpdate && (
-                <button onClick={exportSupports} className="ml-4 mb-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
-                >Exportar Todo</button>
 
- )}
-                <SupportTable
-                    supports={supports}
-                    setSupports={setSupports}
-                    pagination={pagination}
-                    fetchPage={fetchPage}
-                    fetchSupport={fetchSupport}
+                <div className="flex justify-end items-center gap-4">
+                    <NotificationBell />
+                    {/* otros elementos como el usuario */}
+                </div>
+                <div className="p-2">
+                    <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
+                    <button
+                        onClick={() => {
+                            setEditSupport(null);
+                            setShowModal(true);
+                        }}
+                        className="mb-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                    >
+                        Nuevo Registro
+                    </button>
+                    <SupportFilter
+                        filters={filters} // 👈 pasa el estado actual
+                        onFilter={(newFilters) => {
+                            setFilters(newFilters); // 👈 guarda nuevos filtros en el padre
+                            const query = new URLSearchParams(newFilters as any).toString();
+                            fetchPage(`/supports/filtros?${query}`);
+                        }}
+                        areas={areas}
+                        internalStates={internalStates}
+                    />
+                    {canUpdate && (
+                        <button onClick={exportSupports} className="ml-4 mb-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
+                        >Exportar Todo</button>
+
+                    )}
+                    <SupportTable
+                        supports={supports}
+                        setSupports={setSupports}
+                        pagination={pagination}
+                        fetchPage={fetchPage}
+                        fetchSupport={fetchSupport}
+                        areas={areas}
+                        motives={motives}
+                        internalStates={internalStates}
+                        highlightedIds={highlightedIds}
+                        expanded={expanded}
+                        toggleExpand={toggleExpand}
+                        setEditSupport={setEditSupport}
+                        setShowModal={setShowModal}
+                        // setSelectedSupportId={setSelectedSupportId} // 👈
+                        // setSupportDetailToEdit={setSupportDetailToEdit} // 👈
+                        // setShowAreaModal={setShowAreaModal} // 👈
+
+                        setSelectedSupportId={setSelectedSupportId}
+                        setSelectedDetailSupportId={setSelectedDetailSupportId}
+                        setSupportDetailToEdit={setSupportDetailToEdit}
+                        setShowAreaModal={setShowAreaModal}
+                    />
+
+
+
+                </div>
+
+                {showModal && (
+                    <SupportModal
+                        open={showModal}
+                        onClose={() => {
+                            setShowModal(false);
+                            setEditSupport(null);
+                        }}
+                        onSaved={handleSupportSaved}
+                        supportToEdit={editSupport}
+                        motives={motives}
+                        appointmentTypes={appointmentTypes}
+                        waitingDays={waitingDays}
+                        internalStates={internalStates}
+                        externalStates={externalStates}
+                        types={types}
+                        projects={projects}
+                        areas={areas}
+                    />
+                )}
+
+                <AreaModal
+                    open={showAreaModal}
+                    onClose={() => setShowAreaModal(false)}
+                    supportId={selectedSupportId}
+                    supportDetailId={selectedDetailSupportId} // 👈 AQUÍ SE RECIBE
+                    detail={supportDetailToEdit}
                     areas={areas}
                     motives={motives}
                     internalStates={internalStates}
-                    highlightedIds={highlightedIds}
-                    expanded={expanded}
-                    toggleExpand={toggleExpand}
-                    setEditSupport={setEditSupport}
-                    setShowModal={setShowModal}
-                    // setSelectedSupportId={setSelectedSupportId} // 👈
-                    // setSupportDetailToEdit={setSupportDetailToEdit} // 👈
-                    // setShowAreaModal={setShowAreaModal} // 👈
-
-                    setSelectedSupportId={setSelectedSupportId}
-                    setSelectedDetailSupportId={setSelectedDetailSupportId}
-                    setSupportDetailToEdit={setSupportDetailToEdit}
-                    setShowAreaModal={setShowAreaModal}
+                    onUpdated={() => {
+                        if (selectedSupportId) {
+                            fetchSupport(selectedSupportId)
+                                .catch((err) => {
+                                    console.error('Error al actualizar la solicitud:', err);
+                                    // toast.error('Error al actualizar el la solicitud.');
+                                });
+                        }
+                    }}
                 />
 
 
 
-            </div>
 
-            {showModal && (
-                <SupportModal
-                    open={showModal}
-                    onClose={() => {
-                        setShowModal(false);
-                        setEditSupport(null);
-                    }}
-                    onSaved={handleSupportSaved}
-                    supportToEdit={editSupport}
-                    motives={motives}
-                    appointmentTypes={appointmentTypes}
-                    waitingDays={waitingDays}
-                    internalStates={internalStates}
-                    externalStates={externalStates}
-                    types={types}
-                    projects={projects}
-                    areas={areas}
-                />
-            )}
-
-            <AreaModal
-                open={showAreaModal}
-                onClose={() => setShowAreaModal(false)}
-                supportId={selectedSupportId}
-                supportDetailId={selectedDetailSupportId} // 👈 AQUÍ SE RECIBE
-                detail={supportDetailToEdit}
-                areas={areas}
-                motives={motives}
-                internalStates={internalStates}
-                onUpdated={() => {
-                    if (selectedSupportId) {
-                        fetchSupport(selectedSupportId)
-                            .catch((err) => {
-                                console.error('Error al actualizar la solicitud:', err);
-                                // toast.error('Error al actualizar el la solicitud.');
-                            });
-                    }
-                }}
-            />
-
-
-
-
-
+            </>
 
 
             <ChatWidget />

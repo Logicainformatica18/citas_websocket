@@ -28,6 +28,73 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 class SupportController extends Controller
 {
+ 
+
+public function filter(Request $request)
+{
+    Log::info('📥 Filtros recibidos en /supports/filtros', $request->all());
+
+    $query = Support::with([
+        'creator:id,firstname,lastname,names,email',
+        'creator.roles:id,name',
+        'client:id_cliente,Razon_Social,dni,telefono,email',
+        'details.area:id_area,descripcion',
+        'details.project:id_proyecto,descripcion',
+        'details.motivoCita:id_motivos_cita,nombre_motivo',
+        'details.tipoCita:id_tipo_cita,tipo',
+        'details.diaEspera:id_dias_espera,dias',
+        'details.internalState:id,description',
+        'details.externalState:id,description',
+        'details.supportType:id,description',
+        'details.type:id,description',
+        'details.lastComment.internalState:id,description',
+    ]);
+
+    // Filtros dinámicos
+    if ($request->filled('subject')) {
+        $query->whereHas('details', fn($q) =>
+            $q->where('subject', 'like', '' . $request->subject . ''));
+    }
+
+    if ($request->filled('project')) {
+        $query->whereHas('details.project', fn($q) =>
+            $q->where('descripcion', 'like', '%' . $request->project . '%'));
+    }
+
+    if ($request->filled('external_state')) {
+        $query->whereHas('details.externalState', fn($q) =>
+            $q->where('description', 'like', '' . $request->external_state . ''));
+    }
+
+    if ($request->filled('area_id')) {
+        $query->whereHas('details', fn($q) =>
+            $q->where('area_id', $request->area_id));
+    }
+
+    if ($request->filled('internal_state_id')) {
+        $query->whereHas('details', fn($q) =>
+            $q->where('internal_state_id', $request->internal_state_id));
+    }
+
+    if ($request->filled('priority')) {
+        $query->whereHas('details', fn($q) =>
+            $q->where('priority', $request->priority));
+    }
+
+    if ($request->filled('date_start')) {
+        $query->whereDate('created_at', '>=', $request->date_start);
+    }
+
+    if ($request->filled('date_end')) {
+        $query->whereDate('created_at', '<=', $request->date_end);
+    }
+
+    return response()->json([
+        'supports' => $query->latest()->paginate(7),
+    ]);
+}
+
+
     public function index(Request $request)
     {
         $supports = Support::with([

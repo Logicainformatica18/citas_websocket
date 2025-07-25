@@ -15,6 +15,7 @@ import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
 
+
 interface SupportDetail {
     id: number;
     subject: string;
@@ -161,6 +162,11 @@ export default function SupportTable({
         setShowDetailModal(true);
     };
     const [searchInput, setSearchInput] = useState('');
+   // const [filters, setFilters] = useState({});
+
+ 
+ 
+
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -202,6 +208,9 @@ export default function SupportTable({
     return (
 
         <>
+  
+
+
 
             <div className="overflow-x-auto mt-0">
 
@@ -325,8 +334,8 @@ export default function SupportTable({
 
                                             <td
                                                 className={`px-2 py-1 text-left ${support.details[0]?.ticket === 'TK-'
-                                                        ? 'bg-pink-100 text-pink-800 font-semibold'
-                                                        : ''
+                                                    ? 'bg-pink-100 text-pink-800 font-semibold'
+                                                    : ''
                                                     }`}
                                             >
                                                 {support.details[0]?.ticket ?? (
@@ -745,31 +754,32 @@ export default function SupportTable({
 
                         </table>
                     </div>
+                    <div className="flex justify-center mt-6 space-x-2">
+                    {getPagination(pagination.current_page, pagination.last_page).map((page, idx) => {
+  if (page === '...') {
+    return (
+      <span key={`dots-${idx}`} className="px-3 py-1 text-gray-500 select-none">…</span>
+    );
+  }
 
-                 <div className="flex justify-center mt-6 space-x-2">
-    {getPagination(pagination.current_page, pagination.last_page).map((page, idx) => {
-        if (page === '...') {
-            return (
-                <span key={`dots-${idx}`} className="px-3 py-1 text-gray-500 select-none">…</span>
-            );
-        }
+  return (
+    <button
+      key={page}
+      onClick={() => fetchPage(`/supports/filtros?page=${page}`)} // ✅ Se mantiene en la ruta `filtros`
+      className={`px-3 py-1 rounded text-sm font-medium transition ${
+        pagination.current_page === page
+          ? 'bg-blue-600 text-white'
+          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+      }`}
+      disabled={pagination.current_page === page}
+    >
+      {page}
+    </button>
+  );
+})}
 
-        return (
-            <button
-                key={page}
-                onClick={() => fetchPage(`/supports/fetch?page=${page}`)}
-                className={`px-3 py-1 rounded text-sm font-medium transition ${
-                    pagination.current_page === page
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
-                disabled={pagination.current_page === page}
-            >
-                {page}
-            </button>
-        );
-    })}
-</div>
+                    </div>
+
 
                 </>
             </div>
@@ -782,6 +792,7 @@ export default function SupportTable({
                 onClose={() => setShowDetailModal(false)}
                 support={selectedSupport}
             />
+
         </>
     );
 }
