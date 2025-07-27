@@ -289,6 +289,16 @@ const SupportModal = ({
 
 
  const handleAddDetail = () => {
+console.log('Permisos:', permissions);
+console.log('canEditChannelSelect:', canEditChannelSelect);
+console.log('formData.channel:', formData.channel);
+
+
+   if (canEditChannelSelect && !currentDetail.channel?.trim()) {
+    toast.warning('El campo "Canal" es obligatorio');
+    return;
+}
+
     // Validación básica
     if (!currentDetail.subject?.trim()) {
         toast.error("El asunto es obligatorios");
@@ -319,7 +329,7 @@ const SupportModal = ({
 
     // 🚫 Validación: si área ≠ 1 y estado es 1 ("Por Asignar")
     const areaId = numericValues.area_id ;
-    
+
     const externalStateId = numericValues.external_state_id;
 
     console.log('🔍 Validación detalle:', { areaId, externalStateId });
@@ -495,7 +505,8 @@ const SupportModal = ({
                     ticket_start: formatDateTimeLocal(detail.ticket_start),
                     ticket_end: formatDateTimeLocal(detail.ticket_end),
                     ticket: detail.ticket || '',
-                    channel: detail.channel || '',
+                    channel: typeof detail.channel === 'string' ? detail.channel : '',
+
                 }));
 
                 if (detail.project_id) {
@@ -532,10 +543,12 @@ const SupportModal = ({
     const handleSubmit = async () => {
         try {
             setUploading(true);
-            // if (canEditChannelSelect && !formData.channel) {
-            //     toast.warning('El campo "Canal" es obligatorio');
-            //     return;
-            // }
+//           if (canEditChannelSelect && !currentDetail.channel?.trim()) {
+//     toast.warning('El canal es obligatorio para este tipo de atención');
+//     setUploading(false);
+//     return;
+// }
+
 
 
             const data = new FormData();
@@ -597,6 +610,9 @@ const SupportModal = ({
                 type_id: detail.support_type?.id ?? detail.type_id ?? null,
                 Manzana: detail.Manzana?.trim() || '',
                 comment: detail.comment?.trim() || '',
+                channel: detail.channel?.trim() || '',
+
+
             }));
 
             // 6. Validación obligatoria para nuevos
@@ -654,10 +670,11 @@ const SupportModal = ({
                             Canal
                         </label>
                         <select
-                            value={formData.channel || ''}
-                            onChange={(e) =>
-                                setFormData({ ...formData, channel: e.target.value })
-                            }
+                           value={currentDetail.channel || ''}
+onChange={(e) =>
+    setCurrentDetail({ ...currentDetail, channel: e.target.value })
+}
+
                             className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
                         >
                             <option value="">Seleccione un canal</option>

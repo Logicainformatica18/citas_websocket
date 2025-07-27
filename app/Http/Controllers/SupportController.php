@@ -28,7 +28,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 class SupportController extends Controller
 {
- 
+
 
 public function filter(Request $request)
 {
@@ -318,19 +318,37 @@ public function filter(Request $request)
         $generateTicket = auth()->user()?->can('generar_ticket');
         $ticket = $generateTicket ? (new SupportDetailController)->generateNextSupportTicket() : null;
 
-        $channelName = null;
 
-        $permissions = Auth::user()->getAllPermissions();
 
-        $channelPermission = $permissions->first(function ($perm) {
-            // Evalúa solo permisos que comienzan con "Canal." y NO contienen guion bajo en la parte del canal
-            return str_starts_with($perm->name, 'Canal.')
-                && !str_contains(str_replace('Canal.', '', $perm->name), '_');
-        });
 
-        $channelName = $channelPermission
-            ? str_replace('Canal.', '', $channelPermission->name)
-            : ($request->input('channel') ?? null);
+
+
+
+
+    $channelName = null;
+$permissions = Auth::user()->getAllPermissions();
+$userRoles = Auth::user()->roles->pluck('name')->toArray();
+
+// Si el usuario tiene el rol ATC_Oficina, permitimos que elija canal desde el request
+if (in_array('ATC_Oficina', $userRoles)) {
+    $channelName = $request->input('channel'); // Combo en el frontend
+} else {
+    // Si no es ATC_Oficina, usamos el permiso que comience con 'Canal.'
+    $channelPermission = $permissions->first(function ($perm) {
+        return str_starts_with($perm->name, 'Canal.');
+    });
+
+    $channelName = $channelPermission
+        ? str_replace('Canal.', '', $channelPermission->name)
+        : null;
+}
+
+
+
+
+
+
+
 
 
         $attachment = isset($attachments[0]) ? fileStore($attachments[0], 'uploads') : null;
