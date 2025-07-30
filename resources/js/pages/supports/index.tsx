@@ -107,7 +107,7 @@ export default function Supports() {
     const [showAreaModal, setShowAreaModal] = useState(false);
     const { permissions } = usePage<PageProps>().props;
     const canUpdate = permissions.includes('solicitudes.actualizar');
-
+    const canExport = permissions.includes('solicitudes.exportar');
     // const [supportDetailToEdit, setSupportDetailToEdit] = useState<SupportDetail | null>(null);
 
     // const [showAreaModal, setShowAreaModal] = useState(false);
@@ -225,7 +225,7 @@ export default function Supports() {
 
 
 
-        {canUpdate && (
+        {canExport && (
             <button
                 onClick={exportSupports}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
