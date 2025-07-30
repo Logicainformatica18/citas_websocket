@@ -90,6 +90,26 @@ class SupportController extends Controller
             $query->whereDate('created_at', '<=', $request->date_end);
         }
 
+
+        $usuario = Auth::user();
+
+        // Si el frontend **no ha enviado** un área explícitamente
+        if (!$request->filled('area_id')) {
+            if ($usuario->hasPermissionTo('Soporte.Legal')) {
+                $query->whereHas('details', fn($q) =>
+                    $q->where('area_id', 2)); // Legal
+            }
+
+            if ($usuario->hasPermissionTo('Soporte.Vivienda')) {
+                $query->whereHas('details', fn($q) =>
+                    $q->where('area_id', 7)); // Vivienda para Todos
+            }
+
+            if ($usuario->hasPermissionTo('Soporte.BackOffice')) {
+                $query->whereHas('details', fn($q) =>
+                    $q->where('area_id', 10)); // BackOffice
+            }
+        }
         return response()->json([
             'supports' => $query->latest()->paginate(7),
         ]);
@@ -98,9 +118,11 @@ class SupportController extends Controller
 
     public function index(Request $request)
     {
-        $supports = Support::with([
+        $user = auth()->user();
+
+        $query = Support::with([
             'creator:id,firstname,lastname,names,email',
-            'creator.roles:name', // 👈 Esto es lo que te falta
+            'creator.roles:name',
             'client:id_cliente,Razon_Social,dni,telefono,email',
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
@@ -112,57 +134,59 @@ class SupportController extends Controller
             'details.supportType:id,description',
             'details.type:id,description',
             'details.lastComment.internalState:id,description',
+        ]);
 
-        ])
-            ->latest()
-            ->paginate(7);
+        // 👮‍♂️ Filtro según permisos del usuario
+        if ($user->can('Soporte.Legal')) {
+            $query->whereHas('details', fn($q) => $q->where('area_id', 2));
+        } elseif ($user->can('Soporte.Vivienda')) {
+            $query->whereHas('details', fn($q) => $q->where('area_id', 7));
+        } elseif ($user->can('Soporte.BackOffice')) {
+            $query->whereHas('details', fn($q) => $q->where('area_id', 10));
+        }
+
+        $supports = $query->latest()->paginate(7);
 
         // Datos auxiliares
         $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
         $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
         $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
-        $internalStates = InternalState::select('id', 'description')
-            ->where('description', '!=', 'Atendido')
-            ->get();
-
+        $internalStates = InternalState::select('id', 'description')->where('description', '!=', 'Atendido')->get();
         $externalStates = ExternalState::select('id', 'description')->get();
         $types = Type::select('id', 'description')->get();
         $projects = Project::select('id_proyecto', 'descripcion')->get();
-        $areas = Area::select('id_area', 'descripcion')
-            ->whereIn('id_area', [1, 2, 7, 10])
-            ->get();
-
+        $areas = Area::select('id_area', 'descripcion')->whereIn('id_area', [1, 2, 7, 10])->get();
         $users = User::select('id', 'names', 'email')->get();
 
-        // 📱 Si es API (ej. desde React Native), devuelve JSON
+        // Si es API
         if ($request->wantsJson()) {
-            return response()->json([
-                'supports' => $supports,
-                'motives' => $motives,
-                'appointmentTypes' => $appointmentTypes,
-                'waitingDays' => $waitingDays,
-                'internalStates' => $internalStates,
-                'externalStates' => $externalStates,
-                'types' => $types,
-                'projects' => $projects,
-                'areas' => $areas,
-                'users' => $users,
-            ]);
+            return response()->json(compact(
+                'supports',
+                'motives',
+                'appointmentTypes',
+                'waitingDays',
+                'internalStates',
+                'externalStates',
+                'types',
+                'projects',
+                'areas',
+                'users'
+            ));
         }
 
-        // 💻 Si es Inertia (web), renderiza la vista
-        return Inertia::render('supports/index', [
-            'supports' => $supports,
-            'motives' => $motives,
-            'appointmentTypes' => $appointmentTypes,
-            'waitingDays' => $waitingDays,
-            'internalStates' => $internalStates,
-            'externalStates' => $externalStates,
-            'types' => $types,
-            'projects' => $projects,
-            'areas' => $areas,
-            'users' => $users,
-        ]);
+        // Si es vista Inertia
+        return Inertia::render('supports/index', compact(
+            'supports',
+            'motives',
+            'appointmentTypes',
+            'waitingDays',
+            'internalStates',
+            'externalStates',
+            'types',
+            'projects',
+            'areas',
+            'users'
+        ));
     }
 
 
@@ -238,35 +262,28 @@ class SupportController extends Controller
 
     public function fetchPaginated()
     {
-        $supports = Support::with([
-            'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-            'creator:id,firstname,lastname,names,email',
-            'creator.roles:name', // 👈 Esto es lo que te falta
-            'details.project:id_proyecto,descripcion',
-            'details.area:id_area,descripcion',
-            'details.motivoCita:id_motivos_cita,nombre_motivo',
-            'details.tipoCita:id_tipo_cita,tipo',
-            'details.diaEspera:id_dias_espera,dias',
-            'details.internalState:id,description',
-            'details.externalState:id,description',
-            'details.supportType:id,description',
-            'details.type:id,description',
-            'details.lastComment.internalState:id,description',
-        ])
-            ->latest()
-            ->paginate(7);
+        // $supports = Support::with([
+        //     'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+        //     'creator:id,firstname,lastname,names,email',
+        //     'creator.roles:name', // 👈 Esto es lo que te falta
+        //     'details.project:id_proyecto,descripcion',
+        //     'details.area:id_area,descripcion',
+        //     'details.motivoCita:id_motivos_cita,nombre_motivo',
+        //     'details.tipoCita:id_tipo_cita,tipo',
+        //     'details.diaEspera:id_dias_espera,dias',
+        //     'details.internalState:id,description',
+        //     'details.externalState:id,description',
+        //     'details.supportType:id,description',
+        //     'details.type:id,description',
+        //     'details.lastComment.internalState:id,description',
+        // ])
+        //     ->latest()
+        //     ->paginate(7);
 
-        return response()->json([
-            'supports' => $supports,
-        ]);
+        // return response()->json([
+        //     'supports' => $supports,
+        // ]);
     }
-
-
-
-
-
-
-
 
 
     public function store(Request $request)
@@ -503,11 +520,6 @@ class SupportController extends Controller
         ]);
     }
 
-
-
-
-
-
     public function update(Request $request, $id)
     {
         $support = Support::findOrFail($id);
@@ -719,11 +731,6 @@ class SupportController extends Controller
         return null;
     }
 
-
-
-
-
-
     public function show($id)
     {
         $support = Support::with([
@@ -753,9 +760,6 @@ class SupportController extends Controller
 
         return response()->json($support);
     }
-
-
-
 
     public function destroy($id)
     {

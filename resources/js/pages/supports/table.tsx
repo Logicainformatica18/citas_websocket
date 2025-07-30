@@ -164,8 +164,8 @@ export default function SupportTable({
     const [searchInput, setSearchInput] = useState('');
    // const [filters, setFilters] = useState({});
 
- 
- 
+
+
 
 
     useEffect(() => {
@@ -208,10 +208,6 @@ export default function SupportTable({
     return (
 
         <>
-  
-
-
-
             <div className="overflow-x-auto mt-0">
 
                 <div className="mb-1 flex items-center gap-2">

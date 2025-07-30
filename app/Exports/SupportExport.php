@@ -30,6 +30,10 @@ class SupportExport implements FromCollection, WithHeadings
 
             foreach ($support->details as $detail) {
                 $exportData[] = [
+
+                    'Ticket-TR' => 'TR-' . str_pad($detail->id, 5, '0', STR_PAD_LEFT),
+
+                    'Ticket-TK'        => $detail->ticket,
                     'ID de Soporte'        => $support->id,
                     'Cliente'              => $client['names'] ?? '',
                     'DNI'                  => $client['dni'] ?? '',
@@ -56,6 +60,11 @@ class SupportExport implements FromCollection, WithHeadings
                     'Registrado Por'       => $support->creator->email ?? '',
                     'Fecha Creación'       => $support->created_at,
                     'Canal'       => $detail->channel ?? '',
+                    'Atencion_inicio'       => $detail->attended_start ?? '',
+                    'Atencion_fin'       => $detail->attended_end ?? '',
+                    'Ticket_inicio'       => $detail->ticket_start ?? '',
+                    'Ticket_fin'       => $detail->ticket_end ?? '',
+
 
                 ];
             }
@@ -67,6 +76,9 @@ class SupportExport implements FromCollection, WithHeadings
     public function headings(): array
     {
         return [
+
+            'Ticket-TR',
+            'Ticket-TK',
             'ID de Soporte',
             'Cliente',
             'DNI',
@@ -92,6 +104,10 @@ class SupportExport implements FromCollection, WithHeadings
             'Registrado Por',
             'Fecha Creación',
             'Canal',
+            'Atencion_inicio',
+            'Atencion_fin',
+            'Ticket_inicio',
+            'Ticket_fin',
         ];
     }
 }
