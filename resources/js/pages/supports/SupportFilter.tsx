@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-
+import { usePage } from '@inertiajs/react';
 interface Props {
     onFilter: (filters: Record<string, any>) => void;
     areas: { id_area: number; descripcion: string }[];
@@ -15,6 +15,7 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
         external_state: '',
         area_id: '',
         internal_state_id: '',
+        comment_internal_state_id:'',
         priority: '',
         date_start: '',
         date_end: '',
@@ -38,7 +39,8 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
         setLoading(false);
     }
 };
-
+    const { permissions } = usePage<PageProps>().props;
+    const SoporteLegal = permissions.includes('Soporte.Legal');
 
 
     return (
@@ -159,6 +161,24 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                         <h4 className="text-xs font-bold uppercase text-gray-600 mb-2">Estado y asignación</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
+                                <label className="block text-xs font-semibold mb-1">Estado de Area</label>
+                                    <select
+                                    name="comment_internal_state_id"
+                                    className="w-full border px-2 py-1 rounded"
+                                    value={filters.comment_internal_state_id}
+                                    onChange={handleChange}
+                                >
+                                    <option value="">-- Todos --</option>
+                                    {internalStates.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.description}
+                                        </option>
+                                    ))}
+                                </select>
+
+                            </div>
+                             {!SoporteLegal && (
+                            <div>
                                 <label className="block text-xs font-semibold mb-1">Estado Atención</label>
                                 <select
                                     name="external_state"
@@ -173,7 +193,9 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                                 </select>
 
                             </div>
-                            <div>
+                            )}
+                            {!SoporteLegal && (
+                                <div>
                                 <label className="block text-xs font-semibold mb-1">Área</label>
                                 <select
                                     name="area_id"
@@ -188,7 +210,9 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                                         </option>
                                     ))}
                                 </select>
-                            </div>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-xs font-semibold mb-1">Estado Interno</label>
                                 <select

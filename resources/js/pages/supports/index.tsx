@@ -90,6 +90,7 @@ export default function Supports() {
         projects: Option[];
         areas: { id_area: number; descripcion: string }[]; // 👈 más específico
 
+
     }>().props;
 
 

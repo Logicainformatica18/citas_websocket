@@ -76,6 +76,14 @@ class SupportController extends Controller
             $query->whereHas('details', fn($q) =>
                 $q->where('internal_state_id', $request->internal_state_id));
         }
+if ($request->filled('comment_internal_state_id')) {
+    $query->whereHas('details.comments', function ($q) use ($request) {
+        $q->where('internal_state_id', $request->comment_internal_state_id)
+          ->orderByDesc('created_at')
+          ->limit(1); // Esto no limita el resultado del whereHas, pero indica tu intención
+    });
+}
+
 
         if ($request->filled('priority')) {
             $query->whereHas('details', fn($q) =>
