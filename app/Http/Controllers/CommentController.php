@@ -50,16 +50,31 @@ class CommentController extends Controller
             'comment' => $request->comment,
             'internal_state_id' => $request->internal_state_id, // ✅ nuevo campo
         ]);
-$file = $request->file('file_1');
-if ($file) {
-    $filename = fileStore($file, 'uploads', 'file'); // guarda en public/comments
-    $comment->file_1 = $filename;
-    $comment->save();
-}
+        $file = $request->file('file_1');
+        if ($file) {
+            $filename = fileStore($file, 'uploads', 'file'); // guarda en public/comments
+            $comment->file_1 = $filename;
+            $comment->save();
+        }
         $comment->load('user.roles', 'internalState'); // ✅ carga relación
         $support = Support::whereHas('details', function ($q) use ($comment) {
             $q->where('id', $comment->support_detail_id);
         })->firstOrFail();
+
+        // Obtener solo el detalle específico
+        $detail = $support->details()->where('id', $comment->support_detail_id)->first();
+
+        if ($comment->internal_state_id === "7" && $detail) {
+            $detail->attended_end = Carbon::now('America/Lima');
+            $detail->save();
+        }
+        Log::info('Nuevo comentario agregado', [
+            'comment_id' => $comment->id,
+            'support_detail_id' => $comment->support_detail_id,
+            'user_id' => $comment->user_id,
+            'internal_state_id' => $comment->internal_state_id,
+        ]);
+
         $support->load([
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names',

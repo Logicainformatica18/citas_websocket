@@ -11,7 +11,7 @@ interface Props {
 export default function SupportFilter({ onFilter, areas, internalStates }: Props) {
     const [filters, setFilters] = useState({
         subject: '',
-        project: '',
+        project_id: '',
         external_state: '',
         area_id: '',
         internal_state_id: '',
@@ -27,19 +27,26 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
     };
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async () => {
-        setLoading(true);
+ const handleSubmit = async () => {
+    setLoading(true);
+    try {
+        await new Promise((res) => setTimeout(res, 200)); // ← simula 1 segundo de espera
         await onFilter(filters);
+    } catch (err) {
+        console.error(err);
+    } finally {
         setLoading(false);
-    };
+    }
+};
+
 
 
     return (
-        <div className="mb-4">
+        <div className=" mt-2">
             <Button
                 variant="outline"
                 onClick={() => setIsOpen(!isOpen)}
-                className="mb-2 flex items-center gap-2"
+                className="mb-2 flex items-center gap-2 w-70"
             >
                 {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 {isOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -86,16 +93,64 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                                 </select>
 
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold mb-1">Proyecto</label>
-                                <input
-                                    type="text"
-                                    name="project"
-                                    className="w-full border px-2 py-1 rounded"
-                                    value={filters.project}
-                                    onChange={handleChange}
-                                />
-                            </div>
+                           <div>
+    <label className="block text-xs font-semibold mb-1">Proyecto</label>
+    <select
+        name="project_id"
+        className="w-full border px-2 py-1 rounded"
+        value={filters.project_id}
+        onChange={handleChange}
+    >
+        <option value="">-- Todos --</option>
+        <option value="1">Praga</option>
+        <option value="2">Green View</option>
+        <option value="3">La Calera</option>
+        <option value="4">Villa Privada Vidanta</option>
+        <option value="5">La Reserva</option>
+        <option value="6">Lagoon Village</option>
+        <option value="7">Villa Privada Balandra</option>
+        <option value="8">Jumeirah Lake</option>
+        <option value="9">Altos del Prado</option>
+        <option value="10">Urban Residencial</option>
+        <option value="11">San Andrés</option>
+        <option value="12">Lugo</option>
+        <option value="13">Villa Portón</option>
+        <option value="14">Orense</option>
+        <option value="15">Lagoon Center</option>
+        <option value="16">Planicie I</option>
+        <option value="17">Lachay View</option>
+        <option value="18">Altos del Valle</option>
+        <option value="19">Costa Verde</option>
+        <option value="20">Ciudad Diagonal</option>
+        <option value="21">El Cabo</option>
+        <option value="22">Grocio Prado</option>
+        <option value="23">Finca Montecarlo</option>
+        <option value="24">Praga Village</option>
+        <option value="25">Viña del Mar</option>
+        <option value="26">Praderas de Huaral</option>
+        <option value="27">Rinconada del Lago</option>
+        <option value="28">El Olivar</option>
+        <option value="29">Fundo Monasterio</option>
+        <option value="30">Villa Palermo</option>
+        <option value="31">Entre Bosques</option>
+        <option value="32">Praderas de Huaral</option>
+        <option value="33">Planicie Etapa II</option>
+        <option value="34">Finca Las Lomas</option>
+        <option value="35">Foresta</option>
+        <option value="36">Rivera del Campo</option>
+        <option value="37">PonteVedra</option>
+        <option value="38">Camtabria</option>
+        <option value="39">Lagoon View</option>
+        <option value="40">Camtabria Lagoons</option>
+        <option value="41">El Poblado</option>
+        <option value="42">Mariadrago</option>
+        <option value="47">Villa Del Palmar</option>
+        <option value="48">Villa Encantada</option>
+        <option value="49">Villa Privada Costa Verde</option>
+        <option value="50">Planicie de Huaral</option>
+    </select>
+</div>
+
                         </div>
                     </div>
 
@@ -195,38 +250,62 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                         </div>
                     </div>
 
-                    <div className="pt-2">
-                        <Button onClick={handleSubmit} disabled={loading}>
-                            {loading ? (
-                                <>
-                                    <svg
-                                        className="animate-spin h-4 w-4 mr-2 text-white"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                        ></path>
-                                    </svg>
-                                    Cargando...
-                                </>
-                            ) : (
-                                'Aplicar Filtros'
-                            )}
-                        </Button>
+                    <div className="pt-2 flex gap-2">
+  <Button
+    onClick={handleSubmit}
+    disabled={loading}
+    className={loading ? 'opacity-60 cursor-not-allowed' : ''}
+  >
+    {loading ? (
+      <>
+        <svg
+          className="animate-spin h-4 w-4 mr-2 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          ></path>
+        </svg>
+        Cargando...
+      </>
+    ) : (
+      'Aplicar Filtros'
+    )}
+  </Button>
 
-                    </div>
+  <Button
+    variant="secondary"
+    onClick={() => {
+      const resetFilters = {
+        subject: '',
+        project_id: '',
+        external_state: '',
+        area_id: '',
+        internal_state_id: '',
+        priority: '',
+        date_start: '',
+        date_end: '',
+      };
+      setFilters(resetFilters);
+      onFilter(resetFilters);
+    }}
+  >
+    Limpiar Filtros
+  </Button>
+</div>
+
                 </div>
             )}
         </div>

@@ -26,7 +26,7 @@ export default function GenerateTicketSwitch({ supportId, ticket, externalStateD
     }
 
     try {
-      setIsLoading(true); 
+      setIsLoading(true);
       await axios.post('generate_ticket', { support_id: supportId });
       setGenerateTicket(true);
       setDisabled(true);
@@ -39,7 +39,7 @@ export default function GenerateTicketSwitch({ supportId, ticket, externalStateD
   };
 
   return (
-    <div className="flex items-center gap-3 border border-yellow-400 rounded-md px-3 py-2">
+    <div className="flex items-center   border border-yellow-400 rounded-md px-1 py-1">
       <Switch
         id={`generate-ticket-${supportId}`}
         checked={generateTicket}
@@ -47,14 +47,14 @@ export default function GenerateTicketSwitch({ supportId, ticket, externalStateD
         disabled={disabled}
         className={disabled ? 'opacity-60 cursor-not-allowed' : ''}
       />
-     <Label
+     {/* <Label
   htmlFor={`generate-ticket-${supportId}`}
   className={`text-sm font-medium ${
     generateTicket ? 'text-green-700' : 'text-red-700'
   }`}
 >
-  {generateTicket ? '🎟️ ' : ''}
-</Label>
+  {generateTicket ? '' : ''}
+</Label> */}
     </div>
   );
 }

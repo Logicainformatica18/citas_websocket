@@ -273,7 +273,7 @@ export default function SupportTable({
                                         <th className="px-2 py-1 text-left">Generar Ticket</th>
                                     )}
                                     <th className="px-2 py-1 text-left">Cliente</th>
-                                    <th className="px-2 py-1 text-left">Dni</th>
+                                    <th className="px-2 py-1 text-left">Dni/CE</th>
 
                                     <th className="px-2 py-1">Solicitud</th>
 

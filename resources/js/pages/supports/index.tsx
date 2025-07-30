@@ -123,6 +123,7 @@ export default function Supports() {
     const [filters, setFilters] = useState({});
 
 
+
     useEffect(() => {
         const channel = Echo.channel('supports');
 
@@ -205,63 +206,69 @@ export default function Supports() {
 
 
 
-                <div className="flex justify-end items-center gap-4">
-                    <NotificationBell />
-                    {/* otros elementos como el usuario */}
-                </div>
-                <div className="p-2">
-                    <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
-                    <button
-                        onClick={() => {
-                            setEditSupport(null);
-                            setShowModal(true);
-                        }}
-                        className="mb-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                        Nuevo Registro
-                    </button>
-                    <SupportFilter
-                        filters={filters} // 👈 pasa el estado actual
-                        onFilter={(newFilters) => {
-                            setFilters(newFilters); // 👈 guarda nuevos filtros en el padre
-                            const query = new URLSearchParams(newFilters as any).toString();
-                            fetchPage(`/supports/filtros?${query}`);
-                        }}
-                        areas={areas}
-                        internalStates={internalStates}
-                    />
-                    {canUpdate && (
-                        <button onClick={exportSupports} className="ml-4 mb-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-red-700 transition"
-                        >Exportar Todo</button>
 
-                    )}
-                    <SupportTable
-                        supports={supports}
-                        setSupports={setSupports}
-                        pagination={pagination}
-                        fetchPage={fetchPage}
-                        fetchSupport={fetchSupport}
-                        areas={areas}
-                        motives={motives}
-                        internalStates={internalStates}
-                        highlightedIds={highlightedIds}
-                        expanded={expanded}
-                        toggleExpand={toggleExpand}
-                        setEditSupport={setEditSupport}
-                        setShowModal={setShowModal}
-                        // setSelectedSupportId={setSelectedSupportId} // 👈
-                        // setSupportDetailToEdit={setSupportDetailToEdit} // 👈
-                        // setShowAreaModal={setShowAreaModal} // 👈
+               <div className="p-2">
+    <h1 className="text-2xl font-bold mb-4">Listado de Solicitudes</h1>
 
-                        setSelectedSupportId={setSelectedSupportId}
-                        setSelectedDetailSupportId={setSelectedDetailSupportId}
-                        setSupportDetailToEdit={setSupportDetailToEdit}
-                        setShowAreaModal={setShowAreaModal}
-                    />
+    {/* Contenedor horizontal para botones y filtro */}
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+
+        <button
+            onClick={() => {
+                setEditSupport(null);
+                setShowModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+        >
+            Nueva Solicitud
+        </button>
 
 
 
-                </div>
+        {canUpdate && (
+            <button
+                onClick={exportSupports}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+            >
+                Exportar Todo
+            </button>
+        )}
+      <NotificationBell />
+    </div>
+     <SupportFilter
+
+            onFilter={(newFilters) => {
+                setFilters(newFilters);
+                const query = new URLSearchParams(newFilters as any).toString();
+                fetchPage(`/supports/filtros?${query}`);
+            }}
+            areas={areas}
+            internalStates={internalStates}
+        />
+
+
+
+    <SupportTable
+        supports={supports}
+        setSupports={setSupports}
+        pagination={pagination}
+        fetchPage={fetchPage}
+        fetchSupport={fetchSupport}
+        areas={areas}
+        motives={motives}
+        internalStates={internalStates}
+        highlightedIds={highlightedIds}
+        expanded={expanded}
+        toggleExpand={toggleExpand}
+        setEditSupport={setEditSupport}
+        setShowModal={setShowModal}
+        setSelectedSupportId={setSelectedSupportId}
+        setSelectedDetailSupportId={setSelectedDetailSupportId}
+        setSupportDetailToEdit={setSupportDetailToEdit}
+        setShowAreaModal={setShowAreaModal}
+    />
+</div>
+
 
                 {showModal && (
                     <SupportModal

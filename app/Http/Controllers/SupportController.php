@@ -30,75 +30,76 @@ class SupportController extends Controller
 {
 
 
-public function filter(Request $request)
-{
-    Log::info('📥 Filtros recibidos en /supports/filtros', $request->all());
+    public function filter(Request $request)
+    {
+        Log::info('📥 Filtros recibidos en /supports/filtros', $request->all());
 
-    $query = Support::with([
-        'creator:id,firstname,lastname,names,email',
-        'creator.roles:id,name',
-        'client:id_cliente,Razon_Social,dni,telefono,email',
-        'details.area:id_area,descripcion',
-        'details.project:id_proyecto,descripcion',
-        'details.motivoCita:id_motivos_cita,nombre_motivo',
-        'details.tipoCita:id_tipo_cita,tipo',
-        'details.diaEspera:id_dias_espera,dias',
-        'details.internalState:id,description',
-        'details.externalState:id,description',
-        'details.supportType:id,description',
-        'details.type:id,description',
-        'details.lastComment.internalState:id,description',
-    ]);
+        $query = Support::with([
+            'creator:id,firstname,lastname,names,email',
+            'creator.roles:id,name',
+            'client:id_cliente,Razon_Social,dni,telefono,email',
+            'details.area:id_area,descripcion',
+            'details.project:id_proyecto,descripcion',
+            'details.motivoCita:id_motivos_cita,nombre_motivo',
+            'details.tipoCita:id_tipo_cita,tipo',
+            'details.diaEspera:id_dias_espera,dias',
+            'details.internalState:id,description',
+            'details.externalState:id,description',
+            'details.supportType:id,description',
+            'details.type:id,description',
+            'details.lastComment.internalState:id,description',
+        ]);
 
-    // Filtros dinámicos
-    if ($request->filled('subject')) {
-        $query->whereHas('details', fn($q) =>
-            $q->where('subject', 'like', '' . $request->subject . ''));
+        // Filtros dinámicos
+        if ($request->filled('subject')) {
+            $query->whereHas('details', fn($q) =>
+                $q->where('subject', 'like', '' . $request->subject . ''));
+        }
+
+        if ($request->filled('project_id')) {
+            $query->whereHas('details', fn($q) =>
+                $q->where('project_id', $request->project_id));
+        }
+
+
+        if ($request->filled('external_state')) {
+            $query->whereHas('details.externalState', fn($q) =>
+                $q->where('description', 'like', '' . $request->external_state . ''));
+        }
+
+        if ($request->filled('area_id')) {
+            $query->whereHas('details', fn($q) =>
+                $q->where('area_id', $request->area_id));
+        }
+
+        if ($request->filled('internal_state_id')) {
+            $query->whereHas('details', fn($q) =>
+                $q->where('internal_state_id', $request->internal_state_id));
+        }
+
+        if ($request->filled('priority')) {
+            $query->whereHas('details', fn($q) =>
+                $q->where('priority', $request->priority));
+        }
+
+        if ($request->filled('date_start')) {
+            $query->whereDate('created_at', '>=', $request->date_start);
+        }
+
+        if ($request->filled('date_end')) {
+            $query->whereDate('created_at', '<=', $request->date_end);
+        }
+
+        return response()->json([
+            'supports' => $query->latest()->paginate(7),
+        ]);
     }
-
-    if ($request->filled('project')) {
-        $query->whereHas('details.project', fn($q) =>
-            $q->where('descripcion', 'like', '%' . $request->project . '%'));
-    }
-
-    if ($request->filled('external_state')) {
-        $query->whereHas('details.externalState', fn($q) =>
-            $q->where('description', 'like', '' . $request->external_state . ''));
-    }
-
-    if ($request->filled('area_id')) {
-        $query->whereHas('details', fn($q) =>
-            $q->where('area_id', $request->area_id));
-    }
-
-    if ($request->filled('internal_state_id')) {
-        $query->whereHas('details', fn($q) =>
-            $q->where('internal_state_id', $request->internal_state_id));
-    }
-
-    if ($request->filled('priority')) {
-        $query->whereHas('details', fn($q) =>
-            $q->where('priority', $request->priority));
-    }
-
-    if ($request->filled('date_start')) {
-        $query->whereDate('created_at', '>=', $request->date_start);
-    }
-
-    if ($request->filled('date_end')) {
-        $query->whereDate('created_at', '<=', $request->date_end);
-    }
-
-    return response()->json([
-        'supports' => $query->latest()->paginate(7),
-    ]);
-}
 
 
     public function index(Request $request)
     {
         $supports = Support::with([
-             'creator:id,firstname,lastname,names,email',
+            'creator:id,firstname,lastname,names,email',
             'creator.roles:name', // 👈 Esto es lo que te falta
             'client:id_cliente,Razon_Social,dni,telefono,email',
             'details.area:id_area,descripcion',
@@ -186,7 +187,7 @@ public function filter(Request $request)
 
         $supportsQuery = Support::with([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-           'creator:id,firstname,lastname,names,email',
+            'creator:id,firstname,lastname,names,email',
             'details.project:id_proyecto,descripcion',
             'details.area:id_area,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -239,7 +240,7 @@ public function filter(Request $request)
     {
         $supports = Support::with([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-           'creator:id,firstname,lastname,names,email',
+            'creator:id,firstname,lastname,names,email',
             'creator.roles:name', // 👈 Esto es lo que te falta
             'details.project:id_proyecto,descripcion',
             'details.area:id_area,descripcion',
@@ -325,29 +326,33 @@ public function filter(Request $request)
 
 
 
-    $channelName = null;
-$permissions = Auth::user()->getAllPermissions();
-$userRoles = Auth::user()->roles->pluck('name')->toArray();
+        $channelName = null;
+        $permissions = Auth::user()->getAllPermissions();
+        $userRoles = Auth::user()->roles->pluck('name')->toArray();
 
-// Si el usuario tiene el rol ATC_Oficina, permitimos que elija canal desde el request
-if (in_array('ATC_Oficina', $userRoles)) {
-    $channelName = $request->input('channel'); // Combo en el frontend
-} else {
-    // Si no es ATC_Oficina, usamos el permiso que comience con 'Canal.'
-    $channelPermission = $permissions->first(function ($perm) {
-        return str_starts_with($perm->name, 'Canal.');
-    });
+        // Si el usuario tiene el rol ATC_Oficina, permitimos que elija canal desde el request
+        if (in_array('ATC_Oficina', $userRoles)) {
+            $channelName = $request->input('channel'); // Combo en el frontend
+        } else {
+            // Si no es ATC_Oficina, usamos el permiso que comience con 'Canal.'
+            $channelPermission = $permissions->first(function ($perm) {
+                return str_starts_with($perm->name, 'Canal.');
+            });
 
-    $channelName = $channelPermission
-        ? str_replace('Canal.', '', $channelPermission->name)
-        : null;
-}
+            $channelName = $channelPermission
+                ? str_replace('Canal.', '', $channelPermission->name)
+                : null;
+        }
 
+        $attended_start = null;
 
+        if ($firstDetail['area_id'] != 1) {
 
-
-
-
+            $attended_start = Carbon::now('America/Lima');
+        }
+        if ($attended_start == null && $firstDetail['external_state_id'] === 3) {
+            $attended_start = Carbon::now();
+        }
 
 
 
@@ -375,6 +380,7 @@ if (in_array('ATC_Oficina', $userRoles)) {
             'attachment' => $attachment,
             'ticket' => $ticket ?? "TK-",
             'channel' => $channelName ?? ($firstDetail['channel'] ?? null),
+            'attended_start' => $attended_start,
         ]);
 
         if ($generateTicket) {
@@ -385,7 +391,7 @@ if (in_array('ATC_Oficina', $userRoles)) {
 
         $support->load([
             'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
-              'creator:id,firstname,lastname,names,email',
+            'creator:id,firstname,lastname,names,email',
             'creator.roles:name', // 👈 Esto es lo que te falta
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
             'details.area:id_area,descripcion',
@@ -417,20 +423,20 @@ if (in_array('ATC_Oficina', $userRoles)) {
             try {
 
                 $supportLoaded = $support->load([
-                      'client:id_cliente,Razon_Social,Telefono,Email,Direccion,DNI',
-             'creator:id,firstname,lastname,names,email',
-            'creator.roles:name', // 👈 Esto es lo que te falta
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
-            'details.area:id_area,descripcion',
-            'details.project:id_proyecto,descripcion',
-            'details.motivoCita:id_motivos_cita,nombre_motivo',
-            'details.tipoCita:id_tipo_cita,tipo',
-            'details.diaEspera:id_dias_espera,dias',
-            'details.internalState:id,description',
-            'details.externalState:id,description',
-            'details.supportType:id,description',
-            'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+                    'client:id_cliente,Razon_Social,Telefono,Email,Direccion,DNI',
+                    'creator:id,firstname,lastname,names,email',
+                    'creator.roles:name', // 👈 Esto es lo que te falta
+                    'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+                    'details.area:id_area,descripcion',
+                    'details.project:id_proyecto,descripcion',
+                    'details.motivoCita:id_motivos_cita,nombre_motivo',
+                    'details.tipoCita:id_tipo_cita,tipo',
+                    'details.diaEspera:id_dias_espera,dias',
+                    'details.internalState:id,description',
+                    'details.externalState:id,description',
+                    'details.supportType:id,description',
+                    'details.type:id,description',
+                    'details.lastComment.internalState:id,description',
                 ]);
 
 
@@ -531,6 +537,18 @@ if (in_array('ATC_Oficina', $userRoles)) {
         }
 
         $detailData = $details[0] ?? null;
+        ////////////////////////////////////////////////////////////////
+        $attended_start = null;
+
+        if ($detailData['area_id'] != 1) {
+
+            $attended_start = Carbon::now('America/Lima');
+        }
+        if ($attended_start == null && $detailData['external_state_id'] === 3) {
+            $attended_start = Carbon::now();
+        }
+
+        /////////////////////////////////////////////////////////////////
 
 
         if ($detailData) {
@@ -556,6 +574,8 @@ if (in_array('ATC_Oficina', $userRoles)) {
                     'internal_state_id' => $detailData['internal_state_id'] ?? null,
                     'external_state_id' => $detailData['external_state_id'] ?? null,
                     'type_id' => $detailData['type_id'] ?? null,
+                    'attended_start' => $attended_start,
+
                     // OJO: no tocar el ticket
                 ]);
                 if (($detailData['internal_state_id'] ?? null) == 5) {
@@ -582,7 +602,7 @@ if (in_array('ATC_Oficina', $userRoles)) {
         $support->load([
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
             'creator:id,firstname,lastname,names,email',
-'creator.roles:name', // 👈 Esto es lo que te falta
+            'creator.roles:name', // 👈 Esto es lo que te falta
             'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
 
             'details.area:id_area,descripcion',
@@ -716,7 +736,7 @@ if (in_array('ATC_Oficina', $userRoles)) {
 
             // Usuario que creó
             'creator:id,firstname,lastname,names,email',
-'creator.roles:name', // 👈 Esto es lo que te falta
+            'creator.roles:name', // 👈 Esto es lo que te falta
             // Detalles del soporte y sus relaciones
             'details',
             'details.area:id_area,descripcion',
