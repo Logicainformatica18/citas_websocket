@@ -58,12 +58,16 @@ class SupportExport implements FromCollection, WithHeadings
                     // 'Fecha Solicitud'       => $detail->attended_at,
                     // 'Derivado'             => $detail->derived,
                     'Registrado Por'       => $support->creator->email ?? '',
-                    'Fecha Creación'       => $support->created_at,
                     'Canal'       => $detail->channel ?? '',
+                    'registro_inicio'       => $support->created_at,
+                     'registro_fin'       => $detail->attended_start ?? '',
                     'Atencion_inicio'       => $detail->attended_start ?? '',
                     'Atencion_fin'       => $detail->attended_end ?? '',
                     'Ticket_inicio'       => $detail->ticket_start ?? '',
                     'Ticket_fin'       => $detail->ticket_end ?? '',
+                    'estado_area'       => $detail->lastComment->description ?? '',
+                    'Fecha_ultima_modificacion' => $detail->updated_at ?? '',
+
 
 
                 ];
@@ -102,12 +106,15 @@ class SupportExport implements FromCollection, WithHeadings
             // 'Fecha Solicitud',
             // 'Derivado',
             'Registrado Por',
-            'Fecha Creación',
             'Canal',
+            'registro_inicio',
+            'registro_fin',
             'Atencion_inicio',
             'Atencion_fin',
             'Ticket_inicio',
             'Ticket_fin',
+            'estado_area',
+            'Fecha_ultima_modificacion'
         ];
     }
 }
