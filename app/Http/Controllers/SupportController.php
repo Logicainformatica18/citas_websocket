@@ -560,11 +560,11 @@ if ($request->filled('comment_internal_state_id')) {
         ////////////////////////////////////////////////////////////////
         $attended_start = null;
 
-        if ($detailData['area_id'] != 1) {
+        // if ($detailData['area_id'] != 1) {
 
-            $attended_start = Carbon::now('America/Lima');
-        }
-        //si la fecha de atencion es nulo o el estado de ATC es 3 (atendido por ATC)
+        //     $attended_start = Carbon::now('America/Lima');
+        // }
+        //si la fecha de atencion es nulo y el estado de ATC es 3 (atendido por ATC)
         if ($attended_start == null && $detailData['external_state_id'] === 3) {
             $attended_start = Carbon::now('America/Lima');
         }
