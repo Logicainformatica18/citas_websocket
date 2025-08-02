@@ -47,7 +47,7 @@ class SupportController extends Controller
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
 
         // Filtros dinámicos
@@ -141,7 +141,7 @@ if ($request->filled('comment_internal_state_id')) {
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
 
         // 👮‍♂️ Filtro según permisos del usuario
@@ -229,7 +229,7 @@ if ($request->filled('comment_internal_state_id')) {
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
 
         // 🥇 Prioridad 1: buscar por ticket (TK-xxxx)
@@ -428,7 +428,7 @@ if ($request->filled('comment_internal_state_id')) {
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
 
         broadcast(new RecordChanged('Support', 'created', $support->toArray()))->toOthers();
@@ -461,7 +461,7 @@ if ($request->filled('comment_internal_state_id')) {
                     'details.externalState:id,description',
                     'details.supportType:id,description',
                     'details.type:id,description',
-                    'details.lastComment.internalState:id,description',
+                    'details.lastComment.internalState:id,description,created_at',
                 ]);
 
 
@@ -635,7 +635,7 @@ if ($request->filled('comment_internal_state_id')) {
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
 
 
@@ -663,7 +663,7 @@ if ($request->filled('comment_internal_state_id')) {
                     'details.externalState:id,description',
                     'details.supportType:id,description',
                     'details.type:id,description',
-                    'details.lastComment.internalState:id,description',
+                    'details.lastComment.internalState:id,description,created_at',
                 ]);
 
                 $detail = $supportLoaded->details->first();
@@ -718,7 +718,7 @@ if ($request->filled('comment_internal_state_id')) {
                 'details.externalState:id,description',
                 'details.supportType:id,description',
                 'details.type:id,description',
-                'details.lastComment.internalState:id,description',
+                'details.lastComment.internalState:id,description,created_at',
             ]),
         ]);
     }
@@ -764,7 +764,7 @@ if ($request->filled('comment_internal_state_id')) {
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ])->findOrFail($id);
 
         return response()->json($support);

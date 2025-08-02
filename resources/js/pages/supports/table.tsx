@@ -40,8 +40,14 @@ interface SupportDetail {
     ticket?: string; // Asegúrate de que este campo exista
     last_comment?: {
         internal_state?: { description: string };
+        created_at?: string;
     };
     last_comment_id?: number; // Asegúrate de que este campo exista
+    ticket_end?: string; // Asegúrate de que este campo exista
+    ticket_start?: string; // Asegúrate de que este campo exista
+    attended_start?: string; // Asegúrate de que este campo exista
+    attended_end?: string; // Asegúrate de que este campo exista
+
 }
 
 interface Support {

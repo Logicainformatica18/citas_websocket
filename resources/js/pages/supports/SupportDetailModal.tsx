@@ -93,8 +93,28 @@ export default function SupportDetailModal({ open, onClose, support }: Props) {
           <p>{detail?.priority ?? '—'}</p>
         </div>
         <div>
-          <span className="text-xs font-semibold text-gray-500 uppercase">Fecha de creación</span>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Fecha de Registro Inicio </span>
           <p>{formatDateTime(support.created_at)}</p>
+        </div>
+           <div>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Fecha Registro Fin </span>
+          <p>{formatDateTime(detail?.ticket_start)}</p>
+        </div>
+          <div>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Ticket Inicio </span>
+          <p>{formatDateTime(detail?.ticket_start)}</p>
+        </div>
+         <div>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Ticket Fin </span>
+          <p>{formatDateTime(detail?.ticket_end)}</p>
+        </div>
+         <div>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Atención Inicio</span>
+          <p>{formatDateTime(detail?.attended_start)}</p>
+        </div>
+          <div>
+          <span className="text-xs font-semibold text-gray-500 uppercase">Atención Fin</span>
+          <p>{formatDateTime(detail?.last_comment?.created_at)}</p>
         </div>
       </div>
     </div>
