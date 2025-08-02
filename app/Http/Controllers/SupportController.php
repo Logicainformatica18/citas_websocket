@@ -599,7 +599,7 @@ if ($request->filled('comment_internal_state_id')) {
 
                     // OJO: no tocar el ticket
                 ]);
-                if (($detailData['internal_state_id'] ?? null) == 5) {
+                if ($detailData['internal_state_id']  == 5 && $existingDetail->ticket_end== null) {
                     $existingDetail->ticket_end = \Carbon\Carbon::now('America/Lima');
 
                     $existingDetail->save();

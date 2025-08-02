@@ -342,6 +342,20 @@ console.log('formData.channel:', formData.channel);
         return;
     }
 
+
+const internalStateId = numericValues.internal_state_id;
+
+// 🚫 Validación: estado interno no debe ser 5
+if (internalStateId === 5) {
+    const estado = internalStates.find(i => i.id === 5)?.description ?? 'Estado inválido';
+    toast.warning(`El estado interno no puede ser "${estado}" al registrar un detalle.`);
+    return;
+}
+
+
+
+
+
     const sanitizedDetail = {
         ...currentDetail,
         ...numericValues,
