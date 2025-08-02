@@ -355,7 +355,6 @@ if (internalStateId === 5) {
 
 
 
-
     const sanitizedDetail = {
         ...currentDetail,
         ...numericValues,
@@ -557,13 +556,17 @@ if (internalStateId === 5) {
     const handleSubmit = async () => {
         try {
             setUploading(true);
-//           if (canEditChannelSelect && !currentDetail.channel?.trim()) {
-//     toast.warning('El canal es obligatorio para este tipo de atención');
-//     setUploading(false);
-//     return;
-// }
+          if (currentDetail.external_state_id==1 && currentDetail.internal_state_id==5) {
+    toast.warning('El estado atención no puede ser "Cerrado" y el interno "Por Asignar".');
+    setUploading(false);
+    return;
+}
 
-
+ if (currentDetail.area_id===1 && currentDetail.external_state_id!==3) {
+    toast.warning('El estado de atención debe ser "Atendido por ATC" y el área encargado "ATC".');
+    setUploading(false);
+    return;
+}
 
             const data = new FormData();
 
@@ -1233,14 +1236,31 @@ onChange={(e) =>
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose} disabled={uploading}>Cerrar</Button>
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={uploading || !canSubmit}
-                        title={!canSubmit ? 'No tiene permiso para guardar esta solicitud' : ''}
-                    >
-                        {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar
-                    </Button>
+                {currentDetail.ticket_end && (
+  <p className="text-red-600 text-sm mt-2">
+    * Este ticket no se puede modificar porque ya está cerrado.
+  </p>
+)}
+
+<Button
+  onClick={handleSubmit}
+  disabled={
+    uploading ||
+    !canSubmit ||
+    !!currentDetail.ticket_end
+  }
+  title={
+    !canSubmit
+      ? 'No tiene permiso para guardar esta solicitud'
+      : currentDetail.ticket_end
+        ? 'Este ticket ya está cerrado y no se puede modificar'
+        : ''
+  }
+>
+  {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+  Guardar
+</Button>
+
 
                 </DialogFooter>
             </DialogContent>
