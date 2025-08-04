@@ -23,6 +23,8 @@ use App\Http\Controllers\SupportDetailController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\CommentController;
 
+use App\Http\Controllers\ImageAnalysisController;
+
 
 Route::get('/', function () {
     return redirect("dashboard");
@@ -267,6 +269,15 @@ Route::post('generate_ticket', [SupportDetailController::class, 'generateTicket'
 Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
 Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
+
+Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
+
+Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
+Route::get('/analyses', [ImageAnalysisController::class, 'index'])->name('analyses.index');
+Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
+Route::post('/analyses', [ImageAnalysisController::class, 'store']);
+Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
+Route::post('/analyses/bulk-delete', [ImageAnalysisController::class, 'bulkDelete']);
 
 
 });
