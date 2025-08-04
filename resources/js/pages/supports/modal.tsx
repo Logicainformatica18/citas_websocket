@@ -568,7 +568,7 @@ if (internalStateId === 5) {
     return;
 }
 
- if (currentDetail.area_id===1 && currentDetail.external_state_id!==3) {
+ if (currentDetail.area_id===1 && currentDetail.external_state_id!==3 && canUpdate) {
     toast.warning('El estado de atención debe ser "Atendido por ATC" si el área encargado es "ATC".');
     setUploading(false);
     return;
