@@ -5,33 +5,48 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ImageAnalysis;
 use App\Jobs\AnalyzeImageJob;
-use Illuminate\Support\Facades\Storage;
-
+use Illuminate\Support\Facades\Log;
 class ImageAnalysisController extends Controller
 {
     public function filenames()
-{
-    return ImageAnalysis::pluck('filename');
-}
-
-    public function analyzeImages(Request $request)
     {
-        $request->validate([
-            'images' => 'required|array',
-            'images.*' => 'required|image|max:4096',
+        return ImageAnalysis::pluck('filename');
+    }
+
+
+
+public function analyzeImages(Request $request)
+{
+    Log::info('📥 Solicitud recibida en /analyze-images');
+    Log::info('📦 Archivos recibidos:', [
+        'cantidad' => count($request->file('images') ?? []),
+        'nombres' => collect($request->file('images'))->pluck('name')->toArray(),
+    ]);
+
+    // Validación mínima
+    $request->validate([
+        'images' => 'required|array',
+        'images.*' => 'required|file|max:4096',
+    ]);
+
+    foreach ($request->file('images') as $image) {
+        $path = $image->store('image_analyses');
+        $mime = $image->getMimeType();
+        $filename = $image->getClientOriginalName();
+
+        Log::info('📝 Imagen almacenada y encolada para análisis:', [
+            'filename' => $filename,
+            'mime' => $mime,
+            'path' => $path,
         ]);
 
-        foreach ($request->file('images') as $image) {
-            $path = $image->store('image_analyses'); // Se almacena en storage/app/image_analyses
-            $mime = $image->getMimeType();
-            $filename = $image->getClientOriginalName();
-
-            // Despachamos un job en cola
-            AnalyzeImageJob::dispatch($path, $filename, $mime);
-        }
-
-        return response()->json(['message' => 'Imágenes enviadas para análisis. Verifica más tarde.']);
+        AnalyzeImageJob::dispatch($path, $filename, $mime);
     }
+
+    Log::info('✅ Todas las imágenes fueron encoladas correctamente.');
+    return response()->json(['message' => 'Imágenes enviadas para análisis. Verifica más tarde.']);
+}
+
 
     public function index()
     {
@@ -45,23 +60,44 @@ class ImageAnalysisController extends Controller
         return ImageAnalysis::latest()->paginate(10);
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'items' => 'required|array',
-            'items.*.filename' => 'required|string',
-            'items.*.response' => 'required|string',
+ 
+
+public function store(Request $request)
+{
+    Log::info('📥 Solicitud recibida en /analyses');
+    Log::info('📄 Datos recibidos:', [
+        'items' => $request->items ?? null,
+    ]);
+
+    // Validación básica
+    $request->validate([
+        'items' => 'required|array',
+        'items.*.filename' => 'required|string',
+        'items.*.response' => 'required|string',
+    ]);
+
+    $guardados = [];
+
+    foreach ($request->items as $item) {
+        $analysis = ImageAnalysis::create([
+            'filename' => $item['filename'],
+            'response' => $item['response'],
         ]);
+        $guardados[] = $analysis->id;
 
-        foreach ($request->items as $item) {
-            ImageAnalysis::create([
-                'filename' => $item['filename'],
-                'response' => $item['response'],
-            ]);
-        }
-
-        return response()->json(['message' => 'Guardado exitosamente']);
+        Log::info('✅ Registro guardado:', [
+            'id' => $analysis->id,
+            'filename' => $analysis->filename,
+        ]);
     }
+
+    Log::info('📦 Todos los registros fueron guardados correctamente:', [
+        'ids' => $guardados,
+    ]);
+
+    return response()->json(['message' => 'Guardado exitosamente']);
+}
+
 
     public function destroy($id)
     {

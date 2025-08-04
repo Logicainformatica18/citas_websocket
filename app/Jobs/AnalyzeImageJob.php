@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Events\ImageAnalyzed;
 
 class AnalyzeImageJob implements ShouldQueue
 {
@@ -40,9 +41,12 @@ class AnalyzeImageJob implements ShouldQueue
                         'role' => 'user',
                         'content' => [
                             ['type' => 'text', 'text' => 'Describe brevemente el contenido del voucher.'],
-                            ['type' => 'image_url', 'image_url' => [
-                                'url' => "data:{$this->mime};base64,{$base64}"
-                            ]]
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => "data:{$this->mime};base64,{$base64}"
+                                ]
+                            ]
                         ]
                     ]
                 ],
@@ -52,10 +56,15 @@ class AnalyzeImageJob implements ShouldQueue
 
             $content = $response->json('choices.0.message.content');
 
-            ImageAnalysis::create([
+            $analysis = ImageAnalysis::create([
                 'filename' => $this->filename,
                 'response' => $content ?? 'Sin respuesta del modelo',
             ]);
+            Log::info('📡 Evento ImageAnalyzed emitido por websocket', [
+                'filename' => $analysis->filename,
+                'response' => $analysis->response,
+            ]);
+            broadcast(new ImageAnalyzed($analysis));
 
             Storage::delete($this->path); // Limpieza opcional
 

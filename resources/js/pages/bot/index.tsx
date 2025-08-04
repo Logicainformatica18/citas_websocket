@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { useState, useEffect, useRef } from 'react';
 import { Head } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
+import Echo from '@/lib/echo';
 
 interface ImageAnalysis {
     id?: number;
@@ -26,6 +27,7 @@ export default function BotIndex({ analyses: initialPagination }: { analyses: Pa
     const [analyzedFilenames, setAnalyzedFilenames] = useState<Set<string>>(new Set());
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+const [uploadProgress, setUploadProgress] = useState<number>(0);
 
     // 🚀 Cargar filenames analizados al montar
     useEffect(() => {
@@ -48,9 +50,10 @@ export default function BotIndex({ analyses: initialPagination }: { analyses: Pa
         }
     };
 
-   const handleUpload = async () => {
+const handleUpload = async () => {
     if (files.length === 0) return;
     setLoading(true);
+    setUploadProgress(0); // Reiniciar barra
 
     const formData = new FormData();
     const validFiles = files.filter(file => !analyzedFilenames.has(file.name));
@@ -61,53 +64,68 @@ export default function BotIndex({ analyses: initialPagination }: { analyses: Pa
         return;
     }
 
-    validFiles.forEach((file) => formData.append('images[]', file));
+    validFiles.forEach(file => formData.append('images[]', file));
 
     try {
-        const res = await axios.post('/analyze-images', formData, {
+        await axios.post('/analyze-images', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+                const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setUploadProgress(percent);
+            },
         });
-
-        const analyzed: ImageAnalysis[] = res.data.data || [];
-
-        await axios.post('/analyses', { items: analyzed });
 
         const refreshed = await axios.get('/analyses/fetch');
         setAnalyses(refreshed.data.data);
         setPagination(refreshed.data);
-        setFiles([]); // Limpia el input solo si todo salió bien
+        setFiles([]);
         fileInputRef.current!.value = '';
 
-        // ⚠️ Actualiza lista de archivos analizados
         const updatedFilenames = await axios.get('/analyses/filenames');
         setAnalyzedFilenames(new Set(updatedFilenames.data));
-
-    } catch (error: any) {
-        if (error.response?.status === 422) {
-            const validationErrors = error.response.data.errors || {};
-            const errorMessages = Object.values(validationErrors).flat();
-            const errorFileNames = Object.keys(validationErrors);
-
-            // Filtra los archivos válidos que sí se pueden volver a subir
-            const remainingFiles = files.filter(
-                (file) => !errorFileNames.includes(`images.${files.indexOf(file)}`)
-            );
-            setFiles(remainingFiles);
-
-            if (errorMessages.length === files.length) {
-                alert('Ninguna imagen fue válida. Revisa los formatos o nombres.');
-            } else {
-                alert('Algunas imágenes no fueron válidas y se eliminaron de la lista.');
-            }
-
-        } else {
-            console.error('Error al analizar o guardar imágenes:', error);
-            alert('Ocurrió un error inesperado. Revisa la consola.');
-        }
+    } catch (error) {
+        console.error('Error al analizar o guardar imágenes:', error);
+        alert('Error inesperado al analizar imágenes. Revisa la consola.');
     } finally {
         setLoading(false);
+        setUploadProgress(0); // Oculta la barra después de cargar
     }
 };
+
+useEffect(() => {
+    const channel = Echo.channel('analyses');
+
+    channel.listen('.record.changed', (e: any) => {
+        console.log('📡 Evento recibido en análisis:', e);
+
+        if (e.model === 'Analysis') {
+            switch (e.action) {
+                case 'created':
+                    setAnalyses((prev) => [e.data, ...prev]);
+                    setAnalyzedFilenames((prev) => new Set(prev).add(e.data.filename));
+                    break;
+                case 'deleted':
+                    setAnalyses((prev) => prev.filter((a) => a.id !== e.data.id));
+                    setAnalyzedFilenames((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.delete(e.data.filename);
+                        return newSet;
+                    });
+                    break;
+                case 'updated':
+                    setAnalyses((prev) =>
+                        prev.map((a) => (a.id === e.data.id ? e.data : a))
+                    );
+                    break;
+            }
+        }
+    });
+
+    return () => {
+        Echo.leave('analyses');
+    };
+}, []);
+
 
 
     const fetchPage = async (url: string) => {
@@ -192,6 +210,14 @@ export default function BotIndex({ analyses: initialPagination }: { analyses: Pa
                     >
                         {loading ? 'Analizando...' : 'Analizar Imágenes'}
                     </button>
+{uploadProgress > 0 && (
+  <div className="w-full bg-gray-200 rounded h-4 mt-2 overflow-hidden">
+    <div
+      className="bg-green-500 h-full transition-all duration-300 ease-in-out"
+      style={{ width: `${uploadProgress}%` }}
+    />
+  </div>
+)}
 
                     <div className="mt-8 overflow-x-auto">
                         <table className="min-w-full table-auto border border-gray-300 text-sm">
