@@ -342,7 +342,13 @@ console.log('formData.channel:', formData.channel);
         return;
     }
 
+ if (areaId !== 1 && externalStateId === 3) {
+        
+       toast.warning(`El estado de atención no puede ser "Atendido por ATC" si el área responsable no es ATC.`);
 
+
+        return;
+    }
 const internalStateId = numericValues.internal_state_id;
 
 // 🚫 Validación: estado interno no debe ser 5
@@ -563,11 +569,20 @@ if (internalStateId === 5) {
 }
 
  if (currentDetail.area_id===1 && currentDetail.external_state_id!==3) {
-    toast.warning('El estado de atención debe ser "Atendido por ATC" y el área encargado "ATC".');
+    toast.warning('El estado de atención debe ser "Atendido por ATC" si el área encargado es "ATC".');
     setUploading(false);
     return;
 }
-
+ if (currentDetail.area_id!==1 && currentDetail.external_state_id===3  ) {
+    toast.warning('El estado de atención  debe ser "Asignado" si el área encargado NO es ATC.');
+    setUploading(false);
+    return;
+}
+ if (currentDetail.area_id!==1 && currentDetail.external_state_id===1 && canUpdate) {
+    toast.warning('El estado de atención  no debe ser "Por Asignar" si el área encargado NO es ATC.');
+    setUploading(false);
+    return;
+}
             const data = new FormData();
 
             // 1. Campos del soporte general

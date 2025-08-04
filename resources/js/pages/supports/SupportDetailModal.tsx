@@ -114,7 +114,7 @@ export default function SupportDetailModal({ open, onClose, support }: Props) {
         </div>
           <div>
           <span className="text-xs font-semibold text-gray-500 uppercase">Atención Fin</span>
-          <p>{formatDateTime(detail?.last_comment?.created_at)}</p>
+          <p>{formatDateTime(detail?.attended_end)}</p>
         </div>
       </div>
     </div>

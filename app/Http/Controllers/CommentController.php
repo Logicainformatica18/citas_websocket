@@ -77,8 +77,10 @@ class CommentController extends Controller
 
         $support->load([
             'client:id_cliente,Razon_Social,telefono,email,direccion,dni',
-            'creator:id,firstname,lastname,names',
-            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel',
+            'creator:id,firstname,lastname,names,email',
+            'creator.roles:name', // 👈 Esto es lo que te falta
+            'details:id,support_id,subject,description,priority,type,status,reservation_time,attended_at,derived,Manzana,comment,attachment,project_id,area_id,id_motivos_cita,id_tipo_cita,id_dia_espera,internal_state_id,external_state_id,type_id,ticket,channel,ticket_start,ticket_end,attended_start,attended_end',
+
             'details.area:id_area,descripcion',
             'details.project:id_proyecto,descripcion',
             'details.motivoCita:id_motivos_cita,nombre_motivo',
@@ -88,8 +90,9 @@ class CommentController extends Controller
             'details.externalState:id,description',
             'details.supportType:id,description',
             'details.type:id,description',
-            'details.lastComment.internalState:id,description',
+            'details.lastComment.internalState:id,description,created_at',
         ]);
+
 
         broadcast(new RecordChanged('Support', 'updated', $support->toArray()))->toOthers();
 
