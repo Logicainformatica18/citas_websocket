@@ -343,7 +343,7 @@ console.log('formData.channel:', formData.channel);
     }
 
  if (areaId !== 1 && externalStateId === 3) {
-        
+
        toast.warning(`El estado de atención no puede ser "Atendido por ATC" si el área responsable no es ATC.`);
 
 
@@ -381,46 +381,46 @@ if (internalStateId === 5) {
     });
 
     // Reiniciar formulario con tipos coherentes
-    setCurrentDetail({
-        id: null,
-        subject: '',
-        description: '',
-        priority: 'Baja',
-        type: 'Consulta',
-        status: 'Pendiente',
-        reservation_time: getNowPlusHours(0),
-        attended_at: getNowPlusHours(1),
-        derived: '',
-        Manzana: '',
-        comment: '',
-        attachment: null,
+    // setCurrentDetail({
+    //     id: null,
+    //     subject: '',
+    //     description: '',
+    //     priority: 'Baja',
+    //     type: 'Consulta',
+    //     status: 'Pendiente',
+    //     reservation_time: getNowPlusHours(0),
+    //     attended_at: getNowPlusHours(1),
+    //     derived: '',
+    //     Manzana: '',
+    //     comment: '',
+    //     attachment: null,
 
-        project_id: null,
-        area_id: null,
-        id_motivos_cita: null,
-        id_tipo_cita: 1,
-        id_dia_espera: null,
-        internal_state_id: 3,
-        external_state_id: 1,
-        type_id: null,
+    //     project_id: null,
+    //     area_id: null,
+    //     id_motivos_cita: null,
+    //     id_tipo_cita: 1,
+    //     id_dia_espera: null,
+    //     internal_state_id: 3,
+    //     external_state_id: 1,
+    //     type_id: null,
 
-        ticket: '',
-        attended_start: '',
-        attended_end: '',
-        ticket_start: '',
-        ticket_end: '',
-        channel: '',
+    //     ticket: '',
+    //     attended_start: '',
+    //     attended_end: '',
+    //     ticket_start: '',
+    //     ticket_end: '',
+    //     channel: '',
 
-        // Relaciones limpias
-        project: null,
-        area: null,
-        motivo_cita: null,
-        tipo_cita: null,
-        dia_espera: null,
-        internal_state: null,
-        external_state: null,
-        support_type: null,
-    });
+    //     // Relaciones limpias
+    //     project: null,
+    //     area: null,
+    //     motivo_cita: null,
+    //     tipo_cita: null,
+    //     dia_espera: null,
+    //     internal_state: null,
+    //     external_state: null,
+    //     support_type: null,
+    // });
 };
 
 
@@ -578,8 +578,8 @@ if (internalStateId === 5) {
     setUploading(false);
     return;
 }
- if (currentDetail.area_id!==1 && currentDetail.external_state_id===1 && canUpdate) {
-    toast.warning('El estado de atención  no debe ser "Por Asignar" si el área encargado NO es ATC.');
+ if (currentDetail.area_id!==1 && currentDetail.external_state_id!=2 && canUpdate) {
+    toast.warning('El estado de atención   debe ser "Asignado" si el área encargado NO es ATC.');
     setUploading(false);
     return;
 }
