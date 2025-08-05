@@ -6,8 +6,57 @@ use Illuminate\Http\Request;
 use App\Models\ImageAnalysis;
 use App\Jobs\AnalyzeImageJob;
 use Illuminate\Support\Facades\Log;
+    use Google\Cloud\Vision\V1\Client\ImageAnnotatorClient;
+
+use Illuminate\Support\Facades\Storage;
+
+
 class ImageAnalysisController extends Controller
 {
+
+
+public function analyze(Request $request)
+{
+    $request->validate([
+        'image' => 'required|image',
+    ]);
+
+    // Guardar la imagen temporalmente
+    $path = $request->file('image')->store('temp');
+
+    // Cargar la imagen
+    $image = file_get_contents(storage_path('app/' . $path));
+
+    // Inicializar cliente de Vision
+    putenv('GOOGLE_APPLICATION_CREDENTIALS=' . storage_path('app/google-credentials.json'));
+    $client = new ImageAnnotatorClient();
+
+    // Llamar a la API
+    $response = $client->documentTextDetection($image);
+    $text = $response->getFullTextAnnotation()->getText();
+
+    $client->close();
+
+    // Eliminar imagen temporal
+    Storage::delete($path);
+
+    // Extraer info específica (ej. DNI, monto, etc.)
+    $dni = null;
+    $monto = null;
+    if (preg_match('/DNI[:\s]+(\d{8})/', $text, $matches)) {
+        $dni = $matches[1];
+    }
+    if (preg_match('/S\/\s*([0-9,.]+)/', $text, $matches)) {
+        $monto = $matches[1];
+    }
+
+    return response()->json([
+        'texto_completo' => $text,
+        'dni' => $dni,
+        'monto' => $monto,
+    ]);
+}
+
     public function filenames()
     {
         return ImageAnalysis::pluck('filename');
@@ -60,43 +109,43 @@ public function analyzeImages(Request $request)
         return ImageAnalysis::latest()->paginate(10);
     }
 
- 
 
-public function store(Request $request)
-{
-    Log::info('📥 Solicitud recibida en /analyses');
-    Log::info('📄 Datos recibidos:', [
-        'items' => $request->items ?? null,
-    ]);
 
-    // Validación básica
-    $request->validate([
-        'items' => 'required|array',
-        'items.*.filename' => 'required|string',
-        'items.*.response' => 'required|string',
-    ]);
+// public function store(Request $request)
+// {
+//     Log::info('📥 Solicitud recibida en /analyses');
+//     Log::info('📄 Datos recibidos:', [
+//         'items' => $request->items ?? null,
+//     ]);
 
-    $guardados = [];
+//     // Validación básica
+//     $request->validate([
+//         'items' => 'required|array',
+//         'items.*.filename' => 'required|string',
+//         'items.*.response' => 'required|string',
+//     ]);
 
-    foreach ($request->items as $item) {
-        $analysis = ImageAnalysis::create([
-            'filename' => $item['filename'],
-            'response' => $item['response'],
-        ]);
-        $guardados[] = $analysis->id;
+//     $guardados = [];
 
-        Log::info('✅ Registro guardado:', [
-            'id' => $analysis->id,
-            'filename' => $analysis->filename,
-        ]);
-    }
+//     foreach ($request->items as $item) {
+//         $analysis = ImageAnalysis::create([
+//             'filename' => $item['filename'],
+//             'response' => $item['response'],
+//         ]);
+//         $guardados[] = $analysis->id;
 
-    Log::info('📦 Todos los registros fueron guardados correctamente:', [
-        'ids' => $guardados,
-    ]);
+//         Log::info('✅ Registro guardado:', [
+//             'id' => $analysis->id,
+//             'filename' => $analysis->filename,
+//         ]);
+//     }
 
-    return response()->json(['message' => 'Guardado exitosamente']);
-}
+//     Log::info('📦 Todos los registros fueron guardados correctamente:', [
+//         'ids' => $guardados,
+//     ]);
+
+//     return response()->json(['message' => 'Guardado exitosamente']);
+// }
 
 
     public function destroy($id)

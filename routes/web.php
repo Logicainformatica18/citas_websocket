@@ -24,6 +24,10 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\CommentController;
 
 use App\Http\Controllers\ImageAnalysisController;
+use App\Exports\ImageAnalysesExport;
+use Maatwebsite\Excel\Facades\Excel;
+
+
 
 
 Route::get('/', function () {
@@ -270,15 +274,26 @@ Route::get('/support-details/{supportDetail}/comments', [CommentController::clas
 Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
 
-Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
+// Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
 
-Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
-Route::get('/analyses', [ImageAnalysisController::class, 'index'])->name('analyses.index');
+// Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
+// Route::get('/analyses', [ImageAnalysisController::class, 'index'])->name('analyses.index');
+// Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
+// Route::post('/analyses', [ImageAnalysisController::class, 'store']);
+// Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
+// Route::post('/analyses/bulk-delete', [ImageAnalysisController::class, 'bulkDelete']);
+Route::get('/bot', [ImageAnalysisController::class, 'index']);
 Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
-Route::post('/analyses', [ImageAnalysisController::class, 'store']);
+Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
+Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
 Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
-Route::post('/analyses/bulk-delete', [ImageAnalysisController::class, 'bulkDelete']);
 
+Route::get('/image-analyses', [ImageAnalysisController::class, 'index'])->name('image-analyses.index');
+Route::get('/image-analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
+
+Route::get('/export/image-analyses', function () {
+    return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
+});
 
 });
 

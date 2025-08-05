@@ -7,8 +7,20 @@ import Echo from '@/lib/echo';
 
 interface ImageAnalysis {
     id?: number;
+    image_name: string;
+    company_name: string;
+    operation_number: string;
+    amount: string;
+    date: string;
+    time: string;
+    phone: string;
+    status: string;
+    concept: string;
     filename: string;
-    response: string;
+    path: string;
+    response?: string; // Agregado para almacenar la respuesta completa
+    created_at?: string;
+    updated_at?: string;
 }
 
 interface Pagination<T> {
@@ -158,7 +170,7 @@ useEffect(() => {
             <Head title="Análisis de Imágenes" />
 
             <div className="p-8">
-                <h1 className="text-2xl font-bold mb-6">Análisis de Imágenes con OpenAI</h1>
+                <h1 className="text-2xl font-bold mb-6">Análisis de Imágenes</h1>
 
                 <div className="mb-4">
                     <input
@@ -169,6 +181,14 @@ useEffect(() => {
                         onChange={handleFileChange}
                         className="mb-2"
                     />
+<a
+  href="/export/image-analyses"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+>
+  Descargar Excel
+</a>
 
                     <div className="flex flex-wrap gap-4">
                         {files.map((file, index) => {
@@ -220,35 +240,53 @@ useEffect(() => {
 )}
 
                     <div className="mt-8 overflow-x-auto">
-                        <table className="min-w-full table-auto border border-gray-300 text-sm">
-                            <thead className="bg-gray-100 text-left">
-                                <tr>
-                                    <th className="border px-4 py-2">#</th>
-                                    <th className="border px-4 py-2">Imagen</th>
-                                    <th className="border px-4 py-2">Respuesta</th>
-                                    <th className="border px-4 py-2">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {analyses.map((item, index) => (
-                                    <tr key={item.id} className="border-t">
-                                        <td className="border px-4 py-2">{index + 1}</td>
-                                        <td className="border px-4 py-2 text-xs">{item.filename}</td>
-                                        <td className="border px-4 py-2 whitespace-pre-wrap text-sm max-w-md">
-                                            {item.response || 'Sin respuesta'}
-                                        </td>
-                                        <td className="border px-4 py-2">
-                                            <button
-                                                onClick={() => handleDelete(item.id!)}
-                                                className="flex items-center gap-1 text-red-600 hover:underline"
-                                            >
-                                                <Trash2 className="w-4 h-4" /> Eliminar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                      <table className="min-w-full table-auto border border-gray-300 text-sm">
+    <thead className="bg-gray-100 text-left">
+        <tr>
+            <th className="border px-4 py-2">#</th>
+            <th className="border px-4 py-2">Image Name</th>
+            <th className="border px-4 py-2">Respuesta</th>
+
+            <th className="border px-4 py-2">Company</th>
+            <th className="border px-4 py-2">Operation #</th>
+            <th className="border px-4 py-2">Amount</th>
+            <th className="border px-4 py-2">Date</th>
+            <th className="border px-4 py-2">Time</th>
+            <th className="border px-4 py-2">Phone</th>
+            <th className="border px-4 py-2">Status</th>
+            <th className="border px-4 py-2">Concept</th>
+            <th className="border px-4 py-2">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {analyses.map((item, index) => (
+            <tr key={item.id} className="border-t">
+                <td className="border px-4 py-2">{index + 1}</td>
+                <td className="border px-4 py-2">{item.filename}</td>
+                <td className="border px-4 py-2">
+                    {item.response ? item.response : 'No disponible'}
+                </td>
+                <td className="border px-4 py-2">{item.company_name}</td>
+                <td className="border px-4 py-2">{item.operation_number}</td>
+                <td className="border px-4 py-2">{item.amount}</td>
+                <td className="border px-4 py-2">{item.date}</td>
+                <td className="border px-4 py-2">{item.time}</td>
+                <td className="border px-4 py-2">{item.phone}</td>
+                <td className="border px-4 py-2">{item.status}</td>
+                <td className="border px-4 py-2">{item.concept}</td>
+                <td className="border px-4 py-2">
+                    <button
+                        onClick={() => handleDelete(item.id!)}
+                        className="flex items-center gap-1 text-red-600 hover:underline"
+                    >
+                        <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                </td>
+            </tr>
+        ))}
+    </tbody>
+</table>
+
                     </div>
 
                     <div className="flex justify-center mt-6 space-x-2">
