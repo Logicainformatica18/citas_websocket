@@ -298,6 +298,10 @@ console.log('formData.channel:', formData.channel);
     toast.warning('El campo "Canal" es obligatorio');
     return;
 }
+   if (currentDetail.area_id==1 && currentDetail.external_state_id!==3 &&canUpdate) {
+    toast.warning('El estado de atención debe ser "Atendido por ATC" si el area es ATC');
+    return;
+}
 
     // Validación básica
     if (!currentDetail.subject?.trim()) {
@@ -1188,11 +1192,13 @@ onChange={(e) =>
 
 
                 </div>
-                <div className="mt-4">
 
-                    <SupportCommentSection supportDetailId={currentDetail.id} />
+   {!currentDetail.ticket_end && currentDetail.id && (
+  <SupportCommentSection supportDetailId={currentDetail.id} />
+)}
 
-                </div>
+
+
                 <button
                     type="button"
                     onClick={handleAddDetail}
