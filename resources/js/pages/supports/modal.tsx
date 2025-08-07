@@ -292,22 +292,39 @@ const SupportModal = ({
 console.log('Permisos:', permissions);
 console.log('canEditChannelSelect:', canEditChannelSelect);
 console.log('formData.channel:', formData.channel);
-
-
    if (canEditChannelSelect && !currentDetail.channel?.trim()) {
     toast.warning('El campo "Canal" es obligatorio');
     return;
 }
+if (!currentDetail.project_id) {
+  toast.warning('El Proyecto es obligatorio');
+  return;
+}
+ if (!currentDetail.Manzana?.trim()) {
+    toast.warning('El Manzana/Lote es obligatorio');
+    return;
+}
+  // Validación básica
+    if (!currentDetail.subject?.trim()) {
+        toast.error("El asunto es obligatorios");
+        return;
+    }
+    if (!currentDetail.description?.trim()) {
+        toast.error("La descripción es obligatorios");
+        return;
+    }
+
+
+
+
+
+
    if (currentDetail.area_id==1 && currentDetail.external_state_id!==3 &&canUpdate) {
     toast.warning('El estado de atención debe ser "Atendido por ATC" si el area es ATC');
     return;
 }
 
-    // Validación básica
-    if (!currentDetail.subject?.trim()) {
-        toast.error("El asunto es obligatorios");
-        return;
-    }
+
 
     // Campos numéricos a forzar
     const numericFields = [
@@ -700,25 +717,37 @@ if (internalStateId === 5) {
                 <DialogHeader>
                     <DialogTitle>{supportToEdit ? 'Editar Solicitud' : 'Nueva Solicitud'}</DialogTitle>
                 </DialogHeader>
-                {canEditChannelSelect && (
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Canal
-                        </label>
-                        <select
-                           value={currentDetail.channel || ''}
-onChange={(e) =>
-    setCurrentDetail({ ...currentDetail, channel: e.target.value })
-}
+              {canEditChannelSelect && !currentDetail.channel ? (
+    <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+            Canal
+        </label>
+        <select
+            value={currentDetail.channel || ''}
+            onChange={(e) =>
+                setCurrentDetail({ ...currentDetail, channel: e.target.value })
+            }
+            className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
+        >
+            <option value="">Seleccione un canal</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="presencial">Presencial</option>
+            <option value="call_center">Call Center</option>
+            {/* Agrega más opciones si hay más canales */}
+        </select>
+    </div>
+) : canEditChannelSelect && currentDetail.channel && (
+    <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+            Canal
+        </label>
+        <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 capitalize">
+            {currentDetail.channel.replace(/_/g, ' ')}
+        </div>
+    </div>
+)}
 
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-400"
-                        >
-                            <option value="">Seleccione un canal</option>
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="presencial">Presencial</option>
-                        </select>
-                    </div>
-                )}
+
 
 
 
