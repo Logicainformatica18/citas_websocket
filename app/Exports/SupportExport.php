@@ -65,7 +65,7 @@ class SupportExport implements FromCollection, WithHeadings
                     'Atencion_fin'       => $detail->attended_end ?? '',
                     'Ticket_inicio'       => $detail->ticket_start ?? '',
                     'Ticket_fin'       => $detail->ticket_end ?? '',
-                    'estado_area'       => $detail->lastComment->description ?? '',
+                    'estado_area'       => $detail->lastComment->internalState->description ?? '',
                     'Fecha_ultima_modificacion' => $detail->updated_at ?? '',
 
 
