@@ -26,6 +26,9 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ImageAnalysisController;
 use App\Exports\ImageAnalysesExport;
 use Maatwebsite\Excel\Facades\Excel;
+// routes/web.php
+use App\Http\Controllers\PdfOcrController;
+
 
 
 
@@ -36,6 +39,17 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+
+Route::post('/ocr/pdf/upload',   [PdfOcrController::class, 'uploadAndOcr'])->name('ocr.pdf.upload');
+Route::post('/ocr/pdf/existing', [PdfOcrController::class, 'ocrExisting'])->name('ocr.pdf.existing');
+Route::get('/ocr/pdf', function () {
+    return Inertia::render('OcrPdf/OcrPdf'); // resources/js/Pages/OcrPdf.tsx
+})->name('ocr.pdf.page');
+
+
+
+
 
  Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -267,9 +281,9 @@ Route::get('/export/image-analyses', function () {
     return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
 });
 
-Route::get('/report/supports', [ReportController::class, 'report']);
 
 });
+Route::get('/report/supports', [ReportController::class, 'report']);
 
 use App\Http\Controllers\WebSocketTestController;
 
