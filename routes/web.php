@@ -39,89 +39,61 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
  Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Route::get('dashboard', function () {
-    //     return Inertia::render('dashboard');
-    // })->name('dashboard');
 
 
+    Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch')->middleware('permission:administrar');
+    Route::post('/users', [UserController::class, 'store'])->middleware('permission:administrar');
+    Route::get('/users', [UserController::class, 'index'])->name('users.index')->middleware(['auth', 'verified'])->middleware('permission:administrar');
+    Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('permission:administrar');
+    Route::put('/users/{id}', [UserController::class, 'update'])->middleware('permission:administrar');
+    Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:administrar');
+    Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles'])->middleware('permission:administrar');
+    // Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated'])->name('articles.fetch');
+    // Route::post('/articles', [ArticleController::class, 'store'])->middleware(['auth', 'verified']);
+    // Route::get('/articles', [ArticleController::class, 'index'])->middleware(['auth', 'verified'])->name('articles.index');
+    // Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
+    // Route::put('/articles/{id}', [ArticleController::class, 'update']);
+    // Route::get('/articles/{id}', [ArticleController::class, 'show']);
+    // Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
+    // Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
+    // Route::get('/products/search', [ProductController::class, 'searchByDescription']);
 
-    Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch');
-    Route::post('/users', [UserController::class, 'store'])->middleware(['auth', 'verified']);
-    Route::get('/users', [UserController::class, 'index'])->middleware(['auth', 'verified'])->name('users.index');
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles']);
+    // Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
+    // Route::post('/products', [ProductController::class, 'store'])->middleware(['auth', 'verified']);
+    // Route::get('/products', [ProductController::class, 'index'])->middleware(['auth', 'verified'])->name('products.index');
+    // Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    // Route::put('/products/{id}', [ProductController::class, 'update']);
+    // Route::get('/products/{id}', [ProductController::class, 'show']);
+    // Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete']);
+    // Route::get('/products/{id}/export-excel', [ProductController::class, 'exportExcel']);
 
-
-
-
-    Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated'])->name('articles.fetch');
-    Route::post('/articles', [ArticleController::class, 'store'])->middleware(['auth', 'verified']);
-    Route::get('/articles', [ArticleController::class, 'index'])->middleware(['auth', 'verified'])->name('articles.index');
-    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
-    Route::put('/articles/{id}', [ArticleController::class, 'update']);
-    Route::get('/articles/{id}', [ArticleController::class, 'show']);
-    Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
-    Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
-
-
-
-
-    Route::get('/products/search', [ProductController::class, 'searchByDescription']);
-
-    Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
-    Route::post('/products', [ProductController::class, 'store'])->middleware(['auth', 'verified']);
-    Route::get('/products', [ProductController::class, 'index'])->middleware(['auth', 'verified'])->name('products.index');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-    Route::put('/products/{id}', [ProductController::class, 'update']);
-    Route::get('/products/{id}', [ProductController::class, 'show']);
-    Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete']);
-    Route::get('/products/{id}/export-excel', [ProductController::class, 'exportExcel']);
-
-    Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
-
-
-
+    // Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
+    // Route::get('/transfers/{id}/articles', [TransferController::class, 'articles'])->name('transfers.articles');
+    // Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
+    // Route::post('/transfers', [TransferController::class, 'store'])->middleware(['auth', 'verified']);
+    // Route::get('/transfers', [TransferController::class, 'index'])->middleware(['auth', 'verified'])->name('transfers.index');
+    // Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
+    // Route::put('/transfers/{id}', [TransferController::class, 'update']);
+    // Route::get('/transfers/{id}', [TransferController::class, 'show']);
+    // Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
+    // Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
+    //Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
 
 
-
-
-
-
-
-
-    Route::get('/transfers/{id}/articles', [TransferController::class, 'articles'])->name('transfers.articles');
-
-
-
-    Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
-    Route::post('/transfers', [TransferController::class, 'store'])->middleware(['auth', 'verified']);
-    Route::get('/transfers', [TransferController::class, 'index'])->middleware(['auth', 'verified'])->name('transfers.index');
-    Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
-    Route::put('/transfers/{id}', [TransferController::class, 'update']);
-    Route::get('/transfers/{id}', [TransferController::class, 'show']);
-    Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
-    Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
-
-
-
-    Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
-
-Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search');
+Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search')->middleware('permission:solicitudes.buscar');
 
 Route::get('/supports/filtros', [SupportController::class, 'filter']);
 
     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
 
 
-    Route::get('/supports', [SupportController::class, 'index'])->name('supports.index');
-    Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export');
+    Route::get('/supports', [SupportController::class, 'index'])->name('supports.index')->middleware('permission:solicitudes.ver');
+    Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export')->middleware('permission:solicitudes.exportar');
 
-    Route::post('/supports', [SupportController::class, 'store']);
+    Route::post('/supports', [SupportController::class, 'store'])->middleware('permission:solicitudes.crear');
     Route::get('/supports/{id}', [SupportController::class, 'show']);
-    Route::put('/supports/{id}', [SupportController::class, 'update']);
-    Route::delete('/supports/{id}', [SupportController::class, 'destroy']);
+    Route::put('/supports/{id}', [SupportController::class, 'update'])->middleware('permission:solicitudes.actualizar');
+    Route::delete('/supports/{id}', [SupportController::class, 'destroy'])->middleware('permission:solicitudes.eliminar');
     Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
 
 Route::put('/support-details/{id}/area-motivo', [SupportDetailController::class, 'updateAreaMotivo']);
