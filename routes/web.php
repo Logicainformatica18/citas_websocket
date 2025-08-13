@@ -267,6 +267,8 @@ Route::get('/export/image-analyses', function () {
     return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
 });
 
+Route::get('/report/supports', [ReportController::class, 'report']);
+
 });
 
 use App\Http\Controllers\WebSocketTestController;
