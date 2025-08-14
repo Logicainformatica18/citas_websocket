@@ -58,9 +58,8 @@ public function store(Request $request)
     // Aquí podrías disparar tu notificación por email
     // Mail::to($payment->email)->send(new PaymentNotificationMail($payment));
 
-    return redirect()
-        ->route('payments.index')
-        ->with('success', "El pago de {$payment->full_name} se registró correctamente y se notificó a {$payment->email}.");
+    return redirect("pagos");
+        
 }
 
 

@@ -31,7 +31,7 @@ use App\Http\Controllers\PdfOcrController;
 use App\Http\Controllers\PaymentsController;
 
 
-Route::get('/payments', [PaymentsController::class, 'index']);
+Route::get('/pagos', [PaymentsController::class, 'index']);
 
 
 
