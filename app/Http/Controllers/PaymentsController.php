@@ -6,6 +6,8 @@ use App\Models\Payment;
 use App\Models\Project;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+use App\Mail\PaymentNotificationMail; // <-- crea este Mailable (abajo)
+use Illuminate\Support\Facades\Mail;
 
 class PaymentsController extends Controller
 {
@@ -27,40 +29,45 @@ public function index()
     /**
      * Guarda un nuevo pago.
      */
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'email'          => 'required|email|max:150',
-        'dni'            => 'required|string|max:20',
-        'full_name'      => 'required|string|max:200',
-        'receipt_number' => 'nullable|string|max:100',
-        'amount'         => 'required|numeric|min:0',
-        'details'        => 'nullable|string',
-        'project_id'     => 'nullable|integer',
-        'mz_lote'        => 'nullable|string|max:50',
-        'file_1'         => 'nullable|file|max:5120',
-        'file_2'         => 'nullable|file|max:5120',
-        'file_3'         => 'nullable|file|max:5120',
-    ]);
+  public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'email'          => 'required|email|max:150',
+            'dni'            => 'required|string|max:20',
+            'full_name'      => 'required|string|max:200',
+            'receipt_number' => 'nullable|string|max:100',
+            'amount'         => 'required|numeric|min:0',
+            'details'        => 'nullable|string',
+            'project_id'     => 'nullable|integer',
+            'mz_lote'        => 'nullable|string|max:50',
+            'file_1'         => 'nullable|file|max:1024', // 1MB (seguridad backend)
+            'file_2'         => 'nullable|file|max:1024',
+            'file_3'         => 'nullable|file|max:1024',
+        ]);
 
-    if ($request->hasFile('file_1')) {
-        $validated['file_1'] = fileStore($request->file('file_1'), 'uploads/payments', 'file1');
+        // Subir archivos (tus helpers)
+        if ($request->hasFile('file_1')) {
+            $validated['file_1'] = fileStore($request->file('file_1'), 'uploads/payments', 'file1');
+        }
+        if ($request->hasFile('file_2')) {
+            $validated['file_2'] = fileStore($request->file('file_2'), 'uploads/payments', 'file2');
+        }
+        if ($request->hasFile('file_3')) {
+            $validated['file_3'] = fileStore($request->file('file_3'), 'uploads/payments', 'file3');
+        }
+
+        $payment = Payment::create($validated);
+
+        // 🔔 Notificar SIN bloquear la respuesta HTTP (sin queue worker)
+        dispatch(function () use ($payment) {
+            Mail::to($payment->email)->send(new PaymentNotificationMail($payment));
+        })
+        ->afterCommit()   // solo si el INSERT se confirmó
+        ->afterResponse(); // ejecuta tras enviar la respuesta al navegador
+
+        // Redirige inmediatamente (el correo se envía "en segundo plano" tras la respuesta)
+        return redirect("pagos");
     }
-    if ($request->hasFile('file_2')) {
-        $validated['file_2'] = fileStore($request->file('file_2'), 'uploads/payments', 'file2');
-    }
-    if ($request->hasFile('file_3')) {
-        $validated['file_3'] = fileStore($request->file('file_3'), 'uploads/payments', 'file3');
-    }
-
-    $payment = \App\Models\Payment::create($validated);
-
-    // Aquí podrías disparar tu notificación por email
-    // Mail::to($payment->email)->send(new PaymentNotificationMail($payment));
-
-    return redirect("pagos");
-        
-}
 
 
 
