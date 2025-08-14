@@ -33,6 +33,9 @@ class PdfOcrController extends Controller
      */
     public function uploadAndOcr(Request $request)
     {
+        // al inicio del método
+set_time_limit(300); // 5 minutos
+
         $data = $request->validate([
             'pdf' => ['required', 'file', 'mimes:pdf', 'max:51200'], // 50MB demo
         ]);
@@ -62,6 +65,9 @@ class PdfOcrController extends Controller
      */
     public function ocrExisting(Request $request)
     {
+        // al inicio del método
+set_time_limit(300); // 5 minutos
+
         $data = $request->validate([
             'object' => ['required', 'string'], // nombre dentro del bucket
         ]);
@@ -85,6 +91,9 @@ class PdfOcrController extends Controller
     /** Sube un archivo local a GCS y devuelve la URI gs://bucket/obj */
     private function uploadToGcs(string $localPath, string $destPath): string
     {
+        // al inicio del método
+set_time_limit(300); // 5 minutos
+
         $storage = new StorageClient([
             'projectId' => $this->projectId,
             'keyFilePath' => storage_path('app/eco-splicer-468114-t0-54c2adb26581.json'),
@@ -113,6 +122,9 @@ class PdfOcrController extends Controller
      */
     private function runOcrAndCollect(string $gcsPdfUri): array
     {
+        // al inicio del método
+set_time_limit(300); // 5 minutos
+
         $outPrefix = $this->outputBase . '/' . Str::uuid() . '/';
         $gcsOutUri = $this->toGcsUri($outPrefix);
 
@@ -154,6 +166,9 @@ class PdfOcrController extends Controller
     /** Lee los .json del prefijo y concatena el texto; devuelve [text, pages, objects[]] */
     private function collectOutputText(string $outPrefix): array
     {
+        // al inicio del método
+set_time_limit(300); // 5 minutos
+
         $storage = new StorageClient([
             'projectId' => $this->projectId,
             'keyFilePath' => storage_path('app/eco-splicer-468114-t0-54c2adb26581.json'),
