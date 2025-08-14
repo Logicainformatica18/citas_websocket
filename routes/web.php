@@ -28,6 +28,15 @@ use App\Exports\ImageAnalysesExport;
 use Maatwebsite\Excel\Facades\Excel;
 // routes/web.php
 use App\Http\Controllers\PdfOcrController;
+use App\Http\Controllers\PaymentsController;
+
+
+Route::get('/payments', [PaymentsController::class, 'index']);
+
+
+
+// Ruta para registrar pagos (POST)
+Route::post('/payment', [PaymentsController::class, 'store'])->name('payments.store'); // opcional según tu config
 
 
 
