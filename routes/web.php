@@ -71,82 +71,83 @@ Route::get('/ocr/pdf', function () {
     Route::put('/users/{id}', [UserController::class, 'update'])->middleware('permission:administrar');
     Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:administrar');
     Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles'])->middleware('permission:administrar');
-    // Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated'])->name('articles.fetch');
-    // Route::post('/articles', [ArticleController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/articles', [ArticleController::class, 'index'])->middleware(['auth', 'verified'])->name('articles.index');
-    // Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
-    // Route::put('/articles/{id}', [ArticleController::class, 'update']);
-    // Route::get('/articles/{id}', [ArticleController::class, 'show']);
-    // Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
-    // Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
-    // Route::get('/products/search', [ProductController::class, 'searchByDescription']);
 
-    // Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
-    // Route::post('/products', [ProductController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/products', [ProductController::class, 'index'])->middleware(['auth', 'verified'])->name('products.index');
-    // Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-    // Route::put('/products/{id}', [ProductController::class, 'update']);
-    // Route::get('/products/{id}', [ProductController::class, 'show']);
-    // Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete']);
-    // Route::get('/products/{id}/export-excel', [ProductController::class, 'exportExcel']);
+    Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated'])->name('articles.fetch');
+    Route::post('/articles', [ArticleController::class, 'store'])->middleware(['auth', 'verified']);
+    Route::get('/articles', [ArticleController::class, 'index'])->middleware(['auth', 'verified'])->name('articles.index');
+    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
+    Route::put('/articles/{id}', [ArticleController::class, 'update']);
+    Route::get('/articles/{id}', [ArticleController::class, 'show']);
+    Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
+    Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
+    Route::get('/products/search', [ProductController::class, 'searchByDescription']);
 
-    // Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
-    // Route::get('/transfers/{id}/articles', [TransferController::class, 'articles'])->name('transfers.articles');
-    // Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
-    // Route::post('/transfers', [TransferController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/transfers', [TransferController::class, 'index'])->middleware(['auth', 'verified'])->name('transfers.index');
-    // Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
-    // Route::put('/transfers/{id}', [TransferController::class, 'update']);
-    // Route::get('/transfers/{id}', [TransferController::class, 'show']);
-    // Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
-    // Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
-    //Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
+    Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
+    Route::post('/products', [ProductController::class, 'store'])->middleware(['auth', 'verified']);
+    Route::get('/products', [ProductController::class, 'index'])->middleware(['auth', 'verified'])->name('products.index');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::put('/products/{id}', [ProductController::class, 'update']);
+    Route::get('/products/{id}', [ProductController::class, 'show']);
+    Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete']);
+    Route::get('/products/{id}/export-excel', [ProductController::class, 'exportExcel']);
 
-
-Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search')->middleware('permission:solicitudes.buscar');
-
-Route::get('/supports/filtros', [SupportController::class, 'filter']);
-
-    Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
+    Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
+    Route::get('/transfers/{id}/articles', [TransferController::class, 'articles'])->name('transfers.articles');
+    Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
+    Route::post('/transfers', [TransferController::class, 'store'])->middleware(['auth', 'verified']);
+    Route::get('/transfers', [TransferController::class, 'index'])->middleware(['auth', 'verified'])->name('transfers.index');
+    Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
+    Route::put('/transfers/{id}', [TransferController::class, 'update']);
+    Route::get('/transfers/{id}', [TransferController::class, 'show']);
+    Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
+    Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
+    Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
 
 
-    Route::get('/supports', [SupportController::class, 'index'])->name('supports.index')->middleware('permission:solicitudes.ver');
-    Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export')->middleware('permission:solicitudes.exportar');
+// Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search')->middleware('permission:solicitudes.buscar');
 
-    Route::post('/supports', [SupportController::class, 'store'])->middleware('permission:solicitudes.crear');
-    Route::get('/supports/{id}', [SupportController::class, 'show']);
-    Route::put('/supports/{id}', [SupportController::class, 'update'])->middleware('permission:solicitudes.actualizar');
-    Route::delete('/supports/{id}', [SupportController::class, 'destroy'])->middleware('permission:solicitudes.eliminar');
-    Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
+// Route::get('/supports/filtros', [SupportController::class, 'filter']);
 
-Route::put('/support-details/{id}/area-motivo', [SupportDetailController::class, 'updateAreaMotivo']);
-Route::delete('/support-details/{id}', [SupportDetailController::class, 'destroy']);
+//     Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
 
 
+//     Route::get('/supports', [SupportController::class, 'index'])->name('supports.index')->middleware('permission:solicitudes.ver');
+//     Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->name('supports.export')->middleware('permission:solicitudes.exportar');
 
-// Vista inicial e index con Inertia
-Route::get('/clients', [ClientController::class, 'index'])->middleware(['auth', 'verified'])->name('clients.index');
+//     Route::post('/supports', [SupportController::class, 'store'])->middleware('permission:solicitudes.crear');
+//     Route::get('/supports/{id}', [SupportController::class, 'show']);
+//     Route::put('/supports/{id}', [SupportController::class, 'update'])->middleware('permission:solicitudes.actualizar');
+//     Route::delete('/supports/{id}', [SupportController::class, 'destroy'])->middleware('permission:solicitudes.eliminar');
+//     Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
 
-    Route::get('/clients/search', [ClientController::class, 'searchByName']);
-// Fetch para paginación desde React
-Route::get('/clients/fetch', [ClientController::class, 'fetchPaginated'])->middleware(['auth', 'verified']);
-
-// CRUD
-Route::post('/clients', [ClientController::class, 'store'])->middleware(['auth', 'verified']);
-Route::get('/clients/{id}', [ClientController::class, 'show'])->middleware(['auth', 'verified']);
-Route::put('/clients/{id}', [ClientController::class, 'update'])->middleware(['auth', 'verified']);
-Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->middleware(['auth', 'verified']);
-
-// Eliminación masiva
-Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete'])->middleware(['auth', 'verified']);
+// Route::put('/support-details/{id}/area-motivo', [SupportDetailController::class, 'updateAreaMotivo']);
+// Route::delete('/support-details/{id}', [SupportDetailController::class, 'destroy']);
 
 
 
+// // Vista inicial e index con Inertia
+// Route::get('/clients', [ClientController::class, 'index'])->middleware(['auth', 'verified'])->name('clients.index');
+
+//     Route::get('/clients/search', [ClientController::class, 'searchByName']);
+// // Fetch para paginación desde React
+// Route::get('/clients/fetch', [ClientController::class, 'fetchPaginated'])->middleware(['auth', 'verified']);
+
+// // CRUD
+// Route::post('/clients', [ClientController::class, 'store'])->middleware(['auth', 'verified']);
+// Route::get('/clients/{id}', [ClientController::class, 'show'])->middleware(['auth', 'verified']);
+// Route::put('/clients/{id}', [ClientController::class, 'update'])->middleware(['auth', 'verified']);
+// Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->middleware(['auth', 'verified']);
+
+// // Eliminación masiva
+// Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete'])->middleware(['auth', 'verified']);
 
 
-    // routes/web.php
-    Route::get('/areas/all', [AreaController::class, 'getAllEnabled']);
-   Route::get('/motivos-cita/all', [MotiveController::class, 'getAllEnabled']);
+
+
+
+//     // routes/web.php
+//     Route::get('/areas/all', [AreaController::class, 'getAllEnabled']);
+//    Route::get('/motivos-cita/all', [MotiveController::class, 'getAllEnabled']);
 
 
 
@@ -157,56 +158,54 @@ Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete'])->mi
     Route::put('/roles/{id}', [RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{id}', [RoleController::class, 'destroy'])->name('roles.destroy');
 
-    Route::get('/areas/fetch', [AreaController::class, 'fetchPaginated'])->name('areas.fetch');
-    Route::get('/areas', [AreaController::class, 'index'])->name('areas.index');
-    Route::post('/areas', [AreaController::class, 'store']);
-    Route::get('/areas/{id}', [AreaController::class, 'show']);
-    Route::put('/areas/{id}', [AreaController::class, 'update']);
-    Route::delete('/areas/{id}', [AreaController::class, 'destroy']);
-    Route::post('/areas/bulk-delete', [AreaController::class, 'bulkDelete']);
+//     Route::get('/areas/fetch', [AreaController::class, 'fetchPaginated'])->name('areas.fetch');
+//     Route::get('/areas', [AreaController::class, 'index'])->name('areas.index');
+//     Route::post('/areas', [AreaController::class, 'store']);
+//     Route::get('/areas/{id}', [AreaController::class, 'show']);
+//     Route::put('/areas/{id}', [AreaController::class, 'update']);
+//     Route::delete('/areas/{id}', [AreaController::class, 'destroy']);
+//     Route::post('/areas/bulk-delete', [AreaController::class, 'bulkDelete']);
 
 
 
 
-    Route::get('/internal-states/fetch', [InternalStateController::class, 'fetchPaginated'])->name('internal-states.fetch');
-    Route::get('/internal-states', [InternalStateController::class, 'index'])->name('internal-states.index');
-    Route::post('/internal-states', [InternalStateController::class, 'store']);
-    Route::get('/internal-states/{id}', [InternalStateController::class, 'show']);
-    Route::put('/internal-states/{id}', [InternalStateController::class, 'update']);
-    Route::delete('/internal-states/{id}', [InternalStateController::class, 'destroy']);
-    Route::post('/internal-states/bulk-delete', [InternalStateController::class, 'bulkDelete']);
+//     Route::get('/internal-states/fetch', [InternalStateController::class, 'fetchPaginated'])->name('internal-states.fetch');
+//     Route::get('/internal-states', [InternalStateController::class, 'index'])->name('internal-states.index');
+//     Route::post('/internal-states', [InternalStateController::class, 'store']);
+//     Route::get('/internal-states/{id}', [InternalStateController::class, 'show']);
+//     Route::put('/internal-states/{id}', [InternalStateController::class, 'update']);
+//     Route::delete('/internal-states/{id}', [InternalStateController::class, 'destroy']);
+//     Route::post('/internal-states/bulk-delete', [InternalStateController::class, 'bulkDelete']);
 
-    Route::get('/external-states/fetch', [ExternalStateController::class, 'fetchPaginated'])->name('external-states.fetch');
-    Route::get('/external-states', [ExternalStateController::class, 'index'])->name('external-states.index');
-    Route::post('/external-states', [ExternalStateController::class, 'store']);
-    Route::get('/external-states/{id}', [ExternalStateController::class, 'show']);
-    Route::put('/external-states/{id}', [ExternalStateController::class, 'update']);
-    Route::delete('/external-states/{id}', [ExternalStateController::class, 'destroy']);
-    Route::post('/external-states/bulk-delete', [ExternalStateController::class, 'bulkDelete']);
-
-
-
-Route::prefix('appointment-types')->group(function () {
-    Route::get('/', [AppointmentTypeController::class, 'index'])->name('appointment-types.index');
-    Route::get('/fetch', [AppointmentTypeController::class, 'fetchPaginated']);
-    Route::post('/', [AppointmentTypeController::class, 'store']);
-    Route::get('/{id}', [AppointmentTypeController::class, 'show']);
-    Route::put('/{id}', [AppointmentTypeController::class, 'update']);
-    Route::delete('/{id}', [AppointmentTypeController::class, 'destroy']);
-    Route::post('/bulk-delete', [AppointmentTypeController::class, 'bulkDelete']);
+//     Route::get('/external-states/fetch', [ExternalStateController::class, 'fetchPaginated'])->name('external-states.fetch');
+//     Route::get('/external-states', [ExternalStateController::class, 'index'])->name('external-states.index');
+//     Route::post('/external-states', [ExternalStateController::class, 'store']);
+//     Route::get('/external-states/{id}', [ExternalStateController::class, 'show']);
+//     Route::put('/external-states/{id}', [ExternalStateController::class, 'update']);
+//     Route::delete('/external-states/{id}', [ExternalStateController::class, 'destroy']);
+//     Route::post('/external-states/bulk-delete', [ExternalStateController::class, 'bulkDelete']);
 
 
-});
 
- Route::get('/waiting-days', [WaitingDayController::class, 'index'])->name('waiting-days.index');
-Route::get('/waiting-days/fetch', [WaitingDayController::class, 'fetchPaginated']);
-Route::get('/waiting-days/{id}', [WaitingDayController::class, 'show']);
-Route::post('/waiting-days', [WaitingDayController::class, 'store']);
-Route::put('/waiting-days/{id}', [WaitingDayController::class, 'update']);
-Route::delete('/waiting-days/{id}', [WaitingDayController::class, 'destroy']);
-Route::post('/waiting-days/bulk-delete', [WaitingDayController::class, 'bulkDelete']);
+// Route::prefix('appointment-types')->group(function () {
+//     Route::get('/', [AppointmentTypeController::class, 'index'])->name('appointment-types.index');
+//     Route::get('/fetch', [AppointmentTypeController::class, 'fetchPaginated']);
+//     Route::post('/', [AppointmentTypeController::class, 'store']);
+//     Route::get('/{id}', [AppointmentTypeController::class, 'show']);
+//     Route::put('/{id}', [AppointmentTypeController::class, 'update']);
+//     Route::delete('/{id}', [AppointmentTypeController::class, 'destroy']);
+//     Route::post('/bulk-delete', [AppointmentTypeController::class, 'bulkDelete']);
 
 
+// });
+
+//  Route::get('/waiting-days', [WaitingDayController::class, 'index'])->name('waiting-days.index');
+// Route::get('/waiting-days/fetch', [WaitingDayController::class, 'fetchPaginated']);
+// Route::get('/waiting-days/{id}', [WaitingDayController::class, 'show']);
+// Route::post('/waiting-days', [WaitingDayController::class, 'store']);
+// Route::put('/waiting-days/{id}', [WaitingDayController::class, 'update']);
+// Route::delete('/waiting-days/{id}', [WaitingDayController::class, 'destroy']);
+// Route::post('/waiting-days/bulk-delete', [WaitingDayController::class, 'bulkDelete']);
 
 
 
@@ -214,59 +213,61 @@ Route::post('/waiting-days/bulk-delete', [WaitingDayController::class, 'bulkDele
 
 
 
-Route::get('/motives', [MotiveController::class, 'index'])->name('motives.index');
-Route::get('/motives/fetch', [MotiveController::class, 'fetchPaginated']);
-Route::get('/motives/{id}', [MotiveController::class, 'show']);
-Route::post('/motives', [MotiveController::class, 'store']);
-Route::put('/motives/{id}', [MotiveController::class, 'update']);
-Route::delete('/motives/{id}', [MotiveController::class, 'destroy']);
-Route::post('/motives/bulk-delete', [MotiveController::class, 'bulkDelete']);
+
+
+// Route::get('/motives', [MotiveController::class, 'index'])->name('motives.index');
+// Route::get('/motives/fetch', [MotiveController::class, 'fetchPaginated']);
+// Route::get('/motives/{id}', [MotiveController::class, 'show']);
+// Route::post('/motives', [MotiveController::class, 'store']);
+// Route::put('/motives/{id}', [MotiveController::class, 'update']);
+// Route::delete('/motives/{id}', [MotiveController::class, 'destroy']);
+// Route::post('/motives/bulk-delete', [MotiveController::class, 'bulkDelete']);
 
 
 
 
-Route::get('/types', [TypeController::class, 'index'])->name('types.index');
-Route::get('/types/fetch', [TypeController::class, 'fetchPaginated']);
-Route::get('/types/{id}', [TypeController::class, 'show']);
-Route::post('/types', [TypeController::class, 'store']);
-Route::put('/types/{id}', [TypeController::class, 'update']);
-Route::delete('/types/{id}', [TypeController::class, 'destroy']);
-Route::post('/types/bulk-delete', [TypeController::class, 'bulkDelete']);
+// Route::get('/types', [TypeController::class, 'index'])->name('types.index');
+// Route::get('/types/fetch', [TypeController::class, 'fetchPaginated']);
+// Route::get('/types/{id}', [TypeController::class, 'show']);
+// Route::post('/types', [TypeController::class, 'store']);
+// Route::put('/types/{id}', [TypeController::class, 'update']);
+// Route::delete('/types/{id}', [TypeController::class, 'destroy']);
+// Route::post('/types/bulk-delete', [TypeController::class, 'bulkDelete']);
 
 
 
-Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
-Route::get('/sales/fetch', [SaleController::class, 'fetchPaginated']);
-Route::get('/sales/{id}', [SaleController::class, 'show']);
-Route::post('/sales', [SaleController::class, 'store']);
-Route::put('/sales/{id}', [SaleController::class, 'update']);
-Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
-Route::post('/sales/bulk-delete', [SaleController::class, 'bulkDelete']);
+// Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
+// Route::get('/sales/fetch', [SaleController::class, 'fetchPaginated']);
+// Route::get('/sales/{id}', [SaleController::class, 'show']);
+// Route::post('/sales', [SaleController::class, 'store']);
+// Route::put('/sales/{id}', [SaleController::class, 'update']);
+// Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
+// Route::post('/sales/bulk-delete', [SaleController::class, 'bulkDelete']);
 
 
 
-Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
-Route::get('/projects/fetch', [ProjectController::class, 'fetchPaginated']);
-Route::get('/projects/{id}', [ProjectController::class, 'show']);
-Route::post('/projects', [ProjectController::class, 'store']);
-Route::put('/projects/{id}', [ProjectController::class, 'update']);
-Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
-Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
+// Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
+// Route::get('/projects/fetch', [ProjectController::class, 'fetchPaginated']);
+// Route::get('/projects/{id}', [ProjectController::class, 'show']);
+// Route::post('/projects', [ProjectController::class, 'store']);
+// Route::put('/projects/{id}', [ProjectController::class, 'update']);
+// Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+// Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
 
 
 
 
-      Route::get('/chat', [ChatMessageController::class, 'index'])->name('chat.index');
-    Route::get('/chat/messages', [ChatMessageController::class, 'fetch'])->name('chat.fetch');
-    Route::post('/chat/messages', [ChatMessageController::class, 'store'])->name('chat.store');
+//       Route::get('/chat', [ChatMessageController::class, 'index'])->name('chat.index');
+//     Route::get('/chat/messages', [ChatMessageController::class, 'fetch'])->name('chat.fetch');
+//     Route::post('/chat/messages', [ChatMessageController::class, 'store'])->name('chat.store');
 
-    Route::get('/reports/{id}', [ReportController::class, 'show'])->name('reports.show');
+//     Route::get('/reports/{id}', [ReportController::class, 'show'])->name('reports.show');
 
 
 
-Route::post('generate_ticket', [SupportDetailController::class, 'generateTicket']);
-Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
-Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
+// Route::post('generate_ticket', [SupportDetailController::class, 'generateTicket']);
+// Route::get('/support-details/{supportDetail}/comments', [CommentController::class, 'index']);
+// Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
 
 // Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
@@ -277,18 +278,20 @@ Route::post('/support-details/{supportDetail}/comments', [CommentController::cla
 // Route::post('/analyses', [ImageAnalysisController::class, 'store']);
 // Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
 // Route::post('/analyses/bulk-delete', [ImageAnalysisController::class, 'bulkDelete']);
-Route::get('/bot', [ImageAnalysisController::class, 'index']);
-Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
-Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
-Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
-Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
 
-Route::get('/image-analyses', [ImageAnalysisController::class, 'index'])->name('image-analyses.index');
-Route::get('/image-analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
 
-Route::get('/export/image-analyses', function () {
-    return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
-});
+// Route::get('/bot', [ImageAnalysisController::class, 'index']);
+// Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
+// Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
+// Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
+// Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
+
+// Route::get('/image-analyses', [ImageAnalysisController::class, 'index'])->name('image-analyses.index');
+// Route::get('/image-analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
+
+// Route::get('/export/image-analyses', function () {
+//     return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
+// });
 
 
 });

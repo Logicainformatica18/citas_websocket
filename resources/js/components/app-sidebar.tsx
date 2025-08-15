@@ -50,7 +50,7 @@ type PageProps = {
     role: string;
   };
 };
-
+import {  Package, ArrowLeftRight } from 'lucide-react';
 export function AppSidebar() {
   const { permissions } = usePage<PageProps>().props;
   const { toggleSidebar } = useSidebar();
@@ -76,52 +76,24 @@ const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     }));
   };
 
-  const groupedNavItems = [
-    {
-      title: 'Admin',
-      show: isAdmin,
-      items: [
-        { title: 'Usuarios', href: '/users', icon: Users },
-        { title: 'Roles', href: '/roles', icon: ShieldCheck },
-      ],
-    },
-    {
-      title: 'Gestión',
-      show: isAdmin ,
-      items: [
-        { title: 'Clientes', href: '/clients', icon: UserCircle },
-        { title: 'Áreas', href: '/areas', icon: LayoutDashboard },
-        { title: 'Proyectos', href: '/projects', icon: FolderKanban },
-      ],
-    },
-     {
-      title: 'Detalle Cliente',
-      show: isAdmin || Solicitudes_ver,
-      items: [
-        { title: 'Detalle Cliente', href: '/sales', icon: FolderKanban },
-      ],
-    },
-    {
-      title: 'Parámetros',
-      show: isAdmin ,
-      items: [
-        { title: 'Estados ATC', href: '/external-states', icon: ArrowUpRight },
-        { title: 'Estados Internos', href: '/internal-states', icon: ArrowDownLeft },
-        { title: 'Tipos de Cita', href: '/appointment-types', icon: CalendarClock },
-        { title: 'Días de Espera', href: '/waiting-days', icon: Hourglass },
-        { title: 'Motivos de Cita', href: '/motives', icon: HelpCircle },
-        { title: 'Tipos', href: '/types', icon: List },
-      ],
-    },
-    {
-      title: 'Solicitud',
-      show: isAdmin || Solicitudes_ver  ,
-      items: [
-        { title: 'Solicitudes', href: '/supports', icon: Headphones },
-      ],
-    },
-
-  ];
+const groupedNavItems = [
+  {
+    title: 'Admin',
+    show: isAdmin,
+    items: [
+      { title: 'Usuarios', href: '/users', icon: Users },          // 👤 Usuarios
+      { title: 'Roles', href: '/roles', icon: ShieldCheck },        // 🛡️ Roles
+    ],
+  },
+  {
+    title: 'Gestión',
+    show: isAdmin,
+    items: [
+      { title: 'Artículos', href: '/products', icon: Package },     // 📦 Productos/Artículos
+      { title: 'Transferencias', href: '/transfers', icon: ArrowLeftRight }, // 🔄 Transferencias
+    ],
+  },
+];
 
   const footerNavItems: NavItem[] = [
     {

@@ -19,10 +19,11 @@ class ProductController extends Controller
         ]);
     }
 
-    public function fetchPaginated()
-    {
-        return response()->json(Product::latest()->orderBy('id', 'desc')->paginate(7));
-    }
+ public function fetchPaginated()
+{
+    $products = Product::orderByDesc('id')->paginate(7);
+    return response()->json(['products' => $products]);
+}
 
     public function store(Request $request)
     {
