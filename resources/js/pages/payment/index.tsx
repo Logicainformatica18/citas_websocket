@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
 import { LoaderCircle } from "lucide-react";
+import {
+  Mail, IdCard, User, ReceiptText, DollarSign, FileText, Folder, MapPin, Paperclip
+} from 'lucide-react';
 
 type Project = { id_proyecto: number; descripcion: string };
 
@@ -11,6 +14,73 @@ type FileErrors = {
 };
 
 const MAX_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
+function FormRow({
+  id, label, children,
+}: { id: string; label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+      <label htmlFor={id} className="text-sm font-medium text-gray-900 md:text-left">
+        {label}
+      </label>
+      <div className="md:col-span-2">{children}</div>
+    </div>
+  );
+}
+
+function InputWithIcon({
+  Icon, className = '', ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { Icon: any }) {
+  return (
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        {...props}
+        className={`w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60 ${className}`}
+      />
+    </div>
+  );
+}
+
+function TextareaWithIcon({
+  Icon, className = '', ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { Icon: any }) {
+  return (
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-gray-400" />
+      <textarea
+        {...props}
+        className={`w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60 ${className}`}
+      />
+    </div>
+  );
+}
+
+function SelectWithIcon({
+  Icon, className = '', children, ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { Icon: any }) {
+  return (
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <select
+        {...props}
+        className={`w-full rounded-md border border-gray-300 pl-9 pr-8 py-2 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60 ${className}`}
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+// 1) Crea un "icono" de texto S/
+function SolIcon({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`${className} w-auto h-auto font-semibold text-gray-400 leading-none`}
+    >
+      S/
+    </span>
+  );
+}
 
 export default function PaymentsIndex() {
     const actionUrl = typeof route === "function" ? route("payments.store") : "/payments";
@@ -104,12 +174,12 @@ export default function PaymentsIndex() {
     >
         <div className="min-h-screen flex items-center justify-center py-1 w-full">
             {/* Contenedor ancho 80% */}
-            <div className="w-4/5 px-10">
+            <div className="w-3/5 px-5">
                 {/* Card sin transparencia, más ancho */}
                 <div className="bg-white shadow-2xl ring-1 ring-white/30 rounded-2xl p-6 sm:p-8 w-full mx-auto">
 
                     <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-1">
-                        Registro de Pagos - AybarCorp
+                        REGISTRO DE PAGOS - AYBARCORP
                     </h1>
                     <p className="text-sm text-gray-700 mb-6">
                         Formulario para registrar un nuevo pago. Será notificado al Email.
@@ -137,281 +207,225 @@ export default function PaymentsIndex() {
                         </div>
                     )}
 
-                    <form onSubmit={onSubmit} className="space-y-6">
-                        {/* Información del Cliente */}
-                        <section>
-                            <h2 className="text-base font-medium text-gray-900 mb-4">
-                                Información del Cliente
-                            </h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Correo electrónico
-                                    </label>
-                                    <input
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="cliente@email.com"
-                                        value={data.email}
-                                        onChange={handleChange}
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-                                </div>
-                                <div>
-                                    <label htmlFor="dni" className="block text-sm font-medium text-gray-900 mb-1">
-                                        DNI
-                                    </label>
-                                    <input
-                                        id="dni"
-                                        name="dni"
-                                        type="text"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="Documento de identidad"
-                                        value={data.dni}
-                                        onChange={handleChange}
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label htmlFor="full_name" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Nombres y apellidos
-                                    </label>
-                                    <input
-                                        id="full_name"
-                                        name="full_name"
-                                        type="text"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="Nombre completo del cliente"
-                                        value={data.full_name}
-                                        onChange={handleChange}
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.full_name && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </section>
+                    <form onSubmit={onSubmit} className="space-y-8">
 
-                        {/* Información del Pago */}
-                        <section>
-                            <h2 className="text-base font-medium text-gray-900 mb-4">Información del Pago</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="receipt_number" className="block text-sm font-medium text-gray-900 mb-1">
-                                        N° de comprobante
-                                    </label>
-                                    <input
-                                        id="receipt_number"
-                                        name="receipt_number"
-                                        type="text"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="Boleta / Factura / N°"
-                                        value={data.receipt_number}
-                                        onChange={handleChange}
-                                        disabled={processing}
-                                    />
-                                    {errors.receipt_number && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.receipt_number}</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label htmlFor="amount" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Monto
-                                    </label>
-                                    <input
-                                        id="amount"
-                                        name="amount"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="0.00"
-                                        value={data.amount}
-                                        onChange={handleChange}
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label htmlFor="details" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Detalles
-                                    </label>
-                                    <textarea
-                                        id="details"
-                                        name="details"
-                                        rows={4}
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="Detalles adicionales (opcional)"
-                                        value={data.details}
-                                        onChange={handleChange}
-                                        disabled={processing}
-                                    />
-                                    {errors.details && <p className="mt-1 text-sm text-red-600">{errors.details}</p>}
-                                </div>
-                            </div>
-                        </section>
+  <section>
+<h2 className="text-base font-semibold mb-4
+               bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10
+               border border-blue-200/70 dark:border-blue-800/40
+               rounded-xl px-4 py-2 shadow-sm text-blue-900 dark:text-blue-100">
+  INFORMACIÓN DEL TITULAR
+</h2>
 
-                        {/* Información del Proyecto */}
-                        <section>
-                            <h2 className="text-base font-medium text-gray-900 mb-4">
-                                Información del Proyecto
-                            </h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="project_id" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Proyecto
-                                    </label>
-                                    <select
-                                        id="project_id"
-                                        name="project_id"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        value={String(data.project_id ?? "")}
-                                        onChange={(e) =>
-                                            setData("project_id", e.target.value ? Number(e.target.value) : null)
-                                        }
-                                        required
-                                        disabled={processing}
-                                    >
-                                        <option value="">Seleccione un proyecto</option>
-                                        {projects.map((p) => (
-                                            <option key={p.id_proyecto} value={p.id_proyecto}>
-                                                {p.descripcion}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.project_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label htmlFor="mz_lote" className="block text-sm font-medium text-gray-900 mb-1">
-                                        MZ - Lote
-                                    </label>
-                                    <input
-                                        id="mz_lote"
-                                        name="mz_lote"
-                                        type="text"
-                                        className="w-full rounded-xl border-gray-300 focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
-                                        placeholder="Ej: MZ A - Lote 12"
-                                        value={data.mz_lote}
-                                        onChange={handleChange}
-                                        disabled={processing}
-                                    />
-                                    {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
-                                </div>
-                            </div>
-                        </section>
+    <div className="space-y-1">
+      <FormRow id="email" label="E-mail">
+        <InputWithIcon
+          Icon={Mail}
+          id="email"
+          name="email"
+          type="email"
+          placeholder="cliente@email.com"
+          value={data.email}
+          onChange={handleChange}
+          required
+          disabled={processing}
+        />
+        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+      </FormRow>
 
-                        {/* Archivos adjuntos */}
-                        <section>
-                            <h2 className="text-base font-medium text-gray-900 mb-4">
-                                Archivos adjuntos
-                            </h2>
+      <FormRow id="dni" label="DNI">
+        <InputWithIcon
+          Icon={IdCard}
+          id="dni"
+          name="dni"
+          placeholder="Documento de identidad / CE"
+          value={data.dni}
+          onChange={handleChange}
+          required
+          disabled={processing}
+        />
+        {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
+      </FormRow>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label htmlFor="file_1" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Archivo 1 (máx. 1 MB)
-                                    </label>
-                                    <input
-                                        id="file_1"
-                                        name="file_1"
-                                        type="file"
-                                        className="block w-full text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
-                                        onChange={handleFile("file_1")}
-                                        accept="image/*,application/pdf"
-                                        disabled={processing}
-                                    />
-                                    {(fileErrors.file_1 || errors.file_1) && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {fileErrors.file_1 ?? (errors.file_1 as string)}
-                                        </p>
-                                    )}
-                                </div>
+      <FormRow id="full_name" label="Nombres y apellidos">
+        <InputWithIcon
+          Icon={User}
+          id="full_name"
+          name="full_name"
+          placeholder="Nombre completo del cliente"
+          value={data.full_name}
+          onChange={handleChange}
+          required
+          disabled={processing}
+        />
+        {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
+      </FormRow>
+    </div>
+  </section>
 
-                                <div>
-                                    <label htmlFor="file_2" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Archivo 2 (máx. 1 MB)
-                                    </label>
-                                    <input
-                                        id="file_2"
-                                        name="file_2"
-                                        type="file"
-                                        className="block w-full text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
-                                        onChange={handleFile("file_2")}
-                                        accept="image/*,application/pdf"
-                                        disabled={processing}
-                                    />
-                                    {(fileErrors.file_2 || errors.file_2) && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {fileErrors.file_2 ?? (errors.file_2 as string)}
-                                        </p>
-                                    )}
-                                </div>
+  {/* Información del Pago */}
+  <section>
+    <h2 className="text-base font-semibold mb-4
+               bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10
+               border border-blue-200/70 dark:border-blue-800/40
+               rounded-xl px-4 py-2 shadow-sm text-blue-900 dark:text-blue-100">
+INFORMACIÓN DEL PAGO
+</h2>
 
-                                <div>
-                                    <label htmlFor="file_3" className="block text-sm font-medium text-gray-900 mb-1">
-                                        Archivo 3 (máx. 1 MB)
-                                    </label>
-                                    <input
-                                        id="file_3"
-                                        name="file_3"
-                                        type="file"
-                                        className="block w-full text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
-                                        onChange={handleFile("file_3")}
-                                        accept="image/*,application/pdf"
-                                        disabled={processing}
-                                    />
-                                    {(fileErrors.file_3 || errors.file_3) && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {fileErrors.file_3 ?? (errors.file_3 as string)}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
 
-                            {progress && typeof progress.percentage === "number" && (
-                                <div className="mt-3 text-sm text-gray-800">
-                                    Subiendo… {progress.percentage}%
-                                </div>
-                            )}
-                        </section>
+    <div className="space-y-1">
+      <FormRow id="receipt_number" label="N° de comprobante">
+        <InputWithIcon
+          Icon={ReceiptText}
+          id="receipt_number"
+          name="receipt_number"
+          placeholder="Boleta / Factura / N°"
+          value={data.receipt_number}
+          onChange={handleChange}
+          disabled={processing}
+        />
+        {errors.receipt_number && <p className="mt-1 text-sm text-red-600">{errors.receipt_number}</p>}
+      </FormRow>
 
-                        {/* Botones */}
-                        <div className="flex items-center gap-3 pt-2">
-                            <button
-                                type="submit"
-                                disabled={processing || hasFileErrors}
-                                className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-60"
-                                title={hasFileErrors ? "Corrige los errores de archivos" : undefined}
-                            >
-                                {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                {processing ? "Guardando…" : "Guardar pago"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    reset();
-                                    setFileErrors({});
-                                    clearErrors();
-                                }}
-                                disabled={processing}
-                                className="inline-flex items-center justify-center rounded-2xl bg-gray-100 px-5 py-2.5 font-medium text-gray-900 shadow hover:bg-gray-200 disabled:opacity-60"
-                            >
-                                Limpiar
-                            </button>
+     <FormRow id="amount" label="Monto">
+  <InputWithIcon
+    Icon={SolIcon}            // 👈 aquí va el prefijo S/
+    id="amount"
+    name="amount"
+    type="number"
+    step="0.01"
+    min="0"
+    placeholder="0.00"
+    value={data.amount}
+    onChange={handleChange}
+    required
+    disabled={processing}
+  />
+
+
+        {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+      </FormRow>
+
+      <FormRow id="details" label="Comentarios">
+        <TextareaWithIcon
+          Icon={FileText}
+          id="details"
+          name="details"
+          rows={4}
+          placeholder="Detalles adicionales (opcional)"
+          value={data.details}
+          onChange={handleChange}
+          disabled={processing}
+        />
+        {errors.details && <p className="mt-1 text-sm text-red-600">{errors.details}</p>}
+      </FormRow>
+    </div>
+  </section>
+
+  {/* Información del Proyecto */}
+  <section>
+
+    <h2 className="text-base font-medium text-gray-900 mb-4">INFORMACIÓN DEL PROYECTO</h2>
+    <div className="space-y-1">
+      <FormRow id="project_id" label="Proyecto">
+        <SelectWithIcon
+          Icon={Folder}
+          id="project_id"
+          name="project_id"
+          value={String(data.project_id ?? '')}
+          onChange={(e) => setData('project_id', e.target.value ? Number(e.target.value) : null)}
+          required
+          disabled={processing}
+        >
+          <option value="">Seleccione un proyecto</option>
+          {projects.map((p) => (
+            <option key={p.id_proyecto} value={p.id_proyecto}>
+              {p.descripcion}
+            </option>
+          ))}
+        </SelectWithIcon>
+        {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>}
+      </FormRow>
+
+      <FormRow id="mz_lote" label="MZ - Lote">
+        <InputWithIcon
+          Icon={MapPin}
+          id="mz_lote"
+          name="mz_lote"
+          placeholder="Ej: MZ A - Lote 12"
+          value={data.mz_lote}
+          onChange={handleChange}
+          disabled={processing}
+        />
+        {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
+      </FormRow>
+    </div>
+  </section>
+
+  {/* Archivos adjuntos */}
+  <section>
+    <h2 className="text-base font-medium text-gray-900 mb-4">ARCHIVOS ADJUNTOS</h2>
+    <div className="space-y-1">
+      {(['file_1', 'file_2', 'file_3'] as const).map((field, i) => (
+        <FormRow key={field} id={field} label={`Archivo ${i + 1} (máx. 1 MB)`}>
+          <div className="relative">
+            <Paperclip className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              id={field}
+              name={field}
+              type="file"
+              className="block w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
+              onChange={handleFile(field)}
+              accept="image/*,application/pdf"
+              disabled={processing}
+            />
+          </div>
+          {(fileErrors[field] || (errors as any)[field]) && (
+            <p className="mt-1 text-sm text-red-600">
+              {fileErrors[field] ?? (errors as any)[field]}
+            </p>
+          )}
+        </FormRow>
+      ))}
+
+      {progress && typeof progress.percentage === 'number' && (
+        <div className="text-sm text-gray-800 md:col-start-2">
+          Subiendo… {progress.percentage}%
+        </div>
+      )}
+    </div>
+  </section>
+
+  {/* Botones */}
+  <div className="flex items-center gap-3 pt-2">
+    <button
+      type="submit"
+      disabled={processing || hasFileErrors}
+      className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-60"
+      title={hasFileErrors ? 'Corrige los errores de archivos' : undefined}
+    >
+      {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+      {processing ? 'Guardando…' : 'Guardar pago'}
+    </button>
+    <button
+      type="button"
+      onClick={() => { reset(); setFileErrors({}); clearErrors(); }}
+      disabled={processing}
+      className="inline-flex items-center justify-center rounded-md bg-gray-100 px-5 py-2.5 font-medium text-gray-900 shadow hover:bg-gray-200 disabled:opacity-60"
+    >
+      Limpiar
+    </button>
+  </div>
+</form>
+<br />
+    {submitted && (
+                        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+                            Pago registrado correctamente y se notificó a su correo.
                         </div>
-                    </form>
+                    )}
+                    <br />
                 </div>
+
             </div>
         </div>
     </div>
