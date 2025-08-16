@@ -613,7 +613,7 @@ class SupportController extends Controller
                     'type_id' => $detailData['type_id'] ?? null,
                     //'attended_start' => $attended_start,
 
-                   
+
                 ]);
                 //si el estado es cerrado y el ticket_end es nulo, se actualiza ticket_end
                 if ($detailData['internal_state_id'] == 5 && $existingDetail->ticket_end == null) {
@@ -640,7 +640,7 @@ class SupportController extends Controller
                 if ($detailData['area_id'] != 1 && $existingDetail->attended_start == null) {
                     $existingDetail->attended_start = Carbon::now('America/Lima');
                     $existingDetail->save();
-               
+
                 }
 
                 // Procesar archivo
@@ -767,7 +767,9 @@ class SupportController extends Controller
         })
             ->where('project_id', $projectId)
             ->where('subject', $subject)
+            ->where('internal_state_id',"<>", 5)
             ->where('Manzana', $manzana)
+
             ->first();
 
         if ($detail) {
