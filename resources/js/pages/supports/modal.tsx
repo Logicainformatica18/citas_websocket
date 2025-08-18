@@ -380,13 +380,13 @@ if (!currentDetail.project_id) {
 
     console.log('🔍 Validación detalle:', { areaId, externalStateId });
 
-    if (areaId !== 1 && externalStateId === 1) {
-        const estado = externalStates.find(e => e.id === 1)?.description ?? 'Por Asignar';
-       toast.warning(`El estado de atención no puede ser "${estado}" si el área responsable no es ATC.`);
+    // if (areaId !== 1 && externalStateId === 1) {
+    //     const estado = externalStates.find(e => e.id === 1)?.description ?? 'Por Asignar';
+    //    toast.warning(`El estado de atención no puede ser "${estado}" si el área responsable no es ATC.`);
 
 
-        return;
-    }
+    //     return;
+    // }
 
  if (areaId !== 1 && externalStateId === 3) {
 
