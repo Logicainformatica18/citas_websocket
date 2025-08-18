@@ -39,7 +39,7 @@ Route::get('/pagos', [PaymentsController::class, 'index']);
 Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:10,1440')->name('payments.store');
 
 
-
+    Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
 
 
 Route::get('/', function () {
@@ -79,7 +79,7 @@ Route::get('/ocr/pdf', function () {
     Route::put('/articles/{id}', [ArticleController::class, 'update']);
     Route::get('/articles/{id}', [ArticleController::class, 'show']);
     Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
-    Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
+
     Route::get('/products/search', [ProductController::class, 'searchByDescription']);
 
     Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
