@@ -59,6 +59,31 @@ interface SupportDetailRaw {
     external_state?: any;
     support_type?: any;
 }
+const SUBJECT_AREA_ID: Record<string, number> = {
+  "Avance de Proyecto": 7,
+  "BOLETAS Y/O TICKETS DE PAGO": 10,
+  "Certificado de lotes": 7,
+  "CESION DE POSICION CONTRACTUAL": 2,
+  "CITA CON ASESOR LEGAL": 2,
+  "Constancia de no adeudo": 1,
+  "COPIA LEGALIZADA DE CONTRATO": 2,
+  "COPIAS LITERALES": 2,
+  "Desistimientos": 1,
+  "E.E.C.C": 10,
+  "FORMALIZACION DE CONTRATO DEFINITIVO": 7,
+  "Información de su lote": 1,
+  "INFORMACION SOBRE COMPRA DE TERRENOS": 1,
+  "LEGALIZACION DE FIRMAS": 2,
+  "MODIFICACION CONTRATO O MINUTA": 7,
+  "PAGOS O REFINANCIAMIENTO": 10,
+  "PROGRAMACION DE VISITA AL TERRENO": 1,
+  "RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)": 2,
+  "RECOJO DE CONTRATO DEFINITIVOS": 7,
+  "REUBICACIONES": 7,
+  "SOLICITUD DE LETRAS": 1,
+  "Traspaso de aportes": 2,
+  "VIGENCIA DE PODER": 2,
+};
 
 const SupportModal = ({
     open,
@@ -960,33 +985,62 @@ if (internalStateId === 5) {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Solicitud</Label>
                         <div className="col-span-3">
-                            <select
-                                name="subject"
-                                value={currentDetail.subject}
-                                onChange={handleDetailChange}
-                                className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
-                            >
-                                <option value="">Seleccione la Solicitud</option>
-                                {[
-                                    'Avance de Proyecto',
-                                    'Boletas',
-                                    'Cesion',
-                                    'Cita con legal',
-                                    'Certificado de lote',
-                                    'Constancia de no adeudo',
-                                    'Desestimiento',
-                                    'EE.CC',
-                                    'Formalización',
-                                    'Información de su lote',
-                                    'Pagos',
-                                    'Recojo de contrato',
-                                    'Recojo de Letras',
-                                    'Traspaso de aportes',
-                                    'Visita a proyecto',
-                                ].sort().map((label) => (
-                                    <option key={label} value={label}>{label}</option>
-                                ))}
-                            </select>
+  <select
+  name="subject"
+  value={currentDetail.subject}
+  onChange={(e) => {
+    const selectedSubject = e.target.value;
+    handleDetailChange(e);
+
+    const areaId = SUBJECT_AREA_ID[selectedSubject] ?? null;
+    setCurrentDetail((prev) => ({
+      ...prev,
+      area_id: areaId,
+    }));
+  }}
+  className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
+>
+  <option value="">Seleccione la Solicitud</option>
+
+  <optgroup label="ATC">
+    <option value="Constancia de no adeudo">Constancia de no adeudo</option>
+    <option value="Desistimientos">Desistimientos</option>
+    <option value="Información de su lote">Información de su lote</option>
+    <option value="INFORMACION SOBRE COMPRA DE TERRENOS">INFORMACION SOBRE COMPRA DE TERRENOS</option>
+    <option value="PROGRAMACION DE VISITA AL TERRENO">PROGRAMACION DE VISITA AL TERRENO</option>
+    <option value="SOLICITUD DE LETRAS">SOLICITUD DE LETRAS</option>
+  </optgroup>
+
+  <optgroup label="LEGAL">
+    <option value="CESION DE POSICION CONTRACTUAL">CESION DE POSICION CONTRACTUAL</option>
+    <option value="CITA CON ASESOR LEGAL">CITA CON ASESOR LEGAL</option>
+    <option value="COPIA LEGALIZADA DE CONTRATO">COPIA LEGALIZADA DE CONTRATO</option>
+    <option value="COPIAS LITERALES">COPIAS LITERALES</option>
+    <option value="LEGALIZACION DE FIRMAS">LEGALIZACION DE FIRMAS</option>
+    <option value="RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)">RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)</option>
+    <option value="Traspaso de aportes">Traspaso de aportes</option>
+    <option value="VIGENCIA DE PODER">VIGENCIA DE PODER</option>
+  </optgroup>
+
+  <optgroup label="BACK OFFICE">
+    <option value="BOLETAS Y/O TICKETS DE PAGO">BOLETAS Y/O TICKETS DE PAGO</option>
+    <option value="E.E.C.C">E.E.C.C</option>
+    <option value="PAGOS O REFINANCIAMIENTO">PAGOS O REFINANCIAMIENTO</option>
+  </optgroup>
+
+  <optgroup label="VIVIENDA PARA TODOS">
+    <option value="Avance de Proyecto">Avance de Proyecto</option>
+    <option value="Certificado de lotes">Certificado de lotes</option>
+    <option value="FORMALIZACION DE CONTRATO DEFINITIVO">FORMALIZACION DE CONTRATO DEFINITIVO</option>
+    <option value="MODIFICACION CONTRATO O MINUTA">MODIFICACION CONTRATO O MINUTA</option>
+    <option value="RECOJO DE CONTRATO DEFINITIVOS">RECOJO DE CONTRATO DEFINITIVOS</option>
+    <option value="REUBICACIONES">REUBICACIONES</option>
+  </optgroup>
+</select>
+
+
+
+
                         </div>
                     </div>
 
@@ -1043,26 +1097,31 @@ if (internalStateId === 5) {
                             <img src={preview} alt="preview" className="col-span-3 w-20 h-20 object-cover rounded" />
                         )}
                     </div>
-                    {canEditAdvancedFields && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-left">Área Responsable</Label>
-                            <select
-                                name="area_id"
-                                value={String(currentDetail.area_id ?? '')} // ✅ Convertimos a string
-                                onChange={handleDetailChange}
-                                className={inputClass}
-                            >
-                                <option value="">Seleccione un área</option>
-                                {areas.map((a) => (
-                                    <option key={a.id_area} value={String(a.id_area)}>
-                                        {a.descripcion}
-                                    </option>
-                                ))}
-                            </select>
+                  {canEditAdvancedFields && (
+  <div className="grid grid-cols-4 items-center gap-4">
+    <Label className="text-left">Área Responsable</Label>
+    <select
+      name="area_id"
+      value={String(currentDetail.area_id ?? '')}
+      onChange={(e) => {
+        // Mantén tu handler
+        handleDetailChange(e);
+        // Si quieres guardarlo como número en tu state:
+        const v = e.target.value ? Number(e.target.value) : null;
+        setCurrentDetail((prev) => ({ ...prev, area_id: v }));
+      }}
+      className={inputClass}
+    >
+      <option value="">Seleccione un área</option>
+      {areas.map((a) => (
+        <option key={a.id_area} value={String(a.id_area)}>
+          {a.descripcion}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
 
-
-                        </div>
-                    )}
                     {canEditAdvancedFields && (
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-left">Estado Interno</Label>
