@@ -7,7 +7,7 @@ interface Props {
     areas: { id_area: number; descripcion: string }[];
     internalStates: { id: number; description: string }[];
 }
-
+import {SUBJECT_AREA_ID} from './constant';
 export default function SupportFilter({ onFilter, areas, internalStates }: Props) {
     const [filters, setFilters] = useState({
         subject: '',
@@ -62,37 +62,22 @@ export default function SupportFilter({ onFilter, areas, internalStates }: Props
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-semibold mb-1">Asunto</label>
-                                <select
-                                    name="subject"
-                                    className="w-full border px-2 py-1 rounded"
-                                    value={filters.subject}
-                                    onChange={handleChange}
-                                >
-                                    <option value="">-- Todos --</option>
-                                    {[
-                                        'Avance de Proyecto',
-                                        'Boletas',
-                                        'Cesion',
-                                        'Cita con legal',
-                                        'Certificado de lote',
-                                        'Constancia de no adeudo',
-                                        'Desestimiento',
-                                        'EE.CC',
-                                        'Formalización',
-                                        'Información de su lote',
-                                        'Pagos',
-                                        'Recojo de contrato',
-                                        'Recojo de Letras',
-                                        'Traspaso de aportes',
-                                        'Visita a proyecto',
-                                    ]
-                                        .sort()
-                                        .map((label) => (
-                                            <option key={label} value={label}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                </select>
+                          <select
+  name="subject"
+  className="w-full border px-2 py-1 rounded"
+  value={filters.subject}
+  onChange={handleChange}
+>
+  <option value="">-- Todos --</option>
+  {Object.keys(SUBJECT_AREA_ID)
+    .sort()
+    .map((label) => (
+      <option key={label} value={label}>
+        {label}
+      </option>
+    ))}
+</select>
+
 
                             </div>
                            <div>

@@ -18,7 +18,7 @@ import SupportCommentSection from './SupportCommentSection'; // ajusta la ruta s
 
 import LimitedInput from '@/components/LimitedInput';
 import LimitedTextarea from '@/components/LimitedTextarea';
-
+import {SUBJECT_AREA_ID} from './constant';
 const getNowPlusHours = (plus = 0) => {
     const now = new Date();
     now.setHours(now.getHours() + plus);
@@ -59,31 +59,31 @@ interface SupportDetailRaw {
     external_state?: any;
     support_type?: any;
 }
-const SUBJECT_AREA_ID: Record<string, number> = {
-  "Avance de Proyecto": 7,
-  "BOLETAS Y/O TICKETS DE PAGO": 10,
-  "Certificado de lotes": 7,
-  "CESION DE POSICION CONTRACTUAL": 2,
-  "CITA CON ASESOR LEGAL": 2,
-  "Constancia de no adeudo": 1,
-  "COPIA LEGALIZADA DE CONTRATO": 2,
-  "COPIAS LITERALES": 2,
-  "Desistimientos": 1,
-  "E.E.C.C": 10,
-  "FORMALIZACION DE CONTRATO DEFINITIVO": 7,
-  "Información de su lote": 1,
-  "INFORMACION SOBRE COMPRA DE TERRENOS": 1,
-  "LEGALIZACION DE FIRMAS": 2,
-  "MODIFICACION CONTRATO O MINUTA": 7,
-  "PAGOS O REFINANCIAMIENTO": 10,
-  "PROGRAMACION DE VISITA AL TERRENO": 1,
-  "RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)": 2,
-  "RECOJO DE CONTRATO DEFINITIVOS": 7,
-  "REUBICACIONES": 7,
-  "SOLICITUD DE LETRAS": 1,
-  "Traspaso de aportes": 2,
-  "VIGENCIA DE PODER": 2,
-};
+// const SUBJECT_AREA_ID: Record<string, number> = {
+//   "Avance de Proyecto": 7,
+//   "BOLETAS Y/O TICKETS DE PAGO": 10,
+//   "Certificado de lotes": 7,
+//   "CESION DE POSICION CONTRACTUAL": 2,
+//   "CITA CON ASESOR LEGAL": 2,
+//   "Constancia de no adeudo": 1,
+//   "COPIA LEGALIZADA DE CONTRATO": 2,
+//   "COPIAS LITERALES": 2,
+//   "Desistimientos": 1,
+//   "E.E.C.C": 10,
+//   "FORMALIZACION DE CONTRATO DEFINITIVO": 7,
+//   "Información de su lote": 1,
+//   "INFORMACION SOBRE COMPRA DE TERRENOS": 1,
+//   "LEGALIZACION DE FIRMAS": 2,
+//   "MODIFICACION CONTRATO O MINUTA": 7,
+//   "PAGOS O REFINANCIAMIENTO": 10,
+//   "PROGRAMACION DE VISITA AL TERRENO": 1,
+//   "RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)": 2,
+//   "RECOJO DE CONTRATO DEFINITIVOS": 7,
+//   "REUBICACIONES": 7,
+//   "SOLICITUD DE LETRAS": 1,
+//   "Traspaso de aportes": 2,
+//   "VIGENCIA DE PODER": 2,
+// };
 
 const SupportModal = ({
     open,
