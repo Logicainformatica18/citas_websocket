@@ -33,7 +33,7 @@ use App\Http\Controllers\PaymentsController;
 
 Route::get('/pagos', [PaymentsController::class, 'index']);
 
-
+    Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
 
 // Ruta para registrar pagos (POST)
 Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:10,1440')->name('payments.store');
@@ -100,7 +100,7 @@ Route::get('/ocr/pdf', function () {
     Route::put('/transfers/{id}', [TransferController::class, 'update']);
     Route::get('/transfers/{id}', [TransferController::class, 'show']);
     Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
-    Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
+
     Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
 
 

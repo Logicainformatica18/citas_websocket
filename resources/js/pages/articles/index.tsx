@@ -58,10 +58,14 @@ export default function Articles() {
   const [editArticle, setEditArticle] = useState<Article | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const handleArticleSaved = () => {
-    fetchPage(`/articles/fetch?page=${pagination.current_page}${transfer_id ? `&transfer_id=${transfer_id}` : ''}`);
-    setEditArticle(null);
-  };
+const handleArticleSaved = () => {
+  const page = pagination?.current_page ?? 1;
+  const base = `/articles/fetch?page=${page}`;
+  const url = transfer_id ? `${base}&transfer_id=${transfer_id}` : base;
+  fetchPage(url);
+  setEditArticle(null);
+};
+
   
 
   const fetchArticle = async (id: number) => {
@@ -70,20 +74,44 @@ export default function Articles() {
     setShowModal(true);
   };
 
-  const fetchPage = async (url: string) => {
-    try {
-      const res = await axios.get(url);
-      setArticles(res.data.articles.data);
-      setPagination(res.data.articles);
-    } catch (e) {
-      console.error('Error al cargar página', e);
-    }
-  };
+const fetchPage = async (url: string) => {
+  try {
+    const res = await axios.get(url);
+    const payload = res?.data ?? null;
+
+    // Puede venir como { articles: { data, ... } } o { data, ... } o []
+    const pager = payload?.articles ?? payload;
+
+    const rows = Array.isArray(pager)
+      ? pager
+      : (pager?.data ?? []);
+
+    setArticles(rows);
+
+    setPagination(prev => {
+      if (Array.isArray(pager)) {
+        // si no hay paginación, conserva la anterior pero actualiza data mínima
+        return { ...prev, data: rows };
+      }
+      // Paginación estándar
+      return {
+        data: rows,
+        current_page: pager?.current_page ?? 1,
+        last_page: pager?.last_page ?? 1,
+        next_page_url: pager?.next_page_url ?? null,
+        prev_page_url: pager?.prev_page_url ?? null,
+      } as typeof prev;
+    });
+  } catch (e) {
+    console.error('Error al cargar página', e);
+  }
+};
+
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Listado de Artículos</h1>
+        <h1 className="text-2xl font-bold mb-4">Listado de Artículosss</h1>
         {transfer_id && (
           <p className="mb-4 text-sm text-gray-600">Artículos asociados a la transferencia #{transfer_id}</p>
         )}

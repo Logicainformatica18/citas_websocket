@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ArticlesExport;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 class ArticleController extends Controller
 {
@@ -44,99 +45,149 @@ class ArticleController extends Controller
     ]);
 }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'details' => 'nullable|string',
-            'quanty' => 'nullable|integer|min:0',
-            'price' => 'nullable|numeric|min:0',
-            'code' => 'nullable|string|max:50',
-            'condition' => 'nullable|string|max:50',
-            'state' => 'nullable|string|max:50',
-            'transfer_id' => 'required|exists:transfers,id',
-            'product_id' => 'required|exists:products,id',
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'title' => 'required|string|max:255',
+    //         'description' => 'nullable|string',
+    //         'details' => 'nullable|string',
+    //         'quanty' => 'nullable|integer|min:0',
+    //         'price' => 'nullable|numeric|min:0',
+    //         'code' => 'nullable|string|max:50',
+    //         'condition' => 'nullable|string|max:50',
+    //         'state' => 'nullable|string|max:50',
+    //         'transfer_id' => 'required|exists:transfers,id',
+    //         'product_id' => 'required|exists:products,id',
 
-            'file_1' => 'nullable|file|max:2048',
-            'file_2' => 'nullable|file|max:2048',
-            'file_3' => 'nullable|file|max:2048',
-            'file_4' => 'nullable|file|max:2048',
-        ]);
+    //         'file_1' => 'nullable|file|max:2048',
+    //         'file_2' => 'nullable|file|max:2048',
+    //         'file_3' => 'nullable|file|max:2048',
+    //         'file_4' => 'nullable|file|max:2048',
+    //     ]);
 
-        $article = new Article();
-        $article->title = $request->title;
-        $article->description = $request->description;
-        $article->details = $request->details;
-        $article->quanty = $request->quanty;
-        $article->price = $request->price;
-        $article->code = $request->code;
-        $article->condition = $request->condition;
-        $article->state = $request->state;
-        $article->transfer_id = $request->transfer_id;
-        $article->product_id = $request->product_id;
+    //     $article = new Article();
+    //     $article->title = $request->title;
+    //     $article->description = $request->description;
+    //     $article->details = $request->details;
+    //     $article->quanty = $request->quanty;
+    //     $article->price = $request->price;
+    //     $article->code = $request->code;
+    //     $article->condition = $request->condition;
+    //     $article->state = $request->state;
+    //     $article->transfer_id = $request->transfer_id;
+    //     $article->product_id = $request->product_id;
 
-        foreach (['file_1', 'file_2', 'file_3', 'file_4'] as $field) {
-            if ($request->hasFile($field)) {
-                $article->$field = fileStore($request->file($field), 'uploads');
-            }
-        }
+    //     foreach (['file_1', 'file_2', 'file_3', 'file_4'] as $field) {
+    //         if ($request->hasFile($field)) {
+    //             $article->$field = fileStore($request->file($field), 'uploads');
+    //         }
+    //     }
 
-        $article->save();
+    //     $article->save();
 
-        return response()->json([
-            'message' => '✅ Artículo creado correctamente',
-            'article' => $article,
-        ]);
-    }
+    //     return response()->json([
+    //         'message' => '✅ Artículo creado correctamente',
+    //         'article' => $article,
+    //     ]);
+    // }
   
     
-    public function bulkStore(Request $request)
-    {
-        $request->validate([
-            'transfer_id' => 'required|exists:transfers,id',
-            'articles' => 'required|array|min:1',
-            'articles.*.description' => 'required|string|max:255',
-            'articles.*.quanty' => 'required|integer|min:1',
-            'articles.*.product_id' => 'required|exists:products,id',
-            'articles.*.title' => 'nullable|string|max:255',
-            'articles.*.details' => 'nullable|string',
-            'articles.*.price' => 'nullable|numeric|min:0',
-            'articles.*.code' => 'nullable|string|max:50',
-            'articles.*.condition' => 'nullable|string|max:50',
-            'articles.*.state' => 'nullable|string|max:50',
-            'articles.*.file_1' => 'nullable|file|max:2048',
-            'articles.*.file_2' => 'nullable|file|max:2048',
-            'articles.*.file_3' => 'nullable|file|max:2048',
-            'articles.*.file_4' => 'nullable|file|max:2048',
-        ]);
-    
-        foreach ($request->articles as $index => $articleData) {
-            $article = new Article();
-            $article->title = $articleData['title'] ?? $articleData['description'];
-            $article->description = $articleData['description'];
-            $article->details = $articleData['details'] ?? null;
-            $article->quanty = $articleData['quanty'];
-            $article->price = $articleData['price'] ?? 0;
-            $article->code = $articleData['code'] ?? '';
-            $article->condition = $articleData['condition'] ?? '';
-            $article->state = $articleData['state'] ?? '';
-            $article->transfer_id = $request->transfer_id;
-            $article->product_id = $articleData['product_id'];
-    
-            // ✅ Procesar imágenes (file_1, file_2, file_3, file_4)
-            foreach (['file_1', 'file_2', 'file_3', 'file_4'] as $field) {
-                if ($request->hasFile("articles.$index.$field")) {
-                    $article->$field = fileStore($request->file("articles.$index.$field"), 'uploads');
+
+
+
+public function bulkStore(Request $request)
+{
+    $validated = $request->validate([
+        'transfer_id' => 'required|exists:transfers,id',
+        'articles' => 'required|array|min:1',
+
+        'articles.*.description' => 'required|string|max:255',
+        'articles.*.quanty'      => 'required|integer|min:1',
+        'articles.*.product_id'  => 'required|exists:products,id',
+
+        'articles.*.title'       => 'nullable|string|max:255',
+        'articles.*.details'     => 'nullable|string',
+        'articles.*.price'       => 'nullable|numeric|min:0',
+        'articles.*.code'        => 'nullable|string|max:50',
+        'articles.*.condition'   => 'nullable|string|max:50',
+        'articles.*.state'       => 'nullable|string|max:50',
+
+        // 2 MB en servidor (coincide con max:2048 KB)
+        'articles.*.file_1'      => 'nullable|file|max:2048|mimes:jpg,jpeg,png,pdf,webp',
+        'articles.*.file_2'      => 'nullable|file|max:2048|mimes:jpg,jpeg,png,pdf,webp',
+        'articles.*.file_3'      => 'nullable|file|max:2048|mimes:jpg,jpeg,png,pdf,webp',
+        'articles.*.file_4'      => 'nullable|file|max:2048|mimes:jpg,jpeg,png,pdf,webp',
+    ]);
+
+    $created = [];
+
+    try {
+        DB::transaction(function () use ($request, &$created) {
+            foreach ($request->input('articles', []) as $index => $articleData) {
+                $article = new Article();
+                $article->title        = $articleData['title'] ?? $articleData['description'];
+                $article->description  = $articleData['description'];
+                $article->details      = $articleData['details'] ?? null;
+                $article->quanty       = (int) ($articleData['quanty'] ?? 0);
+                $article->price        = (float) ($articleData['price'] ?? 0);
+                $article->code         = $articleData['code'] ?? '';
+                $article->condition    = $articleData['condition'] ?? '';
+                $article->state        = $articleData['state'] ?? '';
+                $article->transfer_id  = $request->transfer_id;
+                $article->product_id   = $articleData['product_id'];
+
+                // Subir archivos al disco "public" carpeta uploads
+                foreach (['file_1', 'file_2', 'file_3', 'file_4'] as $field) {
+                    if ($request->hasFile("articles.$index.$field")) {
+                        $path = $request->file("articles.$index.$field")
+                            ->store('uploads', 'public'); // storage/app/public/uploads
+                        $article->$field = $path; // guarda la ruta relativa para luego usar Storage::url()
+                    }
                 }
+
+                $article->save();
+                $created[] = [
+                    'id'          => $article->id,
+                    'description' => $article->description,
+                ];
             }
-    
-            $article->save();
+        });
+    } catch (ValidationException $e) {
+        // (Laravel ya devolverá 422 con errores), pero por claridad:
+        throw $e;
+    } catch (\Throwable $e) {
+        Log::error('BulkStore Articles failed', [
+            'transfer_id' => $request->transfer_id,
+            'error'       => $e->getMessage(),
+        ]);
+
+        // Si la petición espera JSON, responde JSON 500; si es Inertia/HTML, redirige con error
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error al guardar artículos',
+            ], 500);
         }
-    
-        return response()->json(['message' => '✅ Artículos guardados correctamente']);
+
+        return back()->with('error', 'Ocurrió un error al guardar los artículos.');
     }
-    
+
+    // Respuesta según el tipo de petición
+    if ($request->wantsJson()) {
+        return response()->json([
+            'ok'          => true,
+            'message'     => 'Artículos guardados correctamente',
+            'saved_count' => count($created),
+            'articles'    => $created,
+        ], 201);
+    }
+
+    // Inertia/HTML: redirige (ajusta la ruta a donde muestras la transferencia o listado)
+    return redirect()
+        ->route('transfers.show', $request->transfer_id) // o 'payments.index' según tu flujo
+        ->with('success', 'Artículos guardados correctamente');
+}
+
     
 
     public function update(Request $request, $id)
@@ -182,8 +233,7 @@ class ArticleController extends Controller
     
         $article->save();
     
-        Log::info("✅ Artículo actualizado", ['id' => $article->id]);
-    
+  
         return response()->json(['article' => $article], 200);
     }
     
