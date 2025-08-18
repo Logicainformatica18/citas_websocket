@@ -212,15 +212,15 @@ Route::post('/waiting-days/bulk-delete', [WaitingDayController::class, 'bulkDele
 
 
 
-
-
 Route::get('/motives', [MotiveController::class, 'index'])->name('motives.index');
 Route::get('/motives/fetch', [MotiveController::class, 'fetchPaginated']);
+Route::post('/motives', [MotiveController::class, 'store'])->name('motives.store');
 Route::get('/motives/{id}', [MotiveController::class, 'show']);
-Route::post('/motives', [MotiveController::class, 'store']);
-Route::put('/motives/{id}', [MotiveController::class, 'update']);
+Route::put('/motives/{id}', [MotiveController::class, 'update'])->name('motives.update');
 Route::delete('/motives/{id}', [MotiveController::class, 'destroy']);
 Route::post('/motives/bulk-delete', [MotiveController::class, 'bulkDelete']);
+Route::post('/motives/{id}/sync-areas', [MotiveController::class, 'syncAreas']);
+
 
 
 

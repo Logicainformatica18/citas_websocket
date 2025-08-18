@@ -1,5 +1,5 @@
-// ✅ motives/modal.tsx
-import { useEffect, useState } from 'react';
+// ✅ motives/modal.tsx (actualizado con checkboxes de áreas)
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,18 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
+type AreaMini = { id_area: number; descripcion: string };
+type ItemToEdit = {
+  id_motivos_cita: number;
+  nombre_motivo: string;
+  id_tipo_cita: number | null;
+  id_dia_espera: number | null;
+  id_area: number | '';
+  habilitado: boolean;
+  areas_ids?: number[];          // ← esperado desde el show()
+  areas_pivot?: AreaMini[];      // fallback si no viene areas_ids
+};
+
 export default function MotiveModal({
   open,
   onClose,
@@ -26,29 +38,43 @@ export default function MotiveModal({
   open: boolean;
   onClose: () => void;
   onSaved: (item: any) => void;
-  itemToEdit?: any;
+  itemToEdit?: ItemToEdit | null;
   appointmentTypes: { id_tipo_cita: number; tipo: string }[];
   waitingDays: { id_dias_espera: number; dias: string }[];
-  areas: { id_area: number; descripcion: string }[];
+  areas: AreaMini[];
 }) {
   const [formData, setFormData] = useState({
     nombre_motivo: '',
-    id_tipo_cita: '',
-    id_dia_espera: '',
-    id_area: '',
+    id_tipo_cita: '' as number | '' | null,
+    id_dia_espera: '' as number | '' | null,
+    id_area: '' as number | '' | null, // área principal
     habilitado: true,
   });
+
+  // Áreas N:M (checkboxes)
+  const [areasSelected, setAreasSelected] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Para "Seleccionar todo"
+  const allAreaIds = useMemo(() => areas.map(a => a.id_area), [areas]);
+  const allChecked = areasSelected.length > 0 && areasSelected.length === allAreaIds.length;
 
   useEffect(() => {
     if (itemToEdit) {
       setFormData({
-        nombre_motivo: itemToEdit.nombre_motivo || '',
-        id_tipo_cita: itemToEdit.id_tipo_cita || '',
-        id_dia_espera: itemToEdit.id_dia_espera || '',
-        id_area: itemToEdit.id_area || '',
-        habilitado: itemToEdit.habilitado || false,
+        nombre_motivo: itemToEdit.nombre_motivo ?? '',
+        id_tipo_cita: itemToEdit.id_tipo_cita ?? '',
+        id_dia_espera: itemToEdit.id_dia_espera ?? '',
+        id_area: itemToEdit.id_area ?? '',
+        habilitado: !!itemToEdit.habilitado,
       });
+
+      // Carga selección múltiple
+      const fromIds = Array.isArray(itemToEdit.areas_ids)
+        ? itemToEdit.areas_ids
+        : (itemToEdit.areas_pivot?.map(a => a.id_area) ?? []);
+
+      setAreasSelected(fromIds);
     } else {
       setFormData({
         nombre_motivo: '',
@@ -57,6 +83,7 @@ export default function MotiveModal({
         id_area: '',
         habilitado: true,
       });
+      setAreasSelected([]);
     }
   }, [itemToEdit]);
 
@@ -64,10 +91,20 @@ export default function MotiveModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : (value === '' ? '' : Number(value)),
     }));
+  };
+
+  const toggleArea = (id: number, checked: boolean) => {
+    setAreasSelected(prev =>
+      checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id)
+    );
+  };
+
+  const toggleAllAreas = () => {
+    setAreasSelected(allChecked ? [] : allAreaIds);
   };
 
   const handleSubmit = async () => {
@@ -76,10 +113,20 @@ export default function MotiveModal({
       const url = itemToEdit ? `/motives/${itemToEdit.id_motivos_cita}` : '/motives';
       const method = itemToEdit ? 'put' : 'post';
 
+      // Construye payload
       const payload = {
-        ...formData,
+        nombre_motivo: formData.nombre_motivo,
         id_tipo_cita: formData.id_tipo_cita || null,
         id_dia_espera: formData.id_dia_espera || null,
+        id_area: formData.id_area,           // requerido (área principal)
+        habilitado: !!formData.habilitado,
+        areas_ids: (() => {
+          // asegura que el área principal también vaya al pivote
+          const principal = typeof formData.id_area === 'number' ? formData.id_area : null;
+          const set = new Set<number>(areasSelected);
+          if (principal && !set.has(principal)) set.add(principal);
+          return Array.from(set);
+        })(),
       };
 
       const response = await axios[method](url, payload);
@@ -94,9 +141,20 @@ export default function MotiveModal({
     }
   };
 
+  const handleClear = () => {
+    setFormData({
+      nombre_motivo: '',
+      id_tipo_cita: '',
+      id_dia_espera: '',
+      id_area: '',
+      habilitado: true,
+    });
+    setAreasSelected([]);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{itemToEdit ? 'Editar Motivo' : 'Nuevo Motivo'}</DialogTitle>
         </DialogHeader>
@@ -117,7 +175,7 @@ export default function MotiveModal({
             <Label htmlFor="id_tipo_cita" className="text-right">Tipo de Cita</Label>
             <select
               name="id_tipo_cita"
-              value={formData.id_tipo_cita}
+              value={String(formData.id_tipo_cita ?? '')}
               onChange={handleChange}
               className="col-span-3 border rounded px-2 py-1"
             >
@@ -132,7 +190,7 @@ export default function MotiveModal({
             <Label htmlFor="id_dia_espera" className="text-right">Día Espera</Label>
             <select
               name="id_dia_espera"
-              value={formData.id_dia_espera}
+              value={String(formData.id_dia_espera ?? '')}
               onChange={handleChange}
               className="col-span-3 border rounded px-2 py-1"
             >
@@ -143,11 +201,12 @@ export default function MotiveModal({
             </select>
           </div>
 
+          {/* Área principal (1:N) */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="id_area" className="text-right">Área</Label>
+            <Label htmlFor="id_area" className="text-right">Área principal</Label>
             <select
               name="id_area"
-              value={formData.id_area}
+              value={String(formData.id_area ?? '')}
               onChange={handleChange}
               className="col-span-3 border rounded px-2 py-1"
             >
@@ -156,6 +215,39 @@ export default function MotiveModal({
                 <option key={item.id_area} value={item.id_area}>{item.descripcion}</option>
               ))}
             </select>
+          </div>
+
+          {/* Áreas N:M (checkboxes) */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-1">Áreas (múltiples)</Label>
+            <div className="col-span-3 border rounded p-2 max-h-56 overflow-auto space-y-1">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  id="check_all_areas"
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAllAreas}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="check_all_areas" className="cursor-pointer">Seleccionar todo</Label>
+                <span className="text-xs text-gray-500">({areasSelected.length} seleccionado(s))</span>
+              </div>
+
+              {areas.map((a) => {
+                const checked = areasSelected.includes(a.id_area);
+                return (
+                  <label key={a.id_area} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => toggleArea(a.id_area, e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <span>{a.descripcion}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
@@ -172,7 +264,13 @@ export default function MotiveModal({
         </div>
 
         <DialogFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => setFormData({ nombre_motivo: '', id_tipo_cita: '', id_dia_espera: '', id_area: '', habilitado: true })} disabled={saving}>Limpiar</Button>
+          <Button
+            variant="outline"
+            onClick={handleClear}
+            disabled={saving}
+          >
+            Limpiar
+          </Button>
           <div className="flex gap-2">
             <Button onClick={handleSubmit} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
