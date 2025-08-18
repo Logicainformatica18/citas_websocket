@@ -18,14 +18,17 @@ class Motive extends Model
     protected $primaryKey = 'id_motivos_cita';
     public $timestamps = false;
 
-    protected $fillable = [
-        'nombre_motivo',
-        'id_tipo_cita',
-        'id_dia_espera',
-        'id_area',   // área “principal” (columna existente)
-        'id_areap',  // si usas areas_p, puedes agregar su relación aparte
-        'habilitado',
-    ];
+  protected $fillable = [
+    'nombre_motivo',
+    'detail',
+    'detail_2',   // ← nuevo
+    'id_tipo_cita',
+    'id_dia_espera',
+    'id_area',
+    'id_areap',
+    'habilitado',
+];
+
 
     protected $casts = [
         'habilitado' => 'boolean', // bit(1) -> boolean

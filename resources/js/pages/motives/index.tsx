@@ -16,6 +16,8 @@ type AreaMini = { id_area: number; descripcion: string };
 type Motive = {
   id_motivos_cita: number;
   nombre_motivo: string;
+  detail?: string | null; // ← NUEVO
+  detail_2?: string | null; // ← NUEVO
   id_tipo_cita: number | null;
   id_dia_espera: number | null;
   id_area: number;
@@ -210,6 +212,8 @@ export default function Motives() {
                 <th className="px-4 py-2">Nombre</th>
                 {/* <th className="px-4 py-2">Tipo de Cita</th>
                 <th className="px-4 py-2">Día Espera</th> */}
+                <th className="px-4 py-2">Detalle Call Center</th> {/* ← NUEVO (puedes ocultarlo si no lo quieres ver) */}
+                <th className="px-4 py-2">Detalle ATC Interno</th> {/* ← NUEVO (puedes ocultarlo si no lo quieres ver) */}
                 <th className="px-4 py-2">Áreas</th>
                 <th className="px-4 py-2">¿Habilitado?</th>
               </tr>
@@ -251,6 +255,16 @@ export default function Motives() {
                   <td className="px-4 py-2">{item.nombre_motivo}</td>
                   {/* <td className="px-4 py-2">{item.tipoCita?.tipo ?? '-'}</td>
                   <td className="px-4 py-2">{item.diaEspera?.dias ?? '-'}</td> */}
+                  <td className="px-4 py-2">
+                    {item.detail
+                      ? <span className="block max-w-[32ch] truncate" title={item.detail}>{item.detail}</span>
+                      : '-'}
+                  </td>
+                     <td className="px-4 py-2">
+                    {item.detail_2
+                      ? <span className="block max-w-[32ch] truncate" title={item.detail_2}>{item.detail_2}</span>
+                      : '-'}
+                  </td>
                   <td className="px-4 py-2">{renderAreasCell(item)}</td>
                   <td className="px-4 py-2">{item.habilitado ? 'Sí' : 'No'}</td>
                 </tr>
@@ -258,7 +272,7 @@ export default function Motives() {
 
               {items.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-gray-500" colSpan={8}>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={7}>
                     No hay motivos para mostrar.
                   </td>
                 </tr>

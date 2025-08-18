@@ -1,4 +1,4 @@
-// ✅ motives/modal.tsx (actualizado con checkboxes de áreas)
+// ✅ motives/modal.tsx (con campos detail y detail_2 + checkboxes de áreas)
 import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
@@ -18,12 +18,14 @@ type AreaMini = { id_area: number; descripcion: string };
 type ItemToEdit = {
   id_motivos_cita: number;
   nombre_motivo: string;
+  detail?: string | null;
+  detail_2?: string | null;      // ← NUEVO
   id_tipo_cita: number | null;
   id_dia_espera: number | null;
   id_area: number | '';
   habilitado: boolean;
-  areas_ids?: number[];          // ← esperado desde el show()
-  areas_pivot?: AreaMini[];      // fallback si no viene areas_ids
+  areas_ids?: number[];
+  areas_pivot?: AreaMini[];
 };
 
 export default function MotiveModal({
@@ -45,9 +47,11 @@ export default function MotiveModal({
 }) {
   const [formData, setFormData] = useState({
     nombre_motivo: '',
+    detail: '' as string | null,
+    detail_2: '' as string | null,         // ← NUEVO
     id_tipo_cita: '' as number | '' | null,
     id_dia_espera: '' as number | '' | null,
-    id_area: '' as number | '' | null, // área principal
+    id_area: '' as number | '' | null,     // área principal
     habilitado: true,
   });
 
@@ -55,7 +59,7 @@ export default function MotiveModal({
   const [areasSelected, setAreasSelected] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Para "Seleccionar todo"
+  // “Seleccionar todo”
   const allAreaIds = useMemo(() => areas.map(a => a.id_area), [areas]);
   const allChecked = areasSelected.length > 0 && areasSelected.length === allAreaIds.length;
 
@@ -63,37 +67,35 @@ export default function MotiveModal({
     if (itemToEdit) {
       setFormData({
         nombre_motivo: itemToEdit.nombre_motivo ?? '',
+        detail: itemToEdit.detail ?? '',
+        detail_2: itemToEdit.detail_2 ?? '',   // ← NUEVO
         id_tipo_cita: itemToEdit.id_tipo_cita ?? '',
         id_dia_espera: itemToEdit.id_dia_espera ?? '',
         id_area: itemToEdit.id_area ?? '',
         habilitado: !!itemToEdit.habilitado,
       });
 
-      // Carga selección múltiple
       const fromIds = Array.isArray(itemToEdit.areas_ids)
         ? itemToEdit.areas_ids
         : (itemToEdit.areas_pivot?.map(a => a.id_area) ?? []);
-
       setAreasSelected(fromIds);
     } else {
-      setFormData({
-        nombre_motivo: '',
-        id_tipo_cita: '',
-        id_dia_espera: '',
-        id_area: '',
-        habilitado: true,
-      });
-      setAreasSelected([]);
+      handleClear();
     }
   }, [itemToEdit]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : (value === '' ? '' : Number(value)),
+      [name]:
+        type === 'checkbox'
+          ? checked
+          : (name === 'detail' || name === 'detail_2')
+          ? value // texto libre
+          : (value === '' ? '' : Number(value)),
     }));
   };
 
@@ -108,20 +110,26 @@ export default function MotiveModal({
   };
 
   const handleSubmit = async () => {
+    if (!formData.id_area) {
+      toast.error('Selecciona el área principal.');
+      return;
+    }
+
     try {
       setSaving(true);
       const url = itemToEdit ? `/motives/${itemToEdit.id_motivos_cita}` : '/motives';
       const method = itemToEdit ? 'put' : 'post';
 
-      // Construye payload
+      // Payload con detail y detail_2 (si están vacíos, van como null)
       const payload = {
         nombre_motivo: formData.nombre_motivo,
+        detail: (formData.detail ?? '').toString().trim() || null,
+        detail_2: (formData.detail_2 ?? '').toString().trim() || null, // ← NUEVO
         id_tipo_cita: formData.id_tipo_cita || null,
         id_dia_espera: formData.id_dia_espera || null,
-        id_area: formData.id_area,           // requerido (área principal)
+        id_area: formData.id_area,
         habilitado: !!formData.habilitado,
         areas_ids: (() => {
-          // asegura que el área principal también vaya al pivote
           const principal = typeof formData.id_area === 'number' ? formData.id_area : null;
           const set = new Set<number>(areasSelected);
           if (principal && !set.has(principal)) set.add(principal);
@@ -129,7 +137,7 @@ export default function MotiveModal({
         })(),
       };
 
-      const response = await axios[method](url, payload);
+      const response = await (axios as any)[method](url, payload);
       toast.success(itemToEdit ? 'Actualizado ✅' : 'Creado ✅');
       onSaved(response.data.motive);
       onClose();
@@ -144,6 +152,8 @@ export default function MotiveModal({
   const handleClear = () => {
     setFormData({
       nombre_motivo: '',
+      detail: '',
+      detail_2: '',   // ← NUEVO
       id_tipo_cita: '',
       id_dia_espera: '',
       id_area: '',
@@ -168,6 +178,34 @@ export default function MotiveModal({
               value={formData.nombre_motivo}
               onChange={handleChange}
               className="col-span-3"
+            />
+          </div>
+
+          {/* Detalle 1 (opcional) */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="detail" className="text-right pt-1">Detalle</Label>
+            <textarea
+              id="detail"
+              name="detail"
+              rows={3}
+              value={formData.detail ?? ''}
+              onChange={handleChange}
+              className="col-span-3 border rounded px-2 py-1"
+              placeholder="Descripción adicional del motivo (opcional)"
+            />
+          </div>
+
+          {/* Detalle 2 (opcional) */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="detail_2" className="text-right pt-1">Detalle 2</Label>
+            <textarea
+              id="detail_2"
+              name="detail_2"
+              rows={3}
+              value={formData.detail_2 ?? ''}
+              onChange={handleChange}
+              className="col-span-3 border rounded px-2 py-1"
+              placeholder="Información complementaria (opcional)"
             />
           </div>
 
@@ -264,11 +302,7 @@ export default function MotiveModal({
         </div>
 
         <DialogFooter className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handleClear}
-            disabled={saving}
-          >
+          <Button variant="outline" onClick={handleClear} disabled={saving}>
             Limpiar
           </Button>
           <div className="flex gap-2">
