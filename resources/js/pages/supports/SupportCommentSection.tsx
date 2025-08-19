@@ -18,7 +18,10 @@ interface Comment {
         description: string;
     };
 }
-
+interface SupportCommentSectionProps {
+    supportDetailId: number;
+    state?: number; // opcional, si a veces no lo usas
+}
 interface InternalState {
     id: number;
     description: string;
@@ -41,7 +44,10 @@ const getInternalStateBadgeClass = (description: string) => {
     }
 };
 
-export default function SupportCommentSection({ supportDetailId }: { supportDetailId: number }) {
+export default function SupportCommentSection({
+    supportDetailId,
+    state,
+}: SupportCommentSectionProps) {
     const [commentText, setCommentText] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
@@ -163,15 +169,19 @@ export default function SupportCommentSection({ supportDetailId }: { supportDeta
                             )}
                         </div>
 
-                        <Button
-                            className="w-full mt-2"
-                            onClick={handleSubmit}
-                            disabled={
-                                loading || !commentText.trim() || commentText.length > MAX_CHARACTERS
-                            }
-                        >
-                            {loading ? 'Enviando...' : 'Enviar comentario'}
-                        </Button>
+                     <Button
+  className="w-full mt-2"
+  onClick={handleSubmit}
+  disabled={
+    loading ||
+    !commentText.trim() ||
+    commentText.length > MAX_CHARACTERS ||
+    state === 5 // 🚨 Ejemplo: desactiva si ticket está cerrado
+  }
+>
+  {loading ? 'Enviando...' : 'Enviar comentario'}
+</Button>
+
                     </div>
 
                     <div className="space-y-3 border-t pt-4">

@@ -1,4 +1,3 @@
-// ✅ motives/index.tsx completo y adaptado con relaciones garantizadas
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
@@ -16,16 +15,16 @@ type AreaMini = { id_area: number; descripcion: string };
 type Motive = {
   id_motivos_cita: number;
   nombre_motivo: string;
-  detail?: string | null; // ← NUEVO
-  detail_2?: string | null; // ← NUEVO
+  detail?: string | null;
+  detail_2?: string | null;
   id_tipo_cita: number | null;
   id_dia_espera: number | null;
   id_area: number;
   habilitado: boolean;
   tipoCita?: { id_tipo_cita?: number; tipo: string } | null;
   diaEspera?: { id_dias_espera?: number; dias: string } | null;
-  area?: { id_area?: number; descripcion: string } | null; // área principal (columna id_area)
-  areas_pivot?: AreaMini[]; // áreas por tabla pivote N:M
+  area?: { id_area?: number; descripcion: string } | null;
+  areas_pivot?: AreaMini[];
 };
 
 type Pagination<T> = {
@@ -80,7 +79,6 @@ export default function Motives() {
   const fetchItem = async (id: number) => {
     try {
       const res = await axios.get(`/motives/${id}`);
-      // Espera { motive: {..., areas_pivot: [...], areas_ids: [...] } }
       setEditItem(res?.data?.motive ?? null);
       setShowModal(true);
     } catch (e) {
@@ -90,11 +88,8 @@ export default function Motives() {
   };
 
   const normalizePagePayload = (payload: any): Pagination<Motive> => {
-    // Soporta: { data, current_page, last_page } o { motives: {...} }
     const pager = payload?.motives ?? payload ?? {};
-    const data: Motive[] = Array.isArray(pager)
-      ? pager
-      : (pager?.data ?? []);
+    const data: Motive[] = Array.isArray(pager) ? pager : (pager?.data ?? []);
     return {
       data,
       current_page: pager?.current_page ?? 1,
@@ -110,7 +105,7 @@ export default function Motives() {
       const norm = normalizePagePayload(res?.data ?? null);
       setItems(norm.data);
       setPagination(norm);
-      setSelectedIds([]); // limpia selección al cambiar de página
+      setSelectedIds([]);
     } catch (e) {
       console.error('Error al cargar página', e);
       alert('No se pudo cargar la página.');
@@ -140,32 +135,6 @@ export default function Motives() {
       console.error('Error al eliminar en lote', e);
       alert('No se pudo eliminar en lote.');
     }
-  };
-
-  const renderAreasCell = (item: Motive) => {
-    // Área principal + áreas por pivote (sin duplicados)
-    const labels: string[] = [];
-    if (item.area?.descripcion) labels.push(item.area.descripcion);
-    if (Array.isArray(item.areas_pivot)) {
-      for (const a of item.areas_pivot) {
-        if (a?.descripcion && !labels.includes(a.descripcion)) {
-          labels.push(a.descripcion);
-        }
-      }
-    }
-    if (labels.length === 0) return '-';
-    return (
-      <div className="flex flex-wrap gap-1">
-        {labels.map((txt, i) => (
-          <span
-            key={`${txt}-${i}`}
-            className="inline-block px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700 border border-blue-200"
-          >
-            {txt}
-          </span>
-        ))}
-      </div>
-    );
   };
 
   return (
@@ -201,7 +170,7 @@ export default function Motives() {
                 <th className="px-4 py-2">
                   <input
                     type="checkbox"
-                    checked={items.length > 0 && selectedIds.length === items.length}
+                    checked={items.length > 0 && items.every(i => selectedIds.includes(i.id_motivos_cita))}
                     onChange={(e) =>
                       setSelectedIds(e.target.checked ? items.map((i) => i.id_motivos_cita) : [])
                     }
@@ -210,20 +179,18 @@ export default function Motives() {
                 <th className="px-4 py-2">Acciones</th>
                 <th className="px-4 py-2">ID</th>
                 <th className="px-4 py-2">Nombre</th>
-                {/* <th className="px-4 py-2">Tipo de Cita</th>
-                <th className="px-4 py-2">Día Espera</th> */}
-                <th className="px-4 py-2">Detalle Call Center</th> {/* ← NUEVO (puedes ocultarlo si no lo quieres ver) */}
-                <th className="px-4 py-2">Detalle ATC Interno</th> {/* ← NUEVO (puedes ocultarlo si no lo quieres ver) */}
-                <th className="px-4 py-2">Áreas</th>
+                <th className="px-4 py-2">Tipo de Cita</th>
+                <th className="px-4 py-2">Día Espera</th>
+                <th className="px-4 py-2">Detalle Call Center</th>
+                <th className="px-4 py-2">Detalle ATC Interno</th>
+                <th className="px-4 py-2">Área Principal</th>
+                <th className="px-4 py-2">Áreas Adicionales</th>
                 <th className="px-4 py-2">¿Habilitado?</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr
-                  key={item.id_motivos_cita}
-                  className="border-t hover:bg-gray-50 align-top"
-                >
+                <tr key={item.id_motivos_cita} className="border-t hover:bg-gray-50 align-top">
                   <td className="px-4 py-2">
                     <input
                       type="checkbox"
@@ -240,39 +207,67 @@ export default function Motives() {
                   <td className="px-4 py-2 space-x-2 whitespace-nowrap">
                     <button
                       onClick={() => fetchItem(item.id_motivos_cita)}
-                      className="text-blue-600 hover:underline"
+                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
                     >
-                      <Paintbrush className="w-4 h-4 inline" /> Editar
+                      <Paintbrush className="w-4 h-4" /> Editar
                     </button>
                     <button
                       onClick={() => removeOne(item.id_motivos_cita, item.nombre_motivo)}
-                      className="text-red-600 hover:underline"
+                      className="text-red-600 hover:underline inline-flex items-center gap-1"
                     >
-                      <Trash2 className="w-4 h-4 inline" /> Eliminar
+                      <Trash2 className="w-4 h-4" /> Eliminar
                     </button>
                   </td>
                   <td className="px-4 py-2">{item.id_motivos_cita}</td>
                   <td className="px-4 py-2">{item.nombre_motivo}</td>
-                  {/* <td className="px-4 py-2">{item.tipoCita?.tipo ?? '-'}</td>
-                  <td className="px-4 py-2">{item.diaEspera?.dias ?? '-'}</td> */}
+                  <td className="px-4 py-2">{item.tipoCita?.tipo ?? '-'}</td>
+                  <td className="px-4 py-2">{item.diaEspera?.dias ?? '-'}</td>
                   <td className="px-4 py-2">
-                    {item.detail
-                      ? <span className="block max-w-[32ch] truncate" title={item.detail}>{item.detail}</span>
-                      : '-'}
+                    {item.detail ? (
+                      <span className="block max-w-[32ch] truncate" title={item.detail}>
+                        {item.detail}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
                   </td>
-                     <td className="px-4 py-2">
-                    {item.detail_2
-                      ? <span className="block max-w-[32ch] truncate" title={item.detail_2}>{item.detail_2}</span>
-                      : '-'}
+                  <td className="px-4 py-2">
+                    {item.detail_2 ? (
+                      <span className="block max-w-[32ch] truncate" title={item.detail_2}>
+                        {item.detail_2}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
                   </td>
-                  <td className="px-4 py-2">{renderAreasCell(item)}</td>
+                  {/* Área principal */}
+                  <td className="px-4 py-2">
+                    {item.area?.descripcion ?? '-'}
+                  </td>
+                  {/* Áreas adicionales */}
+                  <td className="px-4 py-2">
+                    {Array.isArray(item.areas_pivot) && item.areas_pivot.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {item.areas_pivot.map((a, i) => (
+                          <span
+                            key={`${a.id_area}-${i}`}
+                            className="inline-block px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700 border border-blue-200"
+                          >
+                            {a.descripcion}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td className="px-4 py-2">{item.habilitado ? 'Sí' : 'No'}</td>
                 </tr>
               ))}
 
               {items.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-gray-500" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={11}>
                     No hay motivos para mostrar.
                   </td>
                 </tr>

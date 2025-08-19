@@ -1281,9 +1281,10 @@ if (internalStateId === 5) {
 
                 </div>
 
-   {!currentDetail.ticket_end && currentDetail.id && (
-  <SupportCommentSection supportDetailId={currentDetail.id} />
-)}
+
+<SupportCommentSection supportDetailId={currentDetail.id} state={currentDetail.internal_state_id} />
+
+
 
 
 

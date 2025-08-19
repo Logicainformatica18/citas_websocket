@@ -16,6 +16,7 @@ export default function StatCards({ stats }: StatCardsProps) {
         <h2 className="text-sm text-gray-500 dark:text-gray-400">Total Detalles</h2>
         <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.totalDetails}</p>
       </div>
+
     </div>
   );
 }
