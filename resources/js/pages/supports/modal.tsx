@@ -84,6 +84,15 @@ interface SupportDetailRaw {
 //   "Traspaso de aportes": 2,
 //   "VIGENCIA DE PODER": 2,
 // };
+interface Motive {
+  id: number;
+  nombre_motivo: string;
+  id_area: number;
+  detail: string; // ya viene validado según el rol
+  area?: { id_area: number; descripcion: string };
+  areas?: { id_area: number; descripcion: string }[];
+}
+
 
 const SupportModal = ({
     open,
@@ -148,7 +157,7 @@ const SupportModal = ({
     const [availableLots, setAvailableLots] = useState<string[]>([]);
 
     const [supportDetails, setSupportDetails] = useState<any[]>([]);
-
+const [selectedHelp, setSelectedHelp] = useState<string | null>(null);
 
 
     const projectMapEntries = salesFromClient
@@ -985,7 +994,7 @@ if (internalStateId === 5) {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-left col-span-1">Solicitud</Label>
                         <div className="col-span-3">
-  <select
+  {/* <select
   name="subject"
   value={currentDetail.subject}
   onChange={(e) => {
@@ -1005,7 +1014,63 @@ if (internalStateId === 5) {
   <optgroup label="ATC">
     <option value="Constancia de no adeudo">Constancia de no adeudo</option>
     <option value="Desistimientos">Desistimientos</option>
-    <option value="Información de su lote">Información de su lote</option>
+
+    <option value="INFORMACION SOBRE COMPRA DE TERRENOS">INFORMACION SOBRE COMPRA DE TERRENOS</option>
+    <option value="PROGRAMACION DE VISITA AL TERRENO">PROGRAMACION DE VISITA AL TERRENO</option>
+    <option value="SOLICITUD DE LETRAS">SOLICITUD DE LETRAS</option>
+  </optgroup>
+
+  <optgroup label="LEGAL">
+    <option value="CESION DE POSICION CONTRACTUAL">CESION DE POSICION CONTRACTUAL</option>
+    <option value="CITA CON ASESOR LEGAL">CITA CON ASESOR LEGAL</option>
+    <option value="COPIA LEGALIZADA DE CONTRATO">COPIA LEGALIZADA DE CONTRATO</option>
+    <option value="COPIAS LITERALES">COPIAS LITERALES</option>
+    <option value="LEGALIZACION DE FIRMAS">LEGALIZACION DE FIRMAS</option>
+    <option value="RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)">RECOJO DE CONTRATOS PREPARATORIO(PREELIMNAR)</option>
+    <option value="Traspaso de aportes">Traspaso de aportes</option>
+    <option value="VIGENCIA DE PODER">VIGENCIA DE PODER</option>
+  </optgroup>
+
+  <optgroup label="BACK OFFICE">
+    <option value="BOLETAS Y/O TICKETS DE PAGO">BOLETAS Y/O TICKETS DE PAGO</option>
+    <option value="E.E.C.C">E.E.C.C</option>
+    <option value="PAGOS O REFINANCIAMIENTO">PAGOS O REFINANCIAMIENTO</option>
+  </optgroup>
+
+  <optgroup label="VIVIENDA PARA TODOS">
+    <option value="Avance de Proyecto">Avance de Proyecto</option>
+    <option value="Certificado de lotes">Certificado de lotes</option>
+    <option value="FORMALIZACION DE CONTRATO DEFINITIVO">FORMALIZACION DE CONTRATO DEFINITIVO</option>
+    <option value="MODIFICACION CONTRATO O MINUTA">MODIFICACION CONTRATO O MINUTA</option>
+    <option value="RECOJO DE CONTRATO DEFINITIVOS">RECOJO DE CONTRATO DEFINITIVOS</option>
+    <option value="REUBICACIONES">REUBICACIONES</option>
+  </optgroup>
+</select> */}
+<select
+  name="subject"
+  value={currentDetail.subject}
+  onChange={(e) => {
+    const selectedSubject = e.target.value;
+    handleDetailChange(e);
+
+    const areaId = SUBJECT_AREA_ID[selectedSubject] ?? null;
+    setCurrentDetail((prev) => ({
+      ...prev,
+      area_id: areaId,
+    }));
+
+    // Buscar el motivo y mostrar su "detail"
+    const motive = motives.find(m => m.nombre_motivo === selectedSubject);
+    setSelectedHelp(motive?.detail ?? null);
+  }}
+  className="w-full h-8 rounded-md border px-2 text-sm dark:bg-black dark:text-white"
+>
+<option value="">Seleccione la Solicitud</option>
+
+  <optgroup label="ATC">
+    <option value="Constancia de no adeudo">Constancia de no adeudo</option>
+    <option value="Desistimientos">Desistimientos</option>
+
     <option value="INFORMACION SOBRE COMPRA DE TERRENOS">INFORMACION SOBRE COMPRA DE TERRENOS</option>
     <option value="PROGRAMACION DE VISITA AL TERRENO">PROGRAMACION DE VISITA AL TERRENO</option>
     <option value="SOLICITUD DE LETRAS">SOLICITUD DE LETRAS</option>
@@ -1038,6 +1103,11 @@ if (internalStateId === 5) {
   </optgroup>
 </select>
 
+{selectedHelp && (
+  <div className="mt-1 text-xs text-gray-600 bg-gray-100 border border-gray-300 rounded p-2">
+    {selectedHelp}
+  </div>
+)}
 
 
 

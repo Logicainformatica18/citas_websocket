@@ -155,8 +155,24 @@ class SupportController extends Controller
 
         $supports = $query->latest()->paginate(7);
 
-        // Datos auxiliares
-        $motives = Motive::select('id_motivos_cita as id', 'nombre_motivo')->get();
+$role = auth()->user()->roles->pluck('name')->first();
+
+$motives = Motive::select(
+        'id_motivos_cita as id',
+        'nombre_motivo',
+        'id_area',
+        \DB::raw("CASE
+            WHEN '$role' = 'ATC_Call_center' THEN detail
+            ELSE detail_2
+        END as detail")
+    )
+    ->with([
+        'area:id_area,descripcion',
+        'areas:id_area,descripcion'
+    ])
+    ->get();
+
+
         $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
         $waitingDays = WaitingDay::select('id_dias_espera as id', 'dias')->get();
         $internalStates = InternalState::select('id', 'description')->where('description', '!=', 'Atendido')->get();
