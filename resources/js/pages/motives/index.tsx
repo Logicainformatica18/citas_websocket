@@ -183,8 +183,8 @@ export default function Motives() {
                 <th className="px-4 py-2">Día Espera</th>
                 <th className="px-4 py-2">Detalle Call Center</th>
                 <th className="px-4 py-2">Detalle ATC Interno</th>
-                <th className="px-4 py-2">Área Principal</th>
-                <th className="px-4 py-2">Áreas Adicionales</th>
+                <th className="px-4 py-2">Área derivadas Call Center</th>
+                <th className="px-4 py-2">Áreas derivadas ATC</th>
                 <th className="px-4 py-2">¿Habilitado?</th>
               </tr>
             </thead>
