@@ -35,19 +35,21 @@ class Area extends Model
      * - PK Area:   id_area
      * - PK Motive: id_motivos_cita
      */
-    public function motivos(): BelongsToMany
-    {
-        return $this->belongsToMany(
-                Motive::class,          // modelo relacionado
-                'motivos_cita_area',    // tabla pivote
-                'area_id',              // FK de este modelo en la pivote
-                'id_motivos_cita',      // FK del otro modelo en la pivote
-                'id_area',              // PK local
-                'id_motivos_cita'       // PK del relacionado
-            )
-            // ->using(MotivoCitaArea::class) // si definiste el Pivot Model
-            ->withTimestamps();
-    }
+   public function motivos(): BelongsToMany
+{
+    return $this->belongsToMany(
+            Motive::class,
+            'motivos_cita_area',
+            'area_id',
+            'id_motivos_cita',
+            'id_area',
+            'id_motivos_cita'
+        )
+        ->withTimestamps()
+        ->withPivot(['id'])               // si te sirve el id de la pivote
+        ->orderBy('motivos_cita.nombre_motivo'); // UX estable
+}
+
 
     /* Scopes útiles (opcionales) */
     public function scopeHabilitadas($query)

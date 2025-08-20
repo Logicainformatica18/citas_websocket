@@ -26,6 +26,7 @@ use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 class SupportController extends Controller
 {
 
@@ -123,7 +124,6 @@ class SupportController extends Controller
         ]);
     }
 
-
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -154,23 +154,56 @@ class SupportController extends Controller
         }
 
         $supports = $query->latest()->paginate(7);
+////////////////////// generamos una lista de areas validando si es ATC_Call_center o no
+// --- Rol y flags
+$user     = $request->user();
+$role     = $user?->roles->pluck('name')->first();
+$userRole = $role;
 
-$role = auth()->user()->roles->pluck('name')->first();
+$isATCOficina = $user?->hasRole('ATC_Oficina') ?? ($role === 'ATC_Oficina');
 
-$motives = Motive::select(
-        'id_motivos_cita as id',
+$motives = Motive::query()
+    ->select([
+        'id_motivos_cita',           // 👈 trae la PK original
         'nombre_motivo',
         'id_area',
-        \DB::raw("CASE
-            WHEN '$role' = 'ATC_Call_center' THEN detail
-            ELSE detail_2
-        END as detail")
-    )
+    ])
+    ->addSelect(['id_motivos_cita as id']) // 👈 alias opcional para el front
+    ->selectRaw("CASE WHEN ? = 'ATC_Oficina' THEN detail_2 ELSE detail END as detail", [$role])
     ->with([
         'area:id_area,descripcion',
-        'areas:id_area,descripcion'
+        'areas' => fn($q) => $q
+            ->select('areas.id_area','areas.descripcion')
+            ->orderBy('areas.descripcion'),
     ])
-    ->get();
+    ->orderBy('nombre_motivo')
+    ->get()
+    ->map(function ($m) use ($isATCOficina) {
+        $areas = $isATCOficina
+            ? $m->areas->map(fn($a) => [
+                'id_area'     => (int) $a->id_area,
+                'descripcion' => (string) $a->descripcion,
+              ])->values()->all()
+            : ($m->area
+                ? [[
+                    'id_area'     => (int) $m->area->id_area,
+                    'descripcion' => (string) $m->area->descripcion,
+                  ]]
+                : []);
+
+        return [
+            'id'            => (int) ($m->id ?? $m->id_motivos_cita), // por si acaso
+            'nombre_motivo' => (string) $m->nombre_motivo,
+            'detail'        => (string) ($m->detail ?? ''),
+            'areas'         => $areas,
+        ];
+    });
+
+
+// (Opcional) expón el rol al frontend si lo necesitas:
+$userRole = $role;
+
+
 
 
         $appointmentTypes = AppointmentType::select('id_tipo_cita as id', 'tipo')->get();
@@ -194,7 +227,8 @@ $motives = Motive::select(
                 'types',
                 'projects',
                 'areas',
-                'users'
+                'users',
+                 'userRole' // 👈
             ));
         }
 
@@ -209,7 +243,8 @@ $motives = Motive::select(
             'types',
             'projects',
             'areas',
-            'users'
+            'users',
+             'userRole' // 👈
         ));
     }
 
