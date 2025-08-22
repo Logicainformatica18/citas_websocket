@@ -36,7 +36,7 @@ Route::get('/pagos', [PaymentsController::class, 'index']);
 
 
 // Ruta para registrar pagos (POST)
-Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:10,1440')->name('payments.store');
+Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:20,1440')->name('payments.store');
 
 
 
