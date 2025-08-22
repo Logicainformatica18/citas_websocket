@@ -11,12 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Events\ImageAnalyzed;
-
-use Google\Cloud\Vision\V1\Client\ImageAnnotatorClient;
-use Google\Cloud\Vision\V1\Image;
-use Google\Cloud\Vision\V1\Feature;
-use Google\Cloud\Vision\V1\AnnotateImageRequest;
-use Google\Cloud\Vision\V1\BatchAnnotateImagesRequest;
+use Illuminate\Support\Facades\Http;
 
 class AnalyzeImageJob implements ShouldQueue
 {
@@ -24,83 +19,66 @@ class AnalyzeImageJob implements ShouldQueue
 
     protected string $path;
     protected string $filename;
+   protected string $mime;
 
-    public function __construct(string $path, string $filename)
+    public function __construct(string $path, string $filename, string $mime)
     {
         $this->path = $path;
         $this->filename = $filename;
+        $this->mime = $mime;
     }
 
     public function handle(): void
     {
         try {
-            // 1. Cargar credenciales
-            $credPath = storage_path('app/eco-splicer-468114-t0-54c2adb26581.json');
-            putenv("GOOGLE_APPLICATION_CREDENTIALS={$credPath}");
-            Log::info('🔐 Credenciales cargadas desde: ' . $credPath);
-
-            // 2. Obtener imagen
+            // 1. Ruta física del archivo en storage
             $imagePath = Storage::path($this->path);
-            $imageData = file_get_contents($imagePath);
-            Log::info("📷 Imagen cargada correctamente: {$imagePath}");
+            Log::info("📷 Imagen lista para OCR: {$imagePath}");
 
-            // 3. Inicializar cliente
-            $client = new ImageAnnotatorClient();
-            Log::info('✅ Cliente de Vision API inicializado');
+            // 2. Enviar a FastAPI (OCR GPU)
+            $response = Http::attach('file', file_get_contents($imagePath), $this->filename)
+                ->post('http://127.0.0.1:8000/ocr/image_dl', [
+                    'lang'       => 'spa',
+                    'force_gpu'  => true,   // ⬅️ nuevo flag en FastAPI
+                    'preprocess' => true,   // ⬅️ mejora calidad
+                ]);
 
-            // 4. Preparar solicitud
-            $image = (new Image())->setContent($imageData);
-            $feature = (new Feature())->setType(Feature\Type::DOCUMENT_TEXT_DETECTION);
-            $request = (new AnnotateImageRequest())->setImage($image)->setFeatures([$feature]);
-            $batchRequest = new BatchAnnotateImagesRequest();
-            $batchRequest->setRequests([$request]);
+            if (!$response->successful()) {
+                throw new \Exception("OCR Service error: " . $response->body());
+            }
 
-            // 5. Ejecutar OCR
-            $batchResponse = $client->batchAnnotateImages($batchRequest);
-            Log::info('📨 Solicitud enviada a la API de Vision');
+            $data = $response->json();
+            $text = $data['text'] ?? '';
+            $engine = $data['engine'] ?? 'unknown';
+            $gpu = $data['gpu'] ?? false;
+            $tokens = $data['tokens'] ?? null;
 
-            $annotation = $batchResponse->getResponses()[0]?->getFullTextAnnotation();
-            $text = $annotation?->getText() ?? 'Sin texto detectado';
-            Log::info('📄 Texto detectado: ' . mb_substr($text, 0, 150) . '...');
+            Log::info("📄 Texto OCR ({$engine}, GPU=" . ($gpu ? "yes" : "no") . "): " . mb_substr($text, 0, 200) . "...");
 
-            // 6. Extraer campos
-            $fields = $this->extractFields($text);
-
-            // 7. Guardar en DB
-          // Dentro de handle(), justo antes de guardar en DB:
-$analysis = ImageAnalysis::create(array_merge([
-    'filename'       => $this->filename,
-    'path'           => $this->path,
-    'response'       => $text, // ⬅️ Guarda todo el texto completo detectado
-], $fields));
-
-
-            broadcast(new ImageAnalyzed($analysis));
-            Log::info('📡 Evento ImageAnalyzed emitido', [
-                'filename' => $analysis->filename,
+            // 3. Guardar análisis en DB
+            $analysis = ImageAnalysis::create([
+                'filename'  => $this->filename,
+                'path'      => $this->path,
+                'engine'    => $engine,
+                'gpu'       => $gpu,
+                'tokens'    => $tokens,
+                'response'  => $text,
             ]);
 
+            // 4. Emitir evento
+            broadcast(new ImageAnalyzed($analysis));
+            Log::info("📡 Evento ImageAnalyzed emitido", [
+                'filename' => $analysis->filename,
+                'engine'   => $engine,
+            ]);
+
+            // 5. Eliminar archivo temporal
             Storage::delete($this->path);
-            $client->close();
 
         } catch (\Throwable $e) {
-            Log::error("❌ Error al analizar la imagen '{$this->filename}': " . $e->getMessage(), [
+            Log::error("❌ Error al analizar '{$this->filename}': " . $e->getMessage(), [
                 'exception' => $e,
             ]);
         }
-    }
-
-    private function extractFields(string $text): array
-    {
-        return [
-            'company_name'      => preg_match('/([A-Z][\w\s]+S\.?A\.?C?)/i', $text, $m) ? trim($m[1]) : null,
-            'operation_number'  => preg_match('/operaci[oó]n\s*(?:n[ºo]\.?|Nº)?\s*[:\-]?\s*(\d+)/i', $text, $m) ? $m[1] : null,
-            'amount'            => preg_match('/S\/\.?\s*([\d,.]+)/i', $text, $m) ? str_replace(',', '', $m[1]) : null,
-            'date'              => preg_match('/(\d{1,2}\/\d{1,2}\/\d{4})/', $text, $m) ? date('Y-m-d', strtotime(str_replace('/', '-', $m[1]))) : null,
-            'time'              => preg_match('/(\d{1,2}:\d{2})\s*(?:a\.?m\.?|p\.?m\.?)/i', $text, $m) ? $m[1] : null,
-            'phone'             => preg_match('/\b9\d{8}\b/', $text, $m) ? $m[0] : null,
-            'status'            => str_contains(strtolower($text), 'no admitido') ? 'Not Admitted' : (str_contains(strtolower($text), 'admitido') ? 'Admitted' : null),
-            'concept'           => preg_match('/concepto\s*[:\-]?\s*(.*)/i', $text, $m) ? trim($m[1]) : null,
-        ];
     }
 }

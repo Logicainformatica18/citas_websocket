@@ -111,41 +111,6 @@ public function analyzeImages(Request $request)
 
 
 
-// public function store(Request $request)
-// {
-//     Log::info('📥 Solicitud recibida en /analyses');
-//     Log::info('📄 Datos recibidos:', [
-//         'items' => $request->items ?? null,
-//     ]);
-
-//     // Validación básica
-//     $request->validate([
-//         'items' => 'required|array',
-//         'items.*.filename' => 'required|string',
-//         'items.*.response' => 'required|string',
-//     ]);
-
-//     $guardados = [];
-
-//     foreach ($request->items as $item) {
-//         $analysis = ImageAnalysis::create([
-//             'filename' => $item['filename'],
-//             'response' => $item['response'],
-//         ]);
-//         $guardados[] = $analysis->id;
-
-//         Log::info('✅ Registro guardado:', [
-//             'id' => $analysis->id,
-//             'filename' => $analysis->filename,
-//         ]);
-//     }
-
-//     Log::info('📦 Todos los registros fueron guardados correctamente:', [
-//         'ids' => $guardados,
-//     ]);
-
-//     return response()->json(['message' => 'Guardado exitosamente']);
-// }
 
 
     public function destroy($id)

@@ -14,9 +14,14 @@ export default function Dashboard() {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Dashboard" />
-      <div className="p-4 space-y-6">
-        <StatCards stats={stats} />
-        <StatCharts stats={stats} />
+      <div className="p-0 w-full h-[calc(100vh-64px)]">
+        {/* ocupa todo el ancho y la altura menos el header (ajusta 64px según tu layout) */}
+        <iframe
+          title="SEGUIMIENTO DE ATC"
+          src="https://app.powerbi.com/view?r=eyJrIjoiYmYwZjZlMzgtN2E0OC00MWMwLTg3OGEtMmJkZjAyZTI3YTI0IiwidCI6IjcxODY3Y2NlLTFiY2YtNDg1Yi1iZDUwLTY4ZDk1ZWUzZjdiZiJ9"
+          className="w-full h-full border-0"
+          allowFullScreen
+        ></iframe>
       </div>
     </AppLayout>
   );
