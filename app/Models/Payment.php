@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    protected $fillable = [
+     protected $fillable = [
         'email','dni','full_name','receipt_number','amount','details',
         'project_id','mz_lote','file_1','file_2','file_3',
+        'date','code_client', // 👈 nuevos
     ];
 
     protected $casts = [

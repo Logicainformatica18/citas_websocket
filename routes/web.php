@@ -29,6 +29,7 @@ use Maatwebsite\Excel\Facades\Excel;
 // routes/web.php
 use App\Http\Controllers\PdfOcrController;
 use App\Http\Controllers\PaymentsController;
+use App\Http\Controllers\PaymentsTableController;
 
 
 Route::get('/pagos', [PaymentsController::class, 'index']);
@@ -290,6 +291,26 @@ Route::get('/export/image-analyses', function () {
     return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
 });
 
+
+// 1. Index general
+Route::get('/payments/table', [PaymentsTableController::class, 'index'])
+    ->name('payments.table');
+
+// 2. Primero las rutas "fijas" de string, para que no choquen con {id}
+Route::get('/payments/table/paginate', [PaymentsTableController::class, 'fetchPaginated'])
+    ->name('payments.table.paginate');
+
+// 3. Editar (usa {id}/edit, no choca con paginate porque ya está arriba)
+Route::get('/payments/table/{id}/edit', [PaymentsTableController::class, 'edit'])
+    ->name('payments.table.edit');
+
+// 4. Eliminar individual (usa {id}, debe ir DESPUÉS de {id}/edit)
+Route::delete('/payments/table/{id}', [PaymentsTableController::class, 'destroy'])
+    ->name('payments.table.destroy');
+
+// 5. Eliminación en lote (POST)
+Route::post('/payments/table/bulk-delete', [PaymentsTableController::class, 'bulkDelete'])
+    ->name('payments.table.bulkDelete');
 
 });
 Route::get('/report/supports', [ReportController::class, 'report']);
