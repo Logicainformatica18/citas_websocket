@@ -3,29 +3,29 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { useMemo, useState } from 'react';
-import { Trash2, Search, RefreshCcw, Eye, Pencil, Paperclip } from 'lucide-react';
-import OcrTextModal from './OcrTextModal';
 
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Pagos', href: '/payments/table' },
-];
+import OcrTextModal from './OcrTextModal';
+import PaymentDetailModal from './PaymentDetailModal';
+
+import { Search, RefreshCcw, Pencil, X } from 'lucide-react';
+
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Pagos', href: '/payments/table' }];
 
 type ProjectMini = { id_proyecto: number; descripcion: string };
 
 type Payment = {
   id: number;
-  email: string;
   dni: string;
   full_name: string;
-  receipt_number: string | null;
   amount: number | string;
+  operation_number?: string | null;
+  receipt_number?: string | null;
+  transaction_code?: string | null;
   project_id: number | null;
-  mz_lote: string | null;
-  date: string | null;
-  code_client: string | null;
-  file_1?: string | null; // voucher
+  file_1?: string | null;
   created_at: string;
   project?: ProjectMini;
+  state?: 'registrado' | 'validado' | 'observado' | string;
 };
 
 type Pagination<T> = {
@@ -43,22 +43,25 @@ type PageProps = {
   filters?: { q?: string; per_page?: number };
 };
 
+// helpers fuera del componente
+const isImage = (name?: string | null) => !!name && /\.(jpe?g|png|webp|gif)$/i.test(name);
+const isPdf = (name?: string | null) => !!name && /\.pdf$/i.test(name);
+
 export default function PaymentsIndex() {
   const { payments: initialPagination, filters } = usePage<PageProps>().props;
 
   const [rows, setRows] = useState<Payment[]>(initialPagination.data);
   const [pagination, setPagination] = useState(initialPagination);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [q, setQ] = useState<string>(filters?.q ?? '');
   const [perPage, setPerPage] = useState<number>(filters?.per_page ?? initialPagination.per_page ?? 10);
 
-  const allChecked = useMemo(
-    () => rows.length > 0 && selectedIds.length === rows.length,
-    [rows, selectedIds]
-  );
+  // modal editar/detalle
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPaymentId, setEditPaymentId] = useState<number | null>(null);
 
-  const csrf =
-    (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+  // modal de previsualización grande
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   const fetchPage = async (url: string) => {
     try {
@@ -66,19 +69,12 @@ export default function PaymentsIndex() {
       if (q) u.searchParams.set('q', q);
       if (perPage) u.searchParams.set('per_page', String(perPage));
 
-      const res = await axios.get(u.pathname + u.search, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      });
+      const res = await axios.get(u.pathname + u.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       setRows(res.data.data);
       setPagination(res.data);
-      setSelectedIds([]);
     } catch (e) {
       console.error('Error al cargar página', e);
     }
-  };
-
-  const reloadFirstPage = () => {
-    fetchPage(`/payments/table/paginate?page=1`);
   };
 
   const doSearch = async (e: React.FormEvent) => {
@@ -91,254 +87,240 @@ export default function PaymentsIndex() {
     await fetchPage(`/payments/table/paginate?page=1`);
   };
 
-  const toggleSelectAll = () => {
-    if (allChecked) setSelectedIds([]);
-    else setSelectedIds(rows.map((r) => r.id));
+  const getOpNumber = (p: Payment) =>
+    p.operation_number || p.receipt_number || p.transaction_code || '—';
+
+  const formatAmount = (a: number | string) => `S/ ${Number(a ?? 0).toFixed(2)}`;
+
+  const stateBadge = (state?: string) => {
+    const s = (state || 'registrado').toLowerCase();
+    const map: Record<string, string> = {
+      validado: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      observado: 'bg-amber-50 text-amber-700 border-amber-200',
+      registrado: 'bg-gray-100 text-gray-700 border-gray-200',
+    };
+    return (
+      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${map[s] ?? map.registrado}`}>
+        {s}
+      </span>
+    );
   };
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const deleteOne = async (id: number, label?: string) => {
-    if (!confirm(`¿Eliminar el pago${label ? ` de "${label}"` : ''}?`)) return;
-    try {
-      await axios.delete(`/payments/table/${id}`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      });
-      reloadFirstPage();
-    } catch (e) {
-      alert('Error al eliminar');
-      console.error(e);
-    }
-  };
-
-  const bulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (!confirm(`¿Eliminar ${selectedIds.length} pago(s)?`)) return;
-    try {
-      await axios.post(
-        `/payments/table/bulk-delete`,
-        { ids: selectedIds },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrf,
-          },
-        }
-      );
-      reloadFirstPage();
-    } catch (e) {
-      alert('Error al eliminar en lote');
-      console.error(e);
-    }
-  };
-
-  // Ver OCR (file_3) en modal externo: dispara un CustomEvent
-  const viewOCR = async (id: number) => {
-    try {
-      const res = await axios.get(`/payments/table/${id}/edit`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
-      });
-      const text: string = res.data?.payment?.file_3 ?? '';
-      window.dispatchEvent(new CustomEvent('open-ocr-modal', { detail: { paymentId: id, text } }));
-    } catch (e) {
-      alert('No se pudo obtener el OCR.');
-      console.error(e);
-    }
-  };
-
-  const goEdit = (id: number) => {
-    // Solo vista de edición (no hay update)
-    window.location.href = `/payments/table/${id}/edit`;
+  const openEdit = (id: number) => {
+    setEditPaymentId(id);
+    setEditOpen(true);
   };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h1 className="text-2xl font-bold">Pagos registrados</h1>
+      {/* contenedor a pantalla completa */}
+      <div className="h-screen flex flex-col">
+        {/* top bar */}
+        <div className="shrink-0 p-4 md:p-6 border-b bg-white">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h1 className="text-2xl font-bold">Pagos registrados</h1>
 
-          <form onSubmit={doSearch} className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                className="w-72 rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm"
-                placeholder="Buscar: DNI, nombre, email, operación, código cliente"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
+            <form onSubmit={doSearch} className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  className="w-72 rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm"
+                  placeholder="Buscar: DNI, nombre, email, operación, código cliente"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
 
-            <select
-              className="rounded-md border border-gray-300 px-2 py-2 text-sm"
-              value={perPage}
-              onChange={async (e) => {
-                const n = Number(e.target.value);
-                setPerPage(n);
-                await fetchPage(`/payments/table/paginate?page=1`);
-              }}
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n} / pág.
-                </option>
-              ))}
-            </select>
+              <select
+                className="rounded-md border border-gray-300 px-2 py-2 text-sm"
+                value={perPage}
+                onChange={async (e) => {
+                  const n = Number(e.target.value);
+                  setPerPage(n);
+                  await fetchPage(`/payments/table/paginate?page=1`);
+                }}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n} / pág.
+                  </option>
+                ))}
+              </select>
 
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-3 py-2 text-white text-sm"
-            >
-              Buscar
-            </button>
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="rounded-md bg-gray-100 px-3 py-2 text-sm inline-flex items-center gap-2"
-            >
-              <RefreshCcw className="h-4 w-4" /> Limpiar
-            </button>
-          </form>
-        </div>
-
-        {selectedIds.length > 0 && (
-          <button
-            onClick={bulkDelete}
-            className="mb-3 inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-2 text-white text-sm"
-          >
-            <Trash2 className="h-4 w-4" /> Eliminar seleccionados ({selectedIds.length})
-          </button>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 bg-white dark:bg-black shadow-md rounded">
-            <thead className="bg-gray-100 dark:bg-gray-800">
-              <tr>
-                <th className="px-3 py-2">
-                  <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
-                </th>
-                <th className="px-3 py-2">Acciones</th>
-                <th className="px-3 py-2 text-left">ID</th>
-                <th className="px-3 py-2 text-left">Fecha</th>
-                <th className="px-3 py-2 text-left">Código cliente</th>
-                <th className="px-3 py-2 text-left">Titular</th>
-                <th className="px-3 py-2 text-left">DNI</th>
-                <th className="px-3 py-2 text-left">Email</th>
-                <th className="px-3 py-2 text-right">Importe</th>
-                <th className="px-3 py-2 text-left">Operación</th>
-                <th className="px-3 py-2 text-left">Proyecto</th>
-                <th className="px-3 py-2 text-left">MZ/Lote</th>
-                <th className="px-3 py-2 text-left">Voucher</th>
-                <th className="px-3 py-2 text-left">Creado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={14} className="px-3 py-6 text-center text-gray-500">
-                    Sin resultados
-                  </td>
-                </tr>
-              )}
-
-              {rows.map((p) => (
-                <tr key={p.id} className="border-t hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(p.id)}
-                      onChange={() => toggleSelect(p.id)}
-                    />
-                  </td>
-
-                  {/* Acciones: Editar, Ver OCR, Eliminar */}
-                  <td className="px-3 py-2 text-sm space-x-2 whitespace-nowrap">
-                    <button
-                      onClick={() => goEdit(p.id)}
-                      className="text-blue-600 hover:underline dark:text-blue-400 inline-flex items-center gap-1"
-                      title="Editar (vista sin update)"
-                    >
-                      <Pencil className="w-4 h-4" /> Editar
-                    </button>
-                    <button
-                      onClick={() => viewOCR(p.id)}
-                      className="text-emerald-700 hover:underline inline-flex items-center gap-1"
-                      title="Ver OCR (file_3)"
-                    >
-                      <Eye className="w-4 h-4" /> Ver OCR
-                    </button>
-                    <button
-                      onClick={() => deleteOne(p.id, p.full_name)}
-                      className="text-red-600 hover:underline dark:text-red-400 inline-flex items-center gap-1"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-                  </td>
-
-                  <td className="px-3 py-2">{p.id}</td>
-                  <td className="px-3 py-2">{p.date ?? '-'}</td>
-                  <td className="px-3 py-2">{p.code_client ?? '-'}</td>
-                  <td className="px-3 py-2">{p.full_name}</td>
-                  <td className="px-3 py-2">{p.dni}</td>
-                  <td className="px-3 py-2">{p.email}</td>
-                  <td className="px-3 py-2 text-right">S/ {Number(p.amount || 0).toFixed(2)}</td>
-                  <td className="px-3 py-2">{p.receipt_number ?? '-'}</td>
-                  <td className="px-3 py-2">{p.project?.descripcion ?? '-'}</td>
-                  <td className="px-3 py-2">{p.mz_lote ?? '-'}</td>
-
-                  {/* Voucher link */}
-                  <td className="px-3 py-2">
-                    {p.file_1 ? (
-                      <a
-                        href={`/uploads/payments/${p.file_1}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                        title={p.file_1 ?? 'Voucher'}
-                      >
-                        <Paperclip className="w-4 h-4" /> Descargar
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-
-                  <td className="px-3 py-2">{new Date(p.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Paginación numérica */}
-        {pagination.last_page > 1 && (
-          <div className="flex justify-center mt-6 space-x-2">
-            {[...Array(pagination.last_page)].map((_, i) => {
-              const page = i + 1;
-              const url = `/payments/table/paginate?page=${page}`;
-              const active = pagination.current_page === page;
-              return (
-                <button
-                  key={page}
-                  onClick={() => fetchPage(url)}
-                  className={`px-3 py-1 rounded text-sm font-medium transition ${
-                    active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                  }`}
-                  disabled={active}
-                >
-                  {page}
-                </button>
-              );
-            })}
+              <button type="submit" className="rounded-md bg-blue-600 px-3 py-2 text-white text-sm">
+                Buscar
+              </button>
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="rounded-md bg-gray-100 px-3 py-2 text-sm inline-flex items-center gap-2"
+              >
+                <RefreshCcw className="h-4 w-4" /> Limpiar
+              </button>
+            </form>
           </div>
-        )}
+        </div>
+
+        {/* tabla (ocupa todo el resto) */}
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 bg-white shadow rounded">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left">Acciones</th>
+                  <th className="px-3 py-2 text-left">DNI</th>
+                  <th className="px-3 py-2 text-left">Cliente</th>
+                  <th className="px-3 py-2 text-right">Monto</th>
+                  <th className="px-3 py-2 text-left">N.º Operación</th>
+                  <th className="px-3 py-2 text-left">Proyecto</th>
+                  <th className="px-3 py-2 text-center">Voucher</th>
+                  <th className="px-3 py-2 text-left">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-6 text-center text-gray-500">
+                      Sin resultados
+                    </td>
+                  </tr>
+                )}
+
+                {rows.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    {/* acciones */}
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => openEdit(p.id)}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                        title="Editar / Ver detalles"
+                      >
+                        <Pencil className="h-4 w-4" /> Editar
+                      </button>
+                    </td>
+
+                    <td className="px-3 py-2">{p.dni}</td>
+                    <td className="px-3 py-2">{p.full_name}</td>
+                    <td className="px-3 py-2 text-right">{formatAmount(p.amount)}</td>
+                    <td className="px-3 py-2">{getOpNumber(p)}</td>
+                    <td className="px-3 py-2">{p.project?.descripcion ?? (p.project_id ? `#${p.project_id}` : '—')}</td>
+
+                    {/* voucher: preview grande en hover + modal al clic */}
+                    <td className="px-3 py-2 text-center">
+                      {p.file_1 ? (
+                        <div className="relative inline-block group">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewSrc(`/uploads/payments/${p.file_1}`);
+                              setPreviewOpen(true);
+                            }}
+                            className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-900 shadow hover:bg-gray-200"
+                            title="Pasa el mouse para previsualizar. Clic para ampliar"
+                          >
+                            Ver
+                          </button>
+
+                          {/* hover preview grande con scroll */}
+                          <div className="pointer-events-auto absolute left-1/2 top-full z-30 hidden -translate-x-1/2 pt-2 group-hover:block">
+                            <div className="w-[420px] md:w-[520px] max-h-[70vh] overflow-auto rounded-lg border bg-white p-2 shadow-xl">
+                              {isImage(p.file_1) ? (
+                                <img
+                                  src={`/uploads/payments/${p.file_1}`}
+                                  alt="Voucher"
+                                  className="max-h-[68vh] w-full object-contain rounded-md"
+                                />
+                              ) : isPdf(p.file_1) ? (
+                                <div className="p-3 text-xs text-gray-600">
+                                  Es un PDF. Haz clic en <strong>Ver</strong> para abrirlo grande.
+                                </div>
+                              ) : (
+                                <div className="p-3 text-xs text-gray-600">Vista previa no disponible.</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    {/* estado */}
+                    <td className="px-3 py-2">{stateBadge(p.state)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* paginación */}
+          {pagination.last_page > 1 && (
+            <div className="flex justify-center mt-4 gap-2">
+              {[...Array(pagination.last_page)].map((_, i) => {
+                const page = i + 1;
+                const url = `/payments/table/paginate?page=${page}`;
+                const active = pagination.current_page === page;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => fetchPage(url)}
+                    className={`px-3 py-1 rounded text-sm font-medium transition ${
+                      active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                    }`}
+                    disabled={active}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Modal global para ver file_3 (OCR) */}
+      {/* modal preview grande */}
+      {previewOpen && previewSrc && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setPreviewOpen(false)} />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-5xl rounded-xl bg-white shadow-2xl ring-1 ring-gray-100 p-3">
+              <button
+                onClick={() => setPreviewOpen(false)}
+                className="absolute right-2 top-2 rounded-md p-1 hover:bg-gray-100"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="max-h-[85vh] overflow-auto">
+                {isImage(previewSrc) ? (
+                  <img src={previewSrc} alt="Voucher" className="max-h-[83vh] w-full object-contain rounded-md" />
+                ) : isPdf(previewSrc) ? (
+                  <object data={previewSrc} type="application/pdf" className="h-[83vh] w-full rounded-md">
+                    <p className="p-4 text-sm">
+                      Tu navegador no pudo mostrar el PDF.{' '}
+                      <a href={previewSrc} className="text-blue-600 underline">Abrir en nueva pestaña</a>.
+                    </p>
+                  </object>
+                ) : (
+                  <div className="p-4">No se puede previsualizar este archivo.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* modal OCR existente (si lo usas desde otros botones) */}
       <OcrTextModal />
+
+      {/* modal detalles/edición */}
+      <PaymentDetailModal
+        open={editOpen}
+        paymentId={editPaymentId}
+        onClose={() => setEditOpen(false)}
+        onUpdated={() => fetchPage(`/payments/table/paginate?page=${pagination.current_page}`)}
+      />
     </AppLayout>
   );
 }

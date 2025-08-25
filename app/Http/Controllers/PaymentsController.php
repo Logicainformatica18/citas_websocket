@@ -36,6 +36,8 @@ class PaymentsController extends Controller
             'dni'            => 'required|string|max:20',
             'full_name'      => 'required|string|max:200',
             'receipt_number' => 'nullable|string|max:100',
+            'operation_number' => 'nullable|string|max:100', // <- opcional si ya lo usas
+            'transaction_code' => 'nullable|string|max:100', // <- opcional si ya lo usas
             'amount'         => 'required|numeric|min:0',
             'details'        => 'nullable|string',
             'project_id'     => 'nullable|integer',
@@ -58,32 +60,34 @@ class PaymentsController extends Controller
 
         \Log::info("📂 Procesando OCR en archivo: {$fullPath}");
 
-        // 📡 Llamar a API OCR
+        // 📡 Llamar a API OCR (imagen por defecto; si subes PDF cambia a /ocr/pdf)
+        $endpoint = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION)) === 'pdf'
+            ? 'http://127.0.0.1:8000/ocr/pdf'
+            : 'http://127.0.0.1:8000/ocr/image';
+
         $ocrResponse = Http::attach(
             'file',
             file_get_contents($fullPath),
             basename($fullPath)
-        )->post('http://127.0.0.1:8000/ocr/image');
+        )->post($endpoint);
 
-        $ocrText = $ocrResponse->successful() ? $ocrResponse->json('text') : null;
+        $ocrText = $ocrResponse->successful() ? ($ocrResponse->json('text') ?? null) : null;
 
-        if (!$ocrText) {
-            fileDestroy($validated['file_1'], 'uploads/payments');
-            return back()->withErrors(['file_1' => 'Error al procesar el OCR del voucher.']);
+        // Guardar OCR en file_3 (si existe)
+        if ($ocrText) {
+            $validated['file_3'] = $ocrText;
         }
 
-        // 🔍 Validar código de operación contra OCR
-        if (!empty($validated['receipt_number']) && !str_contains($ocrText, $validated['receipt_number'])) {
-            fileDestroy($validated['file_1'], 'uploads/payments');
-            return back()->withErrors([
-                'receipt_number' => 'El código ingresado no coincide con el voucher (OCR).'
-            ]);
-        }
+        // 🧠 Determinar el identificador a validar (prioridad: operation_number > receipt_number > transaction_code)
+        $idToMatch = $validated['operation_number']
+            ?? $validated['receipt_number']
+            ?? $validated['transaction_code']
+            ?? null;
 
-        // Guardar OCR en file_3
-        $validated['file_3'] = $ocrText;
+        // 🟢 Calcula el state según OCR vs identificador
+        $validated['state'] = $this->computeState($ocrText, $idToMatch);
 
-        // Crear registro
+        // ✅ Crear registro (state se calcula en backend)
         $payment = Payment::create($validated);
 
         // 🔔 Notificación en cola
@@ -115,38 +119,62 @@ class PaymentsController extends Controller
         $payment = Payment::findOrFail($id);
 
         $validated = $request->validate([
-            'email'          => 'required|email|max:150',
-            'dni'            => 'required|string|max:20',
-            'full_name'      => 'required|string|max:200',
-            'receipt_number' => 'nullable|string|max:100',
-            'amount'         => 'required|numeric|min:0',
-            'details'        => 'nullable|string',
-            'project_id'     => 'nullable|integer',
-            'mz_lote'        => 'nullable|string|max:50',
-            'date'           => 'nullable|date',
-            'code_client'    => 'nullable|string|max:100',
-            'file_1'         => 'nullable|file|max:5120',
-            'file_2'         => 'nullable|file|max:5120',
+            'email'            => 'required|email|max:150',
+            'dni'              => 'required|string|max:20',
+            'full_name'        => 'required|string|max:200',
+            'receipt_number'   => 'nullable|string|max:100',
+            'operation_number' => 'nullable|string|max:100',
+            'transaction_code' => 'nullable|string|max:100',
+            'amount'           => 'required|numeric|min:0',
+            'details'          => 'nullable|string',
+            'project_id'       => 'nullable|integer',
+            'mz_lote'          => 'nullable|string|max:50',
+            'date'             => 'nullable|date',
+            'code_client'      => 'nullable|string|max:100',
+            'file_1'           => 'nullable|file|max:5120',
+            'file_2'           => 'nullable|file|max:5120',
         ]);
+
+        $newOcrText = null;
 
         if ($request->hasFile('file_1')) {
             $validated['file_1'] = fileUpdate($request->file('file_1'), 'uploads/payments', $payment->file_1);
 
             // 📡 Reprocesar OCR
             $filePath = $request->file('file_1')->getRealPath();
+            $endpoint = strtolower($request->file('file_1')->getClientOriginalExtension()) === 'pdf'
+                ? 'http://127.0.0.1:8000/ocr/pdf'
+                : 'http://127.0.0.1:8000/ocr/image';
+
             $ocrResponse = Http::attach(
                 'file', file_get_contents($filePath), $request->file('file_1')->getClientOriginalName()
-            )->post('http://127.0.0.1:8000/ocr/image');
+            )->post($endpoint);
 
-            $ocrText = $ocrResponse->successful() ? $ocrResponse->json('text') : null;
+            $newOcrText = $ocrResponse->successful() ? ($ocrResponse->json('text') ?? null) : null;
 
-            if ($ocrText) {
-                $validated['file_3'] = $ocrText;
+            if ($newOcrText) {
+                $validated['file_3'] = $newOcrText;
             }
         }
 
         if ($request->hasFile('file_2')) {
             $validated['file_2'] = fileUpdate($request->file('file_2'), 'uploads/payments', $payment->file_2);
+        }
+
+        // 🧠 ¿Recalcular state?
+        // Si cambió el voucher (nuevo OCR), o cambió el identificador, recalculamos.
+        $idToMatch = $validated['operation_number']
+            ?? $validated['receipt_number']
+            ?? $validated['transaction_code']
+            ?? $payment->operation_number
+            ?? $payment->receipt_number
+            ?? $payment->transaction_code
+            ?? null;
+
+        $textForValidation = $newOcrText ?? $validated['file_3'] ?? $payment->file_3 ?? null;
+
+        if ($idToMatch !== null || $newOcrText !== null) {
+            $validated['state'] = $this->computeState($textForValidation, $idToMatch);
         }
 
         $payment->update($validated);
@@ -165,12 +193,8 @@ class PaymentsController extends Controller
     {
         $payment = Payment::findOrFail($id);
 
-        if ($payment->file_1) {
-            fileDestroy($payment->file_1, 'uploads/payments');
-        }
-        if ($payment->file_2) {
-            fileDestroy($payment->file_2, 'uploads/payments');
-        }
+        if ($payment->file_1) fileDestroy($payment->file_1, 'uploads/payments');
+        if ($payment->file_2) fileDestroy($payment->file_2, 'uploads/payments');
 
         $payment->delete();
 
@@ -178,5 +202,57 @@ class PaymentsController extends Controller
             'ok' => true,
             'message' => 'Payment deleted successfully'
         ]);
+    }
+
+    // ==========================
+    // Helpers privados
+    // ==========================
+
+    /**
+     * Normaliza texto para hacer match robusto (minúsculas, sin espacios/guiones/caracteres no alfanum).
+     */
+    private function normalize(?string $s): string
+    {
+        if ($s === null) return '';
+        $s = mb_strtolower($s, 'UTF-8');
+        $s = preg_replace('/[^a-z0-9]+/u', '', $s);
+        return $s ?? '';
+    }
+
+    /**
+     * Calcula el estado según OCR vs identificador.
+     * - validado: OCR contiene el identificador
+     * - observado: hay identificador pero no match, o falla OCR
+     * - registrado: no hay identificador para validar
+     */
+    private function computeState(?string $ocrText, ?string $idToMatch): string
+    {
+        if (empty($idToMatch)) {
+            return 'registrado';
+        }
+
+        if (empty($ocrText)) {
+            return 'observado';
+        }
+
+        $haystack = $this->normalize($ocrText);
+        $needle   = $this->normalize($idToMatch);
+
+        if ($needle === '') {
+            return 'registrado';
+        }
+
+        // Match directo
+        if (str_contains($haystack, $needle)) {
+            return 'validado';
+        }
+
+        // Variante: O->0, I/L->1 por confusiones típicas de OCR
+        $needleAlt = strtr($needle, ['o' => '0', 'i' => '1', 'l' => '1']);
+        if ($needleAlt !== $needle && str_contains($haystack, $needleAlt)) {
+            return 'validado';
+        }
+
+        return 'observado';
     }
 }
