@@ -454,23 +454,41 @@ export default function PaymentForm() {
         </h2>
 
         {/* Medio de pago (canal) */}
-        <FormRow id="channel" label="Medio de Pago">
-          <SelectWithIcon
-            Icon={CreditCard}
-            id="channel"
-            name="channel"
-            value={data.channel}
-            onChange={handleChange}
-            disabled={processing}
-          >
-            {CHANNEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </SelectWithIcon>
-          {(errors as any).channel && <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>}
-        </FormRow>
+      {/* Medio de pago (canal) */}
+<FormRow id="channel" label="Medio de Pago">
+  <SelectWithIcon
+    Icon={CreditCard}
+    id="channel"
+    name="channel"
+    value={data.channel}
+    onChange={handleChange}
+    disabled={processing}
+  >
+    {CHANNEL_OPTIONS.map((opt) => (
+      <option key={opt.value} value={opt.value}>
+        {opt.label}
+      </option>
+    ))}
+  </SelectWithIcon>
+  {(errors as any).channel && (
+    <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>
+  )}
+</FormRow>
+
+{/* (opcional) Importe detectado por OCR */}
+<FormRow id="amount" label="Importe detectado">
+  <InputWithIcon
+    Icon={SolIcon}
+    id="amount"
+    name="amount"
+    type="number"
+    step="0.01"
+    min="0"
+    value={data.amount}
+    readOnly // 👈 ya no editable
+    disabled
+  />
+</FormRow>
 
         {/* N° operación (legacy, si lo usas genérico) */}
         <FormRow id="receipt_number" label="N° de Operación (alterno)">

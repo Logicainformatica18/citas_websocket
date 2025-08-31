@@ -29,8 +29,7 @@ class PaymentsController extends Controller
     /**
      * Guarda un nuevo pago.
      */
-   public function store(Request $request)
-{
+public function store(Request $request){
     $validated = $request->validate([
         'email'            => 'required|email|max:150',
         'dni'              => 'required|string|max:20',
@@ -38,7 +37,7 @@ class PaymentsController extends Controller
         'receipt_number'   => 'nullable|string|max:100',
         'operation_number' => 'nullable|string|max:100',
         'transaction_code' => 'nullable|string|max:100',
-        'amount'           => 'required|numeric|min:0',
+        'amount'           => 'nullable|numeric|min:0',
         'details'          => 'nullable|string',
         'project_id'       => 'nullable|integer',
         'mz_lote'          => 'nullable|string|max:50',
@@ -60,39 +59,50 @@ class PaymentsController extends Controller
     \Log::info("📂 Procesando OCR con OpenAI en archivo: {$fullPath}");
 
     // 📡 Llamada a OpenAI Vision API
-    $ocrText = null;
+    $ocrData = null;
     try {
-        // Generar URL pública para la imagen
         $imageUrl = asset("uploads/payments/" . $validated['file_1']);
 
         $response = Http::withToken(env('OPENAI_API_KEY'))
             ->timeout(60)
             ->post('https://api.openai.com/v1/chat/completions', [
-                "model" => "gpt-4o-mini", // o "gpt-4.1" si lo tienes habilitado
+                "model" => "gpt-4o-mini",
                 "messages" => [
                     [
                         "role" => "system",
-                        "content" => "Eres un OCR extractor. Devuelve únicamente el texto encontrado en la imagen, en texto plano.
-                                      Si detectas una fecha, inclúyela explícitamente en el formato 'fecha: DD/MM/YYYY'.
-                                      No devuelvas explicaciones, solo texto plano."
+                        "content" => "Eres un OCR extractor. Devuelve SOLO en formato JSON los siguientes campos si los encuentras:
+                        {
+                          \"fecha\": \"DD/MM/YYYY\",
+                          \"numero_operacion\": \"...\",
+                          \"monto\": \"S/. 0.00\",
+                          \"texto\": \"todo el texto plano extraído\"
+                        }
+                        - La fecha debe estar formateada DD/MM/YYYY.
+                        - El monto debe incluir 2 decimales.
+                        - numero_operacion puede ser null si no aparece.
+                        - texto debe contener todo el OCR completo en bruto."
                     ],
                     [
                         "role" => "user",
                         "content" => [
                             [
                                 "type" => "image_url",
-                                "image_url" => [
-                                    "url" => $imageUrl
-                                ]
+                                "image_url" => [ "url" => $imageUrl ]
                             ]
                         ]
                     ]
                 ],
-                "max_tokens" => 500
+                "max_tokens" => 800
             ]);
 
         if ($response->successful()) {
-            $ocrText = $response->json('choices.0.message.content') ?? null;
+            $jsonRaw = $response->json('choices.0.message.content') ?? null;
+
+            try {
+                $ocrData = json_decode($jsonRaw, true);
+            } catch (\Throwable $e) {
+                \Log::error("❌ Error parseando JSON OCR: {$jsonRaw}");
+            }
         } else {
             \Log::error("❌ Error en OpenAI OCR: " . $response->body());
         }
@@ -100,9 +110,12 @@ class PaymentsController extends Controller
         \Log::error("❌ Excepción al llamar OpenAI OCR: " . $e->getMessage());
     }
 
-    // Guardar OCR en file_3
-    if ($ocrText) {
-        $validated['file_3'] = $ocrText;
+    // Guardar OCR en file_3 + campos extraídos
+    if ($ocrData) {
+        $validated['file_3']          = $ocrData['texto'] ?? null;
+        $validated['date']            = isset($ocrData['fecha']) ? \Carbon\Carbon::createFromFormat('d/m/Y', $ocrData['fecha'])->format('Y-m-d') : null;
+        $validated['operation_number']= $ocrData['numero_operacion'] ?? $validated['operation_number'] ?? null;
+        $validated['amount']          = isset($ocrData['monto']) ? floatval(str_replace(['S/.',' ', ','], '', $ocrData['monto'])) : $validated['amount'];
     }
 
     // 🧠 Determinar identificador
@@ -112,7 +125,7 @@ class PaymentsController extends Controller
         ?? null;
 
     // 🟢 Calcula state
-    $validated['state'] = $this->computeState($ocrText, $idToMatch);
+    $validated['state'] = $this->computeState($validated['file_3'] ?? null, $idToMatch);
 
     // ✅ Crear registro
     $payment = Payment::create($validated);
@@ -124,6 +137,7 @@ class PaymentsController extends Controller
 
     return redirect("pagos")->with('success', 'Pago registrado correctamente.');
 }
+
 
     /**
      * Muestra un pago específico.
