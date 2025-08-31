@@ -10,7 +10,6 @@ import {
   Folder,
   MapPin,
   Paperclip,
-  Calendar,
   Hash,
   CreditCard,
   Building2,
@@ -89,11 +88,7 @@ const CHANNEL_OPTIONS = [
   { value: "pago_directo_bcp", label: "Pago directo a BCP" },
 ] as const;
 
-/** === Campos por canal (requeridos/visibles) ===
- * Mantengo mínimos imprescindibles (según lo que definimos en backend):
- * - Yape / Transferencias / Pagos de servicio / Presenciales: operation_number requerido
- * - Niubiz: transaction_code requerido; sale_id/company_name/commerce_name opcionales
- */
+/** === Campos por canal (requeridos/visibles) === */
 const FIELDS_BY_CHANNEL: Record<
   string,
   { name: keyof FormDataShape; required?: boolean }[]
@@ -136,16 +131,14 @@ type FormDataShape = {
   email: string;
   dni: string;
   full_name: string;
-  receipt_number: string;
   amount: string;
   details: string;
   project_id: number | null;
   mz_lote: string;
-  date: string;
   code_client: string;
   file_1: File | null;
 
-  // NUEVOS (canal y campos dinámicos)
+  // Canal + campos dinámicos
   channel: string;
   operation_number: string;
   transaction_code: string;
@@ -165,17 +158,15 @@ export default function PaymentForm() {
   const actionUrl = typeof route === "function" ? route("payments.store") : "/payments";
   const { projects = [] } = usePage().props as { projects?: Project[] };
 
-  const { data, setData, post, processing, errors, reset, progress, clearErrors } = useForm<FormDataShape>({
+  const { data, setData, post, processing, errors, reset, clearErrors } = useForm<FormDataShape>({
     email: "",
     dni: "",
     full_name: "",
-    receipt_number: "",
     amount: "",
     details: "",
     project_id: null,
     mz_lote: "",
-    date: "", // NUEVO
-    code_client: "", // NUEVO
+    code_client: "",
     file_1: null,
 
     // Canal + campos dinámicos
@@ -234,7 +225,6 @@ export default function PaymentForm() {
       }
     }
     if (Object.keys(cleaned).length) setData((prev) => ({ ...prev, ...cleaned }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.channel]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -258,40 +248,11 @@ export default function PaymentForm() {
     e.preventDefault();
     if (hasFileErrors) return;
 
-    // Validación HTML5 básica para marcados required dinámicos:
-    // (Si prefieres, aquí puedes hacer una validación manual adicional)
-
     post(actionUrl, {
       forceFormData: true,
       onSuccess: () => {
         setSubmitted(true);
-        reset(
-          "email",
-          "dni",
-          "full_name",
-          "receipt_number",
-          "amount",
-          "details",
-          "project_id",
-          "mz_lote",
-          "date",
-          "code_client",
-          "file_1",
-          // dinámicos
-          "channel",
-          "operation_number",
-          "transaction_code",
-          "sale_id",
-          "company_name",
-          "commerce_name",
-          "account_holder",
-          "account_number",
-          "destination_account",
-          "salary_account",
-          "account_last_digits",
-          "currency",
-          "evidence"
-        );
+        reset();
         clearErrors();
         setFileErrors({});
       },
@@ -428,19 +389,16 @@ export default function PaymentForm() {
           INFORMACIÓN DEL TITULAR
         </h2>
 
-        {/* Email (máx 150) */}
         <FormRow id="email" label="E-mail">
           <LimitedInputWithIcon Icon={Mail} name="email" value={data.email} onChange={handleChange} maxLength={150} />
           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
         </FormRow>
 
-        {/* DNI (máx 20) */}
         <FormRow id="dni" label="DNI">
           <LimitedInputWithIcon Icon={IdCard} name="dni" value={data.dni} onChange={handleChange} maxLength={20} />
           {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
         </FormRow>
 
-        {/* Nombre completo (máx 200) */}
         <FormRow id="full_name" label="Nombres y apellidos">
           <LimitedInputWithIcon Icon={User} name="full_name" value={data.full_name} onChange={handleChange} maxLength={200} />
           {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
@@ -453,56 +411,24 @@ export default function PaymentForm() {
           INFORMACIÓN DEL PAGO
         </h2>
 
-        {/* Medio de pago (canal) */}
-      {/* Medio de pago (canal) */}
-<FormRow id="channel" label="Medio de Pago">
-  <SelectWithIcon
-    Icon={CreditCard}
-    id="channel"
-    name="channel"
-    value={data.channel}
-    onChange={handleChange}
-    disabled={processing}
-  >
-    {CHANNEL_OPTIONS.map((opt) => (
-      <option key={opt.value} value={opt.value}>
-        {opt.label}
-      </option>
-    ))}
-  </SelectWithIcon>
-  {(errors as any).channel && (
-    <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>
-  )}
-</FormRow>
-
-{/* (opcional) Importe detectado por OCR */}
-<FormRow id="amount" label="Importe detectado">
-  <InputWithIcon
-    Icon={SolIcon}
-    id="amount"
-    name="amount"
-    type="number"
-    step="0.01"
-    min="0"
-    value={data.amount}
-    readOnly // 👈 ya no editable
-    disabled
-  />
-</FormRow>
-
-        {/* N° operación (legacy, si lo usas genérico) */}
-        <FormRow id="receipt_number" label="N° de Operación (alterno)">
-          <LimitedInputWithIcon
-            Icon={ReceiptText}
-            name="receipt_number"
-            value={data.receipt_number}
+        <FormRow id="channel" label="Medio de Pago">
+          <SelectWithIcon
+            Icon={CreditCard}
+            id="channel"
+            name="channel"
+            value={data.channel}
             onChange={handleChange}
-            maxLength={100}
-          />
-          {errors.receipt_number && <p className="mt-1 text-sm text-red-600">{errors.receipt_number}</p>}
+            disabled={processing}
+          >
+            {CHANNEL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </SelectWithIcon>
+          {(errors as any).channel && <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>}
         </FormRow>
 
-        {/* Importe */}
         <FormRow id="amount" label="Importe del pago">
           <InputWithIcon
             Icon={SolIcon}
@@ -520,35 +446,18 @@ export default function PaymentForm() {
           {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
         </FormRow>
 
-        {/* Fecha de pago */}
-        <FormRow id="date" label="Fecha de pago">
-          <InputWithIcon
-            Icon={Calendar}
-            id="date"
-            name="date"
-            type="date"
-            value={data.date}
-            onChange={handleChange}
-            disabled={processing}
-          />
-          {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
-        </FormRow>
-
-        {/* Código de cliente */}
         <FormRow id="code_client" label="Código de cliente">
           <LimitedInputWithIcon Icon={Hash} name="code_client" value={data.code_client} onChange={handleChange} maxLength={100} />
           {errors.code_client && <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>}
         </FormRow>
       </section>
 
-      {/* Datos dinámicos por canal */}
+      {/* Datos dinámicos */}
       {data.channel && (
         <section>
           <h2 className="text-base font-semibold mb-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
             DATOS SEGÚN MEDIO DE PAGO
           </h2>
-
-          {/* Renderiza sólo los campos mapeados para el canal */}
           {visibleFieldNames.length === 0 ? (
             <p className="text-sm text-gray-600">
               Este medio no requiere datos adicionales. Adjunta el voucher y continúa.
@@ -588,14 +497,13 @@ export default function PaymentForm() {
           {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>}
         </FormRow>
 
-        {/* MZ - Lote */}
         <FormRow id="mz_lote" label="MZ - Lote">
           <LimitedInputWithIcon Icon={MapPin} name="mz_lote" value={data.mz_lote} onChange={handleChange} maxLength={50} />
           {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
         </FormRow>
       </section>
 
-      {/* Archivo único */}
+      {/* Archivo */}
       <section>
         <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
           ARCHIVO ADJUNTO
