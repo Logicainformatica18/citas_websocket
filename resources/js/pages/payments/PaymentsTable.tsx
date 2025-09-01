@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import OcrTextModal from './OcrTextModal';
 import PaymentDetailModal from './PaymentDetailModal';
@@ -111,9 +111,13 @@ export default function PaymentsIndex() {
     setEditOpen(true);
   };
 
+  const getFile1Url = (fileName?: string | null) => {
+    if (!fileName) return null;
+    return `${window.location.origin}/uploads/payments/${fileName}`;
+  };
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      {/* contenedor a pantalla completa */}
       <div className="h-screen flex flex-col">
         {/* top bar */}
         <div className="shrink-0 p-4 md:p-6 border-b bg-white">
@@ -161,7 +165,7 @@ export default function PaymentsIndex() {
           </div>
         </div>
 
-        {/* tabla (ocupa todo el resto) */}
+        {/* tabla */}
         <div className="flex-1 overflow-auto p-4 md:p-6">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 bg-white shadow rounded">
@@ -174,13 +178,15 @@ export default function PaymentsIndex() {
                   <th className="px-3 py-2 text-left">N.º Operación</th>
                   <th className="px-3 py-2 text-left">Proyecto</th>
                   <th className="px-3 py-2 text-center">Voucher</th>
+                  {/* nueva columna */}
+                  <th className="px-3 py-2 text-left">Ruta voucher</th>
                   <th className="px-3 py-2 text-left">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-gray-500">
+                    <td colSpan={9} className="px-3 py-6 text-center text-gray-500">
                       Sin resultados
                     </td>
                   </tr>
@@ -205,7 +211,7 @@ export default function PaymentsIndex() {
                     <td className="px-3 py-2">{getOpNumber(p)}</td>
                     <td className="px-3 py-2">{p.project?.descripcion ?? (p.project_id ? `#${p.project_id}` : '—')}</td>
 
-                    {/* voucher: preview grande en hover + modal al clic */}
+                    {/* voucher preview */}
                     <td className="px-3 py-2 text-center">
                       {p.file_1 ? (
                         <div className="relative inline-block group">
@@ -220,61 +226,23 @@ export default function PaymentsIndex() {
                           >
                             Ver
                           </button>
-
-                          {/* hover preview grande con scroll */}
-                          <div className="pointer-events-auto absolute left-1/2 top-full z-30 hidden -translate-x-1/2 pt-2 group-hover:block">
-                            <div className="w-[420px] md:w-[520px] max-h-[70vh] overflow-auto rounded-lg border bg-white p-2 shadow-xl">
-                              {isImage(p.file_1) ? (
-                                <img
-                                  src={`/uploads/payments/${p.file_1}`}
-                                  alt="Voucher"
-                                  className="max-h-[68vh] w-full object-contain rounded-md"
-                                />
-                              ) : isPdf(p.file_1) ? (
-                                <div className="p-3 text-xs text-gray-600">
-                                  Es un PDF. Haz clic en <strong>Ver</strong> para abrirlo grande.
-                                </div>
-                              ) : (
-                                <div className="p-3 text-xs text-gray-600">Vista previa no disponible.</div>
-                              )}
-                            </div>
-                          </div>
                         </div>
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
 
-                    {/* estado */}
+                    {/* ruta completa */}
+                    <td className="px-3 py-2 text-sm text-gray-600">
+                      {p.file_1 ? getFile1Url(p.file_1) : '—'}
+                    </td>
+
                     <td className="px-3 py-2">{stateBadge(p.state)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* paginación */}
-          {pagination.last_page > 1 && (
-            <div className="flex justify-center mt-4 gap-2">
-              {[...Array(pagination.last_page)].map((_, i) => {
-                const page = i + 1;
-                const url = `/payments/table/paginate?page=${page}`;
-                const active = pagination.current_page === page;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => fetchPage(url)}
-                    className={`px-3 py-1 rounded text-sm font-medium transition ${
-                      active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                    }`}
-                    disabled={active}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
 
@@ -311,7 +279,7 @@ export default function PaymentsIndex() {
         </div>
       )}
 
-      {/* modal OCR existente (si lo usas desde otros botones) */}
+      {/* modal OCR existente */}
       <OcrTextModal />
 
       {/* modal detalles/edición */}

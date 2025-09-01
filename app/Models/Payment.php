@@ -10,7 +10,7 @@ class Payment extends Model
     'email','dni','full_name','receipt_number','operation_number','transaction_code',
     'amount','details','project_id','mz_lote','date','code_client',
     'file_1','file_2','file_3',
-    'state', // 👈 nuevo
+    'state','state_slim' // 👈 nuevo
     // (si usas también channel y otros campos, agrégalos aquí)
 ];
 
