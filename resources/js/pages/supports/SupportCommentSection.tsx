@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp } from 'lucide-react';
