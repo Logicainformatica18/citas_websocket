@@ -97,7 +97,7 @@ public function store(Request $request)
 
         if ($response->successful()) {
             $ocrText = $response->json('choices.0.message.content') ?? null;
-            \Log::info("✅ OCR result: " . $ocrText);
+          
         } else {
             \Log::error("❌ Error en OpenAI OCR: " . $response->body());
         }
