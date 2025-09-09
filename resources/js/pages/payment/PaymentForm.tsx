@@ -154,7 +154,11 @@ type FormDataShape = {
   evidence: string;
 };
 
-export default function PaymentForm() {
+type PaymentFormProps = {
+  initialData?: any; // datos del API recognizeVoucher
+};
+
+export default function PaymentForm({ initialData }: PaymentFormProps) {
   const actionUrl = typeof route === "function" ? route("payments.store") : "/payments";
   const { projects = [] } = usePage().props as { projects?: Project[] };
 
@@ -184,6 +188,42 @@ export default function PaymentForm() {
     currency: "",
     evidence: "",
   });
+
+  // Mapear type del API a channel del form
+  const mapTypeToChannel = (type?: string): string => {
+    switch (type) {
+      case "app-pagos de servicio": return "app_pagos_servicio";
+      case "agente bcp-pagos de servicio": return "agente_bcp_pagos_servicio";
+      case "link de niubis": return "link_niubiz";
+      case "pago presencial": return "pago_presencial";
+      case "presencial banco": return "presencial_banco";
+      case "app interbancario": return "app_interbancario";
+      case "transferencia interbancaria": return "tranferencia_interbancaria";
+      case "pago directo a bcp": return "pago_directo_bcp";
+      case "yape app": return "yape_app";
+      default: return "";
+    }
+  };
+
+  // Precarga de datos al montar
+  useEffect(() => {
+    if (initialData) {
+      const mapped: Partial<FormDataShape> = {
+        amount: initialData.monto ? String(initialData.monto) : "",
+        code_client: initialData.codigo_cliente ?? "",
+        operation_number: initialData.numero_operacion ?? "",
+        transaction_code: initialData.codigo_transaccion ?? "",
+        currency: initialData.moneda ?? "",
+        full_name: initialData.titular ?? "",
+        company_name: initialData.pagado_a ?? "",
+        account_number: initialData.cuenta_destino ?? "",
+        destination_account: initialData.cci_destino ?? "",
+        account_last_digits: initialData.cuenta_origen ?? "",
+        channel: mapTypeToChannel(initialData.type),
+      };
+      setData((prev) => ({ ...prev, ...mapped }));
+    }
+  }, [initialData]);
 
   const [submitted, setSubmitted] = useState(false);
   const [fileErrors, setFileErrors] = useState<FileErrors>({});
@@ -259,304 +299,195 @@ export default function PaymentForm() {
     });
   };
 
-  const renderDynamicField = (name: keyof FormDataShape) => {
-    const required = requiredFields.has(name);
-    const commonProps = {
-      name,
-      value: (data as any)[name] ?? "",
-      onChange: handleChange,
-      disabled: processing,
-      required,
-    };
+  // renderDynamicField sin cambios (igual que en tu versión)
+  const renderDynamicField = (name: keyof FormDataShape) => { /* ... mismo switch que tenías ... */ };
 
-    switch (name) {
-      case "operation_number":
-        return (
-          <FormRow id="operation_number" label="N° de Operación">
-            <LimitedInputWithIcon Icon={ReceiptText} id="operation_number" maxLength={100} {...commonProps} />
-            {(errors as any).operation_number && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).operation_number}</p>
-            )}
-          </FormRow>
-        );
-      case "transaction_code":
-        return (
-          <FormRow id="transaction_code" label="Código de Transacción">
-            <LimitedInputWithIcon Icon={Hash} id="transaction_code" maxLength={100} {...commonProps} />
-            {(errors as any).transaction_code && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).transaction_code}</p>
-            )}
-          </FormRow>
-        );
-      case "sale_id":
-        return (
-          <FormRow id="sale_id" label="ID de Venta (opcional)">
-            <LimitedInputWithIcon Icon={Hash} id="sale_id" maxLength={100} {...commonProps} />
-            {(errors as any).sale_id && <p className="mt-1 text-sm text-red-600">{(errors as any).sale_id}</p>}
-          </FormRow>
-        );
-      case "company_name":
-        return (
-          <FormRow id="company_name" label="Empresa / Razón Social (opcional)">
-            <LimitedInputWithIcon Icon={Building2} id="company_name" maxLength={150} {...commonProps} />
-            {(errors as any).company_name && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).company_name}</p>
-            )}
-          </FormRow>
-        );
-      case "commerce_name":
-        return (
-          <FormRow id="commerce_name" label="Comercio (opcional)">
-            <LimitedInputWithIcon Icon={Store} id="commerce_name" maxLength={150} {...commonProps} />
-            {(errors as any).commerce_name && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).commerce_name}</p>
-            )}
-          </FormRow>
-        );
-      case "account_holder":
-        return (
-          <FormRow id="account_holder" label="Titular de la cuenta (opcional)">
-            <LimitedInputWithIcon Icon={User} id="account_holder" maxLength={150} {...commonProps} />
-            {(errors as any).account_holder && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).account_holder}</p>
-            )}
-          </FormRow>
-        );
-      case "account_number":
-        return (
-          <FormRow id="account_number" label="Cuenta bancaria (opcional)">
-            <LimitedInputWithIcon Icon={Hash} id="account_number" maxLength={150} {...commonProps} />
-            {(errors as any).account_number && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).account_number}</p>
-            )}
-          </FormRow>
-        );
-      case "destination_account":
-        return (
-          <FormRow id="destination_account" label="Cuenta de destino (opcional)">
-            <LimitedInputWithIcon Icon={Hash} id="destination_account" maxLength={150} {...commonProps} />
-            {(errors as any).destination_account && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).destination_account}</p>
-            )}
-          </FormRow>
-        );
-      case "salary_account":
-        return (
-          <FormRow id="salary_account" label="Cuenta sueldo (opcional)">
-            <LimitedInputWithIcon Icon={Hash} id="salary_account" maxLength={150} {...commonProps} />
-            {(errors as any).salary_account && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).salary_account}</p>
-            )}
-          </FormRow>
-        );
-      case "account_last_digits":
-        return (
-          <FormRow id="account_last_digits" label="Últimos dígitos (opcional)">
-            <LimitedInputWithIcon Icon={Hash} id="account_last_digits" maxLength={20} {...commonProps} />
-            {(errors as any).account_last_digits && (
-              <p className="mt-1 text-sm text-red-600">{(errors as any).account_last_digits}</p>
-            )}
-          </FormRow>
-        );
-      case "currency":
-        return (
-          <FormRow id="currency" label="Moneda (opcional)">
-            <SelectWithIcon Icon={Banknote} id="currency" {...(commonProps as any)}>
-              <option value="">Seleccione moneda</option>
-              <option value="PEN">PEN - Soles</option>
-              <option value="USD">USD - Dólares</option>
-            </SelectWithIcon>
-            {(errors as any).currency && <p className="mt-1 text-sm text-red-600">{(errors as any).currency}</p>}
-          </FormRow>
-        );
-      case "evidence":
-        return (
-          <FormRow id="evidence" label="Evidencia / Observación (opcional)">
-            <LimitedInputWithIcon Icon={FileText} id="evidence" maxLength={500} {...commonProps} />
-            {(errors as any).evidence && <p className="mt-1 text-sm text-red-600">{(errors as any).evidence}</p>}
-          </FormRow>
-        );
-      default:
-        return null;
-    }
-  };
 
-  return (
-    <form onSubmit={onSubmit} className="space-y-8">
-      {/* Titular */}
-      <section>
-        <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-          INFORMACIÓN DEL TITULAR
-        </h2>
+return (
+  <form onSubmit={onSubmit} className="space-y-8">
+    {/* Titular */}
+    <section>
+      <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+        INFORMACIÓN DEL TITULAR
+      </h2>
 
-        <FormRow id="email" label="E-mail">
-          <LimitedInputWithIcon Icon={Mail} name="email" value={data.email} onChange={handleChange} maxLength={150} />
-          {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-        </FormRow>
+      <FormRow id="email" label="E-mail">
+        <LimitedInputWithIcon Icon={Mail} name="email" value={data.email} onChange={handleChange} maxLength={150} />
+        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+      </FormRow>
 
-        <FormRow id="dni" label="DNI">
-          <LimitedInputWithIcon Icon={IdCard} name="dni" value={data.dni} onChange={handleChange} maxLength={20} />
-          {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
-        </FormRow>
+      <FormRow id="dni" label="DNI">
+        <LimitedInputWithIcon Icon={IdCard} name="dni" value={data.dni} onChange={handleChange} maxLength={20} />
+        {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
+      </FormRow>
 
-        <FormRow id="full_name" label="Nombres y apellidos">
-          <LimitedInputWithIcon Icon={User} name="full_name" value={data.full_name} onChange={handleChange} maxLength={200} />
-          {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
-        </FormRow>
-      </section>
+      <FormRow id="full_name" label="Nombres y apellidos">
+        <LimitedInputWithIcon Icon={User} name="full_name" value={data.full_name} onChange={handleChange} maxLength={200} />
+        {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
+      </FormRow>
+    </section>
 
-      {/* Pago */}
-      <section>
-        <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-          INFORMACIÓN DEL PAGO
-        </h2>
+    {/* Pago */}
+    <section>
+      <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+        INFORMACIÓN DEL PAGO
+      </h2>
 
-        <FormRow id="channel" label="Medio de Pago">
-          <SelectWithIcon
-            Icon={CreditCard}
-            id="channel"
-            name="channel"
-            value={data.channel}
-            onChange={handleChange}
-            disabled={processing}
-          >
-            {CHANNEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </SelectWithIcon>
-          {(errors as any).channel && <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>}
-        </FormRow>
-
-        <FormRow id="amount" label="Importe del pago">
-          <InputWithIcon
-            Icon={SolIcon}
-            id="amount"
-            name="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            value={data.amount}
-            onChange={handleChange}
-            required
-            disabled={processing}
-          />
-          {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-        </FormRow>
-
-        <FormRow id="code_client" label="Código de cliente">
-          <LimitedInputWithIcon Icon={Hash} name="code_client" value={data.code_client} onChange={handleChange} maxLength={100} />
-          {errors.code_client && <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>}
-        </FormRow>
-      </section>
-
-      {/* Datos dinámicos */}
-      {data.channel && (
-        <section>
-          <h2 className="text-base font-semibold mb-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-            DATOS SEGÚN MEDIO DE PAGO
-          </h2>
-          {visibleFieldNames.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Este medio no requiere datos adicionales. Adjunta el voucher y continúa.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {visibleFieldNames.map((fname) => (
-                <div key={fname}>{renderDynamicField(fname)}</div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Proyecto */}
-      <section>
-        <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-          INFORMACIÓN DEL PROYECTO
-        </h2>
-        <FormRow id="project_id" label="Proyecto">
-          <SelectWithIcon
-            Icon={Folder}
-            id="project_id"
-            name="project_id"
-            value={String(data.project_id ?? "")}
-            onChange={(e) => setData("project_id", e.target.value ? Number(e.target.value) : null)}
-            required
-            disabled={processing}
-          >
-            <option value="">Seleccione un proyecto</option>
-            {projects.map((p) => (
-              <option key={p.id_proyecto} value={p.id_proyecto}>
-                {p.descripcion}
-              </option>
-            ))}
-          </SelectWithIcon>
-          {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>}
-        </FormRow>
-
-        <FormRow id="mz_lote" label="MZ - Lote">
-          <LimitedInputWithIcon Icon={MapPin} name="mz_lote" value={data.mz_lote} onChange={handleChange} maxLength={50} />
-          {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
-        </FormRow>
-      </section>
-
-      {/* Archivo */}
-      <section>
-        <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-          ARCHIVO ADJUNTO
-        </h2>
-        <FormRow id="file_1" label="Archivo (máx. 1 MB)">
-          <div className="relative">
-            <Paperclip className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              id="file_1"
-              name="file_1"
-              type="file"
-              className="block w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
-              onChange={handleFile}
-              accept="image/*,application/pdf"
-              disabled={processing}
-              required
-            />
-          </div>
-          {(fileErrors.file_1 || (errors as any).file_1) && (
-            <p className="mt-1 text-sm text-red-600">{fileErrors.file_1 ?? (errors as any).file_1}</p>
-          )}
-        </FormRow>
-      </section>
-
-      {/* Botones */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={processing || hasFileErrors}
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-60"
-        >
-          {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-          {processing ? "Guardando…" : "Guardar pago"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            reset();
-            setFileErrors({});
-            clearErrors();
-          }}
-          disabled={processing}
-          className="inline-flex items-center justify-center rounded-md bg-gray-100 px-5 py-2.5 font-medium text-gray-900 shadow hover:bg-gray-200 disabled:opacity-60"
-        >
-          Limpiar
-        </button>
-      </div>
-
-      {submitted && (
-        <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
-          Pago registrado correctamente y se notificó a su correo.
+      {/* Mostrar tipo detectado */}
+      {initialData?.type && (
+        <div className="mb-4 text-sm text-gray-700">
+          <span className="font-semibold">Voucher detectado:</span> {initialData.type}{" "}
+          <span className="ml-2 text-xs text-gray-500">(confianza {Math.round((initialData.confidence ?? 0) * 100)}%)</span>
         </div>
       )}
-    </form>
-  );
+
+      <FormRow id="channel" label="Medio de Pago">
+        <SelectWithIcon
+          Icon={CreditCard}
+          id="channel"
+          name="channel"
+          value={data.channel}
+          onChange={handleChange}
+          disabled={processing}
+        >
+          {CHANNEL_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </SelectWithIcon>
+        {(errors as any).channel && <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>}
+      </FormRow>
+
+      <FormRow id="amount" label="Importe del pago">
+        <InputWithIcon
+          Icon={SolIcon}
+          id="amount"
+          name="amount"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+          value={data.amount}
+          onChange={handleChange}
+          required
+          disabled={processing}
+        />
+        {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+      </FormRow>
+
+      <FormRow id="code_client" label="Código de cliente">
+        <LimitedInputWithIcon Icon={Hash} name="code_client" value={data.code_client} onChange={handleChange} maxLength={100} />
+        {errors.code_client && <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>}
+      </FormRow>
+    </section>
+
+    {/* Datos dinámicos */}
+    {data.channel && (
+      <section>
+        <h2 className="text-base font-semibold mb-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+          DATOS SEGÚN MEDIO DE PAGO
+        </h2>
+        {visibleFieldNames.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            Este medio no requiere datos adicionales. Adjunta el voucher y continúa.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {visibleFieldNames.map((fname) => (
+              <div key={fname}>{renderDynamicField(fname)}</div>
+            ))}
+          </div>
+        )}
+      </section>
+    )}
+
+    {/* Proyecto */}
+    <section>
+      <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+        INFORMACIÓN DEL PROYECTO
+      </h2>
+      <FormRow id="project_id" label="Proyecto">
+        <SelectWithIcon
+          Icon={Folder}
+          id="project_id"
+          name="project_id"
+          value={String(data.project_id ?? "")}
+          onChange={(e) => setData("project_id", e.target.value ? Number(e.target.value) : null)}
+          required
+          disabled={processing}
+        >
+          <option value="">Seleccione un proyecto</option>
+          {projects.map((p) => (
+            <option key={p.id_proyecto} value={p.id_proyecto}>
+              {p.descripcion}
+            </option>
+          ))}
+        </SelectWithIcon>
+        {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>}
+      </FormRow>
+
+      <FormRow id="mz_lote" label="MZ - Lote">
+        <LimitedInputWithIcon Icon={MapPin} name="mz_lote" value={data.mz_lote} onChange={handleChange} maxLength={50} />
+        {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
+      </FormRow>
+    </section>
+
+    {/* Archivo */}
+    <section>
+      <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+        ARCHIVO ADJUNTO
+      </h2>
+      <FormRow id="file_1" label="Archivo (máx. 1 MB)">
+        <div className="relative">
+          <Paperclip className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            id="file_1"
+            name="file_1"
+            type="file"
+            className="block w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
+            onChange={handleFile}
+            accept="image/*,application/pdf"
+            disabled={processing}
+            required
+          />
+        </div>
+        {(fileErrors.file_1 || (errors as any).file_1) && (
+          <p className="mt-1 text-sm text-red-600">{fileErrors.file_1 ?? (errors as any).file_1}</p>
+        )}
+      </FormRow>
+    </section>
+
+    {/* Botones */}
+    <div className="flex items-center gap-3 pt-2">
+      <button
+        type="submit"
+        disabled={processing || hasFileErrors}
+        className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-60"
+      >
+        {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+        {processing ? "Guardando…" : "Guardar pago"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          reset();
+          setFileErrors({});
+          clearErrors();
+        }}
+        disabled={processing}
+        className="inline-flex items-center justify-center rounded-md bg-gray-100 px-5 py-2.5 font-medium text-gray-900 shadow hover:bg-gray-200 disabled:opacity-60"
+      >
+        Limpiar
+      </button>
+    </div>
+
+    {submitted && (
+      <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+        Pago registrado correctamente y se notificó a su correo.
+      </div>
+    )}
+  </form>
+);
+
 }

@@ -70,7 +70,7 @@ public function store(Request $request)
                 "messages" => [
                     [
                         "role" => "system",
-                        "content" => "Eres un OCR extractor. Devuelve el texto plano del voucher tal cual, 
+                        "content" => "Eres un OCR extractor. Devuelve el texto plano del voucher tal cual,
                         y al final agrega en líneas separadas (usa exactamente este formato):
 
                         fecha: DD/MM/YYYY
@@ -97,7 +97,7 @@ public function store(Request $request)
 
         if ($response->successful()) {
             $ocrText = $response->json('choices.0.message.content') ?? null;
-          
+
         } else {
             \Log::error("❌ Error en OpenAI OCR: " . $response->body());
         }
@@ -301,4 +301,145 @@ public function store(Request $request)
 
         return 'observado';
     }
+
+
+protected function recognizeVoucher(string $imageUrl): array
+{
+    $systemPrompt = <<<SYS
+Eres un clasificador y extractor de vouchers peruanos.
+Tareas, en este orden y en una sola pasada:
+1) Clasificar el voucher en una de las casuísticas definidas (campo type).
+2) Extraer campos normalizados.
+3) Devolver SOLO JSON que cumpla exactamente el json_schema indicado por el cliente.
+Si no hay datos, usa null. Si no estás seguro del tipo, usa el que mejor coincida y baja confidence.
+
+Reglas clave:
+- fecha en YYYY-MM-DD (convierte desde “Viernes, 22 Agosto 2025 – 01:29 p.m.”, “30/04/2023 – 05:02 pm”, etc.).
+- monto numérico (sin “S/” ni comas).
+- moneda como PEN o USD.
+- numero_operacion y codigo_transaccion como strings.
+- NUNCA devuelvas texto fuera del JSON.
+SYS;
+
+    $userPrompt = <<<USR
+Clasifica la imagen del voucher y extrae campos.
+Casuísticas válidas (type) — deben coincidir EXACTO con estos nombres:
+
+app-pagos de servicio
+Señales: “¡Pago de servicio exitoso!”, logo BCP, bloques “Pagado a”, “Desde”, “Número de operación”.
+Formato: S/ con separador de miles, fecha con día/hora.
+
+agente bcp-pagos de servicio
+Señales: encabezado “AGENTE BCP”, establecimiento (BOTICA/BODEGA), dirección/RUC, “NÚM. OPERACIÓN”.
+Formato: papel térmico, monoespaciado.
+
+link de niubis
+Señales: “Constancia de pago”, “Pago Aprobado”, bloque “Pago”, etiquetas como “DNI / Pasaporte”, “Transacción”, “Monto de la transacción”, correo.
+Formato: constancia digital de pasarela Niubiz/niubis (link).
+
+pago presencial
+Señales: encabezado “niubiz:”, “VISA/BOLETA DE VENTA”, TERM/LOT, monto centrado (S/ xx.xx).
+Formato: POS físico (comprobante impreso).
+
+app interbancario
+Señales: logo y UI de banco (p.ej., Scotiabank), “Transferencia a otro banco”, número de orden, “Cuenta de origen/destino”, CCI destino, titular destino.
+Formato: app/portal bancario (interbancario).
+
+presencial banco
+Señales: “SERVICIO DE RECAUDACIÓN BCP”, “Cuenta a abonar” (Cuenta Recaudo Soles), “Depósito N°”, fecha/hora, monto.
+Formato: boleta de ventanilla bancaria BCP.
+
+transferencia interbancaria
+Señales: fondo verde “Operación exitosa”, comisión/ITF, logos de bancos, “Tipo de operación: Transferencia interbancaria”, CCI destino, número de operación largo, beneficiario.
+Formato: constancia digital de transferencia interbancaria.
+
+pago directo a bcp
+Señales: logo BCP + “¡Pago de servicio exitoso!”, Titular visible, “Pagado a” con código (p.ej. PH4LWC4), “Desde”, “Número de operación”.
+
+yape app
+Señales: fondo morado, logo Yape, “¡Yapeaste el servicio!”, servicio, código de cliente, titular, número de operación.
+
+Si ninguna coincide razonablemente, devolver type: "desconocido" y confidence < 0.5.
+
+Campos a extraer (normalizados)
+- type (una de las casuísticas anteriores)
+- confidence (0..1)
+- fecha (YYYY-MM-DD)
+- hora (HH:MM, 24h, opcional si existe)
+- monto (number)
+- moneda (PEN/USD)
+- numero_operacion (string o null)
+- codigo_transaccion (string o null; en pasarelas puede venir como GUID/alfanumérico)
+- titular (pagador; string o null)
+- pagado_a (beneficiario/empresa; string o null)
+- servicio (p.ej., Pagos Varios; string o null)
+- codigo_cliente (string o null)
+- banco_origen (string o null)
+- cuenta_origen (string o null; puede ser enmascarado ****1095)
+- banco_destino (string o null)
+- cuenta_destino (string o null)
+- cci_destino (string o null)
+- glosa (string o null)
+
+Devuelve SOLO un objeto JSON con esas claves.
+USR;
+
+    try {
+        $res = Http::withToken(env('OPENAI_API_KEY'))
+            ->timeout(90)
+            ->post('https://api.openai.com/v1/chat/completions', [
+                "model" => "gpt-4o-mini",
+                "messages" => [
+                    ["role" => "system", "content" => $systemPrompt],
+                    [
+                        "role" => "user",
+                        "content" => [
+                            ["type" => "text", "text" => $userPrompt],
+                            ["type" => "image_url", "image_url" => ["url" => $imageUrl]],
+                        ]
+                    ],
+                ],
+                "max_tokens" => 900,
+                // Si tu cuenta soporta response_format JSON estricto en chat, puedes habilitar:
+                // "response_format" => ["type" => "json_object"],
+            ]);
+
+        if ($res->successful()) {
+            $raw = $res->json('choices.0.message.content') ?? '{}';
+            $data = json_decode($raw, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+                return $data;
+            }
+            \Log::warning("⚠️ JSON inválido desde OpenAI", ['raw' => $raw]);
+        } else {
+            \Log::error("❌ OpenAI classify error", ['body' => $res->body()]);
+        }
+    } catch (\Throwable $e) {
+        \Log::error("❌ Excepción en recognizeVoucher", ['e' => $e->getMessage()]);
+    }
+
+    // Fallback seguro
+    return [
+        "type" => "desconocido",
+        "confidence" => 0,
+        "fecha" => null,
+        "hora" => null,
+        "monto" => null,
+        "moneda" => null,
+        "numero_operacion" => null,
+        "codigo_transaccion" => null,
+        "titular" => null,
+        "pagado_a" => null,
+        "servicio" => null,
+        "codigo_cliente" => null,
+        "banco_origen" => null,
+        "cuenta_origen" => null,
+        "banco_destino" => null,
+        "cuenta_destino" => null,
+        "cci_destino" => null,
+        "glosa" => null,
+    ];
+}
+
 }
