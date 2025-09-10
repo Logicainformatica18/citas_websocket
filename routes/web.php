@@ -29,14 +29,19 @@ use Maatwebsite\Excel\Facades\Excel;
 // routes/web.php
 use App\Http\Controllers\PdfOcrController;
 use App\Http\Controllers\PaymentsController;
+use App\Http\Controllers\PaymentsTableController;
+use App\Http\Controllers\TransactionController;
 
 
 Route::get('/pagos', [PaymentsController::class, 'index']);
 
+// 👇 Nueva ruta para procesar solo el reconocimiento de voucher (sin guardar todavía)
+
+Route::post('/vouchers/recognize', [PaymentsController::class, 'recognize']);
 
 
 // Ruta para registrar pagos (POST)
-Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:20,1440')->name('payments.store');
+Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throttle:20,1440')->name('payment.store');
 
 
 
@@ -71,36 +76,7 @@ Route::get('/ocr/pdf', function () {
     Route::put('/users/{id}', [UserController::class, 'update'])->middleware('permission:administrar');
     Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:administrar');
     Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles'])->middleware('permission:administrar');
-    // Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated'])->name('articles.fetch');
-    // Route::post('/articles', [ArticleController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/articles', [ArticleController::class, 'index'])->middleware(['auth', 'verified'])->name('articles.index');
-    // Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
-    // Route::put('/articles/{id}', [ArticleController::class, 'update']);
-    // Route::get('/articles/{id}', [ArticleController::class, 'show']);
-    // Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
-    // Route::get('/articles/{id}/export-excel', [ArticleController::class, 'exportExcel']);
-    // Route::get('/products/search', [ProductController::class, 'searchByDescription']);
 
-    // Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
-    // Route::post('/products', [ProductController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/products', [ProductController::class, 'index'])->middleware(['auth', 'verified'])->name('products.index');
-    // Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-    // Route::put('/products/{id}', [ProductController::class, 'update']);
-    // Route::get('/products/{id}', [ProductController::class, 'show']);
-    // Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete']);
-    // Route::get('/products/{id}/export-excel', [ProductController::class, 'exportExcel']);
-
-    // Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
-    // Route::get('/transfers/{id}/articles', [TransferController::class, 'articles'])->name('transfers.articles');
-    // Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
-    // Route::post('/transfers', [TransferController::class, 'store'])->middleware(['auth', 'verified']);
-    // Route::get('/transfers', [TransferController::class, 'index'])->middleware(['auth', 'verified'])->name('transfers.index');
-    // Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
-    // Route::put('/transfers/{id}', [TransferController::class, 'update']);
-    // Route::get('/transfers/{id}', [TransferController::class, 'show']);
-    // Route::post('/transfers/bulk-delete', [TransferController::class, 'bulkDelete']);
-    // Route::get('/transfer-confirmation/{token}', [TransferController::class, 'confirm'])->name('transfer.confirm');
-    //Route::post('/transfers/{id}/notify', [TransferController::class, 'notify']);
 
 
 Route::get('/supports/search', [SupportController::class, 'fetch'])->name('supports.search')->middleware('permission:solicitudes.buscar');
@@ -269,14 +245,6 @@ Route::get('/support-details/{supportDetail}/comments', [CommentController::clas
 Route::post('/support-details/{supportDetail}/comments', [CommentController::class, 'store']);
 
 
-// Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
-
-// Route::post('/analyze-images', [ImageAnalysisController::class, 'analyzeImages']);
-// Route::get('/analyses', [ImageAnalysisController::class, 'index'])->name('analyses.index');
-// Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
-// Route::post('/analyses', [ImageAnalysisController::class, 'store']);
-// Route::delete('/analyses/{id}', [ImageAnalysisController::class, 'destroy']);
-// Route::post('/analyses/bulk-delete', [ImageAnalysisController::class, 'bulkDelete']);
 Route::get('/bot', [ImageAnalysisController::class, 'index']);
 Route::get('/analyses/fetch', [ImageAnalysisController::class, 'fetchPaginated']);
 Route::get('/analyses/filenames', [ImageAnalysisController::class, 'filenames']);
@@ -289,6 +257,55 @@ Route::get('/image-analyses/fetch', [ImageAnalysisController::class, 'fetchPagin
 Route::get('/export/image-analyses', function () {
     return Excel::download(new ImageAnalysesExport, 'image_analyses.xlsx');
 });
+
+
+// 1. Index general
+Route::get('/payments/table', [PaymentsTableController::class, 'index'])
+    ->name('payments.table');
+
+// 2. Primero las rutas "fijas" de string, para que no choquen con {id}
+Route::get('/payments/table/paginate', [PaymentsTableController::class, 'fetchPaginated'])
+    ->name('payments.table.paginate');
+
+// 3. Editar (usa {id}/edit, no choca con paginate porque ya está arriba)
+Route::get('/payments/table/{id}/edit', [PaymentsTableController::class, 'edit'])
+    ->name('payments.table.edit');
+
+// 4. Eliminar individual (usa {id}, debe ir DESPUÉS de {id}/edit)
+Route::delete('/payments/table/{id}', [PaymentsTableController::class, 'destroy'])
+    ->name('payments.table.destroy');
+
+// 5. Eliminación en lote (POST)
+Route::post('/payments/table/bulk-delete', [PaymentsTableController::class, 'bulkDelete'])
+    ->name('payments.table.bulkDelete');
+
+
+
+
+
+
+
+
+// 📌 Listado principal (vista con tabla y Echo)
+Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+
+// 📌 Fetch inicial de líneas de transacciones (para llenar tabla al entrar)
+Route::get('/transactions/fetch-lines', [TransactionController::class, 'fetchLines'])->name('transactions.fetchLines');
+
+// 📌 Subida de imagen completa → divide en bloques → dispara job con GPT
+Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+
+// 📌 Editar (solo vista o JSON de una transacción específica)
+Route::get('/transactions/{id}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
+
+// 📌 Eliminar una transacción
+Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
+
+// 📌 Eliminación masiva
+Route::delete('/transactions', [TransactionController::class, 'bulkDelete'])->name('transactions.bulkDelete');
+
+
+
 
 
 });

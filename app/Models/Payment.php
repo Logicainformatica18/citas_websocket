@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    protected $fillable = [
-        'email','dni','full_name','receipt_number','amount','details',
-        'project_id','mz_lote','file_1','file_2','file_3',
-    ];
+ protected $fillable = [
+    'email','dni','full_name','receipt_number','operation_number','transaction_code',
+    'amount','details','project_id','mz_lote','date','code_client',
+    'file_1','file_2','file_3',
+    'state','state_slim' // 👈 nuevo
+    // (si usas también channel y otros campos, agrégalos aquí)
+];
+
 
     protected $casts = [
         'amount' => 'decimal:2',

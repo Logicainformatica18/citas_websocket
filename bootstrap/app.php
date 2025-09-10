@@ -12,10 +12,11 @@ use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
-         api: __DIR__ . '/../routes/api.php',
+        api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
@@ -33,14 +34,22 @@ return Application::configure(basePath: dirname(__DIR__))
             ]
         );
 
+        // 🔹 Alias de Spatie
         $middleware->alias([
-
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+                'apikey' => App\Http\Middleware\ApiKeyAuth::class,
+        ]);
+
+        // 🔹 Grupo API (incluye Sanctum + bindings)
+        $middleware->group('api', [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Manejo de errores si lo necesitas
+        //
     })
     ->create();

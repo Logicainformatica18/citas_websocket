@@ -14,6 +14,8 @@ use Google\Cloud\Vision\V1\GcsSource;
 use Google\Cloud\Vision\V1\GcsDestination;
 use Google\Cloud\Vision\V1\AsyncAnnotateFileRequest;
 
+use OpenAI; // requiere: composer require openai-php/laravel
+
 class PdfOcrController extends Controller
 {
     private string $projectId;
@@ -28,25 +30,23 @@ class PdfOcrController extends Controller
     }
 
     /**
-     * Sube un PDF desde un <form> y devuelve el texto OCR.
-     * POST /ocr/pdf/upload
+     * Sube un PDF y devuelve OCR estructurado.
      */
     public function uploadAndOcr(Request $request)
     {
-        // al inicio del método
-set_time_limit(300); // 5 minutos
+        set_time_limit(300);
 
         $data = $request->validate([
-            'pdf' => ['required', 'file', 'mimes:pdf', 'max:51200'], // 50MB demo
+            'pdf' => ['required', 'file', 'mimes:pdf', 'max:51200'],
         ]);
 
-        // 1) Subir a GCS
         $localPath = $data['pdf']->getRealPath();
         $destPath = 'uploads/pdfs/' . time() . '_' . $data['pdf']->getClientOriginalName();
         $gcsPdfUri = $this->uploadToGcs($localPath, $destPath);
 
-        // 2) Lanzar OCR + leer salida
         [$outPrefix, $text, $pages, $objects] = $this->runOcrAndCollect($gcsPdfUri);
+
+        $structured = $this->postProcessWithOpenAI($text);
 
         return response()->json([
             'ok' => true,
@@ -54,27 +54,26 @@ set_time_limit(300); // 5 minutos
             'out_prefix' => $outPrefix,
             'pages' => $pages,
             'text' => $text,
-            'result_objects' => $objects, // archivos .json generados
+            'structured' => $structured,
+            'result_objects' => $objects,
         ]);
     }
 
     /**
-     * Procesa un PDF que ya existe en GCS (en tu bucket).
-     * POST /ocr/pdf/existing  body: { "object": "MODELO-DE-OFICIO.pdf" }
-     *    o con ruta: { "object": "carpeta/archivo.pdf" }
+     * Procesa un PDF ya existente en GCS.
      */
     public function ocrExisting(Request $request)
     {
-        // al inicio del método
-set_time_limit(300); // 5 minutos
+        set_time_limit(300);
 
         $data = $request->validate([
-            'object' => ['required', 'string'], // nombre dentro del bucket
+            'object' => ['required', 'string'],
         ]);
 
         $gcsPdfUri = $this->toGcsUri($data['object']);
-
         [$outPrefix, $text, $pages, $objects] = $this->runOcrAndCollect($gcsPdfUri);
+
+        $structured = $this->postProcessWithOpenAI($text);
 
         return response()->json([
             'ok' => true,
@@ -82,17 +81,16 @@ set_time_limit(300); // 5 minutos
             'out_prefix' => $outPrefix,
             'pages' => $pages,
             'text' => $text,
+            'structured' => $structured,
             'result_objects' => $objects,
         ]);
     }
 
     /* ===================== Helpers ===================== */
 
-    /** Sube un archivo local a GCS y devuelve la URI gs://bucket/obj */
     private function uploadToGcs(string $localPath, string $destPath): string
     {
-        // al inicio del método
-set_time_limit(300); // 5 minutos
+        set_time_limit(300);
 
         $storage = new StorageClient([
             'projectId' => $this->projectId,
@@ -100,35 +98,24 @@ set_time_limit(300); // 5 minutos
         ]);
 
         $bucket = $storage->bucket($this->bucket);
-        $bucket->upload(fopen($localPath, 'r'), [
-            'name' => $destPath,
-            // sin ACLs; usa solo IAM del bucket
-        ]);
-
+        $bucket->upload(fopen($localPath, 'r'), ['name' => $destPath]);
 
         return $this->toGcsUri($destPath);
     }
 
-    /** Convierte "folder/file.pdf" a "gs://bucket/folder/file.pdf" */
     private function toGcsUri(string $objectPath): string
     {
         $objectPath = ltrim($objectPath, '/');
         return sprintf('gs://%s/%s', $this->bucket, $objectPath);
     }
 
-    /**
-     * Lanza Vision async (PDF) y recopila texto de los .json de salida.
-     * Devuelve array [outPrefix, text, pages, objects]
-     */
     private function runOcrAndCollect(string $gcsPdfUri): array
     {
-        // al inicio del método
-set_time_limit(300); // 5 minutos
+        set_time_limit(300);
 
         $outPrefix = $this->outputBase . '/' . Str::uuid() . '/';
         $gcsOutUri = $this->toGcsUri($outPrefix);
 
-        // 1) Lanzar OCR asíncrono (bloqueamos hasta terminar para demo)
         $client = new ImageAnnotatorClient([
             'credentials' => storage_path('app/eco-splicer-468114-t0-54c2adb26581.json'),
         ]);
@@ -148,7 +135,7 @@ set_time_limit(300); // 5 minutos
             ->setOutputConfig($outputConfig);
 
         $op = $client->asyncBatchAnnotateFiles([$request]);
-        $op->pollUntilComplete(); // PRODUCCIÓN: mover a Job/Queue
+        $op->pollUntilComplete();
         $client->close();
 
         if (!$op->operationSucceeded()) {
@@ -157,17 +144,14 @@ set_time_limit(300); // 5 minutos
             abort(500, 'OCR falló: ' . $err);
         }
 
-        // 2) Leer archivos .json generados y unir texto
         [$text, $pages, $objects] = $this->collectOutputText($outPrefix);
 
         return [$outPrefix, $text, $pages, $objects];
     }
 
-    /** Lee los .json del prefijo y concatena el texto; devuelve [text, pages, objects[]] */
     private function collectOutputText(string $outPrefix): array
     {
-        // al inicio del método
-set_time_limit(300); // 5 minutos
+        set_time_limit(300);
 
         $storage = new StorageClient([
             'projectId' => $this->projectId,
@@ -181,12 +165,11 @@ set_time_limit(300); // 5 minutos
 
         foreach ($bucket->objects(['prefix' => $outPrefix]) as $object) {
             $name = $object->name();
-            if (!str_ends_with($name, '.json')) {
-                continue;
-            }
-            $objects[] = $name;
+            if (!str_ends_with($name, '.json')) continue;
 
+            $objects[] = $name;
             $json = json_decode($object->downloadAsString(), true);
+
             foreach (($json['responses'] ?? []) as $resp) {
                 $t = $resp['fullTextAnnotation']['text'] ?? '';
                 if ($t !== '') {
@@ -197,5 +180,80 @@ set_time_limit(300); // 5 minutos
         }
 
         return [implode("\n\n", $texts), $pages, $objects];
+    }
+
+    /**
+     * 🔹 Post-procesar con OpenAI para estructurar las transacciones.
+     */
+    private function postProcessWithOpenAI(string $rawText): array
+    {
+        try {
+            $client = OpenAI::client(env('OPENAI_API_KEY'));
+
+            $response = $client->chat()->create([
+                'model' => 'gpt-4o-mini',
+                'response_format' => [
+                    "type" => "json_schema",
+                    "json_schema" => [
+                        "name" => "estado_cuenta",
+                        "schema" => [
+                            "type" => "object",
+                            "properties" => [
+                                "transacciones" => [
+                                    "type" => "array",
+                                    "items" => [
+                                        "type" => "object",
+                                        "properties" => [
+                                            "fecha_proc" => ["type" => "string"],
+                                            "fecha_valor" => ["type" => "string"],
+                                            "descripcion" => ["type" => "string"],
+                                            "med_at" => ["type" => "string"],
+                                            "lugar" => ["type" => "string"],
+                                            "suc_age" => ["type" => "string"],
+                                            "num_op" => ["type" => "string"],
+                                            "hora" => ["type" => "string"],
+                                            "origen" => ["type" => "string"],
+                                            "tipo" => ["type" => "string"],
+                                            "cargo" => ["type" => "string"],
+                                            "abono" => ["type" => "string"],
+                                            "saldo_contable" => ["type" => "string"]
+                                        ],
+                                        "required" => ["fecha_proc", "descripcion", "saldo_contable"]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'messages' => [
+                    ['role' => 'system', 'content' => 'Eres un parser de estados de cuenta bancarios.'],
+                    ['role' => 'user', 'content' => "Convierte este estado de cuenta bancario a JSON estructurado.
+Devuelve un array de transacciones, cada una con exactamente estas claves:
+- fecha_proc
+- fecha_valor
+- descripcion
+- med_at
+- lugar
+- suc_age
+- num_op
+- hora
+- origen
+- tipo
+- cargo
+- abono
+- saldo_contable
+
+Si algún valor no está presente en el OCR, déjalo como string vacío.
+
+Texto OCR:
+$rawText"],
+                ],
+            ]);
+
+            return json_decode($response->choices[0]->message->content, true)['transacciones'] ?? [];
+        } catch (\Exception $e) {
+            Log::error("OpenAI error: " . $e->getMessage());
+            return [];
+        }
     }
 }

@@ -24,7 +24,31 @@ use App\Http\Controllers\TypeController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\DashboardController;
+
+use App\Http\Controllers\Api\PaymentController;
+
+
+Route::middleware('apikey')->group(function () {
+    Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+
+    // routes/api.php
+Route::patch('/payments/{payment}/state-slim', [PaymentController::class, 'updateStateSlim']);
+
+});
+
+
+
+// Route::get('/ping', function (Request $request) {
+//     $header = $request->header('Authorization');
+//     $plain = $header ? str_replace('Bearer ', '', $header) : null;
+
+//     return [
+//         'header' => $header,
+//         'token_match' => $plain ? (bool) \Laravel\Sanctum\PersonalAccessToken::findToken($plain) : false,
+//         'user' => $request->user(),
+//     ];
+// })->middleware('auth:sanctum');
 
 
 // --------------------
