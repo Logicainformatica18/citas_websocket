@@ -21,7 +21,7 @@ export default function PaymentsIndex() {
 
         try {
             // petición al backend (endpoint que llame a recognizeVoucher)
-            const res = await axios.post("/api/vouchers/recognize", data, {
+            const res = await axios.post("/vouchers/recognize", data, {
                 headers: { "Content-Type": "multipart/form-data" },
                 onUploadProgress: (evt) => {
                     if (evt.total) {

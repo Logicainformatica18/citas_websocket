@@ -35,6 +35,9 @@ use App\Http\Controllers\TransactionController;
 
 Route::get('/pagos', [PaymentsController::class, 'index']);
 
+// 👇 Nueva ruta para procesar solo el reconocimiento de voucher (sin guardar todavía)
+
+Route::post('/vouchers/recognize', [PaymentsController::class, 'recognize']);
 
 
 // Ruta para registrar pagos (POST)

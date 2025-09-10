@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use App\Mail\PaymentNotificationMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 class PaymentsController extends Controller
 {
     /**
@@ -43,94 +43,13 @@ public function store(Request $request)
         'mz_lote'          => 'nullable|string|max:50',
         'date'             => 'nullable|date',
         'code_client'      => 'nullable|string|max:100',
-        'file_1'           => 'required|file|max:5120',
+        'file_1'           => 'required|string|max:255', // 👈 ahora ya no es `file`, sino la RUTA del archivo subido antes
     ]);
 
-    // 📂 Subir archivo
-    $validated['file_1'] = fileStore($request->file('file_1'), 'uploads/payments', 'file1');
+    \Log::info("💾 Guardando pago", $validated);
 
-    // Ruta absoluta
-    $fullPath = public_path("uploads/payments/" . $validated['file_1']);
-    if (!file_exists($fullPath)) {
-        \Log::error("❌ Archivo no encontrado en ruta: {$fullPath}");
-        return back()->withErrors(['file_1' => 'No se pudo acceder al archivo para OCR.']);
-    }
-
-    \Log::info("📂 Procesando OCR con OpenAI en archivo: {$fullPath}");
-
-    // 📡 Llamada a OpenAI Vision API
-    $ocrText = null;
-    try {
-        $imageUrl = asset("uploads/payments/" . $validated['file_1']);
-
-        $response = Http::withToken(env('OPENAI_API_KEY'))
-            ->timeout(60)
-            ->post('https://api.openai.com/v1/chat/completions', [
-                "model" => "gpt-4o-mini",
-                "messages" => [
-                    [
-                        "role" => "system",
-                        "content" => "Eres un OCR extractor. Devuelve el texto plano del voucher tal cual,
-                        y al final agrega en líneas separadas (usa exactamente este formato):
-
-                        fecha: DD/MM/YYYY
-                        numero_operacion: XXXX
-                        monto: S/. 0.00
-
-                        Reglas:
-                        - La fecha SIEMPRE en formato DD/MM/YYYY (ejemplo: 16/02/2022).
-                        - El monto SIEMPRE con dos decimales y con prefijo 'S/.'.
-                        - Si no detectas algo, deja el valor vacío después de los dos puntos."
-                    ],
-                    [
-                        "role" => "user",
-                        "content" => [
-                            [
-                                "type" => "image_url",
-                                "image_url" => ["url" => $imageUrl]
-                            ]
-                        ]
-                    ]
-                ],
-                "max_tokens" => 800
-            ]);
-
-        if ($response->successful()) {
-            $ocrText = $response->json('choices.0.message.content') ?? null;
-
-        } else {
-            \Log::error("❌ Error en OpenAI OCR: " . $response->body());
-        }
-    } catch (\Throwable $e) {
-        \Log::error("❌ Excepción al llamar OpenAI OCR: " . $e->getMessage());
-    }
-
-    // Guardar OCR completo en file_3
-    if ($ocrText) {
-        $validated['file_3'] = $ocrText;
-
-        // --- Extraer campos de las líneas finales ---
-        if (preg_match('/fecha:\s*(\d{2}\/\d{2}\/\d{4})/i', $ocrText, $m)) {
-            // IA ya lo devuelve en DD/MM/YYYY → lo pasamos a Y-m-d para la BD
-            $validated['date'] = \Carbon\Carbon::createFromFormat('d/m/Y', $m[1])->format('Y-m-d');
-        }
-
-        if (preg_match('/numero_operacion:\s*([0-9]+)/i', $ocrText, $m)) {
-            $validated['operation_number'] = $m[1];
-        }
-
-        if (preg_match('/monto:\s*S\/\.\s*([0-9]+(?:\.[0-9]{2}))/i', $ocrText, $m)) {
-            $validated['amount'] = floatval($m[1]);
-        }
-    }
-
-    // 🧠 Determinar identificador
-    $idToMatch = $validated['operation_number']
-        ?? $validated['transaction_code']
-        ?? null;
-
-    // 🟢 Calcula state
-    $validated['state'] = $this->computeState($validated['file_3'] ?? null, $idToMatch);
+    // 🟢 Estado inicial
+    $validated['state'] = 'pendiente';
 
     // ✅ Crear registro
     $payment = Payment::create($validated);
@@ -302,9 +221,28 @@ public function store(Request $request)
         return 'observado';
     }
 
+    public function recognize(Request $request)
+    {
+        $request->validate([
+            'file_1' => 'required|file|max:5120', // 5 MB máx
+        ]);
 
-protected function recognizeVoucher(string $imageUrl): array
-{
+        // 1. Guardar archivo en storage/public/uploads/payments
+        $path = $request->file('file_1')->store('uploads/payments', 'public');
+        $imageUrl = asset("storage/" . $path);
+
+        Log::info("📂 Voucher subido", [
+            'path' => $path,
+            'url' => $imageUrl,
+        ]);
+
+        // 2. Llamar al procesador OpenAI
+        $data = $this->recognizeVoucher($imageUrl);
+
+        // 3. Devolver JSON al frontend
+        return response()->json($data);
+    }
+ public function recognizeVoucher(string $imageUrl): array{
     $systemPrompt = <<<SYS
 Eres un clasificador y extractor de vouchers peruanos.
 Tareas, en este orden y en una sola pasada:
@@ -384,62 +322,81 @@ Campos a extraer (normalizados)
 Devuelve SOLO un objeto JSON con esas claves.
 USR;
 
-    try {
-        $res = Http::withToken(env('OPENAI_API_KEY'))
-            ->timeout(90)
-            ->post('https://api.openai.com/v1/chat/completions', [
-                "model" => "gpt-4o-mini",
-                "messages" => [
-                    ["role" => "system", "content" => $systemPrompt],
-                    [
-                        "role" => "user",
-                        "content" => [
-                            ["type" => "text", "text" => $userPrompt],
-                            ["type" => "image_url", "image_url" => ["url" => $imageUrl]],
-                        ]
-                    ],
-                ],
-                "max_tokens" => 900,
-                // Si tu cuenta soporta response_format JSON estricto en chat, puedes habilitar:
-                // "response_format" => ["type" => "json_object"],
+   try {
+            Log::info("📤 Enviando request a OpenAI recognizeVoucher", [
+                'imageUrl' => $imageUrl,
             ]);
 
-        if ($res->successful()) {
-            $raw = $res->json('choices.0.message.content') ?? '{}';
-            $data = json_decode($raw, true);
+            $res = Http::withToken(env('OPENAI_API_KEY'))
+                ->timeout(90)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    "model" => "gpt-4o-mini",
+                    "messages" => [
+                        ["role" => "system", "content" => $systemPrompt],
+                        [
+                            "role" => "user",
+                            "content" => [
+                                ["type" => "text", "text" => $userPrompt],
+                                ["type" => "image_url", "image_url" => ["url" => $imageUrl]],
+                            ]
+                        ],
+                    ],
+                    "max_tokens" => 900,
+                ]);
 
-            if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
-                return $data;
-            }
-            \Log::warning("⚠️ JSON inválido desde OpenAI", ['raw' => $raw]);
-        } else {
-            \Log::error("❌ OpenAI classify error", ['body' => $res->body()]);
-        }
-    } catch (\Throwable $e) {
-        \Log::error("❌ Excepción en recognizeVoucher", ['e' => $e->getMessage()]);
+           if ($res->successful()) {
+    $raw = $res->json('choices.0.message.content') ?? '{}';
+    Log::info("📥 Respuesta cruda OpenAI", ['raw' => $raw]);
+
+    // 🚀 Limpiar bloque de Markdown si lo devuelve
+    $clean = trim($raw);
+    if (str_starts_with($clean, '```')) {
+        $clean = preg_replace('/^```[a-zA-Z]*\n?/', '', $clean); // quita ```json o ```
+        $clean = preg_replace('/```$/', '', $clean); // quita cierre ```
     }
 
-    // Fallback seguro
-    return [
-        "type" => "desconocido",
-        "confidence" => 0,
-        "fecha" => null,
-        "hora" => null,
-        "monto" => null,
-        "moneda" => null,
-        "numero_operacion" => null,
-        "codigo_transaccion" => null,
-        "titular" => null,
-        "pagado_a" => null,
-        "servicio" => null,
-        "codigo_cliente" => null,
-        "banco_origen" => null,
-        "cuenta_origen" => null,
-        "banco_destino" => null,
-        "cuenta_destino" => null,
-        "cci_destino" => null,
-        "glosa" => null,
-    ];
+    $data = json_decode($clean, true);
+
+    if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+        Log::info("✅ JSON válido parseado", ['data' => $data]);
+        return $data;
+    }
+
+    Log::warning("⚠️ JSON inválido desde OpenAI", [
+        'raw' => $raw,
+        'clean' => $clean,
+        'error' => json_last_error_msg(),
+    ]);
 }
+        } catch (\Throwable $e) {
+            Log::error("❌ Excepción en recognizeVoucher", [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+        }
+
+        // Fallback seguro
+        return [
+            "type" => "desconocido",
+            "confidence" => 0,
+            "fecha" => null,
+            "hora" => null,
+            "monto" => null,
+            "moneda" => null,
+            "numero_operacion" => null,
+            "codigo_transaccion" => null,
+            "titular" => null,
+            "pagado_a" => null,
+            "servicio" => null,
+            "codigo_cliente" => null,
+            "banco_origen" => null,
+            "cuenta_origen" => null,
+            "banco_destino" => null,
+            "cuenta_destino" => null,
+            "cci_destino" => null,
+            "glosa" => null,
+        ];
+    }
+
 
 }

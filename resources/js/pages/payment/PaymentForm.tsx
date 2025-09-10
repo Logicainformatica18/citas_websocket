@@ -300,7 +300,41 @@ export default function PaymentForm({ initialData }: PaymentFormProps) {
   };
 
   // renderDynamicField sin cambios (igual que en tu versión)
-  const renderDynamicField = (name: keyof FormDataShape) => { /* ... mismo switch que tenías ... */ };
+const renderDynamicField = (name: keyof FormDataShape) => {
+  const required = requiredFields.has(name);
+  const commonProps = {
+    name,
+    value: (data as any)[name] ?? "",
+    onChange: handleChange,
+    disabled: processing,
+    required,
+  };
+
+  switch (name) {
+    case "operation_number":
+      return (
+        <FormRow id="operation_number" label="N° de Operación">
+          <LimitedInputWithIcon Icon={ReceiptText} id="operation_number" maxLength={100} {...commonProps} />
+          {(errors as any).operation_number && (
+            <p className="mt-1 text-sm text-red-600">{(errors as any).operation_number}</p>
+          )}
+        </FormRow>
+      );
+    case "transaction_code":
+      return (
+        <FormRow id="transaction_code" label="Código de Transacción">
+          <LimitedInputWithIcon Icon={Hash} id="transaction_code" maxLength={100} {...commonProps} />
+          {(errors as any).transaction_code && (
+            <p className="mt-1 text-sm text-red-600">{(errors as any).transaction_code}</p>
+          )}
+        </FormRow>
+      );
+    // 🔹 agrega los otros como ya los tenías (sale_id, company_name, etc.)
+    default:
+      return null;
+  }
+};
+
 
 
 return (
@@ -312,17 +346,35 @@ return (
       </h2>
 
       <FormRow id="email" label="E-mail">
-        <LimitedInputWithIcon Icon={Mail} name="email" value={data.email} onChange={handleChange} maxLength={150} />
+        <LimitedInputWithIcon
+          Icon={Mail}
+          name="email"
+          value={data.email}
+          onChange={handleChange}
+          maxLength={150}
+        />
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
       </FormRow>
 
       <FormRow id="dni" label="DNI">
-        <LimitedInputWithIcon Icon={IdCard} name="dni" value={data.dni} onChange={handleChange} maxLength={20} />
+        <LimitedInputWithIcon
+          Icon={IdCard}
+          name="dni"
+          value={data.dni}
+          onChange={handleChange}
+          maxLength={20}
+        />
         {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
       </FormRow>
 
       <FormRow id="full_name" label="Nombres y apellidos">
-        <LimitedInputWithIcon Icon={User} name="full_name" value={data.full_name} onChange={handleChange} maxLength={200} />
+        <LimitedInputWithIcon
+          Icon={User}
+          name="full_name"
+          value={data.full_name}
+          onChange={handleChange}
+          maxLength={200}
+        />
         {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
       </FormRow>
     </section>
@@ -333,11 +385,12 @@ return (
         INFORMACIÓN DEL PAGO
       </h2>
 
-      {/* Mostrar tipo detectado */}
       {initialData?.type && (
         <div className="mb-4 text-sm text-gray-700">
           <span className="font-semibold">Voucher detectado:</span> {initialData.type}{" "}
-          <span className="ml-2 text-xs text-gray-500">(confianza {Math.round((initialData.confidence ?? 0) * 100)}%)</span>
+          <span className="ml-2 text-xs text-gray-500">
+            (confianza {Math.round((initialData.confidence ?? 0) * 100)}%)
+          </span>
         </div>
       )}
 
@@ -356,13 +409,14 @@ return (
             </option>
           ))}
         </SelectWithIcon>
-        {(errors as any).channel && <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>}
+        {(errors as any).channel && (
+          <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>
+        )}
       </FormRow>
 
       <FormRow id="amount" label="Importe del pago">
         <InputWithIcon
           Icon={SolIcon}
-          id="amount"
           name="amount"
           type="number"
           step="0.01"
@@ -377,8 +431,16 @@ return (
       </FormRow>
 
       <FormRow id="code_client" label="Código de cliente">
-        <LimitedInputWithIcon Icon={Hash} name="code_client" value={data.code_client} onChange={handleChange} maxLength={100} />
-        {errors.code_client && <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>}
+        <LimitedInputWithIcon
+          Icon={Hash}
+          name="code_client"
+          value={data.code_client}
+          onChange={handleChange}
+          maxLength={100}
+        />
+        {errors.code_client && (
+          <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>
+        )}
       </FormRow>
     </section>
 
@@ -390,7 +452,7 @@ return (
         </h2>
         {visibleFieldNames.length === 0 ? (
           <p className="text-sm text-gray-600">
-            Este medio no requiere datos adicionales. Adjunta el voucher y continúa.
+            Este medio no requiere datos adicionales.
           </p>
         ) : (
           <div className="space-y-4">
@@ -413,7 +475,9 @@ return (
           id="project_id"
           name="project_id"
           value={String(data.project_id ?? "")}
-          onChange={(e) => setData("project_id", e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) =>
+            setData("project_id", e.target.value ? Number(e.target.value) : null)
+          }
           required
           disabled={processing}
         >
@@ -424,37 +488,20 @@ return (
             </option>
           ))}
         </SelectWithIcon>
-        {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>}
+        {errors.project_id && (
+          <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>
+        )}
       </FormRow>
 
       <FormRow id="mz_lote" label="MZ - Lote">
-        <LimitedInputWithIcon Icon={MapPin} name="mz_lote" value={data.mz_lote} onChange={handleChange} maxLength={50} />
+        <LimitedInputWithIcon
+          Icon={MapPin}
+          name="mz_lote"
+          value={data.mz_lote}
+          onChange={handleChange}
+          maxLength={50}
+        />
         {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
-      </FormRow>
-    </section>
-
-    {/* Archivo */}
-    <section>
-      <h2 className="text-base font-semibold mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
-        ARCHIVO ADJUNTO
-      </h2>
-      <FormRow id="file_1" label="Archivo (máx. 1 MB)">
-        <div className="relative">
-          <Paperclip className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            id="file_1"
-            name="file_1"
-            type="file"
-            className="block w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-gray-800 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-60"
-            onChange={handleFile}
-            accept="image/*,application/pdf"
-            disabled={processing}
-            required
-          />
-        </div>
-        {(fileErrors.file_1 || (errors as any).file_1) && (
-          <p className="mt-1 text-sm text-red-600">{fileErrors.file_1 ?? (errors as any).file_1}</p>
-        )}
       </FormRow>
     </section>
 
@@ -489,5 +536,6 @@ return (
     )}
   </form>
 );
+
 
 }
