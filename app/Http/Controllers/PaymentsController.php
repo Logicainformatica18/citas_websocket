@@ -327,7 +327,7 @@ try {
         'imageUrl' => $imageUrl,
     ]);
 
-    $res = Http::withToken(env('OPENAI_API_KEY'))
+    $res = Http::withToken(config('services.openai.key'))
         ->timeout(90)
         ->post('https://api.openai.com/v1/chat/completions', [
             "model" => "gpt-4o-mini",
