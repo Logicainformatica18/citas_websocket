@@ -50,7 +50,7 @@ Route::post('/payment', [PaymentsController::class, 'store'])->middleware('throt
 
 
 Route::get('/', function () {
-    return redirect("dashboard");
+    return redirect("bank-statements");
     //return Inertia::render('welcome');
 })->name('home');
 
@@ -267,7 +267,7 @@ Route::get('/export/image-analyses', function () {
 
 
 // 1. Index general
-Route::get('/payments/table', [PaymentsTableController::class, 'index'])
+Route::get('/payments', [PaymentsTableController::class, 'index'])
     ->name('payments.table');
 
 // 2. Primero las rutas "fijas" de string, para que no choquen con {id}
