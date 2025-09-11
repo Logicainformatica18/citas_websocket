@@ -32,6 +32,8 @@ use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\PaymentsTableController;
 use App\Http\Controllers\TransactionController;
 
+use App\Http\Controllers\BankStatementController;
+
 
 Route::get('/pagos', [PaymentsController::class, 'index']);
 
@@ -53,6 +55,11 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+
+
+Route::get('/bank-statements', [BankStatementController::class, 'index'])->name('bank-statements.index');
+Route::get('/bank-statements/{id}', [BankStatementController::class, 'show'])->name('bank-statements.show');
 
 
 Route::post('/ocr/pdf/upload',   [PdfOcrController::class, 'uploadAndOcr'])->name('ocr.pdf.upload');
