@@ -65,6 +65,7 @@ Route::get('/ocr/pdf', function () {
 
 
 
+
  Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 
