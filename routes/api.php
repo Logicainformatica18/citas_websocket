@@ -85,7 +85,9 @@ Route::get('/test', fn () => response()->json([
 // ------------------------------
 Route::middleware('auth:sanctum')->group(function () {
 
-    // 🔐 Logout
+    Route::get('/motivos-cita', function () {
+    return \App\Models\Motive::select('id_motivos_cita as id', 'nombre_motivo', 'detail')->get();
+});// 🔐 Logout
     Route::post('/logout', function (Request $request) {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => '✅ Logout exitoso']);
