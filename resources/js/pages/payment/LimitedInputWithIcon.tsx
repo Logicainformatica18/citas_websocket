@@ -1,12 +1,15 @@
-import LimitedInput from "@/components/LimitedInput";
+type LimitedInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  inputClassName?: string;
+};
 
-type Props = React.ComponentProps<typeof LimitedInput> & { Icon: any };
-
-export default function LimitedInputWithIcon({ Icon, inputClassName = "", ...props }: Props) {
+export default function LimitedInput({
+  inputClassName = "",
+  ...props
+}: LimitedInputProps) {
   return (
-    <div className="relative">
-      <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <LimitedInput {...props} inputClassName={`pl-9 pr-12 ${inputClassName}`} />
-    </div>
+    <input
+      {...props}
+      className={`w-full rounded-md border border-gray-300 py-2 pl-3 pr-3 focus:border-[#054E5C] focus:ring-[#054E5C] disabled:opacity-60 placeholder-gray-400 text-sm ${inputClassName}`}
+    />
   );
 }

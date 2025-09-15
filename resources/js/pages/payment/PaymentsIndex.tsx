@@ -12,7 +12,6 @@ export default function PaymentsIndex() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // armar FormData para enviar al backend
         const data = new FormData();
         data.append("file_1", file);
 
@@ -20,7 +19,6 @@ export default function PaymentsIndex() {
         setProgress(10);
 
         try {
-            // petición al backend (endpoint que llame a recognizeVoucher)
             const res = await axios.post("/vouchers/recognize", data, {
                 headers: { "Content-Type": "multipart/form-data" },
                 onUploadProgress: (evt) => {
@@ -31,10 +29,9 @@ export default function PaymentsIndex() {
                 },
             });
 
-            // simular un pequeño delay para mostrar barra completa
             setTimeout(() => {
                 setProgress(100);
-                setFormData(res.data); // datos precargados del backend
+                setFormData(res.data);
                 setStep("form");
             }, 1200);
         } catch (err) {
@@ -47,95 +44,117 @@ export default function PaymentsIndex() {
     return (
         <>
             <Head title="Registrar Pago" />
-            <div
-                className="min-h-screen flex items-center justify-center bg-cover bg-center"
-                style={{ backgroundImage: "url('/logo/f_login.png')" }}
-            >
-                <div className="min-h-screen flex items-center justify-center py-1 w-full">
-                    <div className="w-3/5 px-5">
-                        <div className="bg-white shadow-2xl ring-1 ring-white/30 rounded-2xl p-6 sm:p-8 w-full mx-auto">
 
+            {/* Loading ocupa pantalla completa */}
+            {step === "loading" ? (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#054E5C] to-[#13434d]">
+                    {/* Logo */}
+                    <img
+                        src="/logo/aybar.png"
+                        alt="AybarCorp Logo"
+                        className="h-28 mb-10"
+                    />
+
+                    {/* Texto */}
+                    <p className="text-white text-lg font-medium mb-6">
+                        Procesando su váucher. Por favor, espere...
+                    </p>
+
+                    {/* Barra de progreso */}
+                    <div className="w-3/4 bg-gray-200 rounded-full h-4 overflow-hidden">
+                        <div
+                            className="h-4 rounded-full transition-all duration-500"
+                            style={{
+                                width: `${progress}%`,
+                                backgroundColor: "#FFA726",
+                            }}
+                        ></div>
+                    </div>
+                </div>
+            ) : (
+                // Upload y Form van dentro de tarjeta blanca
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#054E5C] to-[#13434d]">
+                    <div className="w-full max-w-5xl p-6">
+                        <div className="bg-white rounded-2xl shadow-xl p-8">
                             {step === "upload" && (
                                 <>
-                                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-4 text-center">
-                                        Bienvenido al Registro de Pagos
+                                    <h1 className="text-2xl font-bold text-center text-[#13434d] mb-8">
+                                        ¡REGISTRA TU PAGO FÁCIL Y RÁPIDO!
                                     </h1>
 
-                                    <img
-                                        src="/logo/tutorial.png"
-                                        alt="Instrucciones de pago"
-                                        className="rounded-lg shadow mb-6 mx-auto"
-                                    />
+                                    {/* Pasos */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        <div className="flex flex-col items-center text-center bg-gray-50 rounded-xl p-4 shadow-sm">
+                                            <img src="/logo/pago_1.png" alt="Paso 1" className="h-32 mb-4" />
+                                            <p className="text-sm text-gray-700">
+                                                <strong>Paso 1:</strong> Después de realizar tu pago, toma una{" "}
+                                                <strong>foto clara</strong> y verifica que todos los datos sean legibles.
+                                            </p>
+                                        </div>
 
-                                    <div className="flex flex-col items-center gap-4">
-                                        <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md cursor-pointer transition">
-                                            Subir Voucher
-                                            <input
-                                                type="file"
-                                                accept="image/*,application/pdf"
-                                                className="hidden"
-                                                onChange={handleUpload}
-                                            />
+                                        <div className="flex flex-col items-center text-center bg-gray-50 rounded-xl p-4 shadow-sm">
+                                            <img src="/logo/pago_2.png" alt="Paso 2" className="h-32 mb-4" />
+                                            <p className="text-sm text-gray-700">
+                                                <strong>Paso 2:</strong> Sube el archivo del comprobante y haz clic en{" "}
+                                                <strong>"SUBIR"</strong>.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col items-center text-center bg-gray-50 rounded-xl p-4 shadow-sm">
+                                            <img src="/logo/pago_3.png" alt="Paso 3" className="h-32 mb-4" />
+                                            <p className="text-sm text-gray-700">
+                                                <strong>Paso 3:</strong> Completa el formulario y recibirás la{" "}
+                                                <strong>boleta de pago en tu correo</strong>.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Upload */}
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center mb-6">
+                                        <input
+                                            type="file"
+                                            accept="image/*,application/pdf"
+                                            id="fileInput"
+                                            className="hidden"
+                                            onChange={handleUpload}
+                                        />
+                                        <label
+                                            htmlFor="fileInput"
+                                            className="cursor-pointer text-[#054E5C] hover:underline"
+                                        >
+                                            Arrastre y suelte el archivo aquí o <span className="font-semibold">elija el archivo</span>
                                         </label>
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            Formatos: JPG, PNG | Tamaño máximo: 25MB
+                                        </p>
                                     </div>
-                                </>
-                            )}
 
-                            {step === "loading" && (
-                                <div className="flex flex-col items-center justify-center py-12">
-                                    {/* ícono de reloj de arena */}
-                                    <svg
-                                        className="animate-spin h-12 w-12 text-blue-600 mb-4"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
+                                    <button
+                                        type="button"
+                                        onClick={() => document.getElementById("fileInput")?.click()}
+                                        className="bg-[#FFA726] hover:bg-[#e69520] text-white font-semibold py-3 px-6 rounded-lg w-full"
                                     >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                        ></path>
-                                    </svg>
-
-                                    <p className="text-gray-700 font-medium mb-4">
-                                        Procesando voucher, por favor espere...
-                                    </p>
-
-                                    {/* barra de carga */}
-                                    <div className="w-3/4 bg-gray-200 rounded-full h-4">
-                                        <div
-                                            className="bg-blue-600 h-4 rounded-full transition-all duration-500"
-                                            style={{ width: `${progress}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
+                                        CONTINUAR
+                                    </button>
+                                </>
                             )}
 
                             {step === "form" && (
                                 <>
-                                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-1">
+                                    <h1 className="text-2xl font-bold text-[#13434d] mb-2">
                                         REGISTRO DE PAGOS - AYBARCORP
                                     </h1>
                                     <p className="text-sm text-gray-700 mb-6">
-                                        Formulario para registrar un nuevo pago. Será notificado al Email.
+                                        Completa el formulario para registrar tu pago. Una vez validado recibirás un correo.
                                     </p>
 
                                     <PaymentForm initialData={formData} />
                                 </>
                             )}
-
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
         </>
     );
 }

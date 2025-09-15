@@ -337,195 +337,406 @@ const renderDynamicField = (name: keyof FormDataShape) => {
 
 
 
+// return (
+//   <form onSubmit={onSubmit} className="space-y-10 bg-white shadow-lg rounded-2xl p-8 border border-gray-200">
+//     {/* Encabezado con logo */}
+//     <div className="flex flex-col items-center justify-center gap-3 pb-6 border-b border-gray-200">
+//       <img src="/logo/2.png" alt="Logo" className="h-16 w-auto" />
+//       <h1 className="text-2xl font-bold text-[#03424E]">Registro de Pago</h1>
+//       <p className="text-sm text-gray-600">Complete la información requerida para registrar su pago</p>
+//     </div>
+
+//     {/* Titular */}
+//     <section>
+//       <h2 className="text-sm font-semibold mb-4 bg-[#054E5C]/10 border-l-4 border-[#054E5C] rounded-md px-4 py-2 text-[#054E5C] uppercase tracking-wide">
+//         Información del Titular
+//       </h2>
+
+//       <div className="space-y-5">
+//         <FormRow id="email" label="E-mail">
+//           <LimitedInputWithIcon
+//             Icon={Mail}
+//             name="email"
+//             value={data.email}
+//             onChange={handleChange}
+//             maxLength={150}
+//           />
+//           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+//         </FormRow>
+
+//         <FormRow id="dni" label="DNI">
+//           <LimitedInputWithIcon
+//             Icon={IdCard}
+//             name="dni"
+//             value={data.dni}
+//             onChange={handleChange}
+//             maxLength={20}
+//           />
+//           {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
+//         </FormRow>
+
+//         <FormRow id="full_name" label="Nombres y apellidos">
+//           <LimitedInputWithIcon
+//             Icon={User}
+//             name="full_name"
+//             value={data.full_name}
+//             onChange={handleChange}
+//             maxLength={200}
+//           />
+//           {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
+//         </FormRow>
+//       </div>
+//     </section>
+
+//     {/* Pago */}
+//     <section>
+//       <h2 className="text-sm font-semibold mb-4 bg-[#03424E]/10 border-l-4 border-[#03424E] rounded-md px-4 py-2 text-[#03424E] uppercase tracking-wide">
+//         Información del Pago
+//       </h2>
+
+//       {initialData?.type && (
+//         <div className="mb-4 text-sm text-gray-700 bg-gray-50 rounded-md px-3 py-2 border border-gray-200">
+//           <span className="font-semibold">Voucher detectado:</span> {initialData.type}{" "}
+//           <span className="ml-2 text-xs text-gray-500">
+//             (confianza {Math.round((initialData.confidence ?? 0) * 100)}%)
+//           </span>
+//         </div>
+//       )}
+
+//       <div className="space-y-5">
+//         <FormRow id="channel" label="Medio de Pago">
+//           <SelectWithIcon
+//             Icon={CreditCard}
+//             id="channel"
+//             name="channel"
+//             value={data.channel}
+//             onChange={handleChange}
+//             disabled={processing}
+//           >
+//             {CHANNEL_OPTIONS.map((opt) => (
+//               <option key={opt.value} value={opt.value}>
+//                 {opt.label}
+//               </option>
+//             ))}
+//           </SelectWithIcon>
+//           {(errors as any).channel && (
+//             <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>
+//           )}
+//         </FormRow>
+
+//         <FormRow id="amount" label="Importe del pago">
+//           <InputWithIcon
+//             Icon={SolIcon}
+//             name="amount"
+//             type="number"
+//             step="0.01"
+//             min="0"
+//             placeholder="0.00"
+//             value={data.amount}
+//             onChange={handleChange}
+//             required
+//             disabled={processing}
+//           />
+//           {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+//         </FormRow>
+
+//         <FormRow id="code_client" label="Código de cliente">
+//           <LimitedInputWithIcon
+//             Icon={Hash}
+//             name="code_client"
+//             value={data.code_client}
+//             onChange={handleChange}
+//             maxLength={100}
+//           />
+//           {errors.code_client && (
+//             <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>
+//           )}
+//         </FormRow>
+//       </div>
+//     </section>
+
+//     {/* Datos dinámicos */}
+//     {data.channel && (
+//       <section>
+//         <h2 className="text-sm font-semibold mb-4 bg-[#fd7e14]/10 border-l-4 border-[#fd7e14] rounded-md px-4 py-2 text-[#fd7e14] uppercase tracking-wide">
+//           Datos según Medio de Pago
+//         </h2>
+//         {visibleFieldNames.length === 0 ? (
+//           <p className="text-sm text-gray-600 italic">Este medio no requiere datos adicionales.</p>
+//         ) : (
+//           <div className="space-y-4">
+//             {visibleFieldNames.map((fname) => (
+//               <div key={fname}>{renderDynamicField(fname)}</div>
+//             ))}
+//           </div>
+//         )}
+//       </section>
+//     )}
+
+//     {/* Proyecto */}
+//     <section>
+//       <h2 className="text-sm font-semibold mb-4 bg-[#ffd648]/20 border-l-4 border-[#ffd648] rounded-md px-4 py-2 text-[#fd7e14] uppercase tracking-wide">
+//         Información del Proyecto
+//       </h2>
+
+//       <div className="space-y-5">
+//         <FormRow id="project_id" label="Proyecto">
+//           <SelectWithIcon
+//             Icon={Folder}
+//             id="project_id"
+//             name="project_id"
+//             value={String(data.project_id ?? "")}
+//             onChange={(e) =>
+//               setData("project_id", e.target.value ? Number(e.target.value) : null)
+//             }
+//             required
+//             disabled={processing}
+//           >
+//             <option value="">Seleccione un proyecto</option>
+//             {projects.map((p) => (
+//               <option key={p.id_proyecto} value={p.id_proyecto}>
+//                 {p.descripcion}
+//               </option>
+//             ))}
+//           </SelectWithIcon>
+//           {errors.project_id && (
+//             <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>
+//           )}
+//         </FormRow>
+
+//         <FormRow id="mz_lote" label="MZ - Lote">
+//           <LimitedInputWithIcon
+//             Icon={MapPin}
+//             name="mz_lote"
+//             value={data.mz_lote}
+//             onChange={handleChange}
+//             maxLength={50}
+//           />
+//           {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
+//         </FormRow>
+//       </div>
+//     </section>
+
+//     {/* Botones */}
+//     <div className="flex items-center gap-4 pt-4">
+//       <button
+//         type="submit"
+//         disabled={processing || hasFileErrors}
+//         className="inline-flex items-center justify-center rounded-lg bg-[#054E5C] px-6 py-2.5 font-semibold text-white shadow hover:bg-[#03424E] disabled:opacity-60 transition-colors"
+//       >
+//         {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+//         {processing ? "Guardando…" : "Guardar pago"}
+//       </button>
+
+//       <button
+//         type="button"
+//         onClick={() => {
+//           reset();
+//           setFileErrors({});
+//           clearErrors();
+//         }}
+//         disabled={processing}
+//         className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-6 py-2.5 font-semibold text-gray-800 shadow hover:bg-gray-200 disabled:opacity-60 transition-colors"
+//       >
+//         Limpiar
+//       </button>
+//     </div>
+
+//     {submitted && (
+//       <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">
+//         ✅ Pago registrado correctamente y se notificó a su correo.
+//       </div>
+//     )}
+//   </form>
+// );
+
 return (
-  <form onSubmit={onSubmit} className="space-y-10 bg-white shadow-lg rounded-2xl p-8 border border-gray-200">
+  <form
+    onSubmit={onSubmit}
+    className="space-y-8 bg-white shadow-lg rounded-2xl p-8 border border-gray-200"
+  >
     {/* Encabezado con logo */}
-    <div className="flex flex-col items-center justify-center gap-3 pb-6 border-b border-gray-200">
-      <img src="/logo/2.png" alt="Logo" className="h-16 w-auto" />
-      <h1 className="text-2xl font-bold text-[#03424E]">Registro de Pago</h1>
-      <p className="text-sm text-gray-600">Complete la información requerida para registrar su pago</p>
+    <div className="flex flex-col items-center justify-center gap-2 pb-6">
+      <img src="/logo/2.png" alt="Logo" className="h-14 w-auto" />
+      <h1 className="text-xl font-bold text-[#03424E] uppercase">
+        Registro de Pago – Aybar Corp
+      </h1>
     </div>
 
-    {/* Titular */}
+    {/* Información del Titular */}
     <section>
-      <h2 className="text-sm font-semibold mb-4 bg-[#054E5C]/10 border-l-4 border-[#054E5C] rounded-md px-4 py-2 text-[#054E5C] uppercase tracking-wide">
-        Información del Titular
+      <h2 className="font-semibold text-gray-900 mb-2">
+        Información del titular
       </h2>
 
-      <div className="space-y-5">
-        <FormRow id="email" label="E-mail">
-          <LimitedInputWithIcon
-            Icon={Mail}
-            name="email"
-            value={data.email}
-            onChange={handleChange}
-            maxLength={150}
-          />
-          {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-        </FormRow>
+      <div className="space-y-4">
+        {/* Nombre */}
+        <LimitedInputWithIcon
+          Icon={User}
+          name="full_name"
+          placeholder="Nombres y apellidos*"
+          value={data.full_name}
+          onChange={handleChange}
+          maxLength={200}
+        />
 
-        <FormRow id="dni" label="DNI">
+        {/* Documento + Código Cliente */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Tipo de documento */}
+          <div className="relative">
+            <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <select
+              name="document_type"
+              value={(data as any).document_type}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-[#054E5C] focus:ring-[#054E5C]"
+            >
+              <option value="">Tipo de documento</option>
+              <option value="dni">DNI</option>
+              <option value="ce">Carnet de Extranjería</option>
+              <option value="pasaporte">Pasaporte</option>
+            </select>
+          </div>
+
+          {/* N° Documento */}
           <LimitedInputWithIcon
             Icon={IdCard}
             name="dni"
+            placeholder="12345678*"
             value={data.dni}
             onChange={handleChange}
             maxLength={20}
           />
-          {errors.dni && <p className="mt-1 text-sm text-red-600">{errors.dni}</p>}
-        </FormRow>
 
-        <FormRow id="full_name" label="Nombres y apellidos">
-          <LimitedInputWithIcon
-            Icon={User}
-            name="full_name"
-            value={data.full_name}
-            onChange={handleChange}
-            maxLength={200}
-          />
-          {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
-        </FormRow>
-      </div>
-    </section>
-
-    {/* Pago */}
-    <section>
-      <h2 className="text-sm font-semibold mb-4 bg-[#03424E]/10 border-l-4 border-[#03424E] rounded-md px-4 py-2 text-[#03424E] uppercase tracking-wide">
-        Información del Pago
-      </h2>
-
-      {initialData?.type && (
-        <div className="mb-4 text-sm text-gray-700 bg-gray-50 rounded-md px-3 py-2 border border-gray-200">
-          <span className="font-semibold">Voucher detectado:</span> {initialData.type}{" "}
-          <span className="ml-2 text-xs text-gray-500">
-            (confianza {Math.round((initialData.confidence ?? 0) * 100)}%)
-          </span>
-        </div>
-      )}
-
-      <div className="space-y-5">
-        <FormRow id="channel" label="Medio de Pago">
-          <SelectWithIcon
-            Icon={CreditCard}
-            id="channel"
-            name="channel"
-            value={data.channel}
-            onChange={handleChange}
-            disabled={processing}
-          >
-            {CHANNEL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </SelectWithIcon>
-          {(errors as any).channel && (
-            <p className="mt-1 text-sm text-red-600">{(errors as any).channel}</p>
-          )}
-        </FormRow>
-
-        <FormRow id="amount" label="Importe del pago">
-          <InputWithIcon
-            Icon={SolIcon}
-            name="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            value={data.amount}
-            onChange={handleChange}
-            required
-            disabled={processing}
-          />
-          {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-        </FormRow>
-
-        <FormRow id="code_client" label="Código de cliente">
+          {/* Código Cliente */}
           <LimitedInputWithIcon
             Icon={Hash}
             name="code_client"
+            placeholder="Código de cliente"
             value={data.code_client}
             onChange={handleChange}
             maxLength={100}
           />
-          {errors.code_client && (
-            <p className="mt-1 text-sm text-red-600">{errors.code_client}</p>
-          )}
-        </FormRow>
+        </div>
+
+        {/* Email */}
+        <LimitedInputWithIcon
+          Icon={Mail}
+          name="email"
+          placeholder="Correo electrónico*"
+          value={data.email}
+          onChange={handleChange}
+          maxLength={150}
+        />
       </div>
     </section>
 
-    {/* Datos dinámicos */}
-    {data.channel && (
-      <section>
-        <h2 className="text-sm font-semibold mb-4 bg-[#fd7e14]/10 border-l-4 border-[#fd7e14] rounded-md px-4 py-2 text-[#fd7e14] uppercase tracking-wide">
-          Datos según Medio de Pago
-        </h2>
-        {visibleFieldNames.length === 0 ? (
-          <p className="text-sm text-gray-600 italic">Este medio no requiere datos adicionales.</p>
-        ) : (
-          <div className="space-y-4">
-            {visibleFieldNames.map((fname) => (
-              <div key={fname}>{renderDynamicField(fname)}</div>
-            ))}
-          </div>
-        )}
-      </section>
-    )}
-
-    {/* Proyecto */}
+    {/* Información del Proyecto */}
     <section>
-      <h2 className="text-sm font-semibold mb-4 bg-[#ffd648]/20 border-l-4 border-[#ffd648] rounded-md px-4 py-2 text-[#fd7e14] uppercase tracking-wide">
-        Información del Proyecto
+      <h2 className="font-semibold text-gray-900 mb-2">
+        Información del proyecto
       </h2>
 
-      <div className="space-y-5">
-        <FormRow id="project_id" label="Proyecto">
-          <SelectWithIcon
-            Icon={Folder}
-            id="project_id"
-            name="project_id"
-            value={String(data.project_id ?? "")}
-            onChange={(e) =>
-              setData("project_id", e.target.value ? Number(e.target.value) : null)
-            }
-            required
-            disabled={processing}
-          >
-            <option value="">Seleccione un proyecto</option>
-            {projects.map((p) => (
-              <option key={p.id_proyecto} value={p.id_proyecto}>
-                {p.descripcion}
-              </option>
-            ))}
-          </SelectWithIcon>
-          {errors.project_id && (
-            <p className="mt-1 text-sm text-red-600">{errors.project_id}</p>
-          )}
-        </FormRow>
+      <div className="space-y-4">
+        <SelectWithIcon
+          Icon={Folder}
+          id="project_id"
+          name="project_id"
+          value={String(data.project_id ?? "")}
+          onChange={(e) =>
+            setData("project_id", e.target.value ? Number(e.target.value) : null)
+          }
+          disabled={processing}
+        >
+          <option value="">Seleccione un proyecto*</option>
+          {projects.map((p) => (
+            <option key={p.id_proyecto} value={p.id_proyecto}>
+              {p.descripcion}
+            </option>
+          ))}
+        </SelectWithIcon>
 
-        <FormRow id="mz_lote" label="MZ - Lote">
-          <LimitedInputWithIcon
-            Icon={MapPin}
-            name="mz_lote"
-            value={data.mz_lote}
-            onChange={handleChange}
-            maxLength={50}
+        <LimitedInputWithIcon
+          Icon={MapPin}
+          name="mz_lote"
+          placeholder="MZ - Lote*"
+          value={data.mz_lote}
+          onChange={handleChange}
+          maxLength={50}
+        />
+      </div>
+    </section>
+
+    {/* Información del Pago */}
+    <section>
+      <h2 className="font-semibold text-gray-900 mb-2">
+        Información de pago
+      </h2>
+
+      <div className="space-y-4">
+        {/* N° Operación */}
+        <LimitedInputWithIcon
+          Icon={ReceiptText}
+          name="operation_number"
+          placeholder="N° de Operación*"
+          value={data.operation_number}
+          onChange={handleChange}
+          maxLength={100}
+        />
+
+        {/* Medio de Pago */}
+        <SelectWithIcon
+          Icon={CreditCard}
+          id="channel"
+          name="channel"
+          value={data.channel}
+          onChange={handleChange}
+          disabled={processing}
+        >
+          {CHANNEL_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </SelectWithIcon>
+
+        {/* Importe */}
+        <InputWithIcon
+          Icon={SolIcon}
+          name="amount"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="Importe de pago*"
+          value={data.amount}
+          onChange={handleChange}
+          required
+          disabled={processing}
+        />
+
+        {/* Checkbox Política */}
+        <label className="flex items-center text-sm text-gray-700">
+          <input
+            type="checkbox"
+            className="mr-2 rounded border-gray-300 focus:ring-[#054E5C]"
+            required
           />
-          {errors.mz_lote && <p className="mt-1 text-sm text-red-600">{errors.mz_lote}</p>}
-        </FormRow>
+          He leído y acepto la{" "}
+          <a href="#" className="text-[#054E5C] underline ml-1">
+            Política de Privacidad.
+          </a>
+        </label>
       </div>
     </section>
 
     {/* Botones */}
-    <div className="flex items-center gap-4 pt-4">
+    <div className="flex justify-end gap-4 pt-6">
       <button
         type="submit"
         disabled={processing || hasFileErrors}
-        className="inline-flex items-center justify-center rounded-lg bg-[#054E5C] px-6 py-2.5 font-semibold text-white shadow hover:bg-[#03424E] disabled:opacity-60 transition-colors"
+        className="inline-flex items-center justify-center rounded-full bg-[#fd7e14] px-8 py-2.5 font-semibold text-white shadow hover:bg-[#e56e0f] disabled:opacity-60 transition-colors"
       >
-        {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-        {processing ? "Guardando…" : "Guardar pago"}
+        {processing ? "Procesando…" : "CONTINUAR"}
       </button>
 
       <button
@@ -536,20 +747,13 @@ return (
           clearErrors();
         }}
         disabled={processing}
-        className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-6 py-2.5 font-semibold text-gray-800 shadow hover:bg-gray-200 disabled:opacity-60 transition-colors"
+        className="inline-flex items-center justify-center rounded-full border border-[#03424E] px-8 py-2.5 font-semibold text-[#03424E] hover:bg-[#03424E]/5 disabled:opacity-60 transition-colors"
       >
-        Limpiar
+        LIMPIAR
       </button>
     </div>
-
-    {submitted && (
-      <div className="mt-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">
-        ✅ Pago registrado correctamente y se notificó a su correo.
-      </div>
-    )}
   </form>
 );
-
 
 
 }
