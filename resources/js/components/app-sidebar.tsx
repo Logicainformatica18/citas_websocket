@@ -12,7 +12,7 @@ import {
 import { Link, usePage } from '@inertiajs/react';
 import AppLogo from './app-logo';
 import { NavUser } from '@/components/nav-user';
-import { FileSpreadsheet, CreditCard, Database, Users } from 'lucide-react';
+import { FileSpreadsheet, CreditCard, Database, Users, Archive } from 'lucide-react';
 
 type PageProps = {
   permissions: string[];
@@ -90,6 +90,9 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         </div>
+        {/* Backups */}
+
+
       </SidebarContent>
 
       {/* Footer con el usuario logueado */}

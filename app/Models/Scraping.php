@@ -12,5 +12,10 @@ class Scraping extends Model
     {
         return $this->hasMany(ScrapingField::class);
     }
+    public function backups()
+{
+    return $this->hasMany(\App\Models\Backup::class);
+}
+
 }
 

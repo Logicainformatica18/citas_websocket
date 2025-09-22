@@ -1,15 +1,26 @@
 import requests
 from bs4 import BeautifulSoup
+import pandas as pd
 
-URL = "https://isil.pe/areas-academicas"
+url = "https://isil.pe/"
+html = requests.get(url).text
+soup = BeautifulSoup(html, "html.parser")
 
-# Hacemos la petición
-resp = requests.get(URL)
-soup = BeautifulSoup(resp.text, "lxml")
+data = []
 
-# Selector del label
-elements = soup.select("label.label-submenu-items")
+for bloque in soup.select("div.sbmenu_list"):
+    area = bloque.select_one("a.tit_sbmenutab")
+    area_text = area.get_text(strip=True) if area else "Sin área"
 
-print("Total encontrados:", len(elements))
-for e in elements:
-    print("-", e.get_text(strip=True))
+    for hijo in bloque.select("ul.content_sbmenutab li a"):
+        carrera = hijo.get_text(strip=True)
+        data.append({
+            "menu": "menu",        # fijo
+            "area": area_text,     # columna padre
+            "carrera": carrera     # columna hijo
+        })
+
+df = pd.DataFrame(data)
+
+# Mostrar en pantalla
+print(df.to_string(index=False))

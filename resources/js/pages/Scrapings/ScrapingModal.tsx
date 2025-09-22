@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { router } from "@inertiajs/react";
 import axios from "axios";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 type Scraping = {
   id?: number;
@@ -23,54 +24,85 @@ export default function ScrapingModal({ scraping, onClose, onSaved }: Props) {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Guardar scraping
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
     setErrors({});
     try {
       if (scraping?.id) {
-        await router.put(`/scrapings/${scraping.id}`, form, {
-          onSuccess: (page) => {
-            const updated = page.props.scraping as Scraping;
-            onSaved(updated);
-            onClose();
-          },
-          onError: (err) => setErrors(err),
-        });
+        const res = await axios.put(`/scrapings/${scraping.id}`, form);
+        onSaved(res.data.scraping);
+        onClose();
       } else {
-        await router.post(`/scrapings`, form, {
-          onSuccess: (page) => {
-            const created = page.props.scraping as Scraping;
-            onSaved(created);
-            onClose();
-          },
-          onError: (err) => setErrors(err),
-        });
+        const res = await axios.post(`/scrapings`, form);
+        onSaved(res.data.scraping);
+        onClose();
+      }
+    } catch (err: any) {
+      if (err.response?.status === 422) {
+        setErrors(err.response.data.errors);
+      } else {
+        console.error("Error al guardar scraping", err);
       }
     } finally {
       setProcessing(false);
     }
   };
 
-const runScraping = async () => {
-  if (!scraping?.id) return;
-  setLoading(true);
-  setResults([]);
-  try {
-    const res = await axios.post(`/scrapings/${scraping.id}/run`);
-    console.log("📥 Resultados recibidos:", res.data.data); // 👈 debug aquí
- setResults(res.data.data.data || []); // 👈 ahora agarra directamente el array
+  const runScraping = async () => {
+    if (!scraping?.id) return;
+    setLoading(true);
+    setResults([]);
+    try {
+      const res = await axios.post(`/scrapings/${scraping.id}/run`);
+      console.log("📥 Resultados recibidos:", res.data.data);
+      setResults(res.data.data.data || []);
+    } catch (e) {
+      console.error("Error al ejecutar scraping", e);
+      alert("❌ Error al ejecutar scraping");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  } catch (e) {
-    console.error("Error al ejecutar scraping", e);
-    alert("❌ Error al ejecutar scraping");
-  } finally {
-    setLoading(false);
+  const downloadExcel = () => {
+    if (!results.length) {
+      alert("⚠️ No hay datos para exportar");
+      return;
+    }
+
+
+    // Crear hoja desde JSON
+    const worksheet = XLSX.utils.json_to_sheet(results);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados");
+
+    // Guardar archivo
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+    const blob = new Blob([excelBuffer], {
+      type: "application/octet-stream",
+    });
+    saveAs(blob, `${scraping?.name || "scraping"}-resultados.xlsx`);
+  };
+const saveAllBackups = async () => {
+  if (!results.length) {
+    alert("⚠️ No hay resultados para guardar");
+    return;
+  }
+
+  try {
+    const res = await axios.post(`/scrapings/${scraping?.id}/backups/bulk`, {
+      data: results,
+    });
+    alert(`✅ Se guardaron ${res.data.count} registros en Backup`);
+  } catch (error) {
+    console.error("❌ Error al guardar backups", error);
+    alert("❌ Error al guardar backups");
   }
 };
-
-
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
       <div className="bg-white dark:bg-gray-900 rounded shadow-lg p-6 w-full max-w-4xl h-[90vh] overflow-y-auto">
@@ -124,9 +156,9 @@ const runScraping = async () => {
           </div>
         </form>
 
-        {/* Botón ejecutar */}
+        {/* Botón ejecutar y exportar */}
         {scraping?.id && (
-          <div className="mb-6">
+          <div className="mb-6 flex gap-2">
             <button
               onClick={runScraping}
               disabled={loading}
@@ -134,6 +166,24 @@ const runScraping = async () => {
             >
               {loading ? "Ejecutando..." : "Ejecutar Scraping"}
             </button>
+            {results.length > 0 && (
+                <>
+
+              <button
+                onClick={downloadExcel}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+              >
+                Descargar Excel
+              </button>
+
+ <button
+      onClick={saveAllBackups}
+      className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition"
+    >
+      Guardar en Backup
+    </button>
+    </>
+            )}
           </div>
         )}
 

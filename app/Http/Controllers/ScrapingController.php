@@ -77,7 +77,8 @@ class ScrapingController extends Controller
 
         return response()->json(['message' => '✅ Scraping eliminado']);
     }
-public function run($id)
+
+ public function run($id)
 {
     $scraping = \App\Models\Scraping::with('fields')->findOrFail($id);
 
@@ -91,16 +92,17 @@ public function run($id)
 
     // Construimos payload con url_base y campos
     $payload = [
-        'url_base' => rtrim($scraping->base_url, '/'), // 👈 limpiamos slashes extra
+        'url_base' => rtrim($scraping->base_url, '/'),
         'fields'   => $scraping->fields->map(function ($f) use ($scraping) {
-            // construimos la URL final solo para log
             $url_final = rtrim($scraping->base_url, '/') . '/' . ltrim($f->path ?? '/', '/');
 
             return [
-                'field_name' => $f->field_name,
-                'selector'   => $f->selector,
-                'path'       => $f->path,
-                'url_final'  => $url_final, // 👈 sólo para debug
+                'field_name'     => $f->field_name,
+                'selector_type'  => $f->selector_type,
+                'selector_value' => $f->selector_value,
+                'attr'           => $f->attr,     // 👈 aquí mandamos el atributo extra
+                'path'           => $f->path,
+                'url_final'      => $url_final,   // debug
             ];
         })->toArray(),
     ];
@@ -141,7 +143,5 @@ public function run($id)
         ], 500);
     }
 }
-
-
 
 }

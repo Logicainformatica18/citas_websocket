@@ -4,20 +4,27 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from typing import List, Optional
+import time
+import logging
 
 app = FastAPI()
+
+logging.basicConfig(level=logging.INFO)
 
 # 📌 Modelo para recibir parámetros del scraping
 class Field(BaseModel):
     field_name: str
-    selector: str
-    path: Optional[str] = "/"   # por defecto home
+    selector_type: str   # id, class, tag, attribute, text, css
+    selector_value: str
+    attr: Optional[str] = None   # 👈 nuevo (ej: "href", "src")
+    path: Optional[str] = "/"    # por defecto home
+
 
 class ScrapingRequest(BaseModel):
     url_base: str
     fields: List[Field]
 
-# Headers que simulan un navegador real
+# Headers
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -29,39 +36,36 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Connection": "keep-alive",
 }
-
 @app.post("/scrape")
 def scrape(request: ScrapingRequest):
-    raw_results = []
+    results = []
 
-    for field in request.fields:
-        url = request.url_base.rstrip("/") + (field.path or "/")
+    url = request.url_base.rstrip("/")
+    response = requests.get(url, headers=HEADERS, timeout=15)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "lxml")
 
-        try:
-            response = requests.get(url, headers=HEADERS, timeout=15)
-            response.raise_for_status()  # lanza excepción si hay 403/404/etc
-        except Exception as e:
-            return {"error": f"❌ Error al acceder a {url}: {str(e)}"}
+    # identificar menu (padre)
+    menus = soup.select("a.tit_sbmenutab")
+    for menu in menus:
+        menu_text = menu.get_text(strip=True)
+        parent_block = menu.find_parent("li") or menu.find_parent("div")
 
-        soup = BeautifulSoup(response.text, "lxml")
-        values = soup.select(field.selector)
+        # buscar carreras dentro del mismo bloque
+        carreras = parent_block.select("ul.content_sbmenutab li a") if parent_block else []
+        if not carreras:
+            results.append({"menu": menu_text, "carrera": None, "carrera_url": None})
+        else:
+            for carrera in carreras:
+                results.append({
+                    "menu": menu_text,
+                    "carrera": carrera.get_text(strip=True),
+                    "carrera_url": carrera.get("href")  # 👈 aquí se captura el link
+                })
 
-        for i, v in enumerate(values, start=1):
-            raw_results.append({
-                "row_id": i,
-                "campo": field.field_name,
-                "valor": v.get_text(strip=True)
-            })
+    # agregar row_id
+    for i, r in enumerate(results, start=1):
+        r["row_id"] = i
 
-    # Convertir a tabla pivot dinámica
-    df_raw = pd.DataFrame(raw_results)
-    if df_raw.empty:
-        return {"data": []}
+    return {"data": results}
 
-    df_pivot = df_raw.pivot_table(
-        index="row_id", columns="campo", values="valor", aggfunc="first"
-    ).reset_index()
-
-    # Convertir DataFrame a JSON
-    result = df_pivot.to_dict(orient="records")
-    return {"data": result}

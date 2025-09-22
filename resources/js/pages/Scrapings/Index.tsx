@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import axios from 'axios';
-import { Paintbrush, Trash2, Settings, Plus } from 'lucide-react';
+import { Paintbrush, Trash2, Settings, Plus, Archive } from 'lucide-react'; // 👈 añadido Archive
 import ScrapingModal from './ScrapingModal';
 
 const breadcrumbs = [{ title: 'Scrapings', href: '/scrapings' }];
@@ -99,6 +99,7 @@ export default function Scrapings() {
                     >
                       <Paintbrush className="w-4 h-4" /> Editar
                     </button>
+
                     <button
                       onClick={async () => {
                         if (confirm(`¿Eliminar scraping ${s.name}?`)) {
@@ -117,12 +118,19 @@ export default function Scrapings() {
                     </button>
                   </td>
 
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm flex gap-3">
                     <button
                       onClick={() => router.visit(`/scrapings/${s.id}/fields`)}
                       className="text-indigo-600 hover:underline flex items-center gap-1 dark:text-indigo-400"
                     >
                       <Settings className="w-4 h-4" /> Campos
+                    </button>
+
+                    <button
+                      onClick={() => router.visit(`/scrapings/${s.id}/backups`)}
+                      className="text-green-600 hover:underline flex items-center gap-1 dark:text-green-400"
+                    >
+                      <Archive className="w-4 h-4" /> Backups
                     </button>
                   </td>
 
