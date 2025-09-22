@@ -15,10 +15,9 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
         $this->call(PermissionsSeeder::class);
-        $this->call([
-            TransferSeeder::class,
-        ]);
-        $this->call(ProductSeeder::class);
+        $this->call(ISILScrapingSeeder::class);
+        //$this->call([TransferSeeder::class,]);
+        //$this->call(ProductSeeder::class);
    // $this->call(ArticleSeeder::class);
     }
 }

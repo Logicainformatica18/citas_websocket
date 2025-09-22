@@ -2,15 +2,11 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-//agregar hash
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-
-
 
 class PermissionsSeeder extends Seeder
 {
@@ -19,63 +15,46 @@ class PermissionsSeeder extends Seeder
      */
     public function run(): void
     {
-        //permisos
-        Permission::create(['name' => 'clientes']);
-        Permission::create(['name' => 'usuarios']);
-        Permission::create(['name' => 'blogs']);
-        Permission::create(['name' => 'proyectos']);
-        Permission::create(['name' => 'imagenes']);
+        // 👇 Solo permisos relevantes a scrapings y usuarios
+        Permission::create(['name' => 'scrapings.ver']);
+        Permission::create(['name' => 'usuarios.ver']);
+        Permission::create(['name' => 'roles.ver']);
+        Permission::create(['name' => 'administrar']); // permiso global
 
-        Permission::create(['name' => 'secciones']);
-        Permission::create(['name' => 'editar_plantilla']);
-        Permission::create(['name' => 'editar_inicio']);
-        Permission::create(['name' => 'editar_nosotros']);
-        Permission::create(['name' => 'editar_blog']);
-        Permission::create(['name' => 'editar_proyectos']);
-        Permission::create(['name' => 'editar_contactos']);
+        // Rol Asistente (solo puede ver scrapings)
+        $roleAsistente = Role::create(['name' => 'Asistente']);
+        $roleAsistente->syncPermissions(['scrapings.ver']);
 
-        Permission::create(['name' => 'agregar']);
-        Permission::create(['name' => 'editar']);
-        Permission::create(['name' => 'actualizar']);
-        Permission::create(['name' => 'eliminar']);
+        // Rol Administrador (puede todo)
+        $roleAdmin = Role::create(['name' => 'Administrador']);
+        $roleAdmin->syncPermissions(Permission::all());
 
-        $role0 = Role::create(['name' => 'Asistente']);
-
-        // Asignar todos los permisos menos "usuarios" y "administrar"
-        $permissions = Permission::whereNotIn('name', ['usuarios', 'administrar'])->get();
-        $role0->syncPermissions($permissions);
-
-        Permission::create(['name' => 'administrar']);
-        $role = Role::create(['name' => 'Administrador']);
-        $role->syncPermissions("administrar");
-        // create user
-        $user1= User::create([
-            'dni' => '44444444',
-            'firstname' => 'Cardenas',
-            'lastname' => 'Aquino',
-            'names' => 'Anthony Robert',
-            'password' => Hash::make('sdc123456'),
-            'datebirth' => '2000-10-10',
-            'cellphone' => '999999999',
-            'sex' => 'M',
-            'email' => 'admin@gmail.com',
+        // Usuario administrador por defecto
+        $user1 = User::create([
+            'dni'        => '44444444',
+            'firstname'  => 'Cardenas',
+            'lastname'   => 'Aquino',
+            'names'      => 'Anthony Robert',
+            'password'   => Hash::make('sdc123456'),
+            'datebirth'  => '2000-10-10',
+            'cellphone'  => '999999999',
+            'sex'        => 'M',
+            'email'      => 'admin@gmail.com',
         ]);
-        //asignar rol
         $user1->assignRole('Administrador');
-        ///////////////////////////////////////////////////////////////////////
-        $user2= User::create([
-            'dni' => '44444444',
-            'firstname' => 'Cardenas1',
-            'lastname' => 'Aquino1',
-            'names' => 'Anthony Robert1',
-            'password' => Hash::make('sdc123456'),
-            'datebirth' => '2000-10-10',
-            'cellphone' => '999999999',
-            'sex' => 'M',
-            'email' => 'admin1@gmail.com',
+
+        // Usuario asistente de prueba
+        $user2 = User::create([
+            'dni'        => '55555555',
+            'firstname'  => 'Asistente',
+            'lastname'   => 'Demo',
+            'names'      => 'Usuario Demo',
+            'password'   => Hash::make('sdc123456'),
+            'datebirth'  => '2000-01-01',
+            'cellphone'  => '999999998',
+            'sex'        => 'M',
+            'email'      => 'asistente@gmail.com',
         ]);
-
-
+        $user2->assignRole('Asistente');
     }
-
 }

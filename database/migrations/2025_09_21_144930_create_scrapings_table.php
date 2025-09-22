@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-     Schema::table('image_analyses', function (Blueprint $table) {
-    $table->string('engine')->nullable();   // ej: easyocr, tesseract
-    $table->boolean('gpu')->default(false);
-    $table->integer('tokens')->nullable();
+ Schema::create('scrapings', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');        // antes 'nombre'
+    $table->string('base_url');    // antes 'url_base'
+    $table->timestamps();
 });
+
 
     }
 
@@ -24,8 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('image_analyses', function (Blueprint $table) {
-            //
-        });
+        Schema::dropIfExists('scrapings');
     }
 };
