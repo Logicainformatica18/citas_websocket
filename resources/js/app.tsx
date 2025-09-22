@@ -12,10 +12,10 @@ const token = document.head.querySelector('meta[name="csrf-token"]');
 if (token) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = token.getAttribute('content')!;
 } else {
-    console.warn('⚠️ CSRF token no encontrado en el <head>');
+   // console.warn('⚠️ CSRF token no encontrado en el <head>');
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'Aybar Corp';
+const appName = import.meta.env.VITE_APP_NAME || 'Isil';
 
 createInertiaApp({
     title: (title) => `${title}  ${appName}`,

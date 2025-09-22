@@ -67,7 +67,7 @@ export default function BankStatements() {
   // 🔹 Buscar con Inertia router
   const handleSearch = () => {
     router.get(
-      '/bank-statements',
+      '/',
       { operation_number: operationNumber },
       { preserveState: true, replace: true }
     );
@@ -76,7 +76,7 @@ export default function BankStatements() {
   // 🔹 Paginación con Inertia router
   const fetchPage = (page: number) => {
     router.get(
-      '/bank-statements',
+      '/',
       { page, operation_number: operationNumber },
       { preserveState: true, replace: true }
     );
@@ -96,7 +96,7 @@ export default function BankStatements() {
   const value = e.target.value;
   setOperationNumber(value);
   if (value === '') {
-    router.get('/bank-statements', {}, { preserveState: true, replace: true });
+    router.get('/', {}, { preserveState: true, replace: true });
   }
 }}
 

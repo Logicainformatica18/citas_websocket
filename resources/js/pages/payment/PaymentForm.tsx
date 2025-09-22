@@ -559,7 +559,7 @@ return (
     <div className="flex flex-col items-center justify-center gap-2 pb-6">
       <img src="/logo/2.png" alt="Logo" className="h-14 w-auto" />
       <h1 className="text-xl font-bold text-[#03424E] uppercase">
-        Registro de Pago – Aybar Corp
+        Registro de Pago – Isil
       </h1>
     </div>
 

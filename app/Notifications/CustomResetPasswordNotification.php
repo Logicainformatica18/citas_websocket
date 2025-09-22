@@ -27,12 +27,12 @@ class CustomResetPasswordNotification extends Notification
         ], false));
 
         return (new MailMessage)
-            ->subject('Restablecer tu contraseña - Aybar Corp')
+            ->subject('Restablecer tu contraseña - Isil')
             ->greeting('¡Hola!')
             ->line('Recibimos una solicitud para restablecer la contraseña de tu cuenta.')
             ->action('Restablecer Contraseña', $url)
             ->line('Este enlace expirará en 60 minutos.')
             ->line('Si no solicitaste este cambio, puedes ignorar este mensaje.')
-            ->salutation('Saludos, Aybar Corp');
+            ->salutation('Saludos, Isil');
     }
 }

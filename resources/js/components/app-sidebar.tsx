@@ -40,7 +40,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/bank-statements">
+              <Link href="/">
                 <AppLogo />
               </Link>
             </SidebarMenuButton>
