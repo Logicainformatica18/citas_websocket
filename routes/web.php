@@ -1,18 +1,25 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ScrapingController;
 use App\Http\Controllers\ScrapingFieldController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\AIController;
+use App\Http\Controllers\JobOfferController;
+
+
 
 
 Route::get('/', function () {
-    return redirect()->route('scrapings.index');
+    return redirect("dashboard");
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('permission:administrar');
 
     // USERS
     Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch')->middleware('permission:administrar');
@@ -60,8 +67,43 @@ Route::prefix('scrapings/{scraping}')->group(function () {
     Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
 });
 
+Route::post('/ai/chat', [AIController::class, 'chat'])->middleware('permission:administrar');
 
 
+Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
+    ->name('job_offers.fetch')
+    ->middleware('permission:administrar');
+
+Route::post('/job-offers', [JobOfferController::class, 'store'])
+    ->name('job_offers.store')
+    ->middleware('permission:administrar');
+
+Route::get('/job-offers', [JobOfferController::class, 'index'])
+    ->name('job_offers.index')
+    ->middleware('permission:administrar');
+
+Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
+    ->name('job_offers.destroy')
+    ->middleware('permission:administrar');
+
+Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
+    ->name('job_offers.update')
+    ->middleware('permission:administrar');
+
+Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
+    ->name('job_offers.show')
+    ->middleware('permission:administrar');
+
+Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
+    ->name('job_offers.bulkDelete')
+    ->middleware('permission:administrar');
+
+
+    Route::post('/job-offers/import', [JobOfferController::class, 'import'])
+    ->name('job-offers.import')
+    ->middleware('permission:administrar');
+
+    
 });
 
 require __DIR__ . '/settings.php';

@@ -190,3 +190,23 @@
 .glow-border {
   animation: flicker 1.5s infinite;
 }
+
+.gutter {
+  background-color: #1f2937; /* gris oscuro (bg-gray-800) */
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gutter:hover {
+  background-color: #3b82f6; /* azul tailwind */
+  transition: background-color 0.2s ease;
+}
+
+/* Opcional: un "handle" con puntitos estilo VSCode */
+.gutter::after {
+  content: "⋮";
+  color: #9ca3af; /* gris claro */
+  font-size: 14px;
+}
