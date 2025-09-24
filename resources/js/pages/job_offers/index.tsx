@@ -9,12 +9,13 @@ import JobOfferModal from './JobOfferModal';
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Ofertas de Empleo', href: '/job-offers' },
 ];
+
 // Helper para formatear fechas
 function formatDate(dateString?: string | null): string {
   if (!dateString) return "-";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-"; // por si el string no es válido
+    if (isNaN(date.getTime())) return "-";
     return date.toLocaleDateString("es-PE", {
       day: "numeric",
       month: "short",
@@ -113,7 +114,7 @@ export default function JobOffersIndex() {
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8">
+      <div className="p-8 text-white">
         <h1 className="text-2xl font-bold mb-6">Ofertas de Empleo</h1>
 
         <div className="flex items-center gap-2 mb-4">
@@ -135,8 +136,8 @@ export default function JobOffersIndex() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border rounded bg-white">
-            <thead className="bg-gray-100 text-left">
+          <table className="min-w-full table-auto border-collapse">
+            <thead className="bg-slate-700 text-slate-200 uppercase text-sm">
               <tr>
                 <th className="px-4 py-2">
                   <input
@@ -158,71 +159,70 @@ export default function JobOffersIndex() {
                 <th className="px-4 py-2">Registrado en</th>
               </tr>
             </thead>
-           <tbody>
-  {items.map((item) => (
-    <tr key={item.id} className="border-t hover:bg-gray-50 align-top">
-      <td className="px-4 py-2">
-        <input
-          type="checkbox"
-          checked={selectedIds.includes(item.id)}
-          onChange={(e) =>
-            setSelectedIds((prev) =>
-              e.target.checked
-                ? [...prev, item.id]
-                : prev.filter((id) => id !== item.id)
-            )
-          }
-        />
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap">
-        <button
-          onClick={() => removeOne(item.id, item.title)}
-          className="text-red-600 hover:underline inline-flex items-center gap-1"
-        >
-          <Trash2 className="w-4 h-4" /> Eliminar
-        </button>
-      </td>
-      <td className="px-4 py-2">
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            {item.title}
-          </a>
-        ) : (
-          item.title
-        )}
-      </td>
-      <td className="px-4 py-2">{item.company ?? "-"}</td>
-      <td className="px-4 py-2">{item.location ?? "-"}</td>
-      <td className="px-4 py-2">{item.modality ?? "-"}</td>
-      <td className="px-4 py-2">
-        {item.salary_min
-          ? `${item.salary_min} - ${item.salary_max} ${item.currency}`
-          : "N/A"}
-      </td>
-      <td className="px-4 py-2">
-        <span className="px-2 py-0.5 text-xs rounded bg-gray-100 border">
-          {item.source}
-        </span>
-      </td>
-      <td className="px-4 py-2">{formatDate(item.published_at)}</td>
-      <td className="px-4 py-2">{formatDate(item.created_at)}</td>
-    </tr>
-  ))}
+            <tbody className="divide-y divide-slate-700">
+              {items.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-700/40">
+                  <td className="px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(e) =>
+                        setSelectedIds((prev) =>
+                          e.target.checked
+                            ? [...prev, item.id]
+                            : prev.filter((id) => id !== item.id)
+                        )
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <button
+                      onClick={() => removeOne(item.id, item.title)}
+                      className="text-red-400 hover:text-red-600 inline-flex items-center gap-1"
+                    >
+                      <Trash2 className="w-4 h-4" /> Eliminar
+                    </button>
+                  </td>
+                  <td className="px-4 py-2">
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:underline"
+                      >
+                        {item.title}
+                      </a>
+                    ) : (
+                      item.title
+                    )}
+                  </td>
+                  <td className="px-4 py-2">{item.company ?? "-"}</td>
+                  <td className="px-4 py-2">{item.location ?? "-"}</td>
+                  <td className="px-4 py-2">{item.modality ?? "-"}</td>
+                  <td className="px-4 py-2">
+                    {item.salary_min
+                      ? `${item.salary_min} - ${item.salary_max} ${item.currency}`
+                      : "N/A"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="px-2 py-1 text-xs rounded-full bg-slate-600 text-slate-100">
+                      {item.source}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">{formatDate(item.published_at)}</td>
+                  <td className="px-4 py-2">{formatDate(item.created_at)}</td>
+                </tr>
+              ))}
 
-  {items.length === 0 && (
-    <tr>
-      <td className="px-4 py-6 text-center text-gray-500" colSpan={10}>
-        No hay ofertas para mostrar.
-      </td>
-    </tr>
-  )}
-</tbody>
-
+              {items.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-slate-400" colSpan={10}>
+                    No hay ofertas para mostrar.
+                  </td>
+                </tr>
+              )}
+            </tbody>
           </table>
         </div>
 
@@ -237,7 +237,7 @@ export default function JobOffersIndex() {
                 className={`px-3 py-1 rounded text-sm font-medium transition ${
                   pagination.current_page === page
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
                 disabled={pagination.current_page === page}
               >

@@ -3,7 +3,7 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDashboard } from "../DashboardContext"; // ✅ usamos el contexto
-
+import { Send } from "lucide-react";
 type Message = {
   from: "user" | "ai";
   text: string;
@@ -112,12 +112,13 @@ export default function AiChat() {
           placeholder="Type a message"
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
-        <button
-          onClick={handleSend}
-          className="px-4 py-2 bg-blue-600 rounded text-white"
-        >
-          Send
-        </button>
+     <button
+  onClick={handleSend}
+  className="px-4 py-2 bg-blue-600 rounded text-white flex items-center gap-2 hover:bg-blue-700 transition"
+>
+  <Send className="w-4 h-4" />
+  Enviar
+</button>
       </div>
     </Card>
   );

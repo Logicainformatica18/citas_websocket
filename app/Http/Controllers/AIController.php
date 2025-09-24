@@ -10,20 +10,44 @@ use App\Models\JobOffer;
 class AIController extends Controller
 {
     
-    public function chat(Request $request)
-{
-    $request->validate([
-        'message' => 'required|string',
-    ]);
+     public function chat(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string',
+        ]);
 
-    $apiKey = env('OPENAI_API_KEY');
+        // 1. Obtener instrucción de la IA
+        $instruction = $this->getInstructionFromAI($request->message);
 
-    Log::info('🤖 [AIController] Mensaje recibido del usuario', [
-        'message' => $request->message,
-    ]);
+        if (!$instruction) {
+            return response()->json([
+                'error' => 'Respuesta inválida de OpenAI',
+            ], 500);
+        }
 
-    // 🔹 Prompt para que OpenAI devuelva siempre JSON
- $systemPrompt = <<<EOT
+        // 2. Ejecutar instrucción en BD
+        [$results, $aggregations] = $this->executeInstruction($instruction);
+
+        // 3. Generar mensaje explicativo
+        $message = $this->generateMessage($instruction, $results, $aggregations);
+
+        return response()->json([
+            'instruction'   => $instruction,
+            'results'       => $results,
+            'aggregations'  => $aggregations,
+            'message'       => $message,
+            'suggestion'    => $instruction['suggestion'] ?? null,
+        ]);
+    }
+
+ /**
+     * 🔹 Paso 1: Pedirle a OpenAI la instrucción JSON
+     */
+    private function getInstructionFromAI(string $userMessage): ?array
+    {
+        $apiKey = env('OPENAI_API_KEY');
+
+        $systemPrompt = <<<EOT
 Eres un asistente para un dashboard de ofertas laborales.
 Debes devolver instrucciones en JSON para filtrar o agregar datos desde la tabla "job_offers".
 
@@ -43,131 +67,111 @@ Formato de respuesta:
 - Si pregunta por **ubicación / país / ciudad** → usa "location" + "percent".
 - Si pregunta por **salarios** → usa "salary_min" o "salary_max" + "avg".
 - Si pregunta por **número total** → usa "count".
-- Siempre incluye una "suggestion" que sea una pregunta de seguimiento útil.
+- Si pregunta por **fechas**:
+   - "23 de septiembre 2025" → { "filters": { "published_at": "2025-09-23" } }
+   - "septiembre 2025" → { "filters": { "published_at": { "from":"2025-09-01","to":"2025-09-30"} } }
+   - "2025" → { "filters": { "published_at": { "from":"2025-01-01","to":"2025-12-31"} } }
 EOT;
 
-
-    // 🔹 Llamada a OpenAI
-    $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
-        'model' => 'gpt-4o-mini',
-        'messages' => [
-            ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $request->message],
-        ],
-        'temperature' => 0,
-        'max_tokens' => 500,
-    ]);
-
-    if ($response->failed()) {
-        Log::error('❌ [AIController] Error en petición a OpenAI', [
-            'status' => $response->status(),
-            'body' => $response->body(),
+        $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+            'model' => 'gpt-4o-mini',
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $userMessage],
+            ],
+            'temperature' => 0,
+            'max_tokens' => 500,
         ]);
 
-        return response()->json([
-            'error' => 'Error calling OpenAI',
-            'details' => $response->json(),
-        ], 500);
+        if ($response->failed()) {
+            Log::error('❌ Error en petición a OpenAI', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return null;
+        }
+
+        $instructionRaw = $response->json('choices.0.message.content');
+        Log::info("📝 Instrucción cruda de la IA", ['raw' => $instructionRaw]);
+
+        return json_decode($instructionRaw, true);
     }
+    private function executeInstruction(array $instruction): array
+    {
+        $allowedFields = [
+            'title','company','location','modality','workload',
+            'salary_min','salary_max','currency','source',
+            'external_id','url','published_at','created_at'
+        ];
 
-    $instructionRaw = $response->json('choices.0.message.content');
-    Log::info("📝 [AIController] Raw response", ['raw' => $instructionRaw]);
+        $aliases = [
+            'job_title'   => 'title',
+            'empresa'     => 'company',
+            'pais'        => 'location',
+            'modalidad'   => 'modality',
+            'sueldo_min'  => 'salary_min',
+            'sueldo_max'  => 'salary_max'
+        ];
 
-    $instruction = json_decode($instructionRaw, true);
+        $query = JobOffer::query();
 
-    if (!$instruction) {
-        return response()->json([
-            'error' => 'Respuesta inválida de OpenAI',
-            'raw' => $instructionRaw,
-        ], 500);
-    }
+        // 🔹 Procesar filtros
+        if (!empty($instruction['filters'])) {
+            foreach ($instruction['filters'] as $field => $value) {
+                $field = $aliases[$field] ?? $field;
+                if (!in_array($field, $allowedFields)) continue;
 
-    // 🔹 Lista de campos válidos
-    $allowedFields = [
-        'title','company','location','modality','workload',
-        'salary_min','salary_max','currency','source',
-        'external_id','url','published_at','created_at'
-    ];
-
-    // 🔹 Alias comunes que puede inventar la IA
-    $aliases = [
-        'job_title'   => 'title',
-        'empresa'     => 'company',
-        'pais'        => 'location',
-        'modalidad'   => 'modality',
-        'sueldo_min'  => 'salary_min',
-        'sueldo_max'  => 'salary_max'
-    ];
-
-    // 🔹 Ejecutar query en BD
-    $query = JobOffer::query();
-
-    if (!empty($instruction['filters'])) {
-        foreach ($instruction['filters'] as $field => $value) {
-            $field = $aliases[$field] ?? $field;
-            if (!in_array($field, $allowedFields)) continue;
-
-            // si contiene % => LIKE
-            if (is_string($value) && str_contains($value, '%')) {
-                $query->where($field, 'LIKE', $value);
-            } else {
-                $query->where($field, $value);
+                if ($field === 'published_at' && is_array($value)) {
+                    $query->whereBetween($field, [$value['from'], $value['to']]);
+                } elseif ($field === 'published_at') {
+                    $query->whereDate($field, $value);
+                } elseif (is_string($value) && str_contains($value, '%')) {
+                    $query->where($field, 'LIKE', $value);
+                } else {
+                    $query->where($field, $value);
+                }
             }
         }
-    }
 
-    // 🔹 Normalizar fields
-    $requestedFields = $instruction['fields'] ?? ['*'];
-    $normalizedFields = [];
-
-    foreach ($requestedFields as $f) {
-        $f = $aliases[$f] ?? $f;
-        if (in_array($f, $allowedFields)) {
-            $normalizedFields[] = $f;
-        }
-    }
-
-    if (empty($normalizedFields)) {
-        $normalizedFields = ['*'];
-    }
-
-    // 🔹 Paginación simple (máx 100 resultados)
-    $results = $query->limit(100)->get($normalizedFields);
-
-    $aggregations = [];
-
-    if (!empty($instruction['aggregations'])) {
-        foreach ($instruction['aggregations'] as $agg) {
-            if ($agg === 'count') {
-                $aggregations['count'] = $results->count();
-            }
-            if ($agg === 'percent' && !empty($normalizedFields[0]) && $normalizedFields[0] !== '*') {
-                $field = $normalizedFields[0];
-                $aggregations['percent'] = $results->groupBy($field)->map(function ($group) use ($results) {
-                    return round(($group->count() / max($results->count(), 1)) * 100, 2);
-                });
-            }
-            if ($agg === 'avg' && !empty($normalizedFields[0]) && $normalizedFields[0] !== '*') {
-                $field = $normalizedFields[0];
-                $aggregations['avg'] = $results->avg($field);
+        // 🔹 Normalizar campos
+        $requestedFields = $instruction['fields'] ?? ['*'];
+        $normalizedFields = [];
+        foreach ($requestedFields as $f) {
+            $f = $aliases[$f] ?? $f;
+            if (in_array($f, $allowedFields)) {
+                $normalizedFields[] = $f;
             }
         }
+        if (empty($normalizedFields)) {
+            $normalizedFields = ['*'];
+        }
+
+        $results = $query->limit(100)->get($normalizedFields);
+
+        // 🔹 Agregaciones
+        $aggregations = [];
+        if (!empty($instruction['aggregations'])) {
+            foreach ($instruction['aggregations'] as $agg) {
+                if ($agg === 'count') {
+                    $aggregations['count'] = $results->count();
+                }
+                if ($agg === 'percent' && !empty($normalizedFields[0]) && $normalizedFields[0] !== '*') {
+                    $field = $normalizedFields[0];
+                    $aggregations['percent'] = $results->groupBy($field)->map(function ($group) use ($results) {
+                        return round(($group->count() / max($results->count(), 1)) * 100, 2);
+                    });
+                }
+                if ($agg === 'avg' && !empty($normalizedFields[0]) && $normalizedFields[0] !== '*') {
+                    $field = $normalizedFields[0];
+                    $aggregations['avg'] = $results->avg($field);
+                }
+            }
+        }
+
+        return [$results, $aggregations];
     }
 
-    // 🔹 Generar mensaje explicativo
-    $message = $this->generateMessage($instruction, $results, $aggregations);
-
-    return response()->json([
-        'instruction'   => $instruction,
-        'results'       => $results,
-        'aggregations'  => $aggregations,
-        'message'       => $message,
-        'suggestion'    => $instruction['suggestion'] ?? null,
-    ]);
-}
-
-
-    private function generateMessage(array $instruction, $results, array $aggregations): string
+  private function generateMessage(array $instruction, $results, array $aggregations): string
     {
         if (($instruction['action'] ?? null) === 'aggregate' && isset($aggregations['percent'])) {
             $field = $instruction['fields'][0] ?? 'campo';
@@ -185,3 +189,4 @@ EOT;
         return "✅ Se ejecutó tu consulta correctamente. ¿Quieres que te muestre otro análisis?";
     }
 }
+ 

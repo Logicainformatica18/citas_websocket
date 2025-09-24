@@ -1,0 +1,70 @@
+/* Fondo general */
+.dashboard-container {
+  background-color: #0f172a; /* slate-900 */
+  color: #f9fafb;
+  min-height: 100vh;
+  padding: 1rem;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Card base */
+.dashboard-card {
+  background: rgba(17, 25, 40, 0.85); /* efecto vidrio */
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(0, 255, 255, 0.25);
+}
+
+/* Glow border animado (no oscurece contenido) */
+.glow-border {
+  animation: border-glow 2.5s infinite ease-in-out;
+}
+
+@keyframes border-glow {
+  0%, 100% {
+    border-color: rgba(0, 255, 234, 0.6);
+    box-shadow: 0 0 10px rgba(0, 255, 234, 0.3),
+                0 0 20px rgba(0, 255, 234, 0.2);
+  }
+  50% {
+    border-color: rgba(0, 255, 234, 1);
+    box-shadow: 0 0 15px rgba(0, 255, 234, 0.6),
+                0 0 30px rgba(0, 255, 234, 0.4);
+  }
+}
+
+/* Header del dashboard */
+.dashboard-header {
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #38bdf8; /* azul cian */
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Gutter de split */
+.gutter {
+  background-color: #1f2937;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gutter:hover {
+  background-color: #3b82f6;
+  transition: background-color 0.2s ease;
+}
+.gutter::after {
+  content: "⋮";
+  color: #9ca3af;
+  font-size: 14px;
+}
