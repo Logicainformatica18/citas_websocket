@@ -20,6 +20,7 @@
         "laravel/reverb": "^1.5",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
+        "league/flysystem-google-cloud-storage": "^3.30",
         "maatwebsite/excel": "^3.1",
         "openai-php/laravel": "^0.16.0",
         "pusher/pusher-php-server": "^7.2",

@@ -10,6 +10,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\SyllabusController;
 
 
 
@@ -123,7 +124,34 @@ Route::put('/courses/{id}', [CourseController::class, 'update'])
 
 Route::get('/courses/{id}', [CourseController::class, 'show'])
     ->middleware('permission:administrar');
+
+
+Route::get('/syllabus', [SyllabusController::class, 'index'])
+    ->name('syllabus.index')
+    ->middleware(['auth', 'permission:administrar']);
+
+Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
+    ->name('syllabus.fetch')
+    ->middleware(['auth', 'permission:administrar']);
+
+// 📂 Subir sílabo (upload)
+Route::post('/syllabus/upload', [SyllabusController::class, 'store'])->middleware(['auth', 'permission:administrar']);
+
+Route::get('/syllabus/{id}', [SyllabusController::class, 'show'])
+    ->name('syllabus.show')
+    ->middleware(['auth', 'permission:administrar']);
+
+Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
+    ->name('syllabus.destroy')
+    ->middleware(['auth', 'permission:administrar']);
+
+Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
+    ->name('syllabus.bulkDelete')
+    ->middleware(['auth', 'permission:administrar']);
 });
+
+
+
 
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';

@@ -1,5 +1,5 @@
 <?php
-
+use Google\Cloud\Storage\StorageClient;
 return [
 
     /*
@@ -46,6 +46,17 @@ return [
             'throw' => false,
             'report' => false,
         ],
+'gcs' => [
+    'driver'     => 'gcs',
+    'project_id' => env('GCS_PROJECT_ID', 'eco-splicer-468114-t0'),
+    'bucket'     => env('GCS_BUCKET', 'pdf_aybar'),
+    'key_file'   => env('GCS_KEY_FILE_PATH', storage_path('app/private/eco-splicer-468114-t0-54c2adb26581.json')),
+],
+
+
+
+
+
 
         's3' => [
             'driver' => 's3',
