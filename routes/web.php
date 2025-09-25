@@ -9,6 +9,7 @@ use App\Http\Controllers\ScrapingFieldController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\JobOfferController;
+use App\Http\Controllers\CourseController;
 
 
 
@@ -103,7 +104,25 @@ Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
     ->name('job-offers.import')
     ->middleware('permission:administrar');
 
-    
+    Route::get('/courses/fetch', [CourseController::class, 'index'])
+    ->name('courses.fetch')
+    ->middleware('permission:administrar');
+
+Route::post('/courses', [CourseController::class, 'store'])
+    ->middleware('permission:administrar');
+
+Route::get('/courses', [CourseController::class, 'index'])
+    ->name('courses.index')
+    ->middleware('permission:administrar');
+
+Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
+    ->middleware('permission:administrar');
+
+Route::put('/courses/{id}', [CourseController::class, 'update'])
+    ->middleware('permission:administrar');
+
+Route::get('/courses/{id}', [CourseController::class, 'show'])
+    ->middleware('permission:administrar');
 });
 
 require __DIR__ . '/settings.php';
