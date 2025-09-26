@@ -48,10 +48,19 @@ return [
         ],
 'gcs' => [
     'driver'     => 'gcs',
-    'project_id' => env('GCS_PROJECT_ID', 'eco-splicer-468114-t0'),
-    'bucket'     => env('GCS_BUCKET', 'pdf_aybar'),
-    'key_file'   => env('GCS_KEY_FILE_PATH', storage_path('app/private/eco-splicer-468114-t0-54c2adb26581.json')),
+    'project_id' => env('GCS_PROJECT_ID'),
+    'key_file'   => env('GCS_KEY_FILE_PATH'), // 👈 coincide con $config['key_file']
+    'bucket'     => env('GCS_BUCKET'),
+    'path_prefix'=> null,
+    'api_url'    => null,
 ],
+
+
+
+
+
+
+
 
 
 

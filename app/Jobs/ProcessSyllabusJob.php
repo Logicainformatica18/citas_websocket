@@ -50,7 +50,8 @@ class ProcessSyllabusJob implements ShouldQueue
             $gcsPath = "syllabus/{$syllabus->id}.pdf";
 
             Storage::disk('gcs')->put($gcsPath, file_get_contents($localPath));
-            $gcsInputUri = "gs://" . env('GOOGLE_CLOUD_BUCKET') . "/" . $gcsPath;
+        $gcsInputUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsPath;
+
 
             Log::info("☁️ PDF subido a GCS", ['uri' => $gcsInputUri]);
 
