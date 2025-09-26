@@ -13,6 +13,7 @@ use Google\Cloud\Vision\V1\InputConfig;
 use Google\Cloud\Vision\V1\OutputConfig;
 use Google\Cloud\Vision\V1\GcsSource;
 use Google\Cloud\Vision\V1\GcsDestination;
+use Google\Cloud\Vision\V1\AsyncAnnotateFileRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -49,35 +50,45 @@ class ProcessSyllabusJob implements ShouldQueue
             $localPath = Storage::disk('public')->path($syllabus->path);
             $gcsPath = "syllabus/{$syllabus->id}.pdf";
 
-            Storage::disk('gcs')->put($gcsPath, file_get_contents($localPath));
-        $gcsInputUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsPath;
+            $storage = new \Google\Cloud\Storage\StorageClient([
+                'projectId'   => env('GCS_PROJECT_ID'),
+                'keyFilePath' => env('GCS_KEY_FILE_PATH'),
+            ]);
 
+            $bucket = $storage->bucket(env('GCS_BUCKET'));
+            $bucket->upload(
+                fopen($localPath, 'r'),
+                ['name' => $gcsPath]
+            );
 
+            $gcsInputUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsPath;
             Log::info("☁️ PDF subido a GCS", ['uri' => $gcsInputUri]);
 
-            // 📤 Configuración de entrada (PDF en GCS)
+            // 📤 Configuración de entrada
             $gcsSource = (new GcsSource())->setUri($gcsInputUri);
             $inputConfig = (new InputConfig())
                 ->setMimeType('application/pdf')
                 ->setGcsSource($gcsSource);
 
-            // 📥 Configuración de salida (JSON OCR en GCS)
-            $gcsDestinationUri = "gs://" . env('GOOGLE_CLOUD_BUCKET') . "/syllabus_results/{$syllabus->id}/";
+            // 📥 Configuración de salida
+            $gcsDestinationUri = "gs://" . env('GCS_BUCKET') . "/syllabus_results/{$syllabus->id}/";
             $gcsDestination = (new GcsDestination())->setUri($gcsDestinationUri);
             $outputConfig = (new OutputConfig())->setGcsDestination($gcsDestination);
 
             $feature = (new Feature())->setType(Feature\Type::DOCUMENT_TEXT_DETECTION);
 
-            $client = new ImageAnnotatorClient();
-            $operation = $client->asyncBatchAnnotateFiles([
-                'requests' => [[
-                    'inputConfig' => $inputConfig,
-                    'features' => [$feature],
-                    'outputConfig' => $outputConfig,
-                ]],
+            // ✅ Crear AsyncAnnotateFileRequest
+            $request = new AsyncAnnotateFileRequest();
+            $request->setInputConfig($inputConfig);
+            $request->setFeatures([$feature]);
+            $request->setOutputConfig($outputConfig);
+
+            $client = new ImageAnnotatorClient([
+                'credentials' => env('GCS_KEY_FILE_PATH'),
             ]);
 
-            // Esperar resultado
+            // 📡 Llamar a Vision API
+            $operation = $client->asyncBatchAnnotateFiles([$request]);
             $operation->pollUntilComplete();
 
             if (!$operation->operationSucceeded()) {
@@ -86,13 +97,23 @@ class ProcessSyllabusJob implements ShouldQueue
 
             Log::info("✅ OCR terminado, resultados en GCS", ['output' => $gcsDestinationUri]);
 
-            // 📥 Descargar JSON con OCR desde GCS
-            $files = Storage::disk('gcs')->files("syllabus_results/{$syllabus->id}");
-            if (empty($files)) {
-                throw new \Exception("No se encontraron resultados OCR en GCS.");
+            // 📥 Leer JSON de resultados
+            $files = $bucket->objects([
+                'prefix' => "syllabus_results/{$syllabus->id}/",
+            ]);
+
+            $jsonData = null;
+            foreach ($files as $file) {
+                if (str_ends_with($file->name(), '.json')) {
+                    $jsonContent = $file->downloadAsString();
+                    $jsonData = json_decode($jsonContent, true);
+                    break;
+                }
             }
 
-            $jsonData = json_decode(Storage::disk('gcs')->get($files[0]), true);
+            if (!$jsonData) {
+                throw new \Exception("No se encontraron resultados OCR en GCS.");
+            }
 
             $text = '';
             foreach ($jsonData['responses'] as $page) {
@@ -112,8 +133,16 @@ class ProcessSyllabusJob implements ShouldQueue
             ]);
 
             // 🤖 Procesar con OpenAI
-            $prompt = "
-Extrae del siguiente sílabo de universidad la información en JSON:
+// 🤖 Procesar con OpenAI
+$prompt = "
+Extrae del siguiente sílabo de universidad la información en JSON.
+IMPORTANTE:
+- 'lenguajes' deben ser lenguajes de programación (ej: Java, Python, C#, JavaScript, etc).
+- 'tecnologias' deben ser frameworks, librerías o herramientas de software (ej: React, Laravel, Bootstrap, Docker, etc).
+- 'metodologias' deben ser metodologías de desarrollo de software (ej: Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps).
+- IGNORA metodologías de enseñanza o aprendizaje (como aprendizaje basado en problemas, método de casos, etc).
+
+Formato de salida JSON:
 {
   \"curso\": \"\",
   \"lenguajes\": [],
@@ -125,27 +154,43 @@ Texto:
 $text
 ";
 
-            $openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => 'gpt-4o-mini',
-                    'messages' => [
-                        ['role' => 'system', 'content' => 'Eres un asistente que convierte sílabos en datos estructurados JSON.'],
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                    'temperature' => 0.2,
-                ]);
 
-            $json = $openaiResponse->json('choices.0.message.content');
-            $decoded = json_decode($json, true);
+$openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
+    ->post('https://api.openai.com/v1/chat/completions', [
+        'model' => 'gpt-4o-mini',
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => 'Eres un asistente que convierte sílabos en JSON estricto. Devuelve SOLO JSON.'
+            ],
+            [
+                'role' => 'user',
+                'content' => $prompt
+            ],
+        ],
+        'temperature' => 0.2,
+        'response_format' => ['type' => 'json_object'], // 👈 forzar JSON válido
+    ]);
 
-            if (!$decoded) {
-                throw new \Exception("OpenAI no devolvió JSON válido: " . $json);
-            }
+$json = $openaiResponse->json('choices.0.message.content');
 
-            $syllabus->update([
-                'structured_data' => $decoded,
-                'status' => 'processed',
-            ]);
+// 🔥 Limpieza: quitar posibles ```json ... ```
+$json = trim($json);
+$json = preg_replace('/^```(json)?/i', '', $json);
+$json = preg_replace('/```$/', '', $json);
+$json = trim($json);
+
+$decoded = json_decode($json, true);
+
+if (json_last_error() !== JSON_ERROR_NONE || !$decoded) {
+    throw new \Exception("OpenAI no devolvió JSON válido: " . json_last_error_msg() . " → " . $json);
+}
+
+// Guardar en DB
+$syllabus->update([
+    'structured_data' => $decoded,
+    'status' => 'processed',
+]);
 
             Log::info("📊 Datos estructurados guardados", [
                 'curso' => $decoded['curso'] ?? null,

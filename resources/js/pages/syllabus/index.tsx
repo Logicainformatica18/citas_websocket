@@ -15,9 +15,10 @@ type Upload = {
   status: 'pending' | 'processing' | 'processed' | 'failed';
   detected_course?: string | null;
   structured_data?: {
-    languages?: string[];
-    technologies?: string[];
-    methodologies?: string[];
+    curso?: string;
+    lenguajes?: string[];
+    tecnologias?: string[];
+    metodologias?: string[];
   };
 };
 
@@ -217,11 +218,13 @@ export default function SyllabusIndex() {
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2">{item.detected_course ?? '-'}</td>
                   <td className="px-4 py-2">
-                    {item.structured_data?.languages?.length ? (
+                    {item.structured_data?.curso ?? '-'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {item.structured_data?.lenguajes?.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {item.structured_data.languages.map((l, i) => (
+                        {item.structured_data.lenguajes.map((l, i) => (
                           <span
                             key={`${l}-${i}`}
                             className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs"
@@ -235,9 +238,9 @@ export default function SyllabusIndex() {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    {item.structured_data?.technologies?.length ? (
+                    {item.structured_data?.tecnologias?.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {item.structured_data.technologies.map((t, i) => (
+                        {item.structured_data.tecnologias.map((t, i) => (
                           <span
                             key={`${t}-${i}`}
                             className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs"
@@ -251,9 +254,9 @@ export default function SyllabusIndex() {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    {item.structured_data?.methodologies?.length ? (
+                    {item.structured_data?.metodologias?.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {item.structured_data.methodologies.map((m, i) => (
+                        {item.structured_data.metodologias.map((m, i) => (
                           <span
                             key={`${m}-${i}`}
                             className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs"

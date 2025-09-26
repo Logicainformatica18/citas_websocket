@@ -9,19 +9,57 @@ use Illuminate\Support\Facades\Log;
 
 class SyllabusController extends Controller
 {
-    public function index()
-    {
-        // ⚡ Mandamos como "uploads" porque así lo espera React
-        return inertia('syllabus/index', [
-            'uploads' => Syllabus::latest()->paginate(10),
-        ]);
-    }
+public function index()
+{
+    $uploads = Syllabus::latest()->paginate(10);
 
-    public function fetchPaginated()
-    {
-        // Respuesta directa de Laravel Paginator
-        return Syllabus::latest()->paginate(10);
-    }
+    $uploads->getCollection()->transform(function ($syllabus) {
+        $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
+
+        $syllabus->structured_data = [
+            'curso'        => $data['curso'] ?? null,
+            'lenguajes'    => $data['lenguajes'] ?? [],
+            'tecnologias'  => $data['tecnologias'] ?? [],
+            'metodologias' => $data['metodologias'] ?? [],
+        ];
+
+        $syllabus->detected_course = $syllabus->structured_data['curso'];
+
+        return $syllabus;
+    });
+
+    return inertia('syllabus/index', [
+        'uploads' => $uploads,
+    ]);
+}
+
+public function fetchPaginated()
+{
+    $uploads = Syllabus::latest()->paginate(10);
+
+    $uploads->getCollection()->transform(function ($syllabus) {
+        $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
+
+        $syllabus->structured_data = [
+            'curso'        => $data['curso'] ?? null,
+            'lenguajes'    => $data['lenguajes'] ?? [],
+            'tecnologias'  => $data['tecnologias'] ?? [],
+            'metodologias' => $data['metodologias'] ?? [],
+        ];
+
+        $syllabus->detected_course = $syllabus->structured_data['curso'];
+
+        return $syllabus;
+    });
+
+    return $uploads;
+}
+
+
+
+
+
+
 
     public function store(Request $request)
     {
