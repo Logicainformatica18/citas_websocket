@@ -133,8 +133,7 @@ class ProcessSyllabusJob implements ShouldQueue
             ]);
 
             // 🤖 Procesar con OpenAI
-// 🤖 Procesar con OpenAI
-$prompt = "
+            $prompt = "
 Extrae del siguiente sílabo de universidad la información en JSON.
 IMPORTANTE:
 - 'lenguajes' deben ser lenguajes de programación (ej: Java, Python, C#, JavaScript, etc).
@@ -154,43 +153,42 @@ Texto:
 $text
 ";
 
+            $openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-4o-mini',
+                    'messages' => [
+                        [
+                            'role' => 'system',
+                            'content' => 'Eres un asistente que convierte sílabos en JSON estricto. Devuelve SOLO JSON.'
+                        ],
+                        [
+                            'role' => 'user',
+                            'content' => $prompt
+                        ],
+                    ],
+                    'temperature' => 0.2,
+                    'response_format' => ['type' => 'json_object'], // 👈 fuerza JSON válido
+                ]);
 
-$openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
-    ->post('https://api.openai.com/v1/chat/completions', [
-        'model' => 'gpt-4o-mini',
-        'messages' => [
-            [
-                'role' => 'system',
-                'content' => 'Eres un asistente que convierte sílabos en JSON estricto. Devuelve SOLO JSON.'
-            ],
-            [
-                'role' => 'user',
-                'content' => $prompt
-            ],
-        ],
-        'temperature' => 0.2,
-        'response_format' => ['type' => 'json_object'], // 👈 forzar JSON válido
-    ]);
+            $json = $openaiResponse->json('choices.0.message.content');
 
-$json = $openaiResponse->json('choices.0.message.content');
+            // 🔥 Limpieza: quitar posibles ```json ... ```
+            $json = trim($json);
+            $json = preg_replace('/^```(json)?/i', '', $json);
+            $json = preg_replace('/```$/', '', $json);
+            $json = trim($json);
 
-// 🔥 Limpieza: quitar posibles ```json ... ```
-$json = trim($json);
-$json = preg_replace('/^```(json)?/i', '', $json);
-$json = preg_replace('/```$/', '', $json);
-$json = trim($json);
+            $decoded = json_decode($json, true);
 
-$decoded = json_decode($json, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !$decoded) {
+                throw new \Exception("OpenAI no devolvió JSON válido: " . json_last_error_msg() . " → " . $json);
+            }
 
-if (json_last_error() !== JSON_ERROR_NONE || !$decoded) {
-    throw new \Exception("OpenAI no devolvió JSON válido: " . json_last_error_msg() . " → " . $json);
-}
-
-// Guardar en DB
-$syllabus->update([
-    'structured_data' => $decoded,
-    'status' => 'processed',
-]);
+            // Guardar en DB
+            $syllabus->update([
+                'structured_data' => $decoded,
+                'status' => 'processed',
+            ]);
 
             Log::info("📊 Datos estructurados guardados", [
                 'curso' => $decoded['curso'] ?? null,
