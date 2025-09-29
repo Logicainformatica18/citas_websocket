@@ -18,89 +18,99 @@ import { DashboardProvider } from "./DashboardContext";
 import { Menu } from "lucide-react";
 
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Dashboard', href: '/dashboard' },
 ];
 
-export default function Dashboard() {
-  const [sizes, setSizes] = useState([95, 5]); // contenido 95%, chat 5%
-  const [collapsed, setCollapsed] = useState(false);
+export default function Dashboard({ initialData }: { initialData: any }) {
+    const [sizes, setSizes] = useState([98, 2]);
+    const [collapsed, setCollapsed] = useState(false);
 
-  const togglePanel = () => {
-    if (collapsed) {
-      setSizes([65, 35]); // expandir chat
-      setCollapsed(false);
-    } else {
-      setSizes([95, 5]); // colapsar chat
-      setCollapsed(true);
-    }
-  };
+    const togglePanel = () => {
+        if (collapsed) {
+            setSizes([97, 3]);
+            setCollapsed(false);
+        } else {
+            setSizes([97, 3]);
+            setCollapsed(true);
+        }
+    };
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Dashboard" />
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Dashboard" />
 
-      <DashboardProvider>
-        <div className="relative h-[calc(100vh-64px)]">
-          {/* Botón hamburguesa */}
-          <button
-            onClick={togglePanel}
-            className="absolute top-2 right-2 z-50 bg-gray-800 text-white p-2 rounded-md shadow hover:bg-gray-700"
-          >
-            <Menu size={20} />
-          </button>
+            <DashboardProvider>
+                <div className="relative h-[calc(100vh-64px)]">
+                    {/* Botón hamburguesa */}
+                    <button
+                        onClick={togglePanel}
+                        className="absolute top-2 right-2 z-50 bg-gray-800 text-white p-2 rounded-md shadow hover:bg-gray-700"
+                    >
+                        <Menu size={20} />
+                    </button>
 
-    <Split
-  className="flex h-full bg-gray-900 text-white"
-  sizes={sizes}
-  minSize={300}
-  gutterSize={12}
-  gutterAlign="center"
-  snapOffset={50}
-  onDragEnd={setSizes}
-  gutterStyle={() => ({ backgroundColor: "#374151", cursor: "col-resize" })}
->
+                    <Split
+                        className="flex h-full bg-gray-900 text-white"
+                        sizes={sizes}
+                        minSize={280}
+                        gutterSize={5}
+                        gutterAlign="center"
+                        snapOffset={50}
+                        onDragEnd={setSizes}
+                        gutter={() => {
+                            const gutter = document.createElement("div");
+                            gutter.className = "gutter bg-gray-700 hover:bg-gray-600 transition-colors";
+                            return gutter;
+                        }}
+                    >
+                        {/* Panel izquierdo */}
+                        <div className="overflow-y-auto p-4 space-y-6">
+
+                            {/* Bloque 1 → dos cards + mapa */}
+                            {/* Bloque 1 → 4 cards a la izquierda + mapa grande a la derecha */}
+                            {/* Bloque 1 → 4 cards (2x2) + mapa grande */}
+                            <div className="grid grid-cols-6 gap-2">
+                                {/* Columna izquierda: 2x2 cards */}
+                                <div className="grid grid-cols-2 gap-1 col-span-3">
+
+ <RolesChart />
+                                <TechnologiesChart />
+                                </div>
+
+                                {/* Columna derecha: mapa ocupa el alto de las 2 filas */}
+                                <div className="col-span-3  row-span-1 ">
+                                    <CityDemandMap />
+                                </div>
+                            </div>
 
 
-            {/* Panel izquierdo → Cards en filas */}
-            <div className="overflow-y-auto p-4 space-y-6">
 
-              {/* Bloque 1 → dos cards a la izquierda + mapa grande a la derecha */}
-              <div className="grid grid-cols-3 gap-4">
-                {/* Columna izquierda → 2 filas */}
-                <div className="flex flex-col gap-4">
-                  <AlignmentChart />
-                  <ObsolescenceChart />
+                            {/* Bloque 2 */}
+                            <div className="grid grid-cols-3 gap-4">
+ <ObsolescenceIA />
+                                    <AlignmentChart />
+                                {/* 🔹 Aquí pasamos los datos iniciales */}
+                                <WorkModeChart initialData={initialData?.workmode} />
+
+                            </div>
+
+                            {/* Bloque 3 */}
+                            <div className="grid grid-cols-3 gap-4">
+                                  <ObsolescenceChart />
+                                    <RolesChart />
+                                <DemandByCareerChart />
+                                <CareerAlignmentChart />
+                                <EmploymentRequestChart />
+                            </div>
+                        </div>
+
+                        {/* Panel derecho (AI Chat) */}
+                        <div className="flex flex-col h-full overflow-y-auto p-4 border-l border-gray-700">
+                            <AiChat />
+                        </div>
+                    </Split>
                 </div>
-
-                {/* Columna derecha → ocupa ambas filas */}
-                <div className="col-span-2 row-span-2 h-100">
-                  <CityDemandMap />
-                </div>
-              </div>
-
-              {/* Bloque 2 */}
-              <div className="grid grid-cols-4 gap-4">
-                <RolesChart />
-                <TechnologiesChart />
-                <WorkModeChart />
-                <ObsolescenceIA />
-              </div>
-
-              {/* Bloque 3 */}
-              <div className="grid grid-cols-3 gap-4">
-                <DemandByCareerChart />
-                <CareerAlignmentChart />
-                <EmploymentRequestChart />
-              </div>
-            </div>
-
-            {/* Panel derecho (AI Chat) */}
-            <div className="flex flex-col h-full overflow-y-auto p-4 border-l border-gray-700">
-              <AiChat />
-            </div>
-          </Split>
-        </div>
-      </DashboardProvider>
-    </AppLayout>
-  );
+            </DashboardProvider>
+        </AppLayout>
+    );
 }

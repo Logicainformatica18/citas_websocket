@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-le
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import "leaflet.heat";
+import axios from "axios";
 
 // Heatmap
 function HeatmapLayer({ points }: { points: [number, number, number][] }) {
@@ -32,15 +33,46 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
 }
 
 export default function CityDemandMap() {
-  // 📊 Datos simulados (city, count, modality)
-  const [data] = useState([
-    { city: "Lima", coords: [-12.0464, -77.0428], count: 20, modality: "presencial" },
-    { city: "Arequipa", coords: [-16.409, -71.537], count: 12, modality: "remoto" },
-    { city: "Trujillo", coords: [-8.11599, -79.02998], count: 5, modality: "hibrido" },
-    { city: "Cusco", coords: [-13.53195, -71.96746], count: 8, modality: "remoto" },
-  ]);
+  // 📊 Data desde backend
+  const [data, setData] = useState<
+    { city: string; country: string; count: number; modality: string; coords: [number, number] }[]
+  >([]);
 
-  // Normalizar para heatmap
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.get("/ai/city-demand"); // 👈 Ruta que conecte con CityDemandAIController@index
+        const results = res.data.results || [];
+
+        // 🔹 Geocodificación simple: puedes expandir este diccionario
+        const geoMap: Record<string, [number, number]> = {
+          "Lima, Perú": [-12.0464, -77.0428],
+          "Arequipa, Perú": [-16.409, -71.537],
+          "Trujillo, Perú": [-8.11599, -79.02998],
+          "Cusco, Perú": [-13.53195, -71.96746],
+          "Santiago, Chile": [-33.4489, -70.6693],
+          "Valparaíso, Chile": [-33.0472, -71.6127],
+        };
+
+        const mapped = results.map((r: any) => {
+          const key = `${r.city}, ${r.country}`;
+          return {
+            ...r,
+            coords: geoMap[key] || [-9.19, -75.015], // fallback: centro de Perú
+            modality: Object.keys(r.modalidad || {})[0] || "presencial", // primera modalidad encontrada
+          };
+        });
+
+        setData(mapped);
+      } catch (err) {
+        console.error("Error cargando city demand", err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Heatmap
   const maxCount = Math.max(...data.map((d) => d.count), 1);
   const heatmapPoints: [number, number, number][] = data.map((d) => [
     d.coords[0],
@@ -48,24 +80,26 @@ export default function CityDemandMap() {
     d.count / maxCount,
   ]);
 
-  // Diccionario de colores
   const colorMap: Record<string, string> = {
     presencial: "red",
+    "no_remote": "red",
     remoto: "green",
+    "fully_remote": "green",
     hibrido: "orange",
+    hybrid: "orange",
   };
 
   return (
     <Card className="bg-[#111] text-white rounded-xl border border-gray-700">
       <CardContent className="p-6 flex flex-col items-center">
         <h2 className="text-center text-sm font-semibold text-white mb-4">
-          DEMANDA POTENCIAL POR CIUDAD (Perú - Get on Board)
+          DEMANDA POTENCIAL POR CIUDAD (Perú, Chile - Get on Board)
         </h2>
 
         <div className="relative w-full h-[440px] rounded-lg overflow-hidden">
           <MapContainer
-            center={[-9.19, -75.015]} // centro de Perú
-            zoom={5}
+            center={[-15, -72]} // centro Perú/Chile
+            zoom={4}
             style={{ height: "100%", width: "100%" }}
             className="rounded-lg"
           >
@@ -75,17 +109,16 @@ export default function CityDemandMap() {
             />
             <HeatmapLayer points={heatmapPoints} />
 
-            {/* Círculos con colores */}
-            {data.map((d) => (
+            {data.map((d, i) => (
               <CircleMarker
-                key={d.city}
+                key={i}
                 center={d.coords}
                 radius={8 + d.count * 0.3}
-                color={colorMap[d.modality] || "blue"}
+                color={colorMap[d.modality.toLowerCase()] || "blue"}
                 fillOpacity={0.7}
               >
                 <Tooltip direction="top" offset={[0, -5]} opacity={1} permanent>
-                  {d.city} — {d.count} ofertas ({d.modality})
+                  {d.city}, {d.country} — {d.count} ofertas ({d.modality})
                 </Tooltip>
               </CircleMarker>
             ))}

@@ -31,15 +31,16 @@ export default function AiChat() {
     setTypingText("");
 
     try {
-      const res = await axios.post("/ai/chat", { message: userMessage.text });
+      // 🔹 Ahora llamamos al padre DashboardAIController
+      const res = await axios.post("dashboard/ai/chat", { message: userMessage.text });
 
-      const message = res.data.message || "⚠️ No se entendió la respuesta.";
+      const message = res.data.message || "";
       const suggestion = res.data.suggestion;
 
-      // actualizar dashboard
-      updateDashboard(res.data.results, res.data.aggregations);
+      // 🔹 Actualizar dashboard (results, aggregations, instruction)
+      updateDashboard(res.data.results, res.data.aggregations, res.data.instruction);
 
-      // animación typing
+      // 🔹 Animación typing
       let i = 0;
       const interval = setInterval(() => {
         setTypingText((prev) => prev + message[i]);
@@ -68,7 +69,7 @@ export default function AiChat() {
     }
   };
 
-  // auto scroll
+  // 🔹 Auto scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingText, loading]);
@@ -106,7 +107,7 @@ export default function AiChat() {
         <div ref={chatEndRef} />
       </CardContent>
 
-      {/* Input */}
+      {/* Input + botón */}
       <div className="p-3 border-t border-gray-700 flex gap-2">
         <input
           value={input}
@@ -118,7 +119,7 @@ export default function AiChat() {
         />
 
       </div>
-       <button
+        <button
           onClick={handleSend}
           disabled={loading}
           className="px-4 py-2 bg-blue-600 rounded text-white flex items-center gap-2 hover:bg-blue-700 transition disabled:opacity-50"

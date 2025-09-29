@@ -12,6 +12,11 @@ use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SyllabusController;
 use App\Http\Controllers\AI\DashboardAIController;
+use App\Http\Controllers\AI\CityDemandAIController;
+use App\Http\Controllers\AI\WorkModeAIController;
+use App\Http\Controllers\AI\TechnologiesAIController;
+use App\Http\Controllers\AI\RolesAIController;
+
 
 
 
@@ -162,6 +167,13 @@ Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(funct
     Route::get('/obsolescence', [DashboardAIController::class, 'obsolescence'])->name('dashboard_ai.obsolescence');
     Route::get('/workmode', [DashboardAIController::class, 'workmode'])->name('dashboard_ai.workmode');
 });
+
+// AI hijos
+Route::get('/ai/workmode/index', [WorkModeAIController::class, 'index'])->name('ai.workmode.index');
+Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
+Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
+Route::get('/ai/technologies/index', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
+
 });
 
 

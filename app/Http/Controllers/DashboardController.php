@@ -2,19 +2,37 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Support;
-use App\Models\SupportDetail;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\AI\WorkModeAIController;
+use App\Http\Controllers\AI\CityDemandAIController;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        Log::info("📊 Cargando DashboardController@index");
 
+        // 🔹 Datos iniciales para los cards
+        try {
+            $workmode = app(WorkModeAIController::class)->index()->getData(true);
+            Log::info("✅ Datos iniciales WorkMode", ['data' => $workmode]);
+
+            $cityDemand = app(CityDemandAIController::class)->index()->getData(true);
+
+            Log::info("✅ Datos iniciales CityDemand", ['data' => $cityDemand]);
+        } catch (\Throwable $e) {
+            Log::error("❌ Error obteniendo datos iniciales en Dashboard", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
 
         return Inertia::render('dashboards/Dashboard', [
-
+            'initialData' => [
+                'workmode'   => $workmode ?? null,
+                 'cityDemand' => $cityDemand ?? null,
+            ]
         ]);
     }
 }

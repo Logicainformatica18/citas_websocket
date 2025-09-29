@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\AI\WorkModeAIController;
+use App\Http\Controllers\AI\CityDemandAIController;
+use App\Http\Controllers\AI\TechnologiesAIController;
+use App\Http\Controllers\AI\RolesAIController;
 
 class DashboardAIController extends Controller
 {
@@ -15,84 +19,132 @@ class DashboardAIController extends Controller
             'message' => 'required|string',
         ]);
 
-        // 1. Obtener instrucción de OpenAI
+        // 1. Preguntar a OpenAI
         $instruction = $this->getInstructionFromAI($request->message);
 
-        if (!$instruction || empty($instruction['action'])) {
+        if (!$instruction) {
             return response()->json([
                 'error' => '❌ No se pudo interpretar la instrucción de la IA',
             ], 500);
         }
 
-        // 2. Enrutar al controlador hijo según la acción
-        switch ($instruction['action']) {
-            case 'city_demand':
-                $controller = app(CityDemandController::class);
-                return $controller->getData($instruction);
-
-            case 'obsolescence':
-                $controller = app(ObsolescenceController::class);
-                return $controller->getData($instruction);
-
-            case 'technologies':
-                $controller = app(TechnologiesController::class);
-                return $controller->getData($instruction);
-
-            default:
-                return response()->json([
-                    'error' => "⚠️ Acción desconocida: {$instruction['action']}"
-                ], 400);
+        // 2. Si aún está en estado "pending_confirmation", devolver tal cual
+        if (($instruction['status'] ?? null) === 'pending_confirmation') {
+            return response()->json($instruction);
         }
+
+        // 3. Si está confirmado, enrutar a los hijos correspondientes
+        $results = [];
+        foreach ($instruction['targets'] ?? [] as $target) {
+            switch ($target) {
+                case 'WorkModeChart':
+                    $controller = app(WorkModeAIController::class);
+                    $results[$target] = $controller->getData($instruction);
+                    break;
+
+                case 'CityDemandMap':
+                    $controller = app(CityDemandAIController::class);
+                    $results[$target] = $controller->getData($instruction);
+                    break;
+
+                case 'TechnologiesChart':
+                    $controller = app(TechnologiesAIController::class);
+                    $results[$target] = $controller->getData($instruction);
+                    break;
+
+                case 'RolesChart':
+                    $controller = app(RolesAIController::class);
+                    $results[$target] = $controller->getData($instruction);
+                    break;
+
+                default:
+                    Log::warning("⚠️ Target desconocido: {$target}");
+            }
+        }
+
+        return response()->json([
+            'instruction' => $instruction,
+            'results' => $results,
+        ]);
     }
 
     /**
-     * 🔹 Paso 1: Preguntar a OpenAI por la intención en formato JSON
+     * 🔹 Paso 1: Obtener la intención global en JSON Mode
      */
-    private function getInstructionFromAI(string $userMessage): ?array
-    {
-        $apiKey = env('OPENAI_API_KEY');
-
-        $systemPrompt = <<<EOT
-Eres un asistente para un Dashboard de empleabilidad.
-Debes devolver SOLO un JSON válido con la acción a ejecutar.
-
-Acciones permitidas:
-- city_demand → cuando el usuario pregunte por mapa de calor, ciudades o países.
-- obsolescence → cuando pregunte por tecnologías obsoletas.
-- technologies → cuando pregunte por tendencias de lenguajes o tecnologías.
-
-Formato:
+   private function getInstructionFromAI(string $userMessage): ?array
 {
-  "action": "city_demand" | "obsolescence" | "technologies",
-  "filters": { "campo": "valor" }  // opcional
+    $apiKey = env('OPENAI_API_KEY');
+
+    $systemPrompt = <<<EOT
+Eres un asistente para un Dashboard de Ofertas Laborales.
+Debes responder **EXCLUSIVAMENTE** en JSON válido.
+
+Tu rol:
+1. Conversa con el usuario y ayúdalo a construir su consulta paso a paso.
+2. Haz preguntas aclaratorias si falta contexto (ejemplo: rol, modalidad, país, ciudad, sector).
+3. Cuando detectes suficiente información, responde en JSON con `"status":"pending_confirmation"`
+   y propone una `"suggestion"` clara para confirmar la consulta.
+4. Solo cuando el usuario confirme → responde con `"status":"confirmed"`.
+
+Formato JSON esperado:
+{
+  "targets": ["WorkModeChart","CityDemandMap"],
+  "filters": { "campo": "valor" },
+  "fields": ["columna1"],
+  "aggregations": ["percent","count","avg"],
+  "status": "pending_confirmation" | "confirmed",
+  "suggestion": "Texto para confirmar con el usuario"
 }
 
-⚠️ IMPORTANTE:
-- Responde SOLO con JSON válido.
-- Nada de explicaciones.
+Reglas:
+- Modalidad de trabajo → `WorkModeChart`
+- País o ciudad → `CityDemandMap`
+- Salarios → `SalaryChart`
+- Tecnologías/lenguajes → `TechnologiesChart`
+- Roles o perfiles → `RolesChart`
+
+Reglas adicionales:
+- Si el usuario dice "sin filtros", "general" o "todo", interpreta que desea un resumen general.
+- En ese caso responde directamente con `"status": "confirmed"` y define `targets` de forma automática según el tema:
+   - Si no menciona nada → usa ["WorkModeChart","CityDemandMap"].
+   - Si menciona modalidad → usa ["WorkModeChart"].
+   - Si menciona países/ciudades → usa ["CityDemandMap"].
 EOT;
 
-        $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o-mini',
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage],
-            ],
-            'temperature' => 0,
-            'max_tokens' => 300,
+    Log::info("🤖 Enviando mensaje a OpenAI", ['message' => $userMessage]);
+
+    $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+        'model' => 'gpt-4o-mini',
+        'messages' => [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userMessage],
+        ],
+        'temperature' => 0,
+        'max_tokens' => 500,
+        'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode activado
+    ]);
+
+    if ($response->failed()) {
+        Log::error("❌ Error en petición OpenAI (Dashboard)", [
+            'status' => $response->status(),
+            'body'   => $response->body(),
         ]);
-
-        if ($response->failed()) {
-            Log::error("❌ Error en petición OpenAI (Dashboard)", [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-            return null;
-        }
-
-        $raw = $response->json('choices.0.message.content');
-        Log::info("📝 Instrucción IA Dashboard", ['raw' => $raw]);
-
-        return json_decode($raw, true);
+        return null;
     }
+
+    $raw = $response->json('choices.0.message.content'); // string JSON
+    Log::info("📝 Instrucción IA Dashboard RAW", ['raw' => $raw]);
+
+    $decoded = json_decode($raw, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        Log::error("❌ Error parseando JSON IA", [
+            'error' => json_last_error_msg(),
+            'raw'   => $raw,
+        ]);
+        return null;
+    }
+
+    return $decoded;
+}
 }
