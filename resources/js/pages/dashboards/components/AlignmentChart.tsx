@@ -6,30 +6,32 @@ const data = [
   { name: "Other", value: 25 },
 ];
 
-const COLORS = ["#00C49F", "#1f2937"]; // verde + gris oscuro
+const COLORS = ["#00C49F", "#2D2D2D"]; // verde + gris oscuro
 
 export default function AlignmentChart() {
   return (
-    <Card className="bg-slate-900 text-white rounded-xl shadow-lg">
+    <Card className="bg-[#111] text-white rounded-xl border border-gray-700">
       <CardContent className="p-6 flex flex-col items-center justify-center">
         {/* Título */}
-        <h2 className="text-center text-sm font-semibold text-slate-200 uppercase tracking-wide mb-4">
-          Alineación del área de tecnología con las tendencias del sector
+        <h2 className="text-center text-sm font-medium text-gray-300 uppercase tracking-wide mb-6">
+          ALINEACIÓN DEL ÁREA DE TECNOLOGÍA <br />
+          CON LAS TENDENCIAS DEL SECTOR
         </h2>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           {/* Donut Chart */}
           <div className="relative">
-            <PieChart width={180} height={180}>
+            <PieChart width={160} height={160}>
               <Pie
                 data={data}
                 dataKey="value"
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
+                innerRadius={55}
+                outerRadius={70}
                 startAngle={90}
                 endAngle={-270}
+                stroke="none"
               >
                 {data.map((entry, index) => (
                   <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -43,10 +45,10 @@ export default function AlignmentChart() {
             </div>
           </div>
 
-          {/* Caja lateral con label */}
-          <div className="bg-gradient-to-br from-slate-700 to-slate-800 px-4 py-3 rounded-lg shadow-md">
-            <p className="text-sm text-slate-300">Tech</p>
-            <p className="text-lg font-semibold text-white">75%</p>
+          {/* Caja lateral con degradado */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900/80 px-6 py-4 rounded-lg shadow-md flex flex-col items-center">
+            <p className="text-sm text-gray-300">Tech</p>
+            <p className="text-xl font-semibold text-white">75%</p>
           </div>
         </div>
       </CardContent>

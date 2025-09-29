@@ -1,26 +1,72 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 
+const value = 100; // porcentaje actual
 const data = [
-  { name: "Ingeniería de Software", value: 30 },
-  { name: "Ciencia de Datos", value: 20 },
-  { name: "Desarrollo Web", value: 45 },
-  { name: "Redes y Comunicaciones", value: 35 },
+  { name: "verde", value: 25 },
+  { name: "amarillo", value: 50 },
+  { name: "rojo", value: 25 },
 ];
 
-export default function ObsolescenceChart() {
+const COLORS = ["#27ae60", "#f1c40f", "#e74c3c"];
+
+export default function ObsolescenceGauge() {
+  const [angle, setAngle] = useState(-90); // inicia en 0%
+  
+  useEffect(() => {
+    // al montar o actualizar value, se actualiza el ángulo con animación
+    const newAngle = (value / 100) * 180 - 90;
+    setAngle(newAngle);
+  }, [value]);
+
   return (
-    <Card className="bg-gray-800 text-white">
-      <CardContent className="p-4">
-        <h2 className="text-lg font-bold mb-2">Nivel de Obsolescencia en IA</h2>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={data} layout="vertical">
-            <XAxis type="number" />
-            <YAxis dataKey="name" type="category" width={150} />
-            <Tooltip />
-            <Bar dataKey="value" fill="#82ca9d" />
-          </BarChart>
-        </ResponsiveContainer>
+    <Card className="bg-[#111] text-white rounded-xl p-6">
+      <CardContent className="flex flex-col items-center">
+        <h2 className="text-md font-bold text-center leading-tight">
+          NIVEL DE OBSOLESCENCIA <br /> SOBRE IA
+        </h2>
+        <p className="text-xs text-gray-300 mb-4">
+          EN PROGRAMAS DE TECNOLOGÍA
+        </p>
+
+        {/* Gauge */}
+        <div className="relative w-64 h-40">
+          <PieChart width={250} height={140}>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="100%"
+              startAngle={180}
+              endAngle={0}
+              innerRadius={70}
+              outerRadius={90}
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+
+          {/* Aguja triangular animada */}
+          <div
+            className="absolute left-1/2 bottom-[30px] w-0 h-0 transition-transform duration-1500 ease-out"
+            style={{
+              transform: `translateX(-50%) rotate(${angle}deg)`,
+              transformOrigin: "bottom center",
+              borderLeft: "10px solid transparent",
+              borderRight: "10px solid transparent",
+              borderBottom: "80px solid #444", // color de la aguja
+            }}
+          ></div>
+
+          {/* Círculo central */}
+          <div className="absolute left-1/2 bottom-[18px] w-6 h-6 bg-gray-300 rounded-full transform -translate-x-1/2"></div>
+        </div>
+
+        {/* Texto debajo */}
+        <div className="mt-2 text-3xl font-bold">{value}%</div>
       </CardContent>
     </Card>
   );
