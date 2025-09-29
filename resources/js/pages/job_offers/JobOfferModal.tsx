@@ -44,7 +44,6 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
       const res = await axios.get(apiUrl);
       setPreview(res.data.data || []);
     } catch (e) {
-      console.error("Error al obtener datos externos", e);
       alert("No se pudo obtener datos de la API.");
     } finally {
       setLoading(false);
@@ -59,7 +58,6 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
       onImported();
       onClose();
     } catch (e) {
-      console.error("Error al guardar", e);
       alert("No se pudo guardar en la base de datos.");
     } finally {
       setLoading(false);
@@ -68,43 +66,45 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-[800px] p-6 space-y-4">
-        <h2 className="text-xl font-bold mb-2">Importar Ofertas desde API</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-lg w-[800px] p-6 space-y-4 shadow-lg border border-gray-200 dark:border-gray-700">
+        <h2 className="text-xl font-bold mb-2 text-gray-800 dark:text-gray-100">
+          Importar Ofertas desde API
+        </h2>
 
         <input
           type="text"
           value={apiUrl}
           onChange={(e) => setApiUrl(e.target.value)}
-          className="w-full p-2 border rounded"
+          className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
         />
 
         <div className="flex gap-2">
           <button
             onClick={handleFetch}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
           >
             {loading ? "Cargando..." : "Obtener"}
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-4 py-2 bg-green-600 text-white rounded"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50"
           >
             Guardar en BD
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-400 text-white rounded"
+            className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded"
           >
             Cancelar
           </button>
         </div>
 
         {preview.length > 0 && (
-          <div className="max-h-96 overflow-y-auto border rounded">
+          <div className="max-h-96 overflow-y-auto border rounded border-gray-200 dark:border-gray-700">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
+              <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                 <tr>
                   <th className="px-2 py-1 text-left">Título</th>
                   <th className="px-2 py-1 text-left">Empresa</th>
@@ -114,16 +114,16 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                   <th className="px-2 py-1 text-left">Publicado</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="text-gray-800 dark:text-gray-200">
                 {preview.map((job) => {
                   const attr = job.attributes || {};
 
                   const companyName =
-                    attr.company?.data?.attributes?.name ??
-                    "N/A"; // ⚠️ puede no venir en search/jobs
+                    attr.company?.data?.attributes?.name ?? "N/A";
 
                   const modality = attr.modality?.data?.id
-                    ? modalityMap[attr.modality.data.id] ?? `ID ${attr.modality.data.id}`
+                    ? modalityMap[attr.modality.data.id] ??
+                      `ID ${attr.modality.data.id}`
                     : "N/A";
 
                   const location = attr.remote_modality
@@ -136,14 +136,17 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                       : "N/A";
 
                   return (
-                    <tr key={job.id} className="border-t">
+                    <tr
+                      key={job.id}
+                      className="border-t border-gray-200 dark:border-gray-700"
+                    >
                       <td className="px-2 py-1">
                         {job.links?.public_url ? (
                           <a
                             href={job.links.public_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
                           >
                             {attr.title ?? "N/A"}
                           </a>

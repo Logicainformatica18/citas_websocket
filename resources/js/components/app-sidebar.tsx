@@ -16,10 +16,13 @@ import { NavUser } from '@/components/nav-user';
 // Nuevos íconos
 import {
     BarChart3,
-    Search,
+    FileText,
+    BookOpen,
     BriefcaseBusiness,
     UserCircle2,
     Shield,
+    Banknote,
+    Database,
 } from 'lucide-react';
 
 type PageProps = {
@@ -57,9 +60,9 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                {/* Extractos Bancarios */}
 
-                {/* Pagos */}
+
+
 
                 {/* Scrapings */}
                 <div className="mb-4">
@@ -74,26 +77,39 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                     </SidebarMenu>
 
-                    <SidebarMenu>
+                    {/* <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link href="/scrapings" className="flex items-center gap-2">
-                                    <Search className="w-5 h-5" />
+                                    <Database className="w-5 h-5" />
                                     <span>Scrapings</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarMenu>
-   <SidebarMenu>
+                    </SidebarMenu> */}
+
+                    <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/courses" className="flex items-center gap-2">
-                                    <Search className="w-5 h-5" />
-                                    <span>Cursos Isil</span>
+                                <Link href="/syllabus" className="flex items-center gap-2">
+                                    <FileText className="w-5 h-5" />
+                                    <span>Syllabus</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>
+
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/courses" className="flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5" />
+                                    <span>Cursos ISIL</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
@@ -127,7 +143,18 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </div>
+
                 {/* Backups */}
+                {/* <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild>
+                            <Link href="/backups" className="flex items-center gap-2">
+                                <Shield className="w-5 h-5" />
+                                <span>Backups</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu> */}
             </SidebarContent>
 
             {/* Footer con el usuario logueado */}

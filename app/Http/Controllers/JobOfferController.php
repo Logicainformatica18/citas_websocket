@@ -103,7 +103,7 @@ class JobOfferController extends Controller
                         'title'        => $title,
                         'company'      => $company,
                         'location'     => $location,
-                        'modality'     => $modality,
+                        'modality'     => $location,
                         'salary_min'   => $salary_min,
                         'salary_max'   => $salary_max,
                         'currency'     => $currency,

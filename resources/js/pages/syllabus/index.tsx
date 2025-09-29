@@ -152,135 +152,136 @@ export default function SyllabusIndex() {
           </div>
         )}
 
-        {/* Tabla */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border rounded bg-white">
-            <thead className="bg-gray-100 text-left">
-              <tr>
-                <th className="px-4 py-2">
-                  <input
-                    type="checkbox"
-                    checked={
-                      items.length > 0 &&
-                      items.every((i) => selectedIds.includes(i.id))
-                    }
-                    onChange={(e) =>
-                      setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
-                    }
-                  />
-                </th>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Archivo</th>
-                <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Curso</th>
-                <th className="px-4 py-2">Lenguajes</th>
-                <th className="px-4 py-2">Tecnologías</th>
-                <th className="px-4 py-2">Metodologías</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="border-t hover:bg-gray-50 align-top">
-                  <td className="px-4 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(item.id)}
-                      onChange={(e) =>
-                        setSelectedIds((prev) =>
-                          e.target.checked
-                            ? [...prev, item.id]
-                            : prev.filter((id) => id !== item.id)
-                        )
-                      }
-                    />
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <button
-                      onClick={() => removeOne(item.id, item.filename)}
-                      className="text-red-600 hover:underline inline-flex items-center gap-1 text-sm"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-                  </td>
-                  <td className="px-4 py-2">{item.filename}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        item.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : item.status === 'processing'
-                          ? 'bg-blue-100 text-blue-800'
-                          : item.status === 'processed'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {item.structured_data?.curso ?? '-'}
-                  </td>
-                  <td className="px-4 py-2">
-                    {item.structured_data?.lenguajes?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {item.structured_data.lenguajes.map((l, i) => (
-                          <span
-                            key={`${l}-${i}`}
-                            className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs"
-                          >
-                            {l}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {item.structured_data?.tecnologias?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {item.structured_data.tecnologias.map((t, i) => (
-                          <span
-                            key={`${t}-${i}`}
-                            className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {item.structured_data?.metodologias?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {item.structured_data.metodologias.map((m, i) => (
-                          <span
-                            key={`${m}-${i}`}
-                            className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs"
-                          >
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
-                    No hay sílabos para mostrar.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+       {/* Tabla */}
+<div className="overflow-x-auto">
+  <table className="min-w-full table-auto border border-gray-700 rounded bg-gray-900 text-gray-200">
+    <thead className="bg-gray-800 text-left text-gray-300">
+      <tr>
+        <th className="px-4 py-2">
+          <input
+            type="checkbox"
+            checked={
+              items.length > 0 &&
+              items.every((i) => selectedIds.includes(i.id))
+            }
+            onChange={(e) =>
+              setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
+            }
+          />
+        </th>
+        <th className="px-4 py-2">Acciones</th>
+        <th className="px-4 py-2">Archivo</th>
+        <th className="px-4 py-2">Estado</th>
+        <th className="px-4 py-2">Curso</th>
+        <th className="px-4 py-2">Lenguajes</th>
+        <th className="px-4 py-2">Tecnologías</th>
+        <th className="px-4 py-2">Metodologías</th>
+      </tr>
+    </thead>
+    <tbody>
+      {items.map((item) => (
+        <tr key={item.id} className="border-t border-gray-700 hover:bg-gray-800 align-top">
+          <td className="px-4 py-2">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(item.id)}
+              onChange={(e) =>
+                setSelectedIds((prev) =>
+                  e.target.checked
+                    ? [...prev, item.id]
+                    : prev.filter((id) => id !== item.id)
+                )
+              }
+            />
+          </td>
+          <td className="px-4 py-2 whitespace-nowrap">
+            <button
+              onClick={() => removeOne(item.id, item.filename)}
+              className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm"
+            >
+              <Trash2 className="w-4 h-4" /> Eliminar
+            </button>
+          </td>
+          <td className="px-4 py-2">{item.filename}</td>
+          <td className="px-4 py-2">
+            <span
+              className={`px-2 py-1 rounded text-xs font-medium ${
+                item.status === 'pending'
+                  ? 'bg-yellow-900 text-yellow-200'
+                  : item.status === 'processing'
+                  ? 'bg-blue-900 text-blue-200'
+                  : item.status === 'processed'
+                  ? 'bg-green-900 text-green-200'
+                  : 'bg-red-900 text-red-200'
+              }`}
+            >
+              {item.status}
+            </span>
+          </td>
+          <td className="px-4 py-2">
+            {item.structured_data?.curso ?? '-'}
+          </td>
+          <td className="px-4 py-2">
+            {item.structured_data?.lenguajes?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {item.structured_data.lenguajes.map((l, i) => (
+                  <span
+                    key={`${l}-${i}`}
+                    className="px-2 py-0.5 bg-green-900 text-green-200 rounded text-xs"
+                  >
+                    {l}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              '-'
+            )}
+          </td>
+          <td className="px-4 py-2">
+            {item.structured_data?.tecnologias?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {item.structured_data.tecnologias.map((t, i) => (
+                  <span
+                    key={`${t}-${i}`}
+                    className="px-2 py-0.5 bg-blue-900 text-blue-200 rounded text-xs"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              '-'
+            )}
+          </td>
+          <td className="px-4 py-2">
+            {item.structured_data?.metodologias?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {item.structured_data.metodologias.map((m, i) => (
+                  <span
+                    key={`${m}-${i}`}
+                    className="px-2 py-0.5 bg-purple-900 text-purple-200 rounded text-xs"
+                  >
+                    {m}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              '-'
+            )}
+          </td>
+        </tr>
+      ))}
+      {items.length === 0 && (
+        <tr>
+          <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
+            No hay sílabos para mostrar.
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
+
 
         {/* Paginación */}
         {pagination.last_page > 1 && (

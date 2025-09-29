@@ -22,7 +22,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-  const [sizes, setSizes] = useState([80, 20]); // contenido 80%, chat 20%
+  const [sizes, setSizes] = useState([95, 5]); // contenido 80%, chat 20%
   const [collapsed, setCollapsed] = useState(false);
 
   const togglePanel = () => {
