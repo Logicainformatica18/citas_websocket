@@ -8,12 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+
 class JobOfferController extends Controller
 {
     public function index()
     {
-        $offers = JobOffer::orderBy('published_at', 'desc')
-            ->paginate(10);
+        $offers = JobOffer::orderBy('published_at', 'desc')->paginate(10);
 
         return Inertia::render('job_offers/index', [
             'offers' => $offers->through(function ($offer) {
@@ -21,7 +21,8 @@ class JobOfferController extends Controller
                     'id'          => $offer->id,
                     'title'       => $offer->title,
                     'company'     => $offer->company,
-                    'location'    => $offer->location,
+                    'country'     => $offer->country,
+                    'city'        => $offer->city,
                     'modality'    => $offer->modality,
                     'workload'    => $offer->workload,
                     'salary_min'  => $offer->salary_min,
@@ -31,6 +32,7 @@ class JobOfferController extends Controller
                     'external_id' => $offer->external_id,
                     'url'         => $offer->url,
                     'published_at'=> optional($offer->published_at)->format('Y-m-d'),
+                    'created_at'  => optional($offer->created_at)->format('Y-m-d'),
                 ];
             }),
         ]);
@@ -38,15 +40,15 @@ class JobOfferController extends Controller
 
     public function fetchPaginated()
     {
-        $offers = JobOffer::orderBy('published_at', 'desc')
-            ->paginate(10);
+        $offers = JobOffer::orderBy('published_at', 'desc')->paginate(10);
 
         $formatted = $offers->through(function ($offer) {
             return [
                 'id'          => $offer->id,
                 'title'       => $offer->title,
                 'company'     => $offer->company,
-                'location'    => $offer->location,
+                'country'     => $offer->country,
+                'city'        => $offer->city,
                 'modality'    => $offer->modality,
                 'workload'    => $offer->workload,
                 'salary_min'  => $offer->salary_min,
@@ -56,19 +58,20 @@ class JobOfferController extends Controller
                 'external_id' => $offer->external_id,
                 'url'         => $offer->url,
                 'published_at'=> optional($offer->published_at)->format('Y-m-d'),
+                'created_at'  => optional($offer->created_at)->format('Y-m-d'),
             ];
         });
 
         return response()->json($formatted);
     }
-  public function import(Request $request)
+
+    public function import(Request $request)
     {
         $request->validate([
             'api_url' => 'required|url',
         ]);
 
         try {
-            // 1. Llamar API
             $response = Http::get($request->api_url);
 
             if ($response->failed()) {
@@ -76,17 +79,17 @@ class JobOfferController extends Controller
             }
 
             $data = $response->json('data') ?? [];
-
             $saved = 0;
 
             foreach ($data as $job) {
                 $attr = $job['attributes'] ?? [];
 
-                // 2. Normalizar datos
+                // Normalizar
                 $title       = $attr['title'] ?? 'N/A';
                 $company     = $attr['company']['data']['attributes']['name'] ?? null;
-                $location    = $attr['remote_modality'] ?? null;
-                $modality    = $attr['modality']['data']['type'] ?? null;
+                $country     = isset($attr['countries']) ? implode(',', $attr['countries']) : null;
+                $city        = $attr['city'] ?? null;
+                $modality    = $attr['remote_modality'] ?? null;
                 $salary_min  = $attr['min_salary'] ?? null;
                 $salary_max  = $attr['max_salary'] ?? null;
                 $currency    = $attr['salary_currency'] ?? 'USD';
@@ -96,14 +99,14 @@ class JobOfferController extends Controller
                     ? \Carbon\Carbon::createFromTimestamp($attr['published_at'])->toDateString()
                     : null;
 
-                // 3. Guardar en BD (evitar duplicados por url o título)
                 JobOffer::updateOrCreate(
                     ['url' => $url],
                     [
                         'title'        => $title,
                         'company'      => $company,
-                        'location'     => $location,
-                        'modality'     => $location,
+                        'country'      => $country,
+                        'city'         => $city,
+                        'modality'     => $modality,
                         'salary_min'   => $salary_min,
                         'salary_max'   => $salary_max,
                         'currency'     => $currency,
@@ -123,12 +126,14 @@ class JobOfferController extends Controller
             return response()->json(['error' => 'Error interno al importar.'], 500);
         }
     }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'title'       => 'required|string|max:255',
             'company'     => 'nullable|string|max:255',
-            'location'    => 'nullable|string|max:255',
+            'country'     => 'nullable|string|max:100',
+            'city'        => 'nullable|string|max:150',
             'modality'    => 'nullable|string|max:100',
             'workload'    => 'nullable|string|max:100',
             'salary_min'  => 'nullable|numeric',
@@ -159,7 +164,8 @@ class JobOfferController extends Controller
                 'id'          => $offer->id,
                 'title'       => $offer->title,
                 'company'     => $offer->company,
-                'location'    => $offer->location,
+                'country'     => $offer->country,
+                'city'        => $offer->city,
                 'modality'    => $offer->modality,
                 'workload'    => $offer->workload,
                 'salary_min'  => $offer->salary_min,
@@ -169,6 +175,7 @@ class JobOfferController extends Controller
                 'external_id' => $offer->external_id,
                 'url'         => $offer->url,
                 'published_at'=> optional($offer->published_at)->format('Y-m-d'),
+                'created_at'  => optional($offer->created_at)->format('Y-m-d'),
             ],
         ]);
     }
@@ -178,7 +185,8 @@ class JobOfferController extends Controller
         $validated = $request->validate([
             'title'       => 'required|string|max:255',
             'company'     => 'nullable|string|max:255',
-            'location'    => 'nullable|string|max:255',
+            'country'     => 'nullable|string|max:100',
+            'city'        => 'nullable|string|max:150',
             'modality'    => 'nullable|string|max:100',
             'workload'    => 'nullable|string|max:100',
             'salary_min'  => 'nullable|numeric',

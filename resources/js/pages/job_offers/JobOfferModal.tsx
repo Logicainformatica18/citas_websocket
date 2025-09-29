@@ -8,10 +8,10 @@ type Props = {
 };
 
 // Diccionario modalidades
-const modalityMap: Record<number, string> = {
-  1: "Presencial",
-  2: "Remoto",
-  3: "Híbrido",
+const modalityMap: Record<string, string> = {
+  onsite: "Presencial",
+  remote: "Remoto",
+  hybrid: "Híbrido",
 };
 
 // Formatear fecha desde timestamp UNIX
@@ -30,7 +30,7 @@ const formatDateUnix = (timestamp: number | null | undefined) => {
 
 export default function JobOfferModal({ open, onClose, onImported }: Props) {
   const [apiUrl, setApiUrl] = useState(
-    "https://www.getonbrd.com/api/v0/search/jobs?query=programador+web&per_page=10"
+    "https://www.getonbrd.com/api/v0/search/jobs?query=programador&per_page=10"
   );
   const [preview, setPreview] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg w-[800px] p-6 space-y-4 shadow-lg border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-900 rounded-lg w-[900px] p-6 space-y-4 shadow-lg border border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold mb-2 text-gray-800 dark:text-gray-100">
           Importar Ofertas desde API
         </h2>
@@ -108,7 +108,8 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                 <tr>
                   <th className="px-2 py-1 text-left">Título</th>
                   <th className="px-2 py-1 text-left">Empresa</th>
-                  <th className="px-2 py-1 text-left">Ubicación</th>
+                  <th className="px-2 py-1 text-left">País</th>
+                  <th className="px-2 py-1 text-left">Ciudad</th>
                   <th className="px-2 py-1 text-left">Modalidad</th>
                   <th className="px-2 py-1 text-left">Salario</th>
                   <th className="px-2 py-1 text-left">Publicado</th>
@@ -121,14 +122,15 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                   const companyName =
                     attr.company?.data?.attributes?.name ?? "N/A";
 
-                  const modality = attr.modality?.data?.id
-                    ? modalityMap[attr.modality.data.id] ??
-                      `ID ${attr.modality.data.id}`
+                  const modality = attr.remote_modality
+                    ? modalityMap[attr.remote_modality] ?? attr.remote_modality
                     : "N/A";
 
-                  const location = attr.remote_modality
-                    ? `${attr.remote_modality} (${attr.countries?.join(", ") ?? "?"})`
-                    : attr.countries?.join(", ") ?? "N/A";
+                  const country = attr.countries?.length
+                    ? attr.countries.join(", ")
+                    : "N/A";
+
+                  const city = attr.city ?? "-";
 
                   const salary =
                     attr.min_salary && attr.max_salary
@@ -155,7 +157,8 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                         )}
                       </td>
                       <td className="px-2 py-1">{companyName}</td>
-                      <td className="px-2 py-1">{location}</td>
+                      <td className="px-2 py-1">{country}</td>
+                      <td className="px-2 py-1">{city}</td>
                       <td className="px-2 py-1">{modality}</td>
                       <td className="px-2 py-1">{salary}</td>
                       <td className="px-2 py-1">

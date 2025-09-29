@@ -30,7 +30,8 @@ type JobOffer = {
   id: number;
   title: string;
   company?: string | null;
-  location?: string | null;
+  country?: string | null;   // ✅ nuevo
+  city?: string | null;      // ✅ nuevo
   modality?: string | null;
   salary_min?: number | null;
   salary_max?: number | null;
@@ -40,6 +41,7 @@ type JobOffer = {
   published_at?: string | null;
   created_at?: string;
 };
+
 
 type Pagination<T> = {
   data: T[];
@@ -151,7 +153,9 @@ export default function JobOffersIndex() {
                 <th className="px-4 py-2">Acciones</th>
                 <th className="px-4 py-2">Título</th>
                 <th className="px-4 py-2">Empresa</th>
-                <th className="px-4 py-2">Ubicación</th>
+          <th className="px-4 py-2">País</th>
+<th className="px-4 py-2">Ciudad</th>
+
                 <th className="px-4 py-2">Modalidad</th>
                 <th className="px-4 py-2">Salario</th>
                 <th className="px-4 py-2">Fuente</th>
@@ -198,7 +202,9 @@ export default function JobOffersIndex() {
                     )}
                   </td>
                   <td className="px-4 py-2">{item.company ?? "-"}</td>
-                  <td className="px-4 py-2">{item.location ?? "-"}</td>
+             <td className="px-4 py-2">{item.country ?? "-"}</td>
+<td className="px-4 py-2">{item.city ?? "-"}</td>
+
                   <td className="px-4 py-2">{item.modality ?? "-"}</td>
                   <td className="px-4 py-2">
                     {item.salary_min

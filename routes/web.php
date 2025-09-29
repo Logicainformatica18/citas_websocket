@@ -11,7 +11,7 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SyllabusController;
-
+use App\Http\Controllers\AI\DashboardAIController;
 
 
 
@@ -148,6 +148,20 @@ Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
 Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
     ->name('syllabus.bulkDelete')
     ->middleware(['auth', 'permission:administrar']);
+
+
+    // Rutas para el Dashboard AI
+Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(function () {
+    // Chat principal del dashboard IA
+    Route::post('/chat', [DashboardAIController::class, 'chat'])->name('dashboard_ai.chat');
+
+    // Acciones específicas por tipo de card
+    Route::get('/city-demand', [DashboardAIController::class, 'cityDemand'])->name('dashboard_ai.city_demand');
+    Route::get('/technologies', [DashboardAIController::class, 'technologies'])->name('dashboard_ai.technologies');
+    Route::get('/roles', [DashboardAIController::class, 'roles'])->name('dashboard_ai.roles');
+    Route::get('/obsolescence', [DashboardAIController::class, 'obsolescence'])->name('dashboard_ai.obsolescence');
+    Route::get('/workmode', [DashboardAIController::class, 'workmode'])->name('dashboard_ai.workmode');
+});
 });
 
 

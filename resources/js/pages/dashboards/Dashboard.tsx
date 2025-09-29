@@ -22,7 +22,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-  const [sizes, setSizes] = useState([95, 5]); // contenido 80%, chat 20%
+  const [sizes, setSizes] = useState([95, 5]); // contenido 95%, chat 5%
   const [collapsed, setCollapsed] = useState(false);
 
   const togglePanel = () => {
@@ -49,44 +49,50 @@ export default function Dashboard() {
             <Menu size={20} />
           </button>
 
-          <Split
-            className="flex h-full bg-gray-900 text-white"
-            sizes={sizes}
-            minSize={300}
-            gutterSize={12}
-            gutterAlign="center"
-            snapOffset={50}
-            gutterClassName="gutter"
-            onDragEnd={setSizes}
-          >
+    <Split
+  className="flex h-full bg-gray-900 text-white"
+  sizes={sizes}
+  minSize={300}
+  gutterSize={12}
+  gutterAlign="center"
+  snapOffset={50}
+  onDragEnd={setSizes}
+  gutterStyle={() => ({ backgroundColor: "#374151", cursor: "col-resize" })}
+>
+
+
             {/* Panel izquierdo → Cards en filas */}
             <div className="overflow-y-auto p-4 space-y-6">
 
-  {/* Fila 1 */}
-  <div className="grid grid-cols-4 gap-4">
-    <AlignmentChart />
-    <ObsolescenceChart />
-    <div className="col-span-2">
-      <CityDemandMap />
-    </div>
-  </div>
+              {/* Bloque 1 → dos cards a la izquierda + mapa grande a la derecha */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Columna izquierda → 2 filas */}
+                <div className="flex flex-col gap-4">
+                  <AlignmentChart />
+                  <ObsolescenceChart />
+                </div>
 
-  {/* Fila 2 */}
-  <div className="grid grid-cols-4 gap-4">
-    <RolesChart />
-    <TechnologiesChart />
-    <WorkModeChart />
-    <ObsolescenceIA />
-  </div>
+                {/* Columna derecha → ocupa ambas filas */}
+                <div className="col-span-2 row-span-2 h-100">
+                  <CityDemandMap />
+                </div>
+              </div>
 
-  {/* Fila 3 */}
-  <div className="grid grid-cols-3 gap-4">
-    <DemandByCareerChart />
-    <CareerAlignmentChart />
-    <EmploymentRequestChart />
-  </div>
-</div>
+              {/* Bloque 2 */}
+              <div className="grid grid-cols-4 gap-4">
+                <RolesChart />
+                <TechnologiesChart />
+                <WorkModeChart />
+                <ObsolescenceIA />
+              </div>
 
+              {/* Bloque 3 */}
+              <div className="grid grid-cols-3 gap-4">
+                <DemandByCareerChart />
+                <CareerAlignmentChart />
+                <EmploymentRequestChart />
+              </div>
+            </div>
 
             {/* Panel derecho (AI Chat) */}
             <div className="flex flex-col h-full overflow-y-auto p-4 border-l border-gray-700">

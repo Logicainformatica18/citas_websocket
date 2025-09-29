@@ -14,20 +14,23 @@ class JobOffer extends Model
     /**
      * Campos que se pueden asignar masivamente
      */
-    protected $fillable = [
-        'title',
-        'company',
-        'location',
-        'modality',
-        'workload',
-        'salary_min',
-        'salary_max',
-        'currency',
-        'source',
-        'external_id',
-        'url',
-        'published_at',
-    ];
+   protected $fillable = [
+    'title',
+    'company',
+    'country',
+    'city',
+
+    'modality',
+    'workload',
+    'salary_min',
+    'salary_max',
+    'currency',
+    'source',
+    'external_id',
+    'url',
+    'published_at',
+];
+
 
     /**
      * Casts automáticos
