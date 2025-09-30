@@ -71,11 +71,11 @@ class DashboardAIController extends Controller
     /**
      * 🔹 Paso 1: Obtener la intención global en JSON Mode
      */
-   private function getInstructionFromAI(string $userMessage): ?array
-{
-    $apiKey = env('OPENAI_API_KEY');
+    private function getInstructionFromAI(string $userMessage): ?array
+    {
+        $apiKey = env('OPENAI_API_KEY');
 
-    $systemPrompt = <<<EOT
+        $systemPrompt = <<<EOT
 Eres un asistente para un Dashboard de Ofertas Laborales.
 Debes responder **EXCLUSIVAMENTE** en JSON válido.
 
@@ -111,40 +111,40 @@ Reglas adicionales:
    - Si menciona países/ciudades → usa ["CityDemandMap"].
 EOT;
 
-    Log::info("🤖 Enviando mensaje a OpenAI", ['message' => $userMessage]);
+        Log::info("🤖 Enviando mensaje a OpenAI", ['message' => $userMessage]);
 
-    $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
-        'model' => 'gpt-4o-mini',
-        'messages' => [
-            ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $userMessage],
-        ],
-        'temperature' => 0,
-        'max_tokens' => 500,
-        'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode activado
-    ]);
-
-    if ($response->failed()) {
-        Log::error("❌ Error en petición OpenAI (Dashboard)", [
-            'status' => $response->status(),
-            'body'   => $response->body(),
+        $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+            'model' => 'gpt-4o-mini',
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $userMessage],
+            ],
+            'temperature' => 0,
+            'max_tokens' => 500,
+            'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode activado
         ]);
-        return null;
+
+        if ($response->failed()) {
+            Log::error("❌ Error en petición OpenAI (Dashboard)", [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return null;
+        }
+
+        $raw = $response->json('choices.0.message.content'); // string JSON
+        Log::info("📝 Instrucción IA Dashboard RAW", ['raw' => $raw]);
+
+        $decoded = json_decode($raw, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error("❌ Error parseando JSON IA", [
+                'error' => json_last_error_msg(),
+                'raw' => $raw,
+            ]);
+            return null;
+        }
+
+        return $decoded;
     }
-
-    $raw = $response->json('choices.0.message.content'); // string JSON
-    Log::info("📝 Instrucción IA Dashboard RAW", ['raw' => $raw]);
-
-    $decoded = json_decode($raw, true);
-
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        Log::error("❌ Error parseando JSON IA", [
-            'error' => json_last_error_msg(),
-            'raw'   => $raw,
-        ]);
-        return null;
-    }
-
-    return $decoded;
-}
 }

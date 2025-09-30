@@ -20,47 +20,80 @@ class CityDemandAIController extends Controller
         return $this->buildResponse($instruction['filters'] ?? []);
     }
 
-    private function buildResponse(array $filters = [])
-    {
-        $query = JobOffer::query();
+private function buildResponse(array $filters = [])
+{
+    $query = JobOffer::query();
 
-        foreach ($filters as $field => $value) {
-            $query->where($field, $value);
+    foreach ($filters as $field => $value) {
+        $query->where($field, $value);
+    }
+
+    // Todas las ciudades con lat/lng registradas
+    $cityCoords = \App\Models\City::all();
+
+    // Traer ofertas
+    $results = $query->get(['country', 'city', 'modality']);
+
+    // Agrupar por city+country (aunque city o country estén vacíos)
+    $grouped = $results->groupBy(function ($row) {
+        $country = trim($row->country ?? 'Desconocido');
+        $city    = trim($row->city ?? 'Desconocido');
+        return "{$city},{$country}";
+    });
+
+    $total = max($results->count(), 1);
+    $percent = $grouped->map(function ($group) use ($total) {
+        return round(($group->count() / $total) * 100, 2);
+    });
+
+    $cities = $grouped->map(function ($group, $label) use ($cityCoords) {
+        $first    = $group->first();
+        $cityName = trim($first->city ?? '');
+        $country  = trim($first->country ?? '');
+
+        // 🔍 Buscar coordenadas solo si hay city+country
+        $match = null;
+        if (!empty($cityName) && !empty($country)) {
+            $match = $cityCoords->first(function ($city) use ($cityName, $country) {
+                return stripos($city->city, $cityName) !== false &&
+                       stripos($city->country, $country) !== false;
+            });
         }
 
-        // ✅ Usar country + city
-        $results = $query->get(['country', 'city', 'modality']);
+        // Conteo por modalidad
+        $modalidades = $group->pluck('modality')->countBy()->toArray();
 
-        // Agrupar por combinación "city, country"
-        $grouped = $results->groupBy(function ($row) {
-            $country = $row->country ?? 'Desconocido';
-            $city    = $row->city ?? 'Desconocido';
-            return "{$city}, {$country}";
-        });
-
-        // Calcular porcentajes
-        $total = max($results->count(), 1);
-        $percent = $grouped->map(function ($group) use ($total) {
-            return round(($group->count() / $total) * 100, 2);
-        });
-
-        // Preparar resultados para el mapa
-        $cities = $grouped->map(function ($group, $label) {
-            return [
-                'label'     => $label,                        // "Santiago, Chile"
-                'country'   => $group->first()->country ?? '',
-                'city'      => $group->first()->city ?? '',
-                'count'     => $group->count(),
-                'modalidad' => $group->pluck('modality')->countBy()->toArray(),
-            ];
-        });
+        // Modalidad dominante
+        $modalidadDominante = collect($modalidades)->sortDesc()->keys()->first();
 
         return [
-            'results' => $cities->values(),
-            'aggregations' => [
-                'percent' => $percent,
-            ],
-            'message' => '🌍 Distribución de ofertas por ciudad y país calculada correctamente.'
+            'label'      => $label,
+            'country'    => $country ?: null,
+            'city'       => $cityName ?: null,
+            'count'      => $group->count(),
+            'modalidad'  => $modalidades,        // 👈 todas las modalidades
+            'modality'   => $modalidadDominante, // 👈 la dominante
+            'lat'        => $match->lat ?? null,
+            'lng'        => $match->lng ?? null,
         ];
-    }
+    });
+
+
+
+
+  return [
+    'results' => $cities->values(),
+    'aggregations' => [
+        'percent' => $percent,
+    ],
+    'modalities' => $results->pluck('modality')->countBy()->toArray(), // 👈 agregado aquí
+    'message' => '🌍 Distribución de ofertas por ciudad y país calculada correctamente.'
+];
+
+}
+
+
+
+
+
 }

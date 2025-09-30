@@ -172,7 +172,7 @@ Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(funct
 Route::get('/ai/workmode/index', [WorkModeAIController::class, 'index'])->name('ai.workmode.index');
 Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
 Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
-Route::get('/ai/technologies/index', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
+Route::get('/ai/technologies', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
 
 });
 

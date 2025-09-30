@@ -37,35 +37,45 @@ export default function CityDemandMap() {
   const [data, setData] = useState<
     { city: string; country: string; count: number; modality: string; coords: [number, number] }[]
   >([]);
+  const [modalities, setModalities] = useState<Record<string, number>>({});
+
+  const normalizeModality = (m: string | null) => {
+    if (!m) return "presencial";
+    const val = m.toLowerCase();
+
+    if (["fully_remote", "full_remote"].includes(val)) return "fully_remote";
+    if (["remote_local"].includes(val)) return "remoto";
+    if (["hybrid", "hibrido"].includes(val)) return "hibrido";
+    if (["no_remote", "presencial"].includes(val)) return "presencial";
+    return "presencial";
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get("/ai/city-demand"); // 👈 Ruta que conecte con CityDemandAIController@index
-        const results = res.data.results || [];
+        const res = await axios.get("/ai/city-demand");
+const payload = res.data.data || res.data;   // 👈 asegura leer el nivel correcto
+const results = payload.results || [];
+const mods = payload.modalities || {};
 
-        // 🔹 Geocodificación simple: puedes expandir este diccionario
-        const geoMap: Record<string, [number, number]> = {
-          "Lima, Perú": [-12.0464, -77.0428],
-          "Arequipa, Perú": [-16.409, -71.537],
-          "Trujillo, Perú": [-8.11599, -79.02998],
-          "Cusco, Perú": [-13.53195, -71.96746],
-          "Santiago, Chile": [-33.4489, -70.6693],
-          "Valparaíso, Chile": [-33.0472, -71.6127],
-        };
-
-        const mapped = results.map((r: any) => {
-          const key = `${r.city}, ${r.country}`;
-          return {
-            ...r,
-            coords: geoMap[key] || [-9.19, -75.015], // fallback: centro de Perú
-            modality: Object.keys(r.modalidad || {})[0] || "presencial", // primera modalidad encontrada
-          };
-        });
+        const mapped = results
+          .filter((r: any) => r.lat && r.lng) // solo con coordenadas
+          .flatMap((r: any) =>
+            Object.entries(r.modalidad || {}).map(([key, count]) => ({
+              ...r,
+              coords: [r.lat, r.lng],
+              modality: normalizeModality(key),
+              count,
+            }))
+          );
 
         setData(mapped);
-      } catch (err) {
-        console.error("Error cargando city demand", err);
+        setModalities(mods);
+
+
+
+      } catch (err: any) {
+        console.error("❌ Error cargando city demand", err);
       }
     };
 
@@ -82,31 +92,31 @@ export default function CityDemandMap() {
 
   const colorMap: Record<string, string> = {
     presencial: "red",
-    "no_remote": "red",
     remoto: "green",
-    "fully_remote": "green",
     hibrido: "orange",
-    hybrid: "orange",
+    fully_remote: "blue",
   };
 
   return (
     <Card className="bg-[#111] text-white rounded-xl border border-gray-700">
       <CardContent className="p-6 flex flex-col items-center">
         <h2 className="text-center text-sm font-semibold text-white mb-4">
-          DEMANDA POTENCIAL POR CIUDAD (Perú, Chile - Get on Board)
+          DEMANDA POTENCIAL POR CIUDAD
         </h2>
 
         <div className="relative w-full h-[440px] rounded-lg overflow-hidden">
           <MapContainer
-            center={[-15, -72]} // centro Perú/Chile
+            center={[-15, -72]}
             zoom={4}
             style={{ height: "100%", width: "100%" }}
             className="rounded-lg"
           >
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; OpenStreetMap contributors"
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+              subdomains={["a", "b", "c", "d"]}
             />
+
             <HeatmapLayer points={heatmapPoints} />
 
             {data.map((d, i) => (
@@ -124,12 +134,19 @@ export default function CityDemandMap() {
             ))}
           </MapContainer>
 
-          {/* Leyenda */}
-          <div className="absolute bottom-6 right-6 text-xs text-gray-200 bg-black/50 p-2 rounded">
-            <p>🔴 Presencial</p>
-            <p>🟢 Remoto</p>
-            <p>🟠 Híbrido</p>
-          </div>
+         {/* Leyenda con modalidades globales (tal cual backend) */}
+<div className="absolute bottom-6 right-6 z-[1000] text-xs text-gray-200 bg-black/60 p-2 rounded">
+  <p>🔴 Presencial: {modalities["no_remote"] || 0}</p>
+  <p>🟢 Remoto local: {modalities["remote_local"] || 0}</p>
+  <p>🟠 Híbrido: {modalities["hybrid"] || 0}</p>
+  <p>🔵 Full Remoto: {modalities["fully_remote"] || 0}</p>
+</div>
+
+{/* Contador full_remote */}
+<div className="absolute bottom-6 left-6 text-xs text-gray-200 bg-black/70 px-3 py-2 rounded-lg shadow">
+  {modalities["fully_remote"] || 0} ofertas 100% remotas
+</div>
+
         </div>
       </CardContent>
     </Card>

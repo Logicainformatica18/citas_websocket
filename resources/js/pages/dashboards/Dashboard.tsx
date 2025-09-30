@@ -71,9 +71,9 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             {/* Bloque 1 → 4 cards (2x2) + mapa grande */}
                             <div className="grid grid-cols-6 gap-2">
                                 {/* Columna izquierda: 2x2 cards */}
-                                <div className="grid grid-cols-2 gap-1 col-span-3">
+                                <div className="grid grid-cols-1 gap-1 col-span-3">
 
- <RolesChart />
+
                                 <TechnologiesChart />
                                 </div>
 
