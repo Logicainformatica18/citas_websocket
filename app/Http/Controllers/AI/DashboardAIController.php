@@ -19,21 +19,27 @@ class DashboardAIController extends Controller
             'message' => 'required|string',
         ]);
 
-        // 1. Preguntar a OpenAI
-        $instruction = $this->getInstructionFromAI($request->message);
+        $userMessage = $request->message;
+
+        // 1️⃣ Interpretar la intención con OpenAI
+        $instruction = $this->getInstructionFromAI($userMessage);
 
         if (!$instruction) {
             return response()->json([
                 'error' => '❌ No se pudo interpretar la instrucción de la IA',
+                'message' => '⚠️ Hubo un error procesando tu consulta, intenta de nuevo.',
             ], 500);
         }
 
-        // 2. Si aún está en estado "pending_confirmation", devolver tal cual
+        // 2️⃣ Si la IA pide confirmación → sugerencia
         if (($instruction['status'] ?? null) === 'pending_confirmation') {
-            return response()->json($instruction);
+            return response()->json([
+                'message' => '💡 ' . ($instruction['suggestion'] ?? '¿Quieres confirmar esta consulta?'),
+                'instruction' => $instruction,
+            ]);
         }
 
-        // 3. Si está confirmado, enrutar a los hijos correspondientes
+        // 3️⃣ Si está confirmado → enrutar a los controladores hijos
         $results = [];
         foreach ($instruction['targets'] ?? [] as $target) {
             switch ($target) {
@@ -63,13 +69,14 @@ class DashboardAIController extends Controller
         }
 
         return response()->json([
+            'message' => '✅ Consulta procesada. Revisa el dashboard.',
             'instruction' => $instruction,
             'results' => $results,
         ]);
     }
 
     /**
-     * 🔹 Paso 1: Obtener la intención global en JSON Mode
+     * 🔹 Llama a OpenAI para interpretar el mensaje
      */
     private function getInstructionFromAI(string $userMessage): ?array
     {
@@ -77,41 +84,39 @@ class DashboardAIController extends Controller
 
         $systemPrompt = <<<EOT
 Eres un asistente para un Dashboard de Ofertas Laborales.
-Debes responder **EXCLUSIVAMENTE** en JSON válido.
+Debes responder **SOLO en JSON válido**.
 
-Tu rol:
-1. Conversa con el usuario y ayúdalo a construir su consulta paso a paso.
-2. Haz preguntas aclaratorias si falta contexto (ejemplo: rol, modalidad, país, ciudad, sector).
-3. Cuando detectes suficiente información, responde en JSON con `"status":"pending_confirmation"`
-   y propone una `"suggestion"` clara para confirmar la consulta.
-4. Solo cuando el usuario confirme → responde con `"status":"confirmed"`.
+🎯 Tu rol:
+- Traducir lenguaje natural del usuario a filtros estructurados.
+- NO devuelvas texto libre, solo JSON.
+- Haz preguntas aclaratorias si falta contexto (status="pending_confirmation").
+- Si está claro → responde con status="confirmed".
 
-Formato JSON esperado:
+📊 Targets disponibles:
+- Modalidad de trabajo → "WorkModeChart"
+- País o ciudad → "CityDemandMap"
+- Tecnologías/lenguajes → "TechnologiesChart"
+- Roles o perfiles → "RolesChart"
+
+📌 Formato esperado:
 {
-  "targets": ["WorkModeChart","CityDemandMap"],
-  "filters": { "campo": "valor" },
-  "fields": ["columna1"],
-  "aggregations": ["percent","count","avg"],
+  "targets": ["TechnologiesChart"],
+  "filters": { "year": 2024, "quarter": "all" },
+  "fields": [],
+  "aggregations": ["percent"],
   "status": "pending_confirmation" | "confirmed",
   "suggestion": "Texto para confirmar con el usuario"
 }
 
-Reglas:
-- Modalidad de trabajo → `WorkModeChart`
-- País o ciudad → `CityDemandMap`
-- Salarios → `SalaryChart`
-- Tecnologías/lenguajes → `TechnologiesChart`
-- Roles o perfiles → `RolesChart`
-
-Reglas adicionales:
-- Si el usuario dice "sin filtros", "general" o "todo", interpreta que desea un resumen general.
-- En ese caso responde directamente con `"status": "confirmed"` y define `targets` de forma automática según el tema:
-   - Si no menciona nada → usa ["WorkModeChart","CityDemandMap"].
-   - Si menciona modalidad → usa ["WorkModeChart"].
-   - Si menciona países/ciudades → usa ["CityDemandMap"].
+📌 Reglas:
+- Si dice "todo", "general" → status="confirmed" con filtros vacíos.
+- Si menciona solo año → usa {year: XXXX, quarter:"all"}.
+- Si menciona trimestre pero no año → pide el año (pending_confirmation).
+- Si menciona ambos → confirmed.
+- Nunca inventes valores.
 EOT;
 
-        Log::info("🤖 Enviando mensaje a OpenAI", ['message' => $userMessage]);
+        Log::info("🤖 Enviando mensaje a OpenAI (Dashboard)", ['message' => $userMessage]);
 
         $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
             'model' => 'gpt-4o-mini',
@@ -121,7 +126,7 @@ EOT;
             ],
             'temperature' => 0,
             'max_tokens' => 500,
-            'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode activado
+            'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode
         ]);
 
         if ($response->failed()) {
@@ -132,13 +137,13 @@ EOT;
             return null;
         }
 
-        $raw = $response->json('choices.0.message.content'); // string JSON
+        $raw = $response->json('choices.0.message.content');
         Log::info("📝 Instrucción IA Dashboard RAW", ['raw' => $raw]);
 
         $decoded = json_decode($raw, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::error("❌ Error parseando JSON IA", [
+            Log::error("❌ Error parseando JSON IA Dashboard", [
                 'error' => json_last_error_msg(),
                 'raw' => $raw,
             ]);

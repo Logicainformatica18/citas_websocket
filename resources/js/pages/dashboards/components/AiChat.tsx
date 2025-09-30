@@ -21,53 +21,54 @@ export default function AiChat() {
 
   const { updateDashboard } = useDashboard();
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+ const handleSend = async () => {
+  if (!input.trim()) return;
 
-    const userMessage = { from: "user" as const, text: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLoading(true);
-    setTypingText("");
+  const userMessage = { from: "user" as const, text: input };
+  setMessages((prev) => [...prev, userMessage]);
+  setInput("");
+  setLoading(true);
+  setTypingText("");
 
-    try {
-      // 🔹 Ahora llamamos al padre DashboardAIController
-      const res = await axios.post("dashboard/ai/chat", { message: userMessage.text });
+  try {
+    const res = await axios.post("dashboard/ai/chat", { message: userMessage.text });
 
-      const message = res.data.message || "";
-      const suggestion = res.data.suggestion;
+    const { message, suggestion, instruction, results, aggregations } = res.data;
 
-      // 🔹 Actualizar dashboard (results, aggregations, instruction)
-      updateDashboard(res.data.results, res.data.aggregations, res.data.instruction);
+    // 🔹 Actualizar dashboard si hay datos
+    if (results || aggregations || instruction) {
+      updateDashboard(results, aggregations, instruction);
+    }
 
-      // 🔹 Animación typing
-      let i = 0;
-      const interval = setInterval(() => {
-        setTypingText((prev) => prev + message[i]);
-        i++;
-        if (i >= message.length) {
-          clearInterval(interval);
-          setMessages((prev) => [...prev, { from: "ai", text: message }]);
-          setTypingText("");
-          setLoading(false);
+    // 🔹 Caso 1: Hay message
+    if (message) {
+      setMessages((prev) => [...prev, { from: "ai", text: message }]);
+    }
 
-          if (suggestion) {
-            setMessages((prev) => [
-              ...prev,
-              { from: "ai", text: "💡 " + suggestion },
-            ]);
-          }
-        }
-      }, 20);
-    } catch (error) {
-      console.error(error);
+    // 🔹 Caso 2: Hay suggestion
+    if (suggestion) {
+      setMessages((prev) => [...prev, { from: "ai", text: "💡 " + suggestion }]);
+    }
+
+    // 🔹 Caso 3: No hay message ni suggestion → feedback genérico
+    if (!message && !suggestion && (results || instruction)) {
       setMessages((prev) => [
         ...prev,
-        { from: "ai", text: "⚠️ Error al conectar con el servidor." },
+        { from: "ai", text: "✅ Consulta procesada. Revisa el dashboard." },
       ]);
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error(error);
+    setMessages((prev) => [
+      ...prev,
+      { from: "ai", text: "⚠️ Error al conectar con el servidor." },
+    ]);
+  } finally {
+    setLoading(false);
+    setTypingText("");
+  }
+};
+
 
   // 🔹 Auto scroll
   useEffect(() => {
