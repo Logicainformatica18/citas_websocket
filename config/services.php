@@ -42,5 +42,10 @@ return [
     'key' => env('API_KEY'),
 ],
 
+'adzuna' => [
+    'app_id' => env('ADZUNA_APP_ID'),
+    'app_key' => env('ADZUNA_APP_KEY'),
+    'base_url' => 'https://api.adzuna.com/v1/api/jobs',
+],
 
 ];

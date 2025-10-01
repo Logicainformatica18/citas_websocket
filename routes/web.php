@@ -174,6 +174,8 @@ Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('a
 Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
 Route::get('/ai/technologies', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
 
+Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
+//Route::post('/job-offers/import', [JobOfferController::class, 'import']);
 });
 
 

@@ -12,32 +12,37 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('job_offers', function (Blueprint $table) {
-    $table->id();
+            $table->id();
 
-    // Datos básicos del empleo
-    $table->string('title');                   // Título del empleo
-    $table->string('company')->nullable();     // Empresa
-    $table->string('country')->nullable();     // País
-    $table->string('city')->nullable();        // Ciudad
-    $table->string('location')->nullable();    // País/ciudad (legacy opcional)
-    $table->string('modality')->nullable();    // Remoto, híbrido, presencial
-    $table->string('workload')->nullable();    // Full-time, part-time, freelance
+            // Datos básicos del empleo
+            $table->string('title');                   // Título del empleo
+            $table->string('company')->nullable();     // Empresa
+            $table->string('country')->nullable();     // País
+            $table->string('state_code')->nullable();  // Estado/Provincia (ej: NJ, TX, ON, etc.)
+            $table->string('city')->nullable();        // Ciudad original
+            $table->string('city_ascii')->nullable();  // Ciudad normalizada (para joins)
+            $table->string('location')->nullable();    // País/ciudad (legacy opcional)
+            $table->string('modality')->nullable();    // Remoto, híbrido, presencial
+            $table->string('workload')->nullable();    // Full-time, part-time, freelance
 
-    // Salario
-    $table->decimal('salary_min', 12, 2)->nullable();
-    $table->decimal('salary_max', 12, 2)->nullable();
-    $table->string('currency', 10)->nullable();
+            // Coordenadas
+            $table->decimal('latitude', 10, 6)->nullable();
+            $table->decimal('longitude', 10, 6)->nullable();
 
-    // Fuente
-    $table->string('source');                  // GetOnBoard, ISIL, etc.
-    $table->string('external_id')->nullable(); // ID en la fuente
-    $table->string('url')->nullable();         // Link a la oferta
+            // Salario
+            $table->decimal('salary_min', 12, 2)->nullable();
+            $table->decimal('salary_max', 12, 2)->nullable();
+            $table->string('currency', 10)->nullable();
 
-    // Fechas
-    $table->timestamp('published_at')->nullable();
-    $table->timestamps(); // created_at, updated_at
-});
+            // Fuente
+            $table->string('source');                  // GetOnBoard, LinkedIn, ISIL, etc.
+            $table->string('external_id')->nullable(); // ID en la fuente
+            $table->string('url')->nullable();         // Link a la oferta
 
+            // Fechas
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps(); // created_at, updated_at
+        });
     }
 
     /**

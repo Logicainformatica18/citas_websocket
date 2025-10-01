@@ -7,18 +7,23 @@ type Props = {
   onImported: () => void;
 };
 
-// Diccionario modalidades
 const modalityMap: Record<string, string> = {
   onsite: "Presencial",
   remote: "Remoto",
   hybrid: "Híbrido",
 };
 
-// Formatear fecha desde timestamp UNIX
-const formatDateUnix = (timestamp: number | null | undefined) => {
-  if (!timestamp) return "N/A";
+const formatDate = (input: any) => {
+  if (!input) return "N/A";
   try {
-    return new Date(timestamp * 1000).toLocaleDateString("es-PE", {
+    if (!isNaN(input)) {
+      return new Date(Number(input) * 1000).toLocaleDateString("es-PE", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+    return new Date(input).toLocaleDateString("es-PE", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -28,22 +33,74 @@ const formatDateUnix = (timestamp: number | null | undefined) => {
   }
 };
 
+// Normalizador de datos de preview
+const normalizePreview = (raw: any, source: string) => {
+  console.log("🔍 Datos crudos recibidos de backend:", raw);
+
+  if (source === "getonboard") {
+    return (raw?.raw?.data ?? []).map((job: any) => {
+      const attr = job.attributes ?? {};
+      return {
+        id: job.id,
+        title: attr.title ?? "N/A",
+        company: attr.company?.data?.attributes?.name ?? "N/A",
+        country: attr.countries?.join(", ") ?? "-",
+        city: attr.city ?? "-",
+        modality: attr.remote_modality
+          ? modalityMap[attr.remote_modality] ?? attr.remote_modality
+          : "N/A",
+        salary:
+          attr.min_salary && attr.max_salary
+            ? `${attr.min_salary} - ${attr.max_salary} ${attr.salary_currency ?? "USD"}`
+            : "N/A",
+        url: job.links?.public_url ?? null,
+        published_at: attr.published_at,
+      };
+    });
+  }
+
+  if (source === "adzuna") {
+    return (raw?.raw?.results ?? []).map((job: any, idx: number) => {
+      console.log("📌 Job Adzuna crudo:", job);
+      return {
+        id: idx,
+        title: job.title ?? "N/A",
+        company: job.company?.display_name ?? "N/A",
+        country: job.location?.area?.[0] ?? "-",
+        city: job.location?.area?.[1] ?? "-",
+        modality: "N/A",
+        salary:
+          job.salary_min && job.salary_max
+            ? `${job.salary_min} - ${job.salary_max} ${job.salary_currency ?? "USD"}`
+            : "N/A",
+        url: job.redirect_url ?? null,
+        published_at: job.created,
+      };
+    });
+  }
+
+  return [];
+};
+
 export default function JobOfferModal({ open, onClose, onImported }: Props) {
-  const [apiUrl, setApiUrl] = useState(
-    "https://www.getonbrd.com/api/v0/search/jobs?query=programador&per_page=10"
-  );
+  const [source, setSource] = useState<"getonboard" | "adzuna">("getonboard");
+  const [query, setQuery] = useState("programador");
   const [preview, setPreview] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
 
   const handleFetch = async () => {
-    if (!apiUrl.trim()) return;
     setLoading(true);
     try {
-      const res = await axios.get(apiUrl);
-      setPreview(res.data.data || []);
+      console.log("🚀 Enviando request preview:", { source, query });
+      const res = await axios.post("/job-offers/preview", { source, query });
+      console.log("✅ Respuesta backend preview:", res.data);
+      const norm = normalizePreview(res.data, source);
+      console.log("📊 Preview normalizado:", norm);
+      setPreview(norm);
     } catch (e) {
+      console.error("❌ Error obteniendo preview:", e);
       alert("No se pudo obtener datos de la API.");
     } finally {
       setLoading(false);
@@ -51,13 +108,14 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
   };
 
   const handleSave = async () => {
-    if (!apiUrl.trim()) return;
     setLoading(true);
     try {
-      await axios.post("/job-offers/import", { api_url: apiUrl });
+      console.log("💾 Guardando en BD:", { source, query });
+      await axios.post("/job-offers/import", { source, query });
       onImported();
       onClose();
     } catch (e) {
+      console.error("❌ Error guardando en BD:", e);
       alert("No se pudo guardar en la base de datos.");
     } finally {
       setLoading(false);
@@ -71,12 +129,25 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
           Importar Ofertas desde API
         </h2>
 
-        <input
-          type="text"
-          value={apiUrl}
-          onChange={(e) => setApiUrl(e.target.value)}
-          className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
-        />
+        {/* Selección de fuente + query */}
+        <div className="flex gap-2">
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value as "getonboard" | "adzuna")}
+            className="p-2 border rounded bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+          >
+            <option value="getonboard">GetOnBoard</option>
+            <option value="adzuna">Adzuna (US)</option>
+          </select>
+
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar..."
+            className="flex-1 p-2 border rounded bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+          />
+        </div>
 
         <div className="flex gap-2">
           <button
@@ -116,57 +187,33 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
                 </tr>
               </thead>
               <tbody className="text-gray-800 dark:text-gray-200">
-                {preview.map((job) => {
-                  const attr = job.attributes || {};
-
-                  const companyName =
-                    attr.company?.data?.attributes?.name ?? "N/A";
-
-                  const modality = attr.remote_modality
-                    ? modalityMap[attr.remote_modality] ?? attr.remote_modality
-                    : "N/A";
-
-                  const country = attr.countries?.length
-                    ? attr.countries.join(", ")
-                    : "N/A";
-
-                  const city = attr.city ?? "-";
-
-                  const salary =
-                    attr.min_salary && attr.max_salary
-                      ? `${attr.min_salary} - ${attr.max_salary} USD`
-                      : "N/A";
-
-                  return (
-                    <tr
-                      key={job.id}
-                      className="border-t border-gray-200 dark:border-gray-700"
-                    >
-                      <td className="px-2 py-1">
-                        {job.links?.public_url ? (
-                          <a
-                            href={job.links.public_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            {attr.title ?? "N/A"}
-                          </a>
-                        ) : (
-                          attr.title ?? "N/A"
-                        )}
-                      </td>
-                      <td className="px-2 py-1">{companyName}</td>
-                      <td className="px-2 py-1">{country}</td>
-                      <td className="px-2 py-1">{city}</td>
-                      <td className="px-2 py-1">{modality}</td>
-                      <td className="px-2 py-1">{salary}</td>
-                      <td className="px-2 py-1">
-                        {formatDateUnix(attr.published_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {preview.map((job) => (
+                  <tr
+                    key={job.id}
+                    className="border-t border-gray-200 dark:border-gray-700"
+                  >
+                    <td className="px-2 py-1">
+                      {job.url ? (
+                        <a
+                          href={job.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {job.title}
+                        </a>
+                      ) : (
+                        job.title
+                      )}
+                    </td>
+                    <td className="px-2 py-1">{job.company}</td>
+                    <td className="px-2 py-1">{job.country}</td>
+                    <td className="px-2 py-1">{job.city}</td>
+                    <td className="px-2 py-1">{job.modality}</td>
+                    <td className="px-2 py-1">{job.salary}</td>
+                    <td className="px-2 py-1">{formatDate(job.published_at)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

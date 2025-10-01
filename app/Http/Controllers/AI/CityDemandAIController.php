@@ -20,6 +20,7 @@ class CityDemandAIController extends Controller
         return $this->buildResponse($instruction['filters'] ?? []);
     }
 
+
 private function buildResponse(array $filters = [])
 {
     $query = JobOffer::query();
@@ -34,7 +35,7 @@ private function buildResponse(array $filters = [])
     // Traer ofertas
     $results = $query->get(['country', 'city', 'modality']);
 
-    // Agrupar por city+country (aunque city o country estén vacíos)
+    // Agrupar por city+country
     $grouped = $results->groupBy(function ($row) {
         $country = trim($row->country ?? 'Desconocido');
         $city    = trim($row->city ?? 'Desconocido');
@@ -42,28 +43,38 @@ private function buildResponse(array $filters = [])
     });
 
     $total = max($results->count(), 1);
-    $percent = $grouped->map(function ($group) use ($total) {
-        return round(($group->count() / $total) * 100, 2);
-    });
+    $percent = $grouped->map(fn($g) => round(($g->count() / $total) * 100, 2));
 
     $cities = $grouped->map(function ($group, $label) use ($cityCoords) {
         $first    = $group->first();
         $cityName = trim($first->city ?? '');
         $country  = trim($first->country ?? '');
 
-        // 🔍 Buscar coordenadas solo si hay city+country
         $match = null;
-        if (!empty($cityName) && !empty($country)) {
-            $match = $cityCoords->first(function ($city) use ($cityName, $country) {
-                return stripos($city->city, $cityName) !== false &&
-                       stripos($city->country, $country) !== false;
-            });
+
+        // 1️⃣ Buscar por country + city
+        if ($country && $cityName) {
+            $match = $cityCoords->first(fn($c) =>
+                stripos($c->city, $cityName) !== false &&
+                stripos($c->country, $country) !== false
+            );
         }
 
-        // Conteo por modalidad
-        $modalidades = $group->pluck('modality')->countBy()->toArray();
+        // 2️⃣ Buscar solo por city
+        if (!$match && $cityName) {
+            $match = $cityCoords->first(fn($c) =>
+                stripos($c->city, $cityName) !== false
+            );
+        }
 
-        // Modalidad dominante
+        // 3️⃣ Buscar solo por iso2 (del modelo City)
+        if (!$match && $country) {
+            $match = $cityCoords->first(fn($c) =>
+                strtoupper($c->iso2) === strtoupper($country)
+            );
+        }
+
+        $modalidades = $group->pluck('modality')->countBy()->toArray();
         $modalidadDominante = collect($modalidades)->sortDesc()->keys()->first();
 
         return [
@@ -71,25 +82,20 @@ private function buildResponse(array $filters = [])
             'country'    => $country ?: null,
             'city'       => $cityName ?: null,
             'count'      => $group->count(),
-            'modalidad'  => $modalidades,        // 👈 todas las modalidades
-            'modality'   => $modalidadDominante, // 👈 la dominante
+            'modalidad'  => $modalidades,
+            'modality'   => $modalidadDominante,
             'lat'        => $match->lat ?? null,
             'lng'        => $match->lng ?? null,
+            'iso2'       => $match->iso2 ?? null, // ✅ lo sacamos de City, no de JobOffer
         ];
     });
 
-
-
-
-  return [
-    'results' => $cities->values(),
-    'aggregations' => [
-        'percent' => $percent,
-    ],
-    'modalities' => $results->pluck('modality')->countBy()->toArray(), // 👈 agregado aquí
-    'message' => '🌍 Distribución de ofertas por ciudad y país calculada correctamente.'
-];
-
+    return [
+        'results' => $cities->values(),
+        'aggregations' => ['percent' => $percent],
+        'modalities' => $results->pluck('modality')->countBy()->toArray(),
+        'message' => '🌍 Distribución de ofertas por ciudad y país calculada correctamente.'
+    ];
 }
 
 

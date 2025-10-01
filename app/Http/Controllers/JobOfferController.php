@@ -15,7 +15,7 @@ class JobOfferController extends Controller
 {
     public function index()
     {
-        $offers = JobOffer::orderBy('published_at', 'desc')->paginate(10);
+        $offers = JobOffer::orderBy('id', 'desc')->paginate(10);
 
         return Inertia::render('job_offers/index', [
             'offers' => $offers->through(function ($offer) {
@@ -42,7 +42,7 @@ class JobOfferController extends Controller
 
     public function fetchPaginated()
     {
-        $offers = JobOffer::orderBy('published_at', 'desc')->paginate(10);
+        $offers = JobOffer::orderBy('id', 'desc')->paginate(10);
 
         $formatted = $offers->through(function ($offer) {
             return [
@@ -71,101 +71,219 @@ class JobOfferController extends Controller
 
 public function import(Request $request)
 {
-    $request->validate([
-        'api_url' => 'required|url',
-    ]);
+    $source  = $request->input('source');
+    $query   = $request->input('query', 'developer');
+    $country = $request->input('country', 'us');
+    $saved   = 0;
 
     try {
-        $response = Http::get($request->api_url);
+        // ============================
+        // 🚀 Caso Adzuna
+        // ============================
+        if ($source === 'adzuna') {
+            $appId   = config('services.adzuna.app_id');
+            $appKey  = config('services.adzuna.app_key');
+            $baseUrl = config('services.adzuna.base_url');
 
-        if ($response->failed()) {
-            return response()->json(['error' => 'Error al consultar la API'], 500);
-        }
+            $apiUrl = "{$baseUrl}/{$country}/search/1?app_id={$appId}&app_key={$appKey}&results_per_page=10&what=" . urlencode($query);
 
-        $data = $response->json('data') ?? [];
-        $saved = 0;
+            $response = Http::get($apiUrl);
+            if ($response->failed()) {
+                return response()->json(['error' => 'Error al consultar Adzuna'], 500);
+            }
 
-        foreach ($data as $job) {
-            $attr = $job['attributes'] ?? [];
+            $offers = $response->json('results') ?? [];
 
-            // Normalizar campos
-            $title       = $attr['title'] ?? 'N/A';
-            $company     = $attr['company']['data']['attributes']['name'] ?? null;
-            $country     = isset($attr['countries']) ? implode(',', $attr['countries']) : null;
-            $city        = $attr['city'] ?? null;
-            $modality    = $attr['remote_modality'] ?? null;
-            $salary_min  = $attr['min_salary'] ?? null;
-            $salary_max  = $attr['max_salary'] ?? null;
-            $currency    = $attr['salary_currency'] ?? 'USD';
-            $source      = "GetOnBoard";
-            $url         = $job['links']['public_url'] ?? null;
-            $publishedAt = isset($attr['published_at'])
-                ? \Carbon\Carbon::createFromTimestamp($attr['published_at'])->toDateString()
-                : null;
+            foreach ($offers as $job) {
+                $title   = $job['title'] ?? 'N/A';
+                $company = $job['company']['display_name'] ?? null;
+                $country = $job['location']['area'][0] ?? null;
+                $city    = $job['location']['area'][1] ?? null;
+                $urlJob  = $job['redirect_url'] ?? null;
 
-            // Si city está vacío, intentar deducirla
-            if (empty($city)) {
-                // Posibles fuentes de texto donde puede estar la ciudad
-                $possibleSources = [
-                    strtolower($attr['location'] ?? ''),
-                    strtolower($attr['title'] ?? ''),
-                    strtolower($job['id'] ?? ''),
-                ];
+                // 📌 Si city está vacío, tratar de deducirla
+                if (empty($city)) {
+                    $possibleSources = [
+                        strtolower($job['location']['display_name'] ?? ''),
+                        strtolower($title),
+                        strtolower($job['description'] ?? ''),
+                    ];
 
-                // Solo ciudades del país (si hay)
-                $cityCandidates = \App\Models\City::query()
-                    ->when($country, fn($q) => $q->where('country', $country))
-                    ->get()
-                    ->filter(fn($c) => strlen($c->city) >= 3); // Evita "An", "Ye", etc.
+                    $cityCandidates = \App\Models\City::query()
+                        ->when($country, fn($q) => $q->where('country', $country))
+                        ->get()
+                        ->filter(fn($c) => strlen($c->city) >= 3);
 
-                $matchedCity = null;
-
-                foreach ($possibleSources as $source) {
-                    foreach ($cityCandidates as $c) {
-                        $cityName = strtolower(trim($c->city));
-
-                        // Busca ciudad como palabra completa
-                        if (preg_match('/\b' . preg_quote($cityName, '/') . '\b/i', $source)) {
-                            $matchedCity = $c;
-                            break 2; // Sal del doble loop
+                    foreach ($possibleSources as $src) {
+                        foreach ($cityCandidates as $c) {
+                            $cityName = strtolower(trim($c->city));
+                            if (preg_match('/\b' . preg_quote($cityName, '/') . '\b/i', $src)) {
+                                $city    = $c->city;
+                                $country = $c->country;
+                                break 2;
+                            }
                         }
                     }
                 }
 
-                // Si encontró ciudad, la asigna
-                if ($matchedCity) {
-                    $city = $matchedCity->city;
-                    $country = $matchedCity->country;
-                }
+                JobOffer::updateOrCreate(
+                    ['url' => $urlJob],
+                    [
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $country,
+                        'city'         => $city,
+                        'modality'     => null,
+                        'salary_min'   => $job['salary_min'] ?? null,
+                        'salary_max'   => $job['salary_max'] ?? null,
+                        'currency'     => $job['salary_currency'] ?? 'USD',
+                        'source'       => 'Adzuna',
+                        'published_at' => $job['created'] ?? null,
+                    ]
+                );
+                $saved++;
             }
-
-            JobOffer::updateOrCreate(
-                ['url' => $url],
-                [
-                    'title'        => $title,
-                    'company'      => $company,
-                    'country'      => $country,
-                    'city'         => $city,
-                    'modality'     => $modality,
-                    'salary_min'   => $salary_min,
-                    'salary_max'   => $salary_max,
-                    'currency'     => $currency,
-                    'source'       => $source,
-                    'published_at' => $publishedAt,
-                ]
-            );
-
-            $saved++;
         }
 
-        return response()->json([
-            'message' => "Se importaron {$saved} ofertas correctamente.",
-        ]);
+        // ============================
+        // 🚀 Caso GetOnBoard
+        // ============================
+        if ($source === 'getonboard') {
+            $apiUrl   = "https://www.getonbrd.com/api/v0/search/jobs?query={$query}&per_page=10";
+            $response = Http::get($apiUrl);
+
+            if ($response->failed()) {
+                return response()->json(['error' => 'Error al consultar GetOnBoard'], 500);
+            }
+
+            $offers = $response->json('data') ?? [];
+
+            foreach ($offers as $job) {
+                $attr    = $job['attributes'] ?? [];
+                $title   = $attr['title'] ?? 'N/A';
+                $company = $attr['company']['data']['attributes']['name'] ?? null;
+                $country = isset($attr['countries']) ? implode(',', $attr['countries']) : null;
+                $city    = $attr['city'] ?? null;
+                $urlJob  = $job['links']['public_url'] ?? null;
+
+                // 📌 Si city está vacío, intentar deducirla
+                if (empty($city)) {
+                    $possibleSources = [
+                        strtolower($attr['location'] ?? ''),
+                        strtolower($title),
+                        strtolower($job['id'] ?? ''),
+                    ];
+
+                    $cityCandidates = \App\Models\City::query()
+                        ->when($country, fn($q) => $q->where('country', $country))
+                        ->get()
+                        ->filter(fn($c) => strlen($c->city) >= 3);
+
+                    foreach ($possibleSources as $src) {
+                        foreach ($cityCandidates as $c) {
+                            $cityName = strtolower(trim($c->city));
+                            if (preg_match('/\b' . preg_quote($cityName, '/') . '\b/i', $src)) {
+                                $city    = $c->city;
+                                $country = $c->country;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+
+                JobOffer::updateOrCreate(
+                    ['url' => $urlJob],
+                    [
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $country,
+                        'city'         => $city,
+                        'modality'     => $attr['remote_modality'] ?? null,
+                        'salary_min'   => $attr['min_salary'] ?? null,
+                        'salary_max'   => $attr['max_salary'] ?? null,
+                        'currency'     => $attr['salary_currency'] ?? 'USD',
+                        'source'       => 'GetOnBoard',
+                        'published_at' => isset($attr['published_at'])
+                            ? \Carbon\Carbon::createFromTimestamp($attr['published_at'])->toDateString()
+                            : null,
+                    ]
+                );
+                $saved++;
+            }
+        }
+
+        return response()->json(['message' => "✅ Se importaron {$saved} ofertas correctamente."]);
     } catch (\Throwable $e) {
-        Log::error("Error importando ofertas: " . $e->getMessage());
+        Log::error("Error importando ofertas: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
         return response()->json(['error' => 'Error interno al importar.'], 500);
     }
 }
+
+
+
+
+
+
+
+
+public function preview(Request $request)
+{
+    $source  = $request->input('source', 'adzuna'); // por defecto adzuna
+    $query   = $request->input('query', 'developer');
+    $country = $request->input('country', 'us');
+
+    Log::info("🔎 [Preview] Source={$source}, Query={$query}, Country={$country}");
+
+    try {
+        if ($source === 'adzuna') {
+            $appId   = config('services.adzuna.app_id');
+            $appKey  = config('services.adzuna.app_key');
+            $baseUrl = config('services.adzuna.base_url');
+
+            $url = "{$baseUrl}/{$country}/search/1?app_id={$appId}&app_key={$appKey}&results_per_page=10&what=" . urlencode($query);
+
+            Log::info("🔎 [Adzuna Preview] URL: {$url}");
+
+            $response = Http::get($url);
+
+            if ($response->failed()) {
+                return response()->json(['error' => 'Error al consultar Adzuna'], 500);
+            }
+
+            return response()->json([
+                'source' => 'Adzuna',
+                'raw'    => $response->json()
+            ]);
+        }
+
+        if ($source === 'getonboard') {
+            $url = "https://www.getonbrd.com/api/v0/search/jobs?query=" . urlencode($query) . "&per_page=10";
+            Log::info("🔎 [GetOnBoard Preview] URL: {$url}");
+
+            $response = Http::get($url);
+
+            if ($response->failed()) {
+                return response()->json(['error' => 'Error al consultar GetOnBoard'], 500);
+            }
+
+            return response()->json([
+                'source' => 'GetOnBoard',
+                'raw'    => $response->json()
+            ]);
+        }
+
+        return response()->json(['error' => 'Fuente no soportada'], 400);
+
+    } catch (\Throwable $e) {
+        Log::error("💥 [Preview] Error", ['msg' => $e->getMessage()]);
+        return response()->json(['error' => 'Error interno en preview'], 500);
+    }
+}
+
+
+
+
+
 
 
     public function store(Request $request)
