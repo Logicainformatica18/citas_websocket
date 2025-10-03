@@ -42,7 +42,7 @@ return new class extends Migration
             // 📌 Fuente y referencias
             $table->string('source');                  // LinkedIn, GetOnBoard, Adzuna, ISIL...
             $table->string('external_id')->nullable(); // ID en la fuente
-            $table->string('url')->nullable();         // Link público a la oferta
+            $table->longText('url')->nullable();         // Link público a la oferta
             $table->string('application_url')->nullable(); // Link para postular
             $table->string('application_type')->nullable(); // método de postulación
 
