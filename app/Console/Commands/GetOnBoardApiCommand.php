@@ -38,12 +38,12 @@ class GetOnBoardApiCommand extends Command
                 }
 
                 $data = $response->json('data') ?? [];
-
                 $saved = 0;
 
                 foreach ($data as $job) {
                     $attr = $job['attributes'] ?? [];
 
+                    // Campos principales
                     $title       = $attr['title'] ?? 'N/A';
                     $company     = $attr['company']['data']['attributes']['name'] ?? null;
                     $country     = isset($attr['countries']) ? implode(',', $attr['countries']) : null;
@@ -52,25 +52,41 @@ class GetOnBoardApiCommand extends Command
                     $salary_min  = $attr['min_salary'] ?? null;
                     $salary_max  = $attr['max_salary'] ?? null;
                     $currency    = $attr['salary_currency'] ?? 'USD';
+
+                    // Extras
+                    $experience  = $attr['experience_level'] ?? null;    // junior, senior...
+                    $role        = $attr['role'] ?? null;                // backend, frontend...
+                    $category    = $attr['category_name'] ?? null;       // Desarrollo, Marketing...
+
+                    // Fuente y enlaces
                     $source      = "GetOnBoard";
                     $urlJob      = $job['links']['public_url'] ?? null;
+                    $externalId  = $job['id'] ?? null;
+
+                    // Fecha publicación
                     $publishedAt = isset($attr['published_at'])
-                        ? Carbon::createFromTimestamp($attr['published_at'])->toDateString()
+                        ? Carbon::createFromTimestamp($attr['published_at'])->toDateTimeString()
                         : null;
 
+                    // Guardar / actualizar
                     JobOffer::updateOrCreate(
                         ['url' => $urlJob],
                         [
-                            'title'        => $title,
-                            'company'      => $company,
-                            'country'      => $country,
-                            'city'         => $city,
-                            'modality'     => $modality,
-                            'salary_min'   => $salary_min,
-                            'salary_max'   => $salary_max,
-                            'currency'     => $currency,
-                            'source'       => $source,
-                            'published_at' => $publishedAt,
+                            'title'            => $title,
+                            'company'          => $company,
+                            'country'          => $country,
+                            'city'             => $city,
+                            'modality'         => $modality,
+                            'salary_min'       => $salary_min,
+                            'salary_max'       => $salary_max,
+                            'currency'         => $currency,
+                            'experience_level' => $experience,
+                            'category'         => $category,
+                            'role'             => $role,
+                            'source'           => $source,
+                            'external_id'      => $externalId,
+                            'url'              => $urlJob,
+                            'published_at'     => $publishedAt,
                         ]
                     );
 
@@ -83,8 +99,7 @@ class GetOnBoardApiCommand extends Command
                 $this->error("⚠️ Error en {$language}: " . $e->getMessage());
             }
 
-            // intervalo de espera (2 segundos)
-            sleep(2);
+            sleep(2); // evitar rate limit
         }
 
         $this->info("🎉 Importación finalizada para todos los lenguajes.");

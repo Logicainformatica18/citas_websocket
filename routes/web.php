@@ -170,12 +170,14 @@ Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(funct
 
 // AI hijos
 Route::get('/ai/workmode/index', [WorkModeAIController::class, 'index'])->name('ai.workmode.index');
-Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
+//Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
 Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
 Route::get('/ai/technologies', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
 
 Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
 //Route::post('/job-offers/import', [JobOfferController::class, 'import']);
+
+Route::get('/ai/city-demand', [CityDemandAIController::class, 'getData']);
 });
 
 

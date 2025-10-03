@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 
    use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\AI\CityDemandAIController;
 
 
 Route::middleware('apikey')->group(function () {
@@ -20,6 +21,7 @@ Route::middleware('apikey')->group(function () {
     // routes/api.php
 Route::patch('/payments/{payment}/state-slim', [PaymentController::class, 'updateStateSlim']);
 
+Route::get('/ai/city-demand', [CityDemandAIController::class, 'getData']);
 });
 
 

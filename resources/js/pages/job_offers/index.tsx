@@ -232,26 +232,42 @@ export default function JobOffersIndex() {
           </table>
         </div>
 
-        {/* Paginación */}
-        <div className="flex justify-center mt-6 gap-2">
-          {[...Array(pagination.last_page)].map((_, index) => {
-            const page = index + 1;
-            return (
-              <button
-                key={page}
-                onClick={() => fetchPage(`/job-offers/fetch?page=${page}`)}
-                className={`px-3 py-1 rounded text-sm font-medium transition ${
-                  pagination.current_page === page
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-                disabled={pagination.current_page === page}
-              >
-                {page}
-              </button>
-            );
-          })}
-        </div>
+      {/* Paginación */}
+<div className="flex justify-center mt-6 gap-1">
+  {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
+    .filter((page) => {
+      // Mostrar primeras 2, últimas 2, y 2 alrededor de la actual
+      return (
+        page <= 2 ||
+        page >= pagination.last_page - 1 ||
+        (page >= pagination.current_page - 2 && page <= pagination.current_page + 2)
+      );
+    })
+    .map((page, idx, arr) => {
+      const prev = arr[idx - 1];
+      const isGap = prev && page - prev > 1;
+
+      return (
+        <span key={page} className="flex">
+          {isGap && (
+            <span className="px-2 py-1 text-slate-400">…</span>
+          )}
+          <button
+            onClick={() => fetchPage(`/job-offers/fetch?page=${page}`)}
+            className={`px-3 py-1 rounded text-sm font-medium transition ${
+              pagination.current_page === page
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+            disabled={pagination.current_page === page}
+          >
+            {page}
+          </button>
+        </span>
+      );
+    })}
+</div>
+
       </div>
 
       {showModal && (

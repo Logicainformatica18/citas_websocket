@@ -5,7 +5,7 @@ namespace App\Http\Controllers\AI;
 use App\Http\Controllers\Controller;
 use App\Models\JobOffer;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Http\Request; 
 class CityDemandAIController extends Controller
 {
     public function index()
@@ -14,14 +14,49 @@ class CityDemandAIController extends Controller
         return response()->json($this->buildResponse());
     }
 
-    public function getData(array $instruction)
-    {
-        Log::info("🌍 CityDemandAIController@getData", ['filters' => $instruction['filters'] ?? []]);
-        return $this->buildResponse($instruction['filters'] ?? []);
+public function getData(Request $request)
+{
+    $year = $request->get('year', 2024); // default 2024
+    $zoom = (int) $request->get('zoom', 4);
+
+    $query = JobOffer::query()
+        ->whereYear('published_at', '>=', $year)
+        ->whereNotNull('latitude')
+        ->whereNotNull('longitude');
+
+    // Lógica de agrupación por nivel de zoom
+    if ($zoom < 5) {
+        // Nivel global → país
+        $results = $query->selectRaw("
+            country,
+            AVG(latitude) as lat,
+            AVG(longitude) as lng,
+            COUNT(*) as total,
+            modality
+        ")->groupBy('country','modality')->get();
+    } else {
+        // Zoom medio/alto → ciudad
+        $results = $query->selectRaw("
+            country, city,
+            AVG(latitude) as lat,
+            AVG(longitude) as lng,
+            COUNT(*) as total,
+            modality
+        ")->groupBy('country','city','modality')->get();
     }
 
+    return response()->json([
+        'results' => $results,
+        'message' => "Resultados agrupados por ".($zoom < 5 ? 'país' : 'ciudad')." para el año $year"
+    ]);
+}
 
-private function buildResponse(array $filters = [])
+
+
+
+
+
+private function buildResponse(array $filters = [], $bounds = null, $zoom = null)
 {
     $query = JobOffer::query();
 
@@ -29,72 +64,46 @@ private function buildResponse(array $filters = [])
         $query->where($field, $value);
     }
 
-    // Todas las ciudades con lat/lng registradas
-    $cityCoords = \App\Models\City::all();
+    // ✅ Filtrar por trimestre actual
+    $query->whereYear('published_at', now()->year)
+          ->whereRaw('QUARTER(published_at) = QUARTER(CURDATE())');
 
-    // Traer ofertas
-    $results = $query->get(['country', 'city', 'modality']);
+    // ✅ Filtrar por bounds si llega del frontend (lazy loading)
+    if ($bounds) {
+        $query->whereBetween('latitude', [$bounds['lat_min'], $bounds['lat_max']])
+              ->whereBetween('longitude', [$bounds['lng_min'], $bounds['lng_max']]);
+    }
 
-    // Agrupar por city+country
-    $grouped = $results->groupBy(function ($row) {
-        $country = trim($row->country ?? 'Desconocido');
-        $city    = trim($row->city ?? 'Desconocido');
-        return "{$city},{$country}";
-    });
-
-    $total = max($results->count(), 1);
-    $percent = $grouped->map(fn($g) => round(($g->count() / $total) * 100, 2));
-
-    $cities = $grouped->map(function ($group, $label) use ($cityCoords) {
-        $first    = $group->first();
-        $cityName = trim($first->city ?? '');
-        $country  = trim($first->country ?? '');
-
-        $match = null;
-
-        // 1️⃣ Buscar por country + city
-        if ($country && $cityName) {
-            $match = $cityCoords->first(fn($c) =>
-                stripos($c->city, $cityName) !== false &&
-                stripos($c->country, $country) !== false
-            );
-        }
-
-        // 2️⃣ Buscar solo por city
-        if (!$match && $cityName) {
-            $match = $cityCoords->first(fn($c) =>
-                stripos($c->city, $cityName) !== false
-            );
-        }
-
-        // 3️⃣ Buscar solo por iso2 (del modelo City)
-        if (!$match && $country) {
-            $match = $cityCoords->first(fn($c) =>
-                strtoupper($c->iso2) === strtoupper($country)
-            );
-        }
-
-        $modalidades = $group->pluck('modality')->countBy()->toArray();
-        $modalidadDominante = collect($modalidades)->sortDesc()->keys()->first();
-
-        return [
-            'label'      => $label,
-            'country'    => $country ?: null,
-            'city'       => $cityName ?: null,
-            'count'      => $group->count(),
-            'modalidad'  => $modalidades,
-            'modality'   => $modalidadDominante,
-            'lat'        => $match->lat ?? null,
-            'lng'        => $match->lng ?? null,
-            'iso2'       => $match->iso2 ?? null, // ✅ lo sacamos de City, no de JobOffer
-        ];
-    });
+    // ✅ Agrupamiento dinámico según zoom
+    if ($zoom < 5) {
+        // Zoom muy bajo: agrupar por país
+        $results = $query->selectRaw("
+                country,
+                AVG(latitude) as lat,
+                AVG(longitude) as lng,
+                COUNT(*) as total
+            ")
+            ->groupBy('country')
+            ->get();
+    } elseif ($zoom < 8) {
+        // Zoom medio: agrupar por ciudad
+        $results = $query->selectRaw("
+                country, city,
+                AVG(latitude) as lat,
+                AVG(longitude) as lng,
+                COUNT(*) as total
+            ")
+            ->groupBy('country','city')
+            ->get();
+    } else {
+        // Zoom alto: puntos individuales
+        $results = $query->select('country','city','latitude as lat','longitude as lng')
+                         ->get();
+    }
 
     return [
-        'results' => $cities->values(),
-        'aggregations' => ['percent' => $percent],
-        'modalities' => $results->pluck('modality')->countBy()->toArray(),
-        'message' => '🌍 Distribución de ofertas por ciudad y país calculada correctamente.'
+        'results' => $results,
+        'message' => '🌍 Distribución lista para heatmap con carga progresiva.'
     ];
 }
 
