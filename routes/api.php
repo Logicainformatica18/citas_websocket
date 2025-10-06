@@ -13,6 +13,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\AI\CityDemandAIController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\AI\MetricsAIController;
 
 
 Route::middleware('apikey')->group(function () {
@@ -100,4 +101,6 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
 
 Route::get('/courses/list', [CourseController::class, 'listAll']);
+Route::get('/ai/metrics', [MetricsAIController::class, 'index']);
+
 });

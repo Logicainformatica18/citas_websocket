@@ -14,6 +14,7 @@ import CareerAlignmentChart from './components/CareerAlignmentChart';
 import DemandByCareerChart from './components/DemandByCareerChart';
 import EmploymentRequestChart from './components/EmploymentRequestChart';
 import AiChat from './components/AiChat';
+import MetricsChart from './components/MetricsChart';
 import { DashboardProvider } from "./DashboardContext";
 import { Menu } from "lucide-react";
 
@@ -21,23 +22,14 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Dashboard', href: '/dashboard' },
 ];
 
-// 🔹 Card expansible en horizontal con doble clic
-function ExpandableCard({
-  children,
-  onToggleExpand,
-  isExpanded
-}: {
-  children: React.ReactNode,
-  onToggleExpand: () => void,
-  isExpanded: boolean
-}) {
+// 🔹 Card compacta y expansible
+function ExpandableCard({ children, onToggleExpand, isExpanded }: any) {
   return (
     <div
       onDoubleClick={onToggleExpand}
-      className={`
-        transition-all duration-500 ease-in-out
+      className={`transition-all duration-500 ease-in-out
         bg-gray-800 rounded-lg shadow overflow-hidden cursor-pointer
-        min-h-[200px]
+        min-h-[150px] hover:shadow-lg
         ${isExpanded ? "col-span-full scale-[1.01] z-20" : ""}
       `}
     >
@@ -49,26 +41,12 @@ function ExpandableCard({
 export default function Dashboard({ initialData }: { initialData: any }) {
   const [sizes, setSizes] = useState([98, 2]);
   const [collapsed, setCollapsed] = useState(false);
-
-  // Estado para controlar qué card está expandida
   const [expandedCard, setExpandedCard] = useState<number | null>(null);
 
-  const togglePanel = () => {
-    if (collapsed) {
-      setSizes([97, 3]);
-      setCollapsed(false);
-    } else {
-      setSizes([97, 3]);
-      setCollapsed(true);
-    }
-  };
-
-  // 🔹 Manejo de expansión: si haces doble clic en la misma → se cierra
-  const handleExpand = (id: number) => {
+  const togglePanel = () => setCollapsed(!collapsed);
+  const handleExpand = (id: number) =>
     setExpandedCard(expandedCard === id ? null : id);
-  };
 
-  // 🔹 Si hay card expandida → ocultar el panel de chat (Split al 100%)
   const splitSizes = expandedCard !== null ? [100, 0] : sizes;
 
   return (
@@ -77,7 +55,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
 
       <DashboardProvider>
         <div className="relative h-[calc(100vh-64px)]">
-          {/* Botón hamburguesa */}
+          {/* Botón menú */}
           <button
             onClick={togglePanel}
             className="absolute top-2 right-2 z-50 bg-gray-800 text-white p-2 rounded-md shadow hover:bg-gray-700"
@@ -100,28 +78,35 @@ export default function Dashboard({ initialData }: { initialData: any }) {
             }}
           >
             {/* Panel izquierdo */}
-            <div className="overflow-y-auto p-4 space-y-6">
-              {/* Bloque 1 → cards + mapa */}
-          {/* Bloque 1 → cards + mapa */}
-<div className="grid grid-cols-2 gap-2">
-  <ExpandableCard
-    isExpanded={expandedCard === 1}
-    onToggleExpand={() => handleExpand(1)}
-    >
-    <TechnologiesChart />
-  </ExpandableCard>
+            <div className="overflow-y-auto p-3 space-y-2">
+              
+              {/* 🔹 Métricas globales IA */}
+              <ExpandableCard
+                isExpanded={expandedCard === 0}
+                onToggleExpand={() => handleExpand(0)}
+              >
+                <MetricsChart />
+              </ExpandableCard>
 
-  <ExpandableCard
-    isExpanded={expandedCard === 2}
-    onToggleExpand={() => handleExpand(2)}
-    >
-    <CityDemandMap />
-  </ExpandableCard>
-</div>
+              {/* Bloque 1 */}
+              <div className="grid grid-cols-2 gap-2">
+                <ExpandableCard
+                  isExpanded={expandedCard === 1}
+                  onToggleExpand={() => handleExpand(1)}
+                >
+                  <TechnologiesChart />
+                </ExpandableCard>
 
+                <ExpandableCard
+                  isExpanded={expandedCard === 2}
+                  onToggleExpand={() => handleExpand(2)}
+                >
+                  <CityDemandMap />
+                </ExpandableCard>
+              </div>
 
               {/* Bloque 2 */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <ExpandableCard
                   isExpanded={expandedCard === 3}
                   onToggleExpand={() => handleExpand(3)}
@@ -143,7 +128,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
               </div>
 
               {/* Bloque 3 */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <ExpandableCard
                   isExpanded={expandedCard === 6}
                   onToggleExpand={() => handleExpand(6)}
@@ -179,7 +164,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
 
             {/* Panel derecho (AI Chat) */}
             {expandedCard === null && (
-              <div className="flex flex-col h-full overflow-y-auto p-4 border-l border-gray-700">
+              <div className="flex flex-col h-full overflow-y-auto p-3 border-l border-gray-700">
                 <AiChat />
               </div>
             )}
