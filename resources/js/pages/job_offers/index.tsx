@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Trash2, Plus } from 'lucide-react';
 import JobOfferModal from './JobOfferModal';
+import JobOfferCsvModal from './JobOfferCsvModal';
+
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Ofertas de Empleo', href: '/job-offers' },
@@ -113,29 +115,38 @@ export default function JobOffersIndex() {
       alert('No se pudo eliminar en lote.');
     }
   };
+const [showCsvModal, setShowCsvModal] = useState(false);
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8 text-white">
         <h1 className="text-2xl font-bold mb-6">Ofertas de Empleo</h1>
 
-        <div className="flex items-center gap-2 mb-4">
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Importar desde API
-          </button>
+       <div className="flex items-center gap-2 mb-4">
+  <button
+    onClick={() => setShowModal(true)}
+    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
+  >
+    <Plus className="w-4 h-4" /> Importar desde API
+  </button>
 
-          {selectedIds.length > 0 && (
-            <button
-              onClick={removeBulk}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-            >
-              Eliminar Seleccionados
-            </button>
-          )}
-        </div>
+  <button
+    onClick={() => setShowCsvModal(true)} // 👈 nuevo
+    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 inline-flex items-center gap-2"
+  >
+    <Plus className="w-4 h-4" /> Importar desde CSV
+  </button>
+
+  {selectedIds.length > 0 && (
+    <button
+      onClick={removeBulk}
+      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+    >
+      Eliminar Seleccionados
+    </button>
+  )}
+</div>
+
 
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto border-collapse">
@@ -277,6 +288,14 @@ export default function JobOffersIndex() {
           onImported={() => fetchPage('/job-offers/fetch')}
         />
       )}
+      {showCsvModal && (
+  <JobOfferCsvModal
+    open={showCsvModal}
+    onClose={() => setShowCsvModal(false)}
+    onImported={() => fetchPage('/job-offers/fetch')}
+  />
+)}
+
     </AppLayout>
   );
 }

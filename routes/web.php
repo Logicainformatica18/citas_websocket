@@ -18,7 +18,8 @@ use App\Http\Controllers\AI\TechnologiesAIController;
 use App\Http\Controllers\AI\RolesAIController;
 use App\Http\Controllers\CareerController;
 use App\Http\Controllers\CareerCourseController;
-
+use App\Http\Controllers\ImportController;
+use App\Http\Controllers\JobOfferImportController;
 
 
 
@@ -198,6 +199,11 @@ Route::prefix('careers')->group(function () {
 Route::apiResource('career-courses', CareerCourseController::class)->only(['index','update','destroy']);
 Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
 
+
+
+
+Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
+Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
 });
 
 

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call(PermissionsSeeder::class);
         $this->call(ISILScrapingSeeder::class);
         $this->call(CitiesSeeder::class);
+        $this->call(CareerSeeder::class);
         //$this->call([TransferSeeder::class,]);
         //$this->call(ProductSeeder::class);
    // $this->call(ArticleSeeder::class);
