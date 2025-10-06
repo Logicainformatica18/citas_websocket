@@ -37,7 +37,17 @@ class CourseController extends Controller
             'methodologies' => $methodologies,
         ]);
     }
+public function listAll()
+{
+     // ⚡ Solo necesitamos id y name, sin paginación pesada
+    $courses = \App\Models\Course::select('id', 'name')
+        ->orderBy('name', 'asc')
+        ->get();
 
+    return response()->json([
+        'courses' => $courses,
+    ]);
+}
     public function store(Request $request)
     {
         $request->validate([

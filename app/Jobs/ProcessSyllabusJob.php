@@ -51,7 +51,7 @@ class ProcessSyllabusJob implements ShouldQueue
             $gcsPath = "syllabus/{$syllabus->id}.pdf";
 
             $storage = new \Google\Cloud\Storage\StorageClient([
-                'projectId'   => env('GCS_PROJECT_ID'),
+                'projectId' => env('GCS_PROJECT_ID'),
                 'keyFilePath' => env('GCS_KEY_FILE_PATH'),
             ]);
 
@@ -197,41 +197,47 @@ $text
                 'metodologias' => $decoded['metodologias'] ?? []
             ]);
 
-            // 📊 Crear o actualizar curso
-            $course = Course::updateOrCreate(
-                ['name' => $decoded['curso']],
-                []
-            );
+            // 📊 Crear o buscar curso por nombre único
+            $course = Course::firstOrCreate(['name' => $decoded['curso']]);
+
+            // =====================================================
+// 🔁 ACTUALIZAR RELACIONES SIN ELIMINAR LAS EXISTENTES
+// =====================================================
 
             // Lenguajes
             if (!empty($decoded['lenguajes'])) {
                 $languageIds = [];
                 foreach ($decoded['lenguajes'] as $langName) {
-                    $lang = Language::firstOrCreate(['name' => $langName]);
+                    $lang = Language::firstOrCreate(['name' => trim($langName)]);
                     $languageIds[] = $lang->id;
                 }
-                $course->languages()->sync($languageIds);
+
+                // 👉 En lugar de sync() (que reemplaza), usamos syncWithoutDetaching()
+                $course->languages()->syncWithoutDetaching($languageIds);
             }
 
             // Tecnologías
             if (!empty($decoded['tecnologias'])) {
                 $techIds = [];
                 foreach ($decoded['tecnologias'] as $techName) {
-                    $tech = Technology::firstOrCreate(['name' => $techName]);
+                    $tech = Technology::firstOrCreate(['name' => trim($techName)]);
                     $techIds[] = $tech->id;
                 }
-                $course->technologies()->sync($techIds);
+                $course->technologies()->syncWithoutDetaching($techIds);
             }
 
             // Metodologías
             if (!empty($decoded['metodologias'])) {
                 $methIds = [];
                 foreach ($decoded['metodologias'] as $methName) {
-                    $meth = Methodology::firstOrCreate(['name' => $methName]);
+                    $meth = Methodology::firstOrCreate(['name' => trim($methName)]);
                     $methIds[] = $meth->id;
                 }
-                $course->methodologies()->sync($methIds);
+                $course->methodologies()->syncWithoutDetaching($methIds);
             }
+
+            Log::info("✅ Curso '{$decoded['curso']}' actualizado con nuevas relaciones sin eliminar las previas.");
+
 
             Log::info("✅ Procesado syllabus ID {$this->syllabusId} → curso '{$decoded['curso']}'");
 

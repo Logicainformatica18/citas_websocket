@@ -16,6 +16,9 @@ use App\Http\Controllers\AI\CityDemandAIController;
 use App\Http\Controllers\AI\WorkModeAIController;
 use App\Http\Controllers\AI\TechnologiesAIController;
 use App\Http\Controllers\AI\RolesAIController;
+use App\Http\Controllers\CareerController;
+use App\Http\Controllers\CareerCourseController;
+
 
 
 
@@ -178,6 +181,23 @@ Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
 //Route::post('/job-offers/import', [JobOfferController::class, 'import']);
 
 Route::get('/ai/city-demand', [CityDemandAIController::class, 'getData']);
+
+Route::prefix('careers')->group(function () {
+    Route::get('/', [CareerController::class, 'index']);
+    Route::get('/fetch', [CareerController::class, 'fetchPaginated']);
+    Route::post('/', [CareerController::class, 'store']);
+    Route::get('/{id}', [CareerController::class, 'show']);
+    Route::put('/{id}', [CareerController::class, 'update']);
+    Route::delete('/{id}', [CareerController::class, 'destroy']);
+
+    // Relaciones
+    Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
+    Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
+});
+
+Route::apiResource('career-courses', CareerCourseController::class)->only(['index','update','destroy']);
+Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
+
 });
 
 

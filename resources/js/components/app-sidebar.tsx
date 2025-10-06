@@ -98,6 +98,16 @@ export function AppSidebar() {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>
+                     <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/careers" className="flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5" />
+                                    <span>Carreras</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
 
                     <SidebarMenu>
                         <SidebarMenuItem>
