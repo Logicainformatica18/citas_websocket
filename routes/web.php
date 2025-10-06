@@ -66,144 +66,144 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'show'])->middleware('permission:administrar');
 
     Route::post('scrapings/{scraping}/backups/bulk', [BackupController::class, 'storeMany'])
-    ->name('backups.storeMany');
+        ->name('backups.storeMany');
     // RUN SCRAPING
     Route::post('/scrapings/{id}/run', [ScrapingController::class, 'run'])->name('scrapings.run')->middleware('permission:administrar');
 
-Route::prefix('scrapings/{scraping}')->group(function () {
-    Route::get('backups', [BackupController::class, 'index'])->name('backups.index');
-    Route::post('backups', [BackupController::class, 'store'])->name('backups.store');
-    Route::patch('backups/{backup}/toggle', [BackupController::class, 'toggleReviewed'])->name('backups.toggle');
-    Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
-    Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
-});
+    Route::prefix('scrapings/{scraping}')->group(function () {
+        Route::get('backups', [BackupController::class, 'index'])->name('backups.index');
+        Route::post('backups', [BackupController::class, 'store'])->name('backups.store');
+        Route::patch('backups/{backup}/toggle', [BackupController::class, 'toggleReviewed'])->name('backups.toggle');
+        Route::delete('backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
+        Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
+    });
 
-Route::post('/ai/chat', [AIController::class, 'chat'])->middleware('permission:administrar');
+    Route::post('/ai/chat', [AIController::class, 'chat'])->middleware('permission:administrar');
 
 
-Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
-    ->name('job_offers.fetch')
-    ->middleware('permission:administrar');
+    Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
+        ->name('job_offers.fetch')
+        ->middleware('permission:administrar');
 
-Route::post('/job-offers', [JobOfferController::class, 'store'])
-    ->name('job_offers.store')
-    ->middleware('permission:administrar');
+    Route::post('/job-offers', [JobOfferController::class, 'store'])
+        ->name('job_offers.store')
+        ->middleware('permission:administrar');
 
-Route::get('/job-offers', [JobOfferController::class, 'index'])
-    ->name('job_offers.index')
-    ->middleware('permission:administrar');
+    Route::get('/job-offers', [JobOfferController::class, 'index'])
+        ->name('job_offers.index')
+        ->middleware('permission:administrar');
 
-Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
-    ->name('job_offers.destroy')
-    ->middleware('permission:administrar');
+    Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
+        ->name('job_offers.destroy')
+        ->middleware('permission:administrar');
 
-Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
-    ->name('job_offers.update')
-    ->middleware('permission:administrar');
+    Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
+        ->name('job_offers.update')
+        ->middleware('permission:administrar');
 
-Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
-    ->name('job_offers.show')
-    ->middleware('permission:administrar');
+    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
+        ->name('job_offers.show')
+        ->middleware('permission:administrar');
 
-Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
-    ->name('job_offers.bulkDelete')
-    ->middleware('permission:administrar');
+    Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
+        ->name('job_offers.bulkDelete')
+        ->middleware('permission:administrar');
 
 
     Route::post('/job-offers/import', [JobOfferController::class, 'import'])
-    ->name('job-offers.import')
-    ->middleware('permission:administrar');
+        ->name('job-offers.import')
+        ->middleware('permission:administrar');
 
     Route::get('/courses/fetch', [CourseController::class, 'index'])
-    ->name('courses.fetch')
-    ->middleware('permission:administrar');
+        ->name('courses.fetch')
+        ->middleware('permission:administrar');
 
-Route::post('/courses', [CourseController::class, 'store'])
-    ->middleware('permission:administrar');
+    Route::post('/courses', [CourseController::class, 'store'])
+        ->middleware('permission:administrar');
 
-Route::get('/courses', [CourseController::class, 'index'])
-    ->name('courses.index')
-    ->middleware('permission:administrar');
+    Route::get('/courses', [CourseController::class, 'index'])
+        ->name('courses.index')
+        ->middleware('permission:administrar');
 
-Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
-    ->middleware('permission:administrar');
+    Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
+        ->middleware('permission:administrar');
 
-Route::put('/courses/{id}', [CourseController::class, 'update'])
-    ->middleware('permission:administrar');
+    Route::put('/courses/{id}', [CourseController::class, 'update'])
+        ->middleware('permission:administrar');
 
-Route::get('/courses/{id}', [CourseController::class, 'show'])
-    ->middleware('permission:administrar');
+    Route::get('/courses/{id}', [CourseController::class, 'show'])
+        ->middleware('permission:administrar');
 
 
-Route::get('/syllabus', [SyllabusController::class, 'index'])
-    ->name('syllabus.index')
-    ->middleware(['auth', 'permission:administrar']);
+    Route::get('/syllabus', [SyllabusController::class, 'index'])
+        ->name('syllabus.index')
+        ->middleware(['auth', 'permission:administrar']);
 
-Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
-    ->name('syllabus.fetch')
-    ->middleware(['auth', 'permission:administrar']);
+    Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
+        ->name('syllabus.fetch')
+        ->middleware(['auth', 'permission:administrar']);
 
-// 📂 Subir sílabo (upload)
-Route::post('/syllabus/upload', [SyllabusController::class, 'store'])->middleware(['auth', 'permission:administrar']);
+    // 📂 Subir sílabo (upload)
+    Route::post('/syllabus/upload', [SyllabusController::class, 'store'])->middleware(['auth', 'permission:administrar']);
 
-Route::get('/syllabus/{id}', [SyllabusController::class, 'show'])
-    ->name('syllabus.show')
-    ->middleware(['auth', 'permission:administrar']);
+    Route::get('/syllabus/{id}', [SyllabusController::class, 'show'])
+        ->name('syllabus.show')
+        ->middleware(['auth', 'permission:administrar']);
 
-Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
-    ->name('syllabus.destroy')
-    ->middleware(['auth', 'permission:administrar']);
+    Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
+        ->name('syllabus.destroy')
+        ->middleware(['auth', 'permission:administrar']);
 
-Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
-    ->name('syllabus.bulkDelete')
-    ->middleware(['auth', 'permission:administrar']);
+    Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
+        ->name('syllabus.bulkDelete')
+        ->middleware(['auth', 'permission:administrar']);
 
 
     // Rutas para el Dashboard AI
-Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(function () {
-    // Chat principal del dashboard IA
-    Route::post('/chat', [DashboardAIController::class, 'chat'])->name('dashboard_ai.chat');
+    Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(function () {
+        // Chat principal del dashboard IA
+        Route::post('/chat', [DashboardAIController::class, 'chat'])->name('dashboard_ai.chat');
 
-    // Acciones específicas por tipo de card
-    Route::get('/city-demand', [DashboardAIController::class, 'cityDemand'])->name('dashboard_ai.city_demand');
-    Route::get('/technologies', [DashboardAIController::class, 'technologies'])->name('dashboard_ai.technologies');
-    Route::get('/roles', [DashboardAIController::class, 'roles'])->name('dashboard_ai.roles');
-    Route::get('/obsolescence', [DashboardAIController::class, 'obsolescence'])->name('dashboard_ai.obsolescence');
-    Route::get('/workmode', [DashboardAIController::class, 'workmode'])->name('dashboard_ai.workmode');
-});
+        // Acciones específicas por tipo de card
+        Route::get('/city-demand', [DashboardAIController::class, 'cityDemand'])->name('dashboard_ai.city_demand');
+        Route::get('/technologies', [DashboardAIController::class, 'technologies'])->name('dashboard_ai.technologies');
+        Route::get('/roles', [DashboardAIController::class, 'roles'])->name('dashboard_ai.roles');
+        Route::get('/obsolescence', [DashboardAIController::class, 'obsolescence'])->name('dashboard_ai.obsolescence');
+        Route::get('/workmode', [DashboardAIController::class, 'workmode'])->name('dashboard_ai.workmode');
+    });
 
-// AI hijos
-Route::get('/ai/workmode/index', [WorkModeAIController::class, 'index'])->name('ai.workmode.index');
-//Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
-Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
-Route::get('/ai/technologies', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
+    // AI hijos
+    Route::get('/ai/workmode/index', [WorkModeAIController::class, 'index'])->name('ai.workmode.index');
+    //Route::get('/ai/city-demand', [CityDemandAIController::class, 'index'])->name('ai.citydemand.index');
+    Route::get('/ai/roles/index', [RolesAIController::class, 'index'])->name('ai.roles.index');
+    Route::get('/ai/technologies', [TechnologiesAIController::class, 'index'])->name('ai.technologies.index');
 
-Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
-//Route::post('/job-offers/import', [JobOfferController::class, 'import']);
-
-Route::get('/ai/city-demand', [CityDemandAIController::class, 'getData']);
-
-Route::prefix('careers')->group(function () {
-    Route::get('/', [CareerController::class, 'index']);
-    Route::get('/fetch', [CareerController::class, 'fetchPaginated']);
-    Route::post('/', [CareerController::class, 'store']);
-    Route::get('/{id}', [CareerController::class, 'show']);
-    Route::put('/{id}', [CareerController::class, 'update']);
-    Route::delete('/{id}', [CareerController::class, 'destroy']);
-
-    // Relaciones
-    Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
-    Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
-});
-
-Route::apiResource('career-courses', CareerCourseController::class)->only(['index','update','destroy']);
-Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
+    Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
+    //Route::post('/job-offers/import', [JobOfferController::class, 'import']);
 
 
+    Route::get('/ai/city-demand/get-data', [CityDemandAIController::class, 'getData']);
+    Route::prefix('careers')->group(function () {
+        Route::get('/', [CareerController::class, 'index']);
+        Route::get('/fetch', [CareerController::class, 'fetchPaginated']);
+        Route::post('/', [CareerController::class, 'store']);
+        Route::get('/{id}', [CareerController::class, 'show']);
+        Route::put('/{id}', [CareerController::class, 'update']);
+        Route::delete('/{id}', [CareerController::class, 'destroy']);
+
+        // Relaciones
+        Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
+        Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
+    });
+
+    Route::apiResource('career-courses', CareerCourseController::class)->only(['index', 'update', 'destroy']);
+    Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
 
 
-Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
-Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
+
+
+    Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
+    Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
 });
 
 

@@ -1,257 +1,365 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap, Popup } from "react-leaflet";
-import { useEffect, useState, useCallback } from "react";
+import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, useMap } from "react-leaflet";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Filter, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import axios from "axios";
 
-// 👇 componente que dispara fetch cada vez que cambia el mapa
-function MapEvents({ onChange, onZoom }: { onChange: (bounds: any, zoom: number) => void, onZoom: (zoom: number) => void }) {
-    const map = useMap();
+// =======================================================
+// 📍 Dispara fetch al mover/zoom el mapa
+// =======================================================
+function MapEvents({ onChange, onZoom }: { onChange: (bounds: any, zoom: number) => void; onZoom: (zoom: number) => void }) {
+  const map = useMap();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
-        const update = () => {
-            onChange(map.getBounds(), map.getZoom());
-            onZoom(map.getZoom());
-        };
-        update(); // primera carga al montar
-        map.on("moveend", update);
-        return () => {
-            map.off("moveend", update);
-        };
-    }, [map, onChange, onZoom]);
+  useEffect(() => {
+    const update = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        onChange(map.getBounds(), map.getZoom());
+        onZoom(map.getZoom());
+      }, 500);
+    };
 
-    return null;
+    map.on("moveend", update);
+    map.on("zoomend", update);
+    update();
+
+    return () => {
+      map.off("moveend", update);
+      map.off("zoomend", update);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [map, onChange, onZoom]);
+
+  return null;
 }
 
-// Heatmap
-function HeatmapLayer({ points }: { points: [number, number, number][] }) {
-    const map = useMap();
+// =======================================================
+// 🔥 Heatmap multicapa sin parpadeo
+// =======================================================
+function MultiHeatmapLayer({ data }: { data: any[] }) {
+  const map = useMap();
+  const layersRef = useRef<Record<string, any>>({});
 
-    useEffect(() => {
+  const modalityColors: Record<string, string> = {
+    no_remote: "#ff3b30",
+    remote_local: "#34c759",
+    hibrido: "#ff9500",
+    fully_remote: "#007aff",
+  };
+
+  const colorRGBA = (hex: string, alpha: number) => {
+    const bigint = parseInt(hex.replace("#", ""), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  };
+
+  const normalize = (m: string | null) => (m ? m.toLowerCase() : "no_remote");
+
+  useEffect(() => {
+    if (!map || !data) return;
+    const grouped: Record<string, [number, number, number][]> = {};
+
+    data.forEach((d) => {
+      const key = normalize(d.modality);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push([d.lat, d.lng, d.total || d.count || 1]);
+    });
+
+    Object.entries(grouped).forEach(([mod, pts]) => {
+      const color = modalityColors[mod] || "#999999";
+      const maxVal = Math.max(...pts.map((p) => p[2]), 1);
+      const normPts = pts.map(([lat, lng, val]) => [lat, lng, val / maxVal]);
+
+      if (!layersRef.current[mod]) {
         // @ts-ignore
-        const heat = (window as any).L.heatLayer(points, {
-            radius: 25,
-            blur: 20,
-            maxZoom: 5,
-            gradient: {
-                0.2: "#ffffb2",
-                0.4: "#fecc5c",
-                0.6: "#fd8d3c",
-                0.8: "#f03b20",
-                1.0: "#bd0026",
-            },
-        }).addTo(map);
+        const heat = (window as any).L.heatLayer(normPts, {
+          radius: 32,
+          blur: 25,
+          maxZoom: 8,
+          minOpacity: 0.45,
+          gradient: {
+            0.2: colorRGBA(color, 0.3),
+            0.4: colorRGBA(color, 0.5),
+            0.6: colorRGBA(color, 0.7),
+            0.8: colorRGBA(color, 0.9),
+            1.0: colorRGBA(color, 1),
+          },
+        });
+        heat.addTo(map);
+        layersRef.current[mod] = heat;
+      } else {
+        layersRef.current[mod].setLatLngs(normPts);
+      }
+    });
 
-        return () => {
-            map.removeLayer(heat);
-        };
-    }, [map, points]);
+    Object.keys(layersRef.current).forEach((mod) => {
+      if (!grouped[mod]) {
+        const layer = layersRef.current[mod];
+        if (layer && map.hasLayer(layer)) {
+          try {
+            map.removeLayer(layer);
+          } catch {
+            console.warn("⚠️ Error al remover capa:", mod);
+          }
+        }
+        delete layersRef.current[mod];
+      }
+    });
+  }, [data]);
 
-    return null;
+  return null;
 }
 
-// =========================
-// 🔧 Estado + fetch de datos
-// =========================
-type JobOfferPoint = {
-    city: string;
-    country: string;
-    count: number;
-    modality: string;
-    coords: [number, number];
-};
-
+// =======================================================
+// 🧠 Hook de carga de datos
+// =======================================================
 function useCityDemandData() {
-    const [data, setData] = useState<JobOfferPoint[]>([]);
-    const [modalities, setModalities] = useState<Record<string, number>>({});
-    const [period, setPeriod] = useState<"quarter" | "year" | "all">("quarter");
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const lastParamsRef = useRef<string>("");
 
-    const normalizeModality = (m: string | null) => {
-        if (!m) return "presencial";
-        const val = m.toLowerCase();
+  const fetchData = useCallback(async (filters: any, bounds: any, zoom: number) => {
+    const paramsKey = JSON.stringify({ ...filters, zoom });
+    if (paramsKey === lastParamsRef.current) return;
+    lastParamsRef.current = paramsKey;
 
-        if (["fully_remote", "full_remote"].includes(val)) return "fully_remote";
-        if (["remote_local"].includes(val)) return "remoto";
-        if (["hybrid", "híbrido", "hibrido"].includes(val)) return "hibrido";
-        if (["no_remote", "presencial"].includes(val)) return "presencial";
-        return "presencial";
-    };
-
-    const fetchData = useCallback(
-        async (bounds: any, zoom: number) => {
-            try {
-                const res = await axios.get("/ai/city-demand", {
-                    params: {
-                        zoom,
-                        period,
-                        "bounds[lat_min]": bounds.getSouth(),
-                        "bounds[lat_max]": bounds.getNorth(),
-                        "bounds[lng_min]": bounds.getWest(),
-                        "bounds[lng_max]": bounds.getEast(),
-                    },
-                });
-
-                const payload = res.data.data || res.data;
-                const results = payload.results || [];
-                const mods = payload.modalities || {};
-
-                const mapped = results
-                    .filter((r: any) => r.lat && r.lng)
-                    .flatMap((r: any) =>
-                        Object.entries(r.modalidad || { [r.modality || "presencial"]: r.total || r.count }).map(
-                            ([key, count]) => ({
-                                ...r,
-                                coords: [r.lat, r.lng] as [number, number],
-                                modality: normalizeModality(key),
-                                count,
-                            })
-                        )
-                    );
-
-                setData(mapped);
-                setModalities(mods);
-            } catch (err) {
-                console.error("❌ Error cargando city demand", err);
-            }
+    try {
+      setLoading(true);
+      const res = await axios.get("/ai/city-demand/get-data", {
+        params: {
+          zoom,
+          ...filters,
+          "bounds[lat_min]": bounds?.getSouth(),
+          "bounds[lat_max]": bounds?.getNorth(),
+          "bounds[lng_min]": bounds?.getWest(),
+          "bounds[lng_max]": bounds?.getEast(),
         },
-        [period]
-    );
+      });
+      setData(res.data.results || []);
+    } catch (err) {
+      console.error("❌ Error al obtener datos", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    return { data, modalities, period, setPeriod, fetchData };
+  return { data, fetchData, loading };
 }
 
+// =======================================================
+// 🌍 Componente principal
+// =======================================================
 export default function CityDemandMap() {
-    const { data, modalities, period, setPeriod, fetchData } = useCityDemandData();
-    const [zoomLevel, setZoomLevel] = useState(4);
-    const [countryFilter, setCountryFilter] = useState<string>("");
+  const { data, fetchData, loading } = useCityDemandData();
+  const [zoomLevel, setZoomLevel] = useState(5);
+  const [showFilters, setShowFilters] = useState(false);
 
-    // Normalización para heatmap
-    const maxCount = Math.max(...data.map((d) => d.count), 1);
-    const heatmapPoints: [number, number, number][] = data.map((d) => [
-        d.coords[0],
-        d.coords[1],
-        d.count / maxCount,
-    ]);
+  const [filters, setFilters] = useState({
+    source: "",
+    year: new Date().getFullYear(),
+    quarter: "",
+    modality: "",
+    countries: [] as string[],
+    start_date: "",
+    end_date: "",
+  });
 
-    const colorMap: Record<string, string> = {
-        presencial: "red",
-        remoto: "green",
-        hibrido: "orange",
-        fully_remote: "blue",
-    };
+  const toggleCountry = (country: string) => {
+    setFilters((f) => {
+      const exists = f.countries.includes(country);
+      return {
+        ...f,
+        countries: exists ? f.countries.filter((c) => c !== country) : [...f.countries, country],
+      };
+    });
+  };
 
-    // Filtrar datos por país (o global si vacío)
-    const filteredData = countryFilter
-        ? data.filter(d => d.country.toLowerCase() === countryFilter.toLowerCase())
-        : data;
+  const totals = data.reduce((acc: Record<string, number>, d: any) => {
+    const m = (d.modality || "no_remote").toLowerCase();
+    const mapKey =
+      m === "no_remote"
+        ? "Presencial"
+        : m === "remote_local"
+        ? "Remoto local"
+        : m === "hibrido"
+        ? "Híbrido"
+        : m === "fully_remote"
+        ? "Full remoto"
+        : "Otros";
+    acc[mapKey] = (acc[mapKey] || 0) + (d.total || d.count || 0);
+    return acc;
+  }, {});
 
-    // Totales por modalidad
-    const totals = filteredData.reduce((acc, d) => {
-        acc[d.modality] = (acc[d.modality] || 0) + d.count;
-        return acc;
-    }, {} as Record<string, number>);
+  const colorMap: Record<string, string> = {
+    no_remote: "#ff3b30",
+    remote_local: "#34c759",
+    hibrido: "#ff9500",
+    fully_remote: "#007aff",
+  };
 
-    return (
-        <Card className="bg-[#111] text-white rounded-xl border border-gray-700">
-            <CardContent className="p-6 flex flex-col items-center gap-4">
-                {/* Título */}
-                <h2 className="text-center text-sm font-semibold text-white">
-                    DEMANDA POTENCIAL POR CIUDAD
-                </h2>
+  return (
+    <Card className="bg-[#111] text-white rounded-xl border border-gray-700 relative">
+      <CardContent className="p-6 flex flex-col items-center gap-3 relative">
+        <div className="flex justify-between items-center w-full">
+          <h2 className="text-sm font-semibold">DEMANDA POTENCIAL POR CIUDAD</h2>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition"
+          >
+            <Filter className="w-4 h-4 text-gray-200" />
+          </button>
+        </div>
 
-                {/* Controles arriba */}
-                <div className="flex gap-4 items-center text-sm">
-                    {/* Dropdown periodo */}
-                    <div>
-                        <label htmlFor="period" className="text-gray-300">Periodo:</label>
-                        <select
-                            id="period"
-                            value={period}
-                            onChange={(e) => setPeriod(e.target.value as any)}
-                            className="ml-2 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs"
-                        >
-                            <option value="quarter">Trimestre actual</option>
-                            <option value="year">Año actual</option>
-                            <option value="all">Todos los datos</option>
-                        </select>
+        {/* PANEL DE FILTROS */}
+        {showFilters && (
+          <div className="absolute right-6 top-12 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl p-4 z-[999] w-72 text-xs">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-semibold text-sm text-white">Filtros</h3>
+              <button onClick={() => setShowFilters(false)}>
+                <X className="w-4 h-4 text-gray-400 hover:text-white" />
+              </button>
+            </div>
+
+            {/* Fuente */}
+            <label className="block mb-1 text-gray-300">Fuente:</label>
+            <select
+              value={filters.source}
+              onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))}
+              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
+            >
+              <option value="">Todas</option>
+              <option value="Computrabajo">Computrabajo</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Adzuna">Adzuna</option>
+              <option value="GetOnBoard">GetOnBoard</option>
+              <option value="Seek">Seek</option>
+            </select>
+
+            {/* Países */}
+            <label className="block mb-1 text-gray-300">Países:</label>
+            <div className="grid grid-cols-2 gap-1 mb-2">
+              {["Peru", "Bolivia", "Argentina", "Chile", "Mexico", "Colombia", "Australia", "Estados Unidos"].map((c) => (
+                <label key={c} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={filters.countries.includes(c)}
+                    onChange={() => toggleCountry(c)}
+                  />
+                  <span>{c}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Intervalo de fechas */}
+            <label className="block mb-1 text-gray-300">Desde:</label>
+            <input
+              type="date"
+              value={filters.start_date}
+              onChange={(e) => setFilters((f) => ({ ...f, start_date: e.target.value }))}
+              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
+            />
+            <label className="block mb-1 text-gray-300">Hasta:</label>
+            <input
+              type="date"
+              value={filters.end_date}
+              onChange={(e) => setFilters((f) => ({ ...f, end_date: e.target.value }))}
+              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
+            />
+
+            {/* Modalidad */}
+            <label className="block mb-1 text-gray-300">Modalidad:</label>
+            <select
+              value={filters.modality}
+              onChange={(e) => setFilters((f) => ({ ...f, modality: e.target.value }))}
+              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
+            >
+              <option value="">Todas</option>
+              <option value="no_remote">Presencial</option>
+              <option value="remote_local">Remoto local</option>
+              <option value="hibrido">Híbrido</option>
+              <option value="fully_remote">Full remoto</option>
+            </select>
+
+            <div className="flex justify-between mt-2">
+              <button
+                onClick={() =>
+                  setFilters({
+                    source: "",
+                    year: new Date().getFullYear(),
+                    quarter: "",
+                    modality: "",
+                    countries: [],
+                    start_date: "",
+                    end_date: "",
+                  })
+                }
+                className="text-gray-300 hover:text-white text-xs"
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-xs"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MAPA */}
+        <div className="relative w-full h-[440px] rounded-lg overflow-hidden mt-2">
+          <MapContainer center={[-12.0464, -77.0428]} zoom={5} style={{ height: "100%", width: "100%" }}>
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+            />
+            <MapEvents onChange={(bounds) => fetchData(filters, bounds, zoomLevel)} onZoom={setZoomLevel} />
+            <MultiHeatmapLayer data={data} />
+
+            {zoomLevel >= 5 &&
+              data.map((d, i) => (
+                <CircleMarker
+                  key={i}
+                  center={[d.lat, d.lng]}
+                  radius={Math.min(80, 2 + Math.sqrt(d.total || 1) * (zoomLevel / 2))}
+                  color={colorMap[d.modality?.toLowerCase() || "no_remote"]}
+                  fillOpacity={0.6}
+                >
+                  <Tooltip direction="top" offset={[0, -5]} opacity={1}>
+                    {d.city || "—"}, {d.country || "—"} — {d.total} ofertas ({d.modality})
+                  </Tooltip>
+                  <Popup>
+                    <div style={{ minWidth: "200px" }}>
+                      <h3 className="font-bold mb-1">{d.city}, {d.country}</h3>
+                      <p>Total ofertas: {d.total}</p>
+                      <p>Modalidad: {d.modality}</p>
                     </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+          </MapContainer>
 
-                    {/* Input país */}
-                    <div>
-                        <label htmlFor="country" className="text-gray-300">País:</label>
-                        <input
-                            id="country"
-                            type="text"
-                            value={countryFilter}
-                            onChange={(e) => setCountryFilter(e.target.value)}
-                            placeholder="Ej: Peru"
-                            className="ml-2 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs"
-                        />
-                    </div>
-                </div>
+          {/* Leyenda */}
+          <div className="absolute bottom-6 right-6 z-[1000] text-xs text-gray-200 bg-black/60 p-2 rounded">
+            <p>🔴 Presencial: {totals["Presencial"] || 0}</p>
+            <p>🟢 Remoto local: {totals["Remoto local"] || 0}</p>
+            <p>🟠 Híbrido: {totals["Híbrido"] || 0}</p>
+            <p>🔵 Full remoto: {totals["Full remoto"] || 0}</p>
+          </div>
 
-                {/* Mapa */}
-                <div className="relative w-full h-[440px] rounded-lg overflow-hidden">
-                    <MapContainer
-                        center={[-12.0464, -77.0428]} // 👈 Lima como centro
-                        zoom={6}                      // 👈 Más cerca que 4
-                        style={{ height: "100%", width: "100%" }}
-                        className="rounded-lg"
-                    >
-
-                        <TileLayer
-                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
-                            subdomains={["a", "b", "c", "d"]}
-                        />
-
-                        <MapEvents onChange={fetchData} onZoom={setZoomLevel} />
-                        <HeatmapLayer points={heatmapPoints} />
-
-                        {zoomLevel >= 5 &&
-                            filteredData.map((d, i) => (
-                                <>
-                                    <CircleMarker
-                                        key={i}
-                                        center={d.coords}
-                                        radius={Math.min(80, 2 + Math.sqrt(d.count) * (zoomLevel / 2))}
-                                        color={colorMap[d.modality.toLowerCase()] || "blue"}
-                                        fillOpacity={0.6}
-                                    >
-                                        <Tooltip direction="top" offset={[0, -5]} opacity={1}>
-                                            {d.city}, {d.country} — {d.count} ofertas ({d.modality})
-                                        </Tooltip>
-
-                                        <Popup>
-                                            <div style={{ minWidth: "200px" }}>
-                                                <h3 style={{ fontWeight: "bold", marginBottom: "4px" }}>
-                                                    {d.city}, {d.country}
-                                                </h3>
-                                                <p>Total ofertas: {d.count}</p>
-                                                <p>Modalidad: {d.modality}</p>
-                                                <a href={`/jobs?city=${encodeURIComponent(d.city)}`} target="_blank" rel="noopener noreferrer">
-                                                    Ver ofertas →
-                                                </a>
-                                            </div>
-                                        </Popup>
-                                    </CircleMarker>
-
-
-
-                                </>
-                            ))}
-                    </MapContainer>
-
-                    {/* Leyenda dinámica */}
-                    <div className="absolute bottom-6 right-6 z-[1000] text-xs text-gray-200 bg-black/60 p-2 rounded">
-                        <p>🔴 Presencial: {totals["presencial"] || 0}</p>
-                        <p>🟢 Remoto local: {totals["remoto"] || 0}</p>
-                        <p>🟠 Híbrido: {totals["hibrido"] || 0}</p>
-                        <p>🔵 Full Remoto: {totals["fully_remote"] || 0}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm">
+              Cargando datos...
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

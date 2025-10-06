@@ -127,7 +127,7 @@ const [showCsvModal, setShowCsvModal] = useState(false);
     onClick={() => setShowModal(true)}
     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
   >
-    <Plus className="w-4 h-4" /> Importar desde API
+    <Plus className="w-4 h-4" /> Importar
   </button>
 
   <button

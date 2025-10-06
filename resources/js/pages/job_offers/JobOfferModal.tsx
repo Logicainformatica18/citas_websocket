@@ -126,7 +126,7 @@ export default function JobOfferModal({ open, onClose, onImported }: Props) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-900 rounded-lg w-[900px] p-6 space-y-4 shadow-lg border border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold mb-2 text-gray-800 dark:text-gray-100">
-          Importar Ofertas desde API
+          Importar Ofertas por busqueda
         </h2>
 
         {/* Selección de fuente + query */}
