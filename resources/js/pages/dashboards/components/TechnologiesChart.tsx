@@ -7,19 +7,27 @@ import {
   ResponsiveContainer,
   LabelList,
   Cell,
+  Tooltip,
 } from "recharts";
 import { useEffect, useState } from "react";
-import { Filter, X } from "lucide-react";
+import { Filter, X, Search } from "lucide-react";
 import axios from "axios";
 
-type TechData = { name: string; value: number; color: string };
+type TechData = {
+  name: string;
+  value: number;
+  color: string;
+  repos?: number;
+  users?: number;
+  bytes?: number;
+};
 
 export default function TechnologiesChart() {
   const [data, setData] = useState<TechData[]>([]);
   const [filters, setFilters] = useState({
     year: [] as number[],
     language: [] as string[],
-    source: ["github"] as string[],
+    source: ["GitHub"] as string[],
     country: [] as string[],
   });
   const [options, setOptions] = useState({
@@ -30,6 +38,8 @@ export default function TechnologiesChart() {
   });
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const [languageSearch, setLanguageSearch] = useState("");
 
   const gradients = [
     { id: "python", from: "#06b6d4", to: "#3b82f6" },
@@ -39,20 +49,34 @@ export default function TechnologiesChart() {
     { id: "tensorflow", from: "#f97316", to: "#ea580c" },
   ];
 
+  // 🔹 Cargar opciones dinámicas
   useEffect(() => {
-    axios.get("/api/technologies/metadata").then((res) => setOptions(res.data));
+    axios
+      .get("/api/ai/technologies/enriched/metadata")
+      .then((res) => setOptions(res.data))
+      .catch((err) => console.error("❌ Error cargando metadata:", err.message));
   }, []);
 
+  // 🔹 Cargar datos filtrados
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await axios.post("/api/technologies/data", { filters });
+      const res = await axios.post("/api/ai/technologies/enriched/data", {
+        filters,
+      });
+
       const results = res.data.aggregations?.percent || {};
+      const extra = res.data.extra || {};
+
       const mapped: TechData[] = Object.entries(results).map(([name, value], i) => ({
         name,
         value: Number(value),
         color: `url(#${gradients[i % gradients.length].id})`,
+        repos: extra[name]?.repos || 0,
+        users: extra[name]?.users || 0,
+        bytes: extra[name]?.bytes || 0,
       }));
+
       setData(mapped);
     } catch (err) {
       console.error("❌ Error cargando tecnologías:", err);
@@ -65,6 +89,7 @@ export default function TechnologiesChart() {
     loadData();
   }, [filters]);
 
+  // 🔹 Toggle filtros múltiples
   const toggleFilter = (type: string, value: string | number) => {
     setFilters((prev) => {
       const arr = prev[type as keyof typeof prev] as (string | number)[];
@@ -81,9 +106,26 @@ export default function TechnologiesChart() {
     setFilters({
       year: [],
       language: [],
-      source: ["github"],
+      source: ["GitHub"],
       country: [],
     });
+
+  // 🔹 Tooltip personalizado
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const d = payload[0].payload;
+      return (
+        <div className="bg-gray-900 text-gray-100 p-3 rounded-lg shadow-lg border border-gray-700 text-xs">
+          <p className="font-semibold text-blue-400 mb-1">{d.name}</p>
+          <p>Popularidad: <span className="text-white">{d.value.toFixed(2)}%</span></p>
+          <p>Repositorios: <span className="text-white">{d.repos?.toLocaleString()}</span></p>
+          <p>Usuarios: <span className="text-white">{d.users?.toLocaleString()}</span></p>
+          <p>Bytes totales: <span className="text-white">{d.bytes?.toLocaleString()}</span></p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <Card className="bg-[#111] text-white rounded-xl border border-gray-700 relative">
@@ -91,7 +133,7 @@ export default function TechnologiesChart() {
         {/* HEADER */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide">
-            Tendencias Tecnológicas
+            Tendencias Tecnológicas LATAM
           </h2>
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -101,7 +143,7 @@ export default function TechnologiesChart() {
           </button>
         </div>
 
-        {/* PANEL FLOTANTE DE FILTROS */}
+        {/* PANEL DE FILTROS */}
         {showFilters && (
           <div className="absolute right-6 top-12 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl p-4 z-[999] w-80 text-xs">
             <div className="flex justify-between items-center mb-2">
@@ -111,8 +153,8 @@ export default function TechnologiesChart() {
               </button>
             </div>
 
-            <div className="max-h-[320px] overflow-y-auto pr-2">
-              {/* Años */}
+            <div className="max-h-[360px] overflow-y-auto pr-2">
+              {/* Año */}
               <p className="font-semibold text-blue-400 mt-1">Años:</p>
               <div className="grid grid-cols-3 gap-1 mb-2">
                 {options.years.map((y) => (
@@ -129,24 +171,59 @@ export default function TechnologiesChart() {
 
               {/* Lenguajes */}
               <p className="font-semibold text-blue-400 mt-2">Lenguajes:</p>
-              <div className="grid grid-cols-2 gap-1 mb-2">
-                {options.languages.slice(0, 20).map((lang) => (
-                  <label key={lang} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={filters.language.includes(lang)}
-                      onChange={() => toggleFilter("language", lang)}
-                    />
-                    <span>{lang}</span>
-                  </label>
-                ))}
+
+              {/* 🔍 Buscador de lenguajes */}
+              <div className="relative mb-2">
+                <Search className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Buscar lenguaje..."
+                  value={languageSearch}
+                  onChange={(e) => setLanguageSearch(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-600 rounded p-1 pl-7 text-gray-200"
+                />
+              </div>
+
+              {/* Lista scrollable */}
+              <div className="grid grid-cols-2 gap-1 mb-2 max-h-48 overflow-y-auto">
+                {options.languages
+                  .filter((lang) =>
+                    lang.toLowerCase().includes(languageSearch.toLowerCase())
+                  )
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((lang) => (
+                    <label key={lang} className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={filters.language.includes(lang)}
+                        onChange={() => toggleFilter("language", lang)}
+                      />
+                      <span>{lang}</span>
+                    </label>
+                  ))}
               </div>
 
               {/* Países */}
-              <p className="font-semibold text-blue-400 mt-2">País:</p>
-              <div className="grid grid-cols-2 gap-1 mb-2">
+              <p className="font-semibold text-blue-400 mt-2 mb-1 flex items-center gap-2">
+                Países:
+              </p>
+              <div className="relative mb-2">
+                <Search className="w-4 h-4 text-gray-400 absolute left-2 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Buscar país..."
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-600 rounded p-1 pl-7 text-gray-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-1 mb-2 max-h-40 overflow-y-auto">
                 {Object.entries(options.countries)
-                  .slice(0, 16)
+                  .filter(([_, name]) =>
+                    name.toLowerCase().includes(countrySearch.toLowerCase())
+                  )
+                  .sort((a, b) => a[1].localeCompare(b[1]))
                   .map(([iso2, country]) => (
                     <label key={iso2} className="flex items-center gap-1">
                       <input
@@ -176,6 +253,7 @@ export default function TechnologiesChart() {
               </select>
             </div>
 
+            {/* BOTONES */}
             <div className="flex justify-between mt-3">
               <button
                 onClick={clearFilters}
@@ -193,55 +271,58 @@ export default function TechnologiesChart() {
           </div>
         )}
 
-        {/* GRÁFICO */}
+        {/* GRÁFICO + TABLA */}
         {loading ? (
           <p className="text-center text-gray-400 mt-10">Cargando datos...</p>
         ) : (
-          <ResponsiveContainer width="100%" height={data.length * 40 + 60}>
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 0, right: 40, left: 0, bottom: 20 }}
-            >
-              <XAxis
-                type="number"
-                domain={[0, "dataMax + 5"]}
-                tick={{ fill: "#9CA3AF", fontSize: 12 }}
-              />
-              <YAxis
-                dataKey="name"
-                type="category"
-                width={120}
-                tick={{ fill: "#fff", fontSize: 12 }}
-              />
-              <Bar dataKey="value" barSize={22} radius={[0, 6, 6, 0]}>
-                <LabelList
-                  dataKey="value"
-                  position="right"
-                  formatter={(val: number) => `${val}%`}
-                  style={{ fill: "#fff", fontWeight: "bold", fontSize: 13 }}
+          <>
+            <ResponsiveContainer width="100%" height={data.length * 45 + 60}>
+              <BarChart
+                data={data}
+                layout="vertical"
+                margin={{ top: 0, right: 40, left: 0, bottom: 20 }}
+              >
+                <XAxis
+                  type="number"
+                  domain={[0, "dataMax + 5"]}
+                  tick={{ fill: "#9CA3AF", fontSize: 12 }}
                 />
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-              <defs>
-                {gradients.map((g) => (
-                  <linearGradient
-                    key={g.id}
-                    id={g.id}
-                    x1="0"
-                    y1="0"
-                    x2="1"
-                    y2="0"
-                  >
-                    <stop offset="0%" stopColor={g.from} />
-                    <stop offset="100%" stopColor={g.to} />
-                  </linearGradient>
-                ))}
-              </defs>
-            </BarChart>
-          </ResponsiveContainer>
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  width={120}
+                  tick={{ fill: "#fff", fontSize: 12 }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="value" barSize={24} radius={[0, 6, 6, 0]}>
+                  <LabelList
+                    dataKey="value"
+                    position="right"
+                    formatter={(val: number) => `${val.toFixed(2)}%`}
+                    style={{ fill: "#fff", fontWeight: "bold", fontSize: 13 }}
+                  />
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+                <defs>
+                  {gradients.map((g) => (
+                    <linearGradient
+                      key={g.id}
+                      id={g.id}
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="0"
+                    >
+                      <stop offset="0%" stopColor={g.from} />
+                      <stop offset="100%" stopColor={g.to} />
+                    </linearGradient>
+                  ))}
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
         )}
       </CardContent>
     </Card>

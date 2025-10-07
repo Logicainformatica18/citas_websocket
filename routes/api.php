@@ -105,8 +105,11 @@ Route::get('/ai/metrics', [MetricsAIController::class, 'index']);
 
 
 
-Route::get('/technologies', [TechnologiesAIController::class, 'index']);
-Route::post('/technologies/data', [TechnologiesAIController::class, 'getData']);
-Route::get('/technologies/metadata', [TechnologiesAIController::class, 'metadata']);
+Route::get('ai/technologies', [TechnologiesAIController::class, 'index']);
+Route::post('/ai/technologies/enriched/data', [TechnologiesAIController::class, 'getData']);
+Route::get('/ai/technologies/enriched/metadata', [TechnologiesAIController::class, 'metadata']);
+
+Route::get('/ai/city-demand/metadata', [CityDemandAIController::class, 'metadata']);
+Route::post('/ai/city-demand/data', [CityDemandAIController::class, 'getData']);
 
 });

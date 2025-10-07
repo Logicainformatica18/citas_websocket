@@ -158,26 +158,49 @@ export default function CityDemandMap() {
   const { data, fetchData, loading } = useCityDemandData();
   const [zoomLevel, setZoomLevel] = useState(5);
   const [showFilters, setShowFilters] = useState(false);
+const [lastBounds, setLastBounds] = useState<any>(null);
+const [lastZoom, setLastZoom] = useState<number>(zoomLevel);
 
-  const [filters, setFilters] = useState({
-    source: "",
-    year: new Date().getFullYear(),
-    quarter: "",
-    modality: "",
+const [filters, setFilters] = useState({
+  sources: [] as string[],
+  modalities: [] as string[],
+  countries: [] as string[],
+  year: new Date().getFullYear(),
+  quarter: "",
+  start_date: "",
+  end_date: "",
+});
+
+
+  const [metadata, setMetadata] = useState({
     countries: [] as string[],
-    start_date: "",
-    end_date: "",
+    sources: [] as string[],
+    modalities: [] as string[],
+    years: [] as number[],
   });
 
-  const toggleCountry = (country: string) => {
+  useEffect(() => {
+    axios
+      .get("/api/ai/city-demand/metadata")
+      .then((res) => setMetadata(res.data))
+      .catch((err) => console.error("❌ Error cargando metadata:", err));
+  }, []);
+
+  const toggleValue = (type: "sources" | "modalities" | "countries", value: string) => {
     setFilters((f) => {
-      const exists = f.countries.includes(country);
+      const arr = f[type];
+      const exists = arr.includes(value);
       return {
         ...f,
-        countries: exists ? f.countries.filter((c) => c !== country) : [...f.countries, country],
+        [type]: exists ? arr.filter((v) => v !== value) : [...arr, value],
       };
     });
   };
+useEffect(() => {
+  if (lastBounds) {
+    fetchData(filters, lastBounds, lastZoom);
+  }
+}, [filters]);
 
   const totals = data.reduce((acc: Record<string, number>, d: any) => {
     const m = (d.modality || "no_remote").toLowerCase();
@@ -217,7 +240,7 @@ export default function CityDemandMap() {
 
         {/* PANEL DE FILTROS */}
         {showFilters && (
-          <div className="absolute right-6 top-12 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl p-4 z-[999] w-72 text-xs">
+          <div className="absolute right-6 top-12 bg-[#1a1a1a] border border-gray-700 rounded-lg shadow-xl p-4 z-[999] w-72 text-xs overflow-y-auto max-h-[80vh]">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-semibold text-sm text-white">Filtros</h3>
               <button onClick={() => setShowFilters(false)}>
@@ -226,36 +249,51 @@ export default function CityDemandMap() {
             </div>
 
             {/* Fuente */}
-            <label className="block mb-1 text-gray-300">Fuente:</label>
-            <select
-              value={filters.source}
-              onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
-            >
-              <option value="">Todas</option>
-              <option value="Computrabajo">Computrabajo</option>
-              <option value="LinkedIn">LinkedIn</option>
-              <option value="Adzuna">Adzuna</option>
-              <option value="GetOnBoard">GetOnBoard</option>
-              <option value="Seek">Seek</option>
-            </select>
+            <label className="block mb-1 text-gray-300">Fuentes:</label>
+            <div className="grid grid-cols-2 gap-1 mb-2">
+              {metadata.sources.map((s) => (
+                <label key={s} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={filters.sources.includes(s)}
+                    onChange={() => toggleValue("sources", s)}
+                  />
+                  <span>{s}</span>
+                </label>
+              ))}
+            </div>
 
             {/* Países */}
             <label className="block mb-1 text-gray-300">Países:</label>
             <div className="grid grid-cols-2 gap-1 mb-2">
-              {["Peru", "Bolivia", "Argentina", "Chile", "Mexico", "Colombia", "Australia", "Estados Unidos"].map((c) => (
+              {metadata.countries.map((c) => (
                 <label key={c} className="flex items-center gap-1">
                   <input
                     type="checkbox"
                     checked={filters.countries.includes(c)}
-                    onChange={() => toggleCountry(c)}
+                    onChange={() => toggleValue("countries", c)}
                   />
                   <span>{c}</span>
                 </label>
               ))}
             </div>
 
-            {/* Intervalo de fechas */}
+            {/* Modalidades */}
+            <label className="block mb-1 text-gray-300">Modalidades:</label>
+            <div className="grid grid-cols-2 gap-1 mb-2">
+              {metadata.modalities.map((m) => (
+                <label key={m} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={filters.modalities.includes(m)}
+                    onChange={() => toggleValue("modalities", m)}
+                  />
+                  <span>{m}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Fechas */}
             <label className="block mb-1 text-gray-300">Desde:</label>
             <input
               type="date"
@@ -271,29 +309,16 @@ export default function CityDemandMap() {
               className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
             />
 
-            {/* Modalidad */}
-            <label className="block mb-1 text-gray-300">Modalidad:</label>
-            <select
-              value={filters.modality}
-              onChange={(e) => setFilters((f) => ({ ...f, modality: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-600 rounded p-1 mb-2"
-            >
-              <option value="">Todas</option>
-              <option value="no_remote">Presencial</option>
-              <option value="remote_local">Remoto local</option>
-              <option value="hibrido">Híbrido</option>
-              <option value="fully_remote">Full remoto</option>
-            </select>
-
+            {/* Botones */}
             <div className="flex justify-between mt-2">
               <button
                 onClick={() =>
                   setFilters({
-                    source: "",
+                    sources: [],
+                    modalities: [],
+                    countries: [],
                     year: new Date().getFullYear(),
                     quarter: "",
-                    modality: "",
-                    countries: [],
                     start_date: "",
                     end_date: "",
                   })
@@ -319,7 +344,17 @@ export default function CityDemandMap() {
               url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               attribution='&copy; OpenStreetMap contributors &copy; CARTO'
             />
-            <MapEvents onChange={(bounds) => fetchData(filters, bounds, zoomLevel)} onZoom={setZoomLevel} />
+           <MapEvents
+  onChange={(bounds) => {
+    setLastBounds(bounds);
+    fetchData(filters, bounds, zoomLevel);
+  }}
+  onZoom={(z) => {
+    setZoomLevel(z);
+    setLastZoom(z);
+  }}
+/>
+
             <MultiHeatmapLayer data={data} />
 
             {zoomLevel >= 5 &&
@@ -336,7 +371,9 @@ export default function CityDemandMap() {
                   </Tooltip>
                   <Popup>
                     <div style={{ minWidth: "200px" }}>
-                      <h3 className="font-bold mb-1">{d.city}, {d.country}</h3>
+                      <h3 className="font-bold mb-1">
+                        {d.city}, {d.country}
+                      </h3>
                       <p>Total ofertas: {d.total}</p>
                       <p>Modalidad: {d.modality}</p>
                     </div>
