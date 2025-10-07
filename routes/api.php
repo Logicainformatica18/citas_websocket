@@ -14,7 +14,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\AI\CityDemandAIController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\AI\MetricsAIController;
-
+use App\Http\Controllers\AI\TechnologiesAIController;
 
 Route::middleware('apikey')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index']);
@@ -102,5 +102,11 @@ Route::post('/job-offers/preview', [JobOfferController::class, 'preview']);
 
 Route::get('/courses/list', [CourseController::class, 'listAll']);
 Route::get('/ai/metrics', [MetricsAIController::class, 'index']);
+
+
+
+Route::get('/technologies', [TechnologiesAIController::class, 'index']);
+Route::post('/technologies/data', [TechnologiesAIController::class, 'getData']);
+Route::get('/technologies/metadata', [TechnologiesAIController::class, 'metadata']);
 
 });

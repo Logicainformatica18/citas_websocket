@@ -22,6 +22,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProcessSyllabusJob implements ShouldQueue
 {
@@ -198,8 +199,8 @@ $text
             ]);
 
             // 📊 Crear o buscar curso por nombre único
-            $course = Course::firstOrCreate(['name' => $decoded['curso']]);
-
+          $normalizedName = Str::title(Str::ascii(trim($decoded['curso'])));
+$course = Course::firstOrCreate(['name' => $normalizedName]);
             // =====================================================
 // 🔁 ACTUALIZAR RELACIONES SIN ELIMINAR LAS EXISTENTES
 // =====================================================

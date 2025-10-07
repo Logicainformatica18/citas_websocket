@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('year');                   // Año
             $table->tinyInteger('quarter');            // Trimestre (1 a 4)
             $table->bigInteger('num_pushers')->default(0); // Cantidad de usuarios
+            $table->string('source')->default('Github');
             $table->timestamps();
         });
     }
