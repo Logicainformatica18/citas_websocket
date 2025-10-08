@@ -11,6 +11,7 @@ import TechnologiesChart from './components/TechnologiesChart';
 import WorkModeChart from './components/WorkModeChart';
 import CityDemandMap from './components/CityDemandMap';
 import CareerAlignmentChart from './components/CareerAlignmentChart';
+import WordlBankChart from './components/WorldBankChart';
 import DemandByCareerChart from './components/DemandByCareerChart';
 import EmploymentRequestChart from './components/EmploymentRequestChart';
 import AiChat from './components/AiChat';
@@ -79,13 +80,14 @@ export default function Dashboard({ initialData }: { initialData: any }) {
           >
             {/* Panel izquierdo */}
             <div className="overflow-y-auto p-3 space-y-2">
-              
+
               {/* 🔹 Métricas globales IA */}
               <ExpandableCard
                 isExpanded={expandedCard === 0}
                 onToggleExpand={() => handleExpand(0)}
               >
-                <MetricsChart />
+                <WordlBankChart></WordlBankChart>
+                {/* <MetricsChart /> */}
               </ExpandableCard>
 
               {/* Bloque 1 */}

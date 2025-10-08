@@ -112,4 +112,10 @@ Route::get('/ai/technologies/enriched/metadata', [TechnologiesAIController::clas
 Route::get('/ai/city-demand/metadata', [CityDemandAIController::class, 'metadata']);
 Route::post('/ai/city-demand/data', [CityDemandAIController::class, 'getData']);
 
+Route::prefix('ai/worldbank')->group(function () {
+    Route::get('metadata', [App\Http\Controllers\AI\WorldBankAIController::class, 'metadata']);
+    Route::get('get-data', [App\Http\Controllers\AI\WorldBankAIController::class, 'getData']);
+});
+
+
 });
