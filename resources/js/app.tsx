@@ -4,6 +4,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import axios from 'axios'; // ✅ Import axios
+import "./i18n";
 
 // ✅ Configura el CSRF token global para Axios
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest'; // <-- ESTA LÍNEA ES CRÍTICA

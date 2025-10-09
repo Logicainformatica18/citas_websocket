@@ -15,6 +15,7 @@ use App\Http\Controllers\AI\CityDemandAIController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\AI\MetricsAIController;
 use App\Http\Controllers\AI\TechnologiesAIController;
+ 
 
 Route::middleware('apikey')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index']);
@@ -116,6 +117,23 @@ Route::prefix('ai/worldbank')->group(function () {
     Route::get('metadata', [App\Http\Controllers\AI\WorldBankAIController::class, 'metadata']);
     Route::get('get-data', [App\Http\Controllers\AI\WorldBankAIController::class, 'getData']);
 });
+
+ 
+
+ 
+ 
+Route::prefix('ai/stackoverflow')->group(function () {
+    // Bloque Perfil Profesional
+    Route::get('profile/workmode/metadata', [\App\Http\Controllers\AI\StackOverflow\ProfileWorkModeAIController::class, 'metadata']);
+    Route::get('profile/workmode', [\App\Http\Controllers\AI\StackOverflow\ProfileWorkModeAIController::class, 'getData']);
+
+    Route::get('profile/education/metadata', [\App\Http\Controllers\AI\StackOverflow\ProfileEducationAIController::class, 'metadata']);
+    Route::get('profile/education', [\App\Http\Controllers\AI\StackOverflow\ProfileEducationAIController::class, 'getData']);
+
+    Route::get('profile/age/metadata', [\App\Http\Controllers\AI\StackOverflow\ProfileAgeAIController::class, 'metadata']);
+    Route::get('profile/age', [\App\Http\Controllers\AI\StackOverflow\ProfileAgeAIController::class, 'getData']);
+});
+
 
 
 });
