@@ -11,10 +11,21 @@ export default function ProfileBlock() {
           <span className="text-purple-400 text-xl">👥</span> PERFIL PROFESIONAL
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ProfileWorkModeCard />
-          <ProfileEducationCard />
-          <ProfileAgeCard />
+       <div className="grid grid-cols-3 gap-4">
+  {/* Ocupa 1 columna */}
+  <div className="col-span-1">
+    <ProfileWorkModeCard />
+  </div>
+
+  {/* Ocupa 2 columnas */}
+  <div className="col-span-2">
+    <ProfileEducationCard />
+  </div>
+</div>
+
+           <div className="grid grid-cols-3 md:grid-cols-2 gap-4">
+        
+          {/* <ProfileAgeCard /> */}
         </div>
       </CardContent>
     </Card>

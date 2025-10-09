@@ -18,6 +18,7 @@ import MetricsChart from "./components/MetricsChart";
 import { DashboardProvider } from "./DashboardContext";
 import { MessageCircle } from "lucide-react";
 import ProfileBlock from "./components/StackOverFlow/Profileblock";
+import BackgroundParticles from "../../components/BackgroundParticles"; // 👈 Fondo animado
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
@@ -49,126 +50,133 @@ export default function Dashboard({ initialData }: { initialData: any }) {
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Dashboard" />
-      <DashboardProvider>
-        <div className="relative min-h-[calc(100vh-64px)] bg-gray-900 text-white p-4 overflow-y-auto space-y-4">
 
-          {/* 🔹 WordlBank + Métricas */}
-          <ExpandableCard
-            isExpanded={expandedCard === 0}
-            onToggleExpand={() => handleExpand(0)}
-          >
-            <WordlBankChart />
-          </ExpandableCard>
+      {/* 🌌 Contenedor principal con fondo animado */}
+      <div className="relative min-h-[calc(100vh-64px)] bg-gray-900 text-white overflow-hidden">
+        {/* 🔹 Fondo dinámico de partículas */}
+        <BackgroundParticles />
 
-          {/* 🔹 Stack Overflow Insights */}
-          <ExpandableCard
-            isExpanded={expandedCard === 1}
-            onToggleExpand={() => handleExpand(1)}
-          >
-            <ProfileBlock />
-          </ExpandableCard>
+        {/* 🔹 Contenido principal sobre el fondo */}
+        <div className="relative p-4 overflow-y-auto space-y-4 z-10">
+          <DashboardProvider>
+            {/* 🔹 WordlBank + Métricas */}
+            <ExpandableCard
+              isExpanded={expandedCard === 0}
+              onToggleExpand={() => handleExpand(0)}
+            >
+              <WordlBankChart />
+            </ExpandableCard>
 
-          {/* 🔹 City Demand & Technologies */}
-          <div className="grid grid-cols-2 gap-3">
+            {/* 🔹 Stack Overflow Insights */}
             <ExpandableCard
-              isExpanded={expandedCard === 2}
-              onToggleExpand={() => handleExpand(2)}
+              isExpanded={expandedCard === 1}
+              onToggleExpand={() => handleExpand(1)}
             >
-              <CityDemandMap />
+              <ProfileBlock />
             </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 3}
-              onToggleExpand={() => handleExpand(3)}
-            >
-              <TechnologiesChart />
-            </ExpandableCard>
-          </div>
 
-          {/* 🔹 AI, Alignment, WorkMode */}
-          <div className="grid grid-cols-3 gap-3">
-            <ExpandableCard
-              isExpanded={expandedCard === 4}
-              onToggleExpand={() => handleExpand(4)}
-            >
-              <ObsolescenceIA />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 5}
-              onToggleExpand={() => handleExpand(5)}
-            >
-              <AlignmentChart />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 6}
-              onToggleExpand={() => handleExpand(6)}
-            >
-              <WorkModeChart initialData={initialData?.workmode} />
-            </ExpandableCard>
-          </div>
-
-          {/* 🔹 Último bloque */}
-          <div className="grid grid-cols-3 gap-3">
-            <ExpandableCard
-              isExpanded={expandedCard === 7}
-              onToggleExpand={() => handleExpand(7)}
-            >
-              <ObsolescenceChart />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 8}
-              onToggleExpand={() => handleExpand(8)}
-            >
-              <RolesChart />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 9}
-              onToggleExpand={() => handleExpand(9)}
-            >
-              <DemandByCareerChart />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 10}
-              onToggleExpand={() => handleExpand(10)}
-            >
-              <CareerAlignmentChart />
-            </ExpandableCard>
-            <ExpandableCard
-              isExpanded={expandedCard === 11}
-              onToggleExpand={() => handleExpand(11)}
-            >
-              <EmploymentRequestChart />
-            </ExpandableCard>
-          </div>
-
-          {/* 🧠 CHAT FLOTANTE */}
-          <button
-            onClick={() => setShowChat(!showChat)}
-            className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition z-50"
-            title="Abrir chat IA"
-          >
-            <MessageCircle size={24} />
-          </button>
-
-          {showChat && (
-            <div className="fixed bottom-20 right-6 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-xl w-[400px] h-[500px] z-50 flex flex-col">
-              <div className="flex justify-between items-center p-2 border-b border-gray-700 bg-gray-800 rounded-t-lg">
-                <h4 className="text-sm font-semibold text-blue-400">
-                  💬 Asistente IA
-                </h4>
-                <button
-                  onClick={() => setShowChat(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                <AiChat />
-              </div>
+            {/* 🔹 City Demand & Technologies */}
+            <div className="grid grid-cols-2 gap-3">
+              <ExpandableCard
+                isExpanded={expandedCard === 2}
+                onToggleExpand={() => handleExpand(2)}
+              >
+                <CityDemandMap />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 3}
+                onToggleExpand={() => handleExpand(3)}
+              >
+                <TechnologiesChart />
+              </ExpandableCard>
             </div>
-          )}
+
+            {/* 🔹 AI, Alignment, WorkMode */}
+            <div className="grid grid-cols-3 gap-3">
+              <ExpandableCard
+                isExpanded={expandedCard === 4}
+                onToggleExpand={() => handleExpand(4)}
+              >
+                <ObsolescenceIA />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 5}
+                onToggleExpand={() => handleExpand(5)}
+              >
+                <AlignmentChart />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 6}
+                onToggleExpand={() => handleExpand(6)}
+              >
+                <WorkModeChart initialData={initialData?.workmode} />
+              </ExpandableCard>
+            </div>
+
+            {/* 🔹 Último bloque */}
+            <div className="grid grid-cols-3 gap-3">
+              <ExpandableCard
+                isExpanded={expandedCard === 7}
+                onToggleExpand={() => handleExpand(7)}
+              >
+                <ObsolescenceChart />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 8}
+                onToggleExpand={() => handleExpand(8)}
+              >
+                <RolesChart />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 9}
+                onToggleExpand={() => handleExpand(9)}
+              >
+                <DemandByCareerChart />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 10}
+                onToggleExpand={() => handleExpand(10)}
+              >
+                <CareerAlignmentChart />
+              </ExpandableCard>
+              <ExpandableCard
+                isExpanded={expandedCard === 11}
+                onToggleExpand={() => handleExpand(11)}
+              >
+                <EmploymentRequestChart />
+              </ExpandableCard>
+            </div>
+
+            {/* 🧠 Chat flotante */}
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition z-50"
+              title="Abrir chat IA"
+            >
+              <MessageCircle size={24} />
+            </button>
+
+            {showChat && (
+              <div className="fixed bottom-20 right-6 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-xl w-[400px] h-[500px] z-50 flex flex-col">
+                <div className="flex justify-between items-center p-2 border-b border-gray-700 bg-gray-800 rounded-t-lg">
+                  <h4 className="text-sm font-semibold text-blue-400">
+                    💬 Asistente IA
+                  </h4>
+                  <button
+                    onClick={() => setShowChat(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <AiChat />
+                </div>
+              </div>
+            )}
+          </DashboardProvider>
         </div>
-      </DashboardProvider>
+      </div>
     </AppLayout>
   );
 }
