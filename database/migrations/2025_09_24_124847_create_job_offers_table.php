@@ -40,9 +40,10 @@ return new class extends Migration
             $table->string('compensation_type')->nullable(); // hourly, yearly, etc.
 
             // 📌 Fuente y referencias
-            $table->string('source');                  // LinkedIn, GetOnBoard, Adzuna, ISIL...
-            $table->string('external_id')->nullable(); // ID en la fuente
-            $table->longText('url')->nullable();         // Link público a la oferta
+            $table->string('source');                      // LinkedIn, GetOnBoard, Adzuna, ISIL...
+            $table->string('search_query')->nullable();    // 🔍 Término usado en el scraping (ej: "programador", "data analyst")
+            $table->string('external_id')->nullable();     // ID en la fuente
+            $table->longText('url')->nullable();           // Link público a la oferta
             $table->string('application_url')->nullable(); // Link para postular
             $table->string('application_type')->nullable(); // método de postulación
 
@@ -50,6 +51,11 @@ return new class extends Migration
             $table->timestamp('published_at')->nullable();  // Fecha de publicación
             $table->timestamp('expiry')->nullable();        // Fecha de expiración si aplica
             $table->timestamps(); // created_at, updated_at
+
+            // 📌 Índices y unicidad
+            $table->unique(['title', 'company', 'modality', 'url'], 'unique_job_offer');
+            $table->index(['city', 'modality'], 'idx_city_modality');
+            $table->index(['latitude', 'longitude'], 'idx_geo');
         });
     }
 
