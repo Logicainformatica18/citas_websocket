@@ -7,6 +7,10 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
+    protected $commands = [
+    \App\Console\Commands\GetOnBoardByLanguagesCommand::class,
+];
+
     /**
      * Define el horario de ejecución de los comandos.
      */
@@ -21,6 +25,7 @@ $schedule->command('worldbank:import
     --from=2020
     --to=2025')->weeklyOn(1, '03:00'); // cada lunes a las 3am
     $schedule->command('scrape:computrabajo --pages=5')->dailyAt('03:00');
+    
     }
 
     /**

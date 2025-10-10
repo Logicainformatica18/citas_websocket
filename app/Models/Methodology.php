@@ -11,4 +11,9 @@ class Methodology extends Model
     {
         return $this->belongsToMany(Course::class);
     }
+    public function metrics()
+{
+    return $this->hasMany(MethodologyMetric::class);
+}
+
 }

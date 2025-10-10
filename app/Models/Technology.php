@@ -15,5 +15,9 @@ class Technology extends Model
 {
     return $this->belongsTo(TechnologyCategory::class, 'category_id');
 }
+public function metrics()
+{
+    return $this->hasMany(TechnologyMetric::class);
+}
 
 }
