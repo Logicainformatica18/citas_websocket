@@ -6,60 +6,93 @@ use Illuminate\Http\Request;
 use App\Models\Syllabus;
 use App\Jobs\ProcessSyllabusJob;
 use Illuminate\Support\Facades\Log;
+use App\Models\Technology;
 
 class SyllabusController extends Controller
 {
-public function index()
-{
-    $uploads = Syllabus::latest()->paginate(10);
+    public function index()
+    {
+        $uploads = Syllabus::latest()->paginate(10);
 
-    $uploads->getCollection()->transform(function ($syllabus) {
-        $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
+        $uploads->getCollection()->transform(function ($syllabus) {
+            $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
 
-        $syllabus->structured_data = [
-            'curso'        => $data['curso'] ?? null,
-            'lenguajes'    => $data['lenguajes'] ?? [],
-            'tecnologias'  => $data['tecnologias'] ?? [],
-            'metodologias' => $data['metodologias'] ?? [],
-        ];
+            // 🧩 Enriquecer tecnologías con su categoría real desde DB
+            $tecnologias = collect($data['tecnologias'] ?? [])->map(function ($item) {
+                $nombre = is_array($item)
+                    ? ($item['nombre'] ?? $item['name'] ?? null)
+                    : $item;
 
-        $syllabus->detected_course = $syllabus->structured_data['curso'];
+                if (!$nombre) return null;
 
-        return $syllabus;
-    });
+                // Busca la tecnología con su categoría
+                $tech = Technology::with('category')->where('name', $nombre)->first();
 
-    return inertia('syllabus/index', [
-        'uploads' => $uploads,
-    ]);
-}
+                return [
+                    'nombre' => $nombre,
+                    'tipo'   => $tech?->category?->name ?? 'Sin categoría',
+                ];
+            })
+            ->filter(fn($t) => !empty($t['nombre']))
+            ->values()
+            ->toArray();
 
-public function fetchPaginated()
-{
-    $uploads = Syllabus::latest()->paginate(10);
+            $syllabus->structured_data = [
+                'curso'        => $data['curso'] ?? null,
+                'lenguajes'    => $data['lenguajes'] ?? [],
+                'tecnologias'  => $tecnologias,
+                'metodologias' => $data['metodologias'] ?? [],
+            ];
 
-    $uploads->getCollection()->transform(function ($syllabus) {
-        $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
+            $syllabus->detected_course = $syllabus->structured_data['curso'];
 
-        $syllabus->structured_data = [
-            'curso'        => $data['curso'] ?? null,
-            'lenguajes'    => $data['lenguajes'] ?? [],
-            'tecnologias'  => $data['tecnologias'] ?? [],
-            'metodologias' => $data['metodologias'] ?? [],
-        ];
+            return $syllabus;
+        });
 
-        $syllabus->detected_course = $syllabus->structured_data['curso'];
+        return inertia('syllabus/index', [
+            'uploads' => $uploads,
+        ]);
+    }
 
-        return $syllabus;
-    });
+    public function fetchPaginated()
+    {
+        $uploads = Syllabus::latest()->paginate(10);
 
-    return $uploads;
-}
+        $uploads->getCollection()->transform(function ($syllabus) {
+            $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
 
+            $tecnologias = collect($data['tecnologias'] ?? [])->map(function ($item) {
+                $nombre = is_array($item)
+                    ? ($item['nombre'] ?? $item['name'] ?? null)
+                    : $item;
 
+                if (!$nombre) return null;
 
+                $tech = Technology::with('category')->where('name', $nombre)->first();
 
+                return [
+                    'nombre' => $nombre,
+                    'tipo'   => $tech?->category?->name ?? 'Sin categoría',
+                ];
+            })
+            ->filter(fn($t) => !empty($t['nombre']))
+            ->values()
+            ->toArray();
 
+            $syllabus->structured_data = [
+                'curso'        => $data['curso'] ?? null,
+                'lenguajes'    => $data['lenguajes'] ?? [],
+                'tecnologias'  => $tecnologias,
+                'metodologias' => $data['metodologias'] ?? [],
+            ];
 
+            $syllabus->detected_course = $syllabus->structured_data['curso'];
+
+            return $syllabus;
+        });
+
+        return response()->json($uploads);
+    }
 
     public function store(Request $request)
     {
@@ -67,13 +100,12 @@ public function fetchPaginated()
             'file' => 'required|file|mimes:pdf|max:10240', // max 10MB
         ]);
 
-        // 📂 Guardar en "public/syllabus"
         $path = $request->file('file')->store('syllabus', 'public');
         $filename = $request->file('file')->getClientOriginalName();
 
         $record = Syllabus::create([
             'filename' => $filename,
-            'path'     => $path, // ejemplo: syllabus/abc123.pdf
+            'path'     => $path,
             'status'   => 'pending',
         ]);
 
@@ -82,10 +114,8 @@ public function fetchPaginated()
             'path'     => $path,
         ]);
 
-        // Mandar a cola
         ProcessSyllabusJob::dispatch($record->id);
 
-        // ⚡ Devolvemos el registro directamente
         return response()->json($record);
     }
 
@@ -93,7 +123,6 @@ public function fetchPaginated()
     {
         $record = Syllabus::findOrFail($id);
 
-        // Opcional: eliminar también el archivo físico
         if ($record->path && \Storage::disk('public')->exists($record->path)) {
             \Storage::disk('public')->delete($record->path);
         }

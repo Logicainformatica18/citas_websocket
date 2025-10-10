@@ -10,6 +10,11 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Sílabos', href: '/syllabus' },
 ];
 
+type Tecnologia = {
+  nombre: string;
+  tipo?: string | null;
+};
+
 type Upload = {
   id: number;
   filename: string;
@@ -19,7 +24,7 @@ type Upload = {
   structured_data?: {
     curso?: string;
     lenguajes?: string[];
-    tecnologias?: string[];
+    tecnologias?: (string | Tecnologia)[];
     metodologias?: string[];
   };
 };
@@ -86,6 +91,47 @@ export default function SyllabusIndex() {
     }
   };
 
+// 🔽 Combobox que muestra tecnologías agrupadas por tipo
+const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
+  if (!tecnologias || tecnologias.length === 0) {
+    return <span className="text-gray-400">-</span>;
+  }
+
+  // Normalizar las tecnologías
+  const normalizadas = tecnologias.map((t) =>
+    typeof t === 'string'
+      ? { nombre: t, tipo: 'Sin categoría' }
+      : { nombre: t.nombre, tipo: t.tipo ?? 'Sin categoría' }
+  );
+
+  // Agrupar por tipo
+  const agrupadas = normalizadas.reduce((acc: Record<string, Tecnologia[]>, t) => {
+    if (!acc[t.tipo!]) acc[t.tipo!] = [];
+    acc[t.tipo!].push(t);
+    return acc;
+  }, {});
+
+  return (
+    <div className="relative inline-block w-full">
+      <select
+        className="bg-gray-800 border border-gray-700 text-sm rounded px-2 py-1 w-full text-gray-200 focus:outline-none focus:ring focus:ring-blue-600"
+        defaultValue={normalizadas[0]?.nombre}
+      >
+        {Object.entries(agrupadas).map(([tipo, lista]) => (
+          <optgroup key={tipo} label={tipo} className="bg-gray-900 text-gray-100">
+            {lista.map((t, idx) => (
+              <option key={`${tipo}-${t.nombre}-${idx}`} value={t.nombre}>
+                {t.nombre}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  );
+};
+
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8 text-white">
@@ -112,90 +158,87 @@ export default function SyllabusIndex() {
 
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto border border-gray-700 rounded bg-gray-900 text-gray-200">
-           <thead className="bg-gray-800 text-left text-gray-300">
-  <tr>
-    <th className="px-4 py-2">
-      <input
-        type="checkbox"
-        checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
-        onChange={(e) =>
-          setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
-        }
-      />
-    </th>
-    <th className="px-4 py-2">Acciones</th>
-    <th className="px-4 py-2">Ver</th> {/* 👈 nueva columna */}
-    <th className="px-4 py-2">Archivo</th>
-    <th className="px-4 py-2">Estado</th>
-    <th className="px-4 py-2">Curso</th>
-    <th className="px-4 py-2">Lenguajes</th>
-    <th className="px-4 py-2">Tecnologías</th>
-    <th className="px-4 py-2">Metodologías</th>
-  </tr>
-</thead>
-           <tbody>
-  {items.map((item) => (
-    <tr key={item.id} className="border-t border-gray-700 hover:bg-gray-800">
-      <td className="px-4 py-2">
-        <input
-          type="checkbox"
-          checked={selectedIds.includes(item.id)}
-          onChange={(e) =>
-            setSelectedIds((prev) =>
-              e.target.checked
-                ? [...prev, item.id]
-                : prev.filter((id) => id !== item.id)
-            )
-          }
-        />
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap">
-        <button
-          onClick={() => removeOne(item.id, item.filename)}
-          className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm"
-        >
-          <Trash2 className="w-4 h-4" /> Eliminar
-        </button>
-      </td>
-
-      {/* 👇 NUEVA CELDA "Ver" */}
-      <td className="px-4 py-2">
-        <a
-          href={`/${item.path}`} // o usa item.path si lo tienes
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline text-sm"
-        >
-          Ver PDF
-        </a>
-      </td>
-
-      <td className="px-4 py-2">{item.filename}</td>
-      <td className="px-4 py-2">
-        <span
-          className={`px-2 py-1 rounded text-xs font-medium ${
-            item.status === 'pending'
-              ? 'bg-yellow-900 text-yellow-200'
-              : item.status === 'processing'
-              ? 'bg-blue-900 text-blue-200'
-              : item.status === 'processed'
-              ? 'bg-green-900 text-green-200'
-              : 'bg-red-900 text-red-200'
-          }`}
-        >
-          {item.status}
-        </span>
-      </td>
-      <td className="px-4 py-2">{item.structured_data?.curso ?? '-'}</td>
-      <td className="px-4 py-2">{item.structured_data?.lenguajes?.join(', ') ?? '-'}</td>
-      <td className="px-4 py-2">{item.structured_data?.tecnologias?.join(', ') ?? '-'}</td>
-      <td className="px-4 py-2">{item.structured_data?.metodologias?.join(', ') ?? '-'}</td>
-    </tr>
-  ))}
+            <thead className="bg-gray-800 text-left text-gray-300">
+              <tr>
+                <th className="px-4 py-2">
+                  <input
+                    type="checkbox"
+                    checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
+                    onChange={(e) =>
+                      setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
+                    }
+                  />
+                </th>
+                <th className="px-4 py-2">Acciones</th>
+                <th className="px-4 py-2">Ver</th>
+                <th className="px-4 py-2">Archivo</th>
+                <th className="px-4 py-2">Estado</th>
+                <th className="px-4 py-2">Curso</th>
+                <th className="px-4 py-2">Lenguajes</th>
+                <th className="px-4 py-2">Tecnologías</th>
+                <th className="px-4 py-2">Metodologías</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-t border-gray-700 hover:bg-gray-800">
+                  <td className="px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(e) =>
+                        setSelectedIds((prev) =>
+                          e.target.checked
+                            ? [...prev, item.id]
+                            : prev.filter((id) => id !== item.id)
+                        )
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <button
+                      onClick={() => removeOne(item.id, item.filename)}
+                      className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" /> Eliminar
+                    </button>
+                  </td>
+                  <td className="px-4 py-2">
+                    <a
+                      href={`/${item.path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline text-sm"
+                    >
+                      Ver PDF
+                    </a>
+                  </td>
+                  <td className="px-4 py-2">{item.filename}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        item.status === 'pending'
+                          ? 'bg-yellow-900 text-yellow-200'
+                          : item.status === 'processing'
+                          ? 'bg-blue-900 text-blue-200'
+                          : item.status === 'processed'
+                          ? 'bg-green-900 text-green-200'
+                          : 'bg-red-900 text-red-200'
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">{item.structured_data?.curso ?? '-'}</td>
+                  <td className="px-4 py-2">{item.structured_data?.lenguajes?.join(', ') ?? '-'}</td>
+                  <td className="px-4 py-2">{renderTecnologias(item.structured_data?.tecnologias)}</td>
+                  <td className="px-4 py-2">{item.structured_data?.metodologias?.join(', ') ?? '-'}</td>
+                </tr>
+              ))}
 
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
                     No hay sílabos para mostrar.
                   </td>
                 </tr>
@@ -204,53 +247,49 @@ export default function SyllabusIndex() {
           </table>
         </div>
 
-       {pagination.last_page > 1 && (
-  <div className="flex justify-center mt-6 gap-2">
-    {(() => {
-      const pages: (number | string)[] = [];
-      const total = pagination.last_page;
-      const current = pagination.current_page;
+        {/* 🔹 Paginación */}
+        {pagination.last_page > 1 && (
+          <div className="flex justify-center mt-6 gap-2">
+            {(() => {
+              const pages: (number | string)[] = [];
+              const total = pagination.last_page;
+              const current = pagination.current_page;
 
-      // Mostrar siempre la primera página
-      if (total <= 7) {
-        for (let i = 1; i <= total; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        if (current > 4) pages.push('...');
+              if (total <= 7) {
+                for (let i = 1; i <= total; i++) pages.push(i);
+              } else {
+                pages.push(1);
+                if (current > 4) pages.push('...');
+                const start = Math.max(2, current - 1);
+                const end = Math.min(total - 1, current + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+                if (current < total - 3) pages.push('...');
+                pages.push(total);
+              }
 
-        const start = Math.max(2, current - 1);
-        const end = Math.min(total - 1, current + 1);
-
-        for (let i = start; i <= end; i++) pages.push(i);
-
-        if (current < total - 3) pages.push('...');
-        pages.push(total);
-      }
-
-      return pages.map((p, idx) =>
-        p === '...' ? (
-          <span key={idx} className="px-2 text-gray-500">
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            onClick={() => fetchPage(`/syllabus/fetch?page=${p}`)}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${
-              pagination.current_page === p
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
-            disabled={pagination.current_page === p}
-          >
-            {p}
-          </button>
-        )
-      );
-    })()}
-  </div>
-)}
-
+              return pages.map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={`page-${p}-${idx}`}
+                    onClick={() => fetchPage(`/syllabus/fetch?page=${p}`)}
+                    className={`px-3 py-1 rounded text-sm font-medium transition ${
+                      pagination.current_page === p
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                    }`}
+                    disabled={pagination.current_page === p}
+                  >
+                    {p}
+                  </button>
+                )
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {showModal && (

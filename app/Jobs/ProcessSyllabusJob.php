@@ -134,25 +134,30 @@ class ProcessSyllabusJob implements ShouldQueue
             ]);
 
             // 🤖 Procesar con OpenAI
-            $prompt = "
-Extrae del siguiente sílabo de universidad la información en JSON.
-IMPORTANTE:
-- 'lenguajes' deben ser lenguajes de programación (ej: Java, Python, C#, JavaScript, etc).
-- 'tecnologias' deben ser frameworks, librerías o herramientas de software (ej: React, Laravel, Bootstrap, Docker, etc).
-- 'metodologias' deben ser metodologías de desarrollo de software (ej: Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps).
-- IGNORA metodologías de enseñanza o aprendizaje (como aprendizaje basado en problemas, método de casos, etc).
+        $prompt = "
+Extrae del siguiente sílabo la información en JSON.
 
-Formato de salida JSON:
+IMPORTANTE:
+- 'lenguajes' deben ser lenguajes de programación (Java, Python, C#, JavaScript, etc.)
+- 'tecnologias' deben ser frameworks, librerías o herramientas de software, e incluir su tipo (framework, library, tool, cloud, database, etc.)
+- 'metodologias' deben ser metodologías de desarrollo de software (Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps)
+- Ignora metodologías de enseñanza o aprendizaje.
+
+Formato JSON:
 {
   \"curso\": \"\",
   \"lenguajes\": [],
-  \"tecnologias\": [],
+  \"tecnologias\": [
+    { \"nombre\": \"Laravel\", \"tipo\": \"framework\" },
+    { \"nombre\": \"AWS S3\", \"tipo\": \"cloud\" }
+  ],
   \"metodologias\": []
 }
 
 Texto:
 $text
 ";
+
 
             $openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
                 ->post('https://api.openai.com/v1/chat/completions', [
@@ -218,14 +223,38 @@ $course = Course::firstOrCreate(['name' => $normalizedName]);
             }
 
             // Tecnologías
-            if (!empty($decoded['tecnologias'])) {
-                $techIds = [];
-                foreach ($decoded['tecnologias'] as $techName) {
-                    $tech = Technology::firstOrCreate(['name' => trim($techName)]);
-                    $techIds[] = $tech->id;
-                }
-                $course->technologies()->syncWithoutDetaching($techIds);
-            }
+          // 🧠 Procesar tecnologías con categoría
+// Tecnologías
+if (!empty($decoded['tecnologias'])) {
+    $techIds = [];
+
+    foreach ($decoded['tecnologias'] as $techItem) {
+        if (is_array($techItem)) {
+            $name = trim($techItem['nombre'] ?? '');
+            $type = trim($techItem['tipo'] ?? '');
+        } else {
+            $name = trim($techItem);
+            $type = null;
+        }
+
+        if ($name === '') continue;
+
+        $tech = \App\Models\Technology::firstOrCreate(['name' => $name]);
+
+        // 🧠 Si la IA devolvió tipo y el registro no tiene categoría, la asignamos
+        if ($type && !$tech->category_id) {
+            $category = \App\Models\TechnologyCategory::firstOrCreate(['name' => $type]);
+            $tech->category_id = $category->id;
+            $tech->save();
+        }
+
+        $techIds[] = $tech->id;
+    }
+
+    $course->technologies()->syncWithoutDetaching($techIds);
+}
+
+
 
             // Metodologías
             if (!empty($decoded['metodologias'])) {
