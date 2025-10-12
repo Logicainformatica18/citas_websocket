@@ -30,8 +30,6 @@ class GetOnBoardByLanguagesCommand extends Command
     public function handle()
     {
         $pages = (int) $this->option('pages');
-
-        // ✅ Corrección: pluck correcto (id como key, name como value)
         $languages = Language::pluck('name', 'id');
 
         $this->info("🔎 Iniciando scraping de GetOnBoard por lenguaje ({$languages->count()} lenguajes)...");
@@ -69,22 +67,37 @@ class GetOnBoardByLanguagesCommand extends Command
                         $modality = $attr['remote_modality'] ?? 'unknown';
                         $urlJob = $job['links']['public_url'] ?? null;
 
-                        // 📊 Contadores de distribución
+                        // 📊 Contadores
                         $countries[$country] = ($countries[$country] ?? 0) + 1;
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                        // 🧭 Obtener coordenadas
+                        // 🧭 Coordenadas
                         [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $country);
-
                         if (!$lat || !$lng) {
                             $totalUnmapped++;
                             continue;
                         }
 
-                        // 🔁 Evita duplicados exactos
-                        if (JobOffer::where('url', $urlJob)->exists()) {
-                            continue;
-                        }
+                        // 🔁 Evita duplicados avanzados
+                        $exists = JobOffer::where('source', 'GetOnBoard')
+                            ->where(function ($q) use ($job, $title, $company, $city, $country, $languageName, $urlJob) {
+                                $externalId = $job['id'] ?? null;
+                                $q->where('external_id', $externalId)
+                                  ->orWhere(function ($q2) use ($title, $company, $city, $country, $languageName, $urlJob) {
+                                      $q2->where('title', $title)
+                                         ->where('company', $company)
+                                         ->where('city', $city)
+                                         ->where('country', $country)
+                                         ->where('search_query', $languageName)
+                                         ->where(function ($q3) use ($urlJob) {
+                                             $q3->where('url', $urlJob)
+                                                ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+                                         });
+                                  });
+                            })
+                            ->exists();
+
+                        if ($exists) continue;
 
                         // 💾 Insertar oferta
                         JobOffer::create([
@@ -106,7 +119,7 @@ class GetOnBoardByLanguagesCommand extends Command
                             'updated_at' => now(),
                         ]);
 
-                        $totalNew++; // ✅ Incrementa correctamente
+                        $totalNew++;
                     }
 
                     sleep(1.5); // evitar rate-limit
@@ -116,17 +129,33 @@ class GetOnBoardByLanguagesCommand extends Command
                 }
             }
 
-            // 📊 Guardar métrica del lenguaje
-            LanguageMetric::create([
-                'language_id' => $languageId,
-                'language_name' => $languageName,
-                'jobs_found_count' => $totalFound,
-                'jobs_new_count' => $totalNew,
-                'countries_breakdown' => $countries,
-                'modality_breakdown' => $modalities,
-                'run_date' => now(),
-                'source' => 'GetOnBoard',
-            ]);
+$today = now()->toDateString();
+
+$existsToday = LanguageMetric::whereDate('run_date', $today)
+    ->where('language_id', $languageId)
+    ->where('source', 'GetOnBoard')
+    ->exists();
+
+if ($existsToday) {
+    $this->warn("📆 Ya existe una métrica registrada hoy ({$today}) para {$languageName}, se omite.");
+    continue;
+}
+
+
+// 💾 Crear la métrica solo si no existe una de hoy
+LanguageMetric::create([
+    'language_id' => $languageId,
+    'language_name' => $languageName,
+    'jobs_found_count' => $totalFound,
+    'jobs_new_count' => $totalNew,
+    'countries_breakdown' => $countries,
+    'modality_breakdown' => $modalities,
+    'run_date' => now(),
+    'source' => 'GetOnBoard',
+]);
+
+$this->info("✅ {$languageName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} encontradas");
+
 
             $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} encontradas");
         }
@@ -134,7 +163,6 @@ class GetOnBoardByLanguagesCommand extends Command
         $this->info("\n🎯 Proceso completado: todas las métricas registradas.");
     }
 
-    // 🌍 Mapea ciudad o capital si no hay
     protected function getCoordsFromCountry(?string $city, ?string $country)
     {
         if ($city && strtolower($city) !== 'remoto') {
@@ -150,7 +178,6 @@ class GetOnBoardByLanguagesCommand extends Command
         return [$capital['city'], $capital['lat'], $capital['lng']];
     }
 
-    // 🌐 Geocodificación Nominatim
     protected function getCoords(?string $city, ?string $country)
     {
         try {

@@ -10,6 +10,9 @@ class Kernel extends ConsoleKernel
     protected $commands = [
     \App\Console\Commands\GetOnBoardByLanguagesCommand::class,
        \App\Console\Commands\ArbeitnowImportCommand::class,
+     \App\Console\Commands\ArbeitnowByLanguagesCommand::class,
+         \App\Console\Commands\ArbeitnowByMethodologiesCommand::class,
+
 ];
 
     /**

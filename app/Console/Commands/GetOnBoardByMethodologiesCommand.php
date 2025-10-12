@@ -52,25 +52,54 @@ class GetOnBoardByMethodologiesCommand extends Command
                         $countries[$country] = ($countries[$country] ?? 0) + 1;
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                        // Evita duplicados
-                        if (JobOffer::where('url', $urlJob)->exists()) continue;
+                        // 🧠 Evita duplicados avanzados por múltiples campos y similitud de URL
+$exists = JobOffer::where('source', 'GetOnBoard')
+    ->where(function ($q) use ($job, $attr, $title, $company, $country, $methodologyName, $urlJob) {
+        $externalId = $job['id'] ?? null;
+        $city = $attr['city'] ?? null;
 
-                        JobOffer::create([
-                            'title' => $title,
-                            'company' => $company,
-                            'country' => $country,
-                            'city' => $attr['city'] ?? null,
-                            'modality' => $modality,
-                            'source' => 'GetOnBoard',
-                            'search_query' => $methodologyName,
-                            'external_id' => $job['id'] ?? null,
-                            'url' => $urlJob,
-                            'published_at' => isset($attr['published_at'])
-                                ? Carbon::createFromTimestamp($attr['published_at'])
-                                : now(),
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
+        $q->where('external_id', $externalId)
+          ->orWhere(function ($q2) use ($title, $company, $city, $country, $methodologyName, $urlJob) {
+              $q2->where('title', $title)
+                 ->where('company', $company)
+                 ->where('city', $city)
+                 ->where('country', $country)
+                 ->where('search_query', $methodologyName)
+                 ->where(function ($q3) use ($urlJob) {
+                     $q3->where('url', $urlJob)
+                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+                 });
+          });
+    })
+    ->exists();
+
+if ($exists) continue;
+
+
+                      $today = now()->toDateString();
+
+$existsToday = MethodologyMetric::whereDate('run_date', $today)
+    ->where('methodology_id', $methodologyId)
+    ->where('source', 'GetOnBoard')
+    ->exists();
+
+if ($existsToday) {
+    $this->warn("📆 Ya existe una métrica registrada hoy ({$today}) para {$methodologyName}, se omite.");
+    continue;
+}
+
+// 💾 Crear la métrica solo si no existe una de hoy
+MethodologyMetric::create([
+    'methodology_id' => $methodologyId,
+    'methodology_name' => $methodologyName,
+    'jobs_found_count' => $totalFound,
+    'jobs_new_count' => $totalNew,
+    'countries_breakdown' => $countries,
+    'modality_breakdown' => $modalities,
+    'run_date' => Carbon::today(), // 👈 mejor que now() (solo fecha)
+    'source' => 'GetOnBoard',
+]);
+
 
                         $totalNew++;
                     }

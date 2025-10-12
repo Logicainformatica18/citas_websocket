@@ -76,7 +76,28 @@ class GetOnBoardByTechnologiesCommand extends Command
                             continue;
                         }
 
-                        if (JobOffer::where('url', $urlJob)->exists()) continue;
+                      // 🧠 Evita duplicados avanzados por múltiples campos y similitud de URL
+$exists = JobOffer::where('source', 'GetOnBoard')
+    ->where(function ($q) use ($job, $attr, $title, $company, $city, $country, $techName, $urlJob) {
+        $externalId = $job['id'] ?? null;
+
+        $q->where('external_id', $externalId)
+          ->orWhere(function ($q2) use ($title, $company, $city, $country, $techName, $urlJob) {
+              $q2->where('title', $title)
+                 ->where('company', $company)
+                 ->where('city', $city)
+                 ->where('country', $country)
+                 ->where('search_query', $techName)
+                 ->where(function ($q3) use ($urlJob) {
+                     $q3->where('url', $urlJob)
+                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+                 });
+          });
+    })
+    ->exists();
+
+if ($exists) continue;
+
 
                         JobOffer::create([
                             'title' => $title,
@@ -107,17 +128,31 @@ class GetOnBoardByTechnologiesCommand extends Command
                 }
             }
 
-            // Guardar métrica
-            TechnologyMetric::create([
-                'technology_id' => $techId,
-                'technology_name' => $techName,
-                'jobs_found_count' => $totalFound,
-                'jobs_new_count' => $totalNew,
-                'countries_breakdown' => $countries,
-                'modality_breakdown' => $modalities,
-                'run_date' => now(),
-                'source' => 'GetOnBoard',
-            ]);
+          // 📆 Verificar si ya existe una métrica registrada hoy
+$today = now()->toDateString();
+
+$existsToday = TechnologyMetric::whereDate('run_date', $today)
+    ->where('technology_id', $techId)
+    ->where('source', 'GetOnBoard')
+    ->exists();
+
+if ($existsToday) {
+    $this->warn("📆 Ya existe una métrica registrada hoy ({$today}) para {$techName}, se omite.");
+    continue;
+}
+
+// 💾 Crear la métrica solo si no existe una de hoy
+TechnologyMetric::create([
+    'technology_id' => $techId,
+    'technology_name' => $techName,
+    'jobs_found_count' => $totalFound,
+    'jobs_new_count' => $totalNew,
+    'countries_breakdown' => $countries,
+    'modality_breakdown' => $modalities,
+    'run_date' => Carbon::today(), // 👈 solo la fecha, sin hora
+    'source' => 'GetOnBoard',
+]);
+
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} encontradas");
         }
