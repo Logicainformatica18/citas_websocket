@@ -20,20 +20,15 @@ use App\Http\Controllers\CareerController;
 use App\Http\Controllers\CareerCourseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
+use App\Http\Controllers\Auth\Saml2LoginController;
 use Laravel\Socialite\Facades\Socialite;
 
-Route::get('/auth/saml2/redirect', function () {
-    return Socialite::driver('saml2')->redirect();
+Route::prefix('auth/saml2')->group(function () {
+    Route::get('/redirect', [Saml2LoginController::class, 'redirect'])->name('saml.login');
+    Route::match(['get', 'post'], '/callback', [Saml2LoginController::class, 'callback'])->name('saml.callback');
 });
 
-Route::match(['get','post'], '/auth/saml2/callback', function () {
-    $user = Socialite::driver('saml2')->stateless()->user();
-    dd($user);
-})->name('saml.callback');
 
-Route::get('/1', function () {
-  return Socialite::driver('saml2')->redirect();
-});
 Route::get('/auth/saml2/logout', function () {
     return response('Logout endpoint SAML2 OK');
 })->name('saml.logout');
