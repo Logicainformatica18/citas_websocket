@@ -47,5 +47,15 @@ return [
     'app_key' => env('ADZUNA_APP_KEY'),
     'base_url' => 'https://api.adzuna.com/v1/api/jobs',
 ],
+'saml2' => [
+    'acs'            => env('SAML_IDP_ACS'),
+    'entityid'       => env('SAML_IDP_ENTITYID'),
+    'certificate'    => file_get_contents(storage_path('app').'/cert/idp_saml.pem'),
+    'sp_certificate' => file_get_contents(storage_path('app').'/cert/sp_saml.crt'),
+    'sp_private_key' => file_get_contents(storage_path('app').'/cert/sp_saml.pem'),
+    'sp_acs'         => env('APP_URL').'/auth/saml2/callback',
+    'sp_entityid'    => env('SAML_SP_ENTITYID'),
+    'sp_sls'         => env('APP_URL').'/auth/saml2/logout',
+],
 
 ];

@@ -20,8 +20,23 @@ use App\Http\Controllers\CareerController;
 use App\Http\Controllers\CareerCourseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
+use Laravel\Socialite\Facades\Socialite;
 
+Route::get('/auth/saml2/redirect', function () {
+    return Socialite::driver('saml2')->redirect();
+});
 
+Route::match(['get','post'], '/auth/saml2/callback', function () {
+    $user = Socialite::driver('saml2')->stateless()->user();
+    dd($user);
+})->name('saml.callback');
+
+Route::get('/1', function () {
+  return Socialite::driver('saml2')->redirect();
+});
+Route::get('/auth/saml2/logout', function () {
+    return response('Logout endpoint SAML2 OK');
+})->name('saml.logout');
 
 
 Route::get('/', function () {
@@ -205,6 +220,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
     Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
 });
+
 
 
 
