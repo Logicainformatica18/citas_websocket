@@ -12,7 +12,7 @@ class Kernel extends ConsoleKernel
        \App\Console\Commands\ArbeitnowImportCommand::class,
      \App\Console\Commands\ArbeitnowByLanguagesCommand::class,
          \App\Console\Commands\ArbeitnowByMethodologiesCommand::class,
-
+  \App\Console\Commands\RunAllJobs::class,
 ];
 
     /**
