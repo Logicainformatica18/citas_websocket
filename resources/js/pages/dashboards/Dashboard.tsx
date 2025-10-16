@@ -8,7 +8,7 @@ import RolesChart from "./components/RolesChart";
 import ObsolescenceIA from "./components/ObsolescenceIA";
 import TechnologiesChart from "./components/TechnologiesChart";
 import WorkModeChart from "./components/WorkModeChart";
-import CityDemandMap from "./components/CityDemandMap";
+import CityDemandMap from "./components/CityDemandMap/CityDemandMap";
 import CareerAlignmentChart from "./components/CareerAlignmentChart";
 import WordlBankChart from "./components/WorldBankChart";
 import DemandByCareerChart from "./components/DemandByCareerChart";

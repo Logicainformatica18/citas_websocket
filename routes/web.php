@@ -193,6 +193,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/ai/city-demand/get-data', [CityDemandAIController::class, 'getData']);
+
     Route::prefix('careers')->group(function () {
         Route::get('/', [CareerController::class, 'index']);
         Route::get('/fetch', [CareerController::class, 'fetchPaginated']);
@@ -214,6 +215,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
     Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
+        // 🔹 Exportaciones (Excel o PDF)
+    Route::get('/ai/city-demand/export', [CityDemandAIController::class, 'export']);
 });
 
 

@@ -8,90 +8,73 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\CityDemandExport;
 
 class CityDemandAIController extends Controller
 {
     /**
-     * 📋 Devuelve metadata para filtros dinámicos (fuentes, países, modalidades, años)
+     * 📋 Devuelve metadata para filtros dinámicos
      */
     public function metadata()
     {
         Log::info("🌎 Cargando metadata CityDemandAIController");
 
-        $countries = JobOffer::whereNotNull('country')
-            ->where('country', '<>', '')
-            ->distinct()
-            ->orderBy('country')
-            ->pluck('country');
-
-        $modalities = JobOffer::whereNotNull('modality')
-            ->where('modality', '<>', '')
-            ->distinct()
-            ->orderBy('modality')
-            ->pluck('modality');
-
-        $sources = JobOffer::whereNotNull('source')
-            ->where('source', '<>', '')
-            ->distinct()
-            ->orderBy('source')
-            ->pluck('source');
-
-        $years = JobOffer::selectRaw('YEAR(published_at) as year')
-            ->distinct()
-            ->orderBy('year', 'desc')
-            ->pluck('year');
-
         return response()->json([
-            'countries' => $countries,
-            'modalities' => $modalities,
-            'sources' => $sources,
-            'years' => $years,
+            'countries' => JobOffer::whereNotNull('country')
+                ->where('country', '<>', '')
+                ->distinct()
+                ->orderBy('country')
+                ->pluck('country'),
+            'modalities' => JobOffer::whereNotNull('modality')
+                ->where('modality', '<>', '')
+                ->distinct()
+                ->orderBy('modality')
+                ->pluck('modality'),
+            'sources' => JobOffer::whereNotNull('source')
+                ->where('source', '<>', '')
+                ->distinct()
+                ->orderBy('source')
+                ->pluck('source'),
+            'years' => JobOffer::selectRaw('YEAR(published_at) as year')
+                ->distinct()
+                ->orderBy('year', 'desc')
+                ->pluck('year'),
         ]);
     }
 
     /**
-     * 🧭 Endpoint inicial
-     */
-    public function index()
-    {
-        Log::info("🌍 Cargando CityDemandAIController@index");
-        return response()->json($this->buildResponse());
-    }
-
-    /**
-     * 📊 Datos agregados por ciudad o país (según zoom y filtros)
+     * 📊 Datos agregados por ciudad o país (para mapa interactivo)
      */
     public function getData(Request $request)
     {
         $year       = (int) $request->get('year', now()->year);
         $zoom       = (int) $request->get('zoom', 6);
-        $source     = $request->get('source');
-        $countries  = $request->get('countries', []);
-     $modalities = (array) $request->get('modalities', []);
-
+        $sources    = (array) $request->get('sources', []);
+        $countries  = (array) $request->get('countries', []);
+        $modalities = (array) $request->get('modalities', []);
         $quarter    = $request->get('quarter');
         $startDate  = $request->get('start_date');
         $endDate    = $request->get('end_date');
 
-        Log::info("📩 [CityDemandAIController@getData] Parámetros recibidos:", [
-            'year' => $year,
-            'zoom' => $zoom,
-            'source' => $source,
-            'countries' => $countries,
-            'modalities' => $modalities,
-            'quarter' => $quarter,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-        ]);
+        Log::info("📩 [CityDemandAIController@getData] Parámetros", compact(
+            'year', 'zoom', 'sources', 'countries', 'modalities', 'quarter', 'startDate', 'endDate'
+        ));
 
+        // 🔹 Base: ignora ubicaciones remotas para el mapa
         $query = JobOffer::query()
             ->whereNotNull('latitude')
-            ->whereNotNull('longitude');
+            ->whereNotNull('longitude')
+            ->where(function ($q) {
+                $q->where('country', 'NOT LIKE', '%remote%')
+                  ->where('country', 'NOT LIKE', '%remoto%')
+                  ->where('city', 'NOT LIKE', '%remote%')
+                  ->where('city', 'NOT LIKE', '%remoto%');
+            });
 
         // 🔹 Año
-        if ($year) {
-            $query->whereYear('published_at', $year);
-        }
+        if ($year) $query->whereYear('published_at', $year);
 
         // 🔹 Fechas personalizadas
         if ($startDate && $endDate) {
@@ -101,161 +84,131 @@ class CityDemandAIController extends Controller
                     Carbon::parse($endDate)->endOfDay(),
                 ]);
             } catch (\Exception $e) {
-                Log::warning("⚠️ Error al parsear fechas: " . $e->getMessage());
+                Log::warning("⚠️ Error al parsear fechas: {$e->getMessage()}");
             }
         }
 
         // 🔹 Trimestre
         $quarters = [
-            'Q1' => [1, 2, 3],
-            'Q2' => [4, 5, 6],
-            'Q3' => [7, 8, 9],
-            'Q4' => [10, 11, 12],
+            'Q1' => [1,2,3], 'Q2' => [4,5,6], 'Q3' => [7,8,9], 'Q4' => [10,11,12],
         ];
         if ($quarter && isset($quarters[$quarter])) {
             $query->whereIn(DB::raw('MONTH(published_at)'), $quarters[$quarter]);
         }
 
-        // 🔹 Fuente
-        if ($source) {
-            $query->where('source', $source);
+        // 🔹 Filtros dinámicos
+        if (!empty($sources)) $query->whereIn('source', $sources);
+        if (!empty($countries)) $query->whereIn('country', $countries);
+        if (!empty($modalities)) $query->whereIn('modality', $modalities);
+
+        // 🔹 Agrupar por ciudad
+        $results = $query->selectRaw("
+            country, city,
+            AVG(latitude) as lat,
+            AVG(longitude) as lng,
+            COUNT(*) as total
+        ")->groupBy('country', 'city')->get();
+
+        if ($results->isEmpty()) {
+            return response()->json(['results' => [], 'message' => 'Sin datos para los filtros.']);
         }
 
-        // 🔹 País(es)
-        if (!empty($countries)) {
-            if (is_array($countries)) {
-                $query->whereIn('country', $countries);
-            } else {
-                $query->where('country', $countries);
-            }
-        }
+        // 🔹 Normalizar intensidad
+        $max = $results->max('total') ?: 1;
+        $results->transform(fn($r) => tap($r, fn($x) => $x->intensity = round($r->total / $max, 3)));
 
-        // 🔹 Modalidad
-       // 🔹 Modalidades múltiples
-if (!empty($modalities)) {
-    $query->whereIn('modality', $modalities);
-}
+        // 🔹 KPIs adicionales
+        $totalOffers = $results->sum('total');
 
+        $byModality = JobOffer::select('modality', DB::raw('COUNT(*) as total'))
+            ->when($year, fn($q) => $q->whereYear('published_at', $year))
+            ->groupBy('modality')
+            ->orderByDesc('total')
+            ->get();
 
-        // 🔍 Log SQL
-        Log::debug("🧠 SQL generado:", [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-        ]);
+        $bySource = JobOffer::select('source', DB::raw('COUNT(*) as total'))
+            ->when($year, fn($q) => $q->whereYear('published_at', $year))
+            ->groupBy('source')
+            ->orderByDesc('total')
+            ->get();
 
-        // 🔹 Agrupación
-        if ($zoom < 5) {
-            // 🔸 Agrupar por país
-            $results = $query->selectRaw("
-                country,
-                AVG(latitude) as lat,
-                AVG(longitude) as lng,
-                COUNT(*) as total,
-                modality
-            ")->groupBy('country', 'modality')->get();
-        } else {
-            // 🔸 Agrupar por ciudad
-            $results = $query->selectRaw("
-                country, city,
-                AVG(latitude) as lat,
-                AVG(longitude) as lng,
-                COUNT(*) as total,
-                modality
-            ")->groupBy('country', 'city', 'modality')->get();
-        }
-
-        Log::info("✅ [CityDemandAIController@getData] Resultado generado:", [
-            'count' => $results->count(),
-            'zoom' => $zoom,
-            'agrupacion' => $zoom < 5 ? 'país' : 'ciudad',
-            'primer_registro' => $results->first(),
-        ]);
+        $topCountries = $results
+            ->groupBy('country')
+            ->map(fn($g) => $g->sum('total'))
+            ->sortDesc()
+            ->take(5)
+            ->map(fn($total, $country) => ['country' => $country, 'total' => $total])
+            ->values();
 
         return response()->json([
-            'filters' => compact('source', 'countries', 'modalities', 'year', 'quarter', 'startDate', 'endDate', 'zoom'),
+            'filters' => compact('sources', 'countries', 'modalities', 'year', 'quarter', 'startDate', 'endDate'),
             'count'   => $results->count(),
+            'max'     => $max,
             'results' => $results,
-            'message' => "📊 Resultados agrupados por " . ($zoom < 5 ? 'país' : 'ciudad'),
+            'top_countries' => $topCountries,
+            'summary' => [
+                'total_offers' => $totalOffers,
+                'top_modality' => $byModality->first(),
+                'top_source' => $bySource->first(),
+            ],
+            'message' => "📊 Total de demanda por ciudad (sin ubicaciones remotas).",
         ]);
     }
 
     /**
-     * 🧾 Detalle de ofertas para modal (al hacer clic en el mapa)
+     * 📤 Exporta resultados a Excel o PDF (incluye remotos)
      */
-    public function getDetails(Request $request)
+    public function export(Request $request)
     {
-        $country = $request->get('country');
-        $city    = $request->get('city');
+        $format     = $request->get('format', 'excel');
+        $year       = (int) $request->get('year', now()->year);
+        $sources    = (array) $request->get('sources', []);
+        $countries  = (array) $request->get('countries', []);
+        $modalities = (array) $request->get('modalities', []);
+        $quarter    = $request->get('quarter');
+        $startDate  = $request->get('start_date');
+        $endDate    = $request->get('end_date');
 
         $query = JobOffer::query()
             ->select(
-                'title',
-                'company',
-                'modality',
-                'salary_min',
-                'salary_max',
-                'currency',
-                'source',
-                'url',
-                DB::raw('DATE(published_at) as date')
-            );
+                'title', 'company', 'country', 'city',
+                'modality', 'source',
+                DB::raw('DATE(published_at) as published_at')
+            )
+            ->whereYear('published_at', $year);
 
-        if ($country) $query->where('country', $country);
-        if ($city) $query->where('city', $city);
+        // Aplicar mismos filtros que el mapa
+        if (!empty($sources)) $query->whereIn('source', $sources);
+        if (!empty($countries)) $query->whereIn('country', $countries);
+        if (!empty($modalities)) $query->whereIn('modality', $modalities);
 
-        $offers = $query->orderByDesc('published_at')
-            ->limit(50)
-            ->get();
-
-        return response()->json([
-            'country' => $country,
-            'city' => $city,
-            'offers' => $offers,
-            'count' => $offers->count(),
-            'message' => "🧾 Detalle de ofertas en " . ($city ? "$city, $country" : $country),
-        ]);
-    }
-
-    /**
-     * ⚙️ Lógica base (no se toca)
-     */
-    private function buildResponse(array $filters = [], $bounds = null, $zoom = null)
-    {
-        $query = JobOffer::query();
-
-        foreach ($filters as $field => $value) {
-            $query->where($field, $value);
+        if ($startDate && $endDate) {
+            $query->whereBetween('published_at', [
+                Carbon::parse($startDate)->startOfDay(),
+                Carbon::parse($endDate)->endOfDay(),
+            ]);
         }
 
-        $query->whereYear('published_at', now()->year)
-            ->whereRaw('QUARTER(published_at) = QUARTER(CURDATE())');
-
-        if ($bounds) {
-            $query->whereBetween('latitude', [$bounds['lat_min'], $bounds['lat_max']])
-                ->whereBetween('longitude', [$bounds['lng_min'], $bounds['lng_max']]);
-        }
-
-        if ($zoom < 5) {
-            $results = $query->selectRaw("
-                country,
-                AVG(latitude) as lat,
-                AVG(longitude) as lng,
-                COUNT(*) as total
-            ")->groupBy('country')->get();
-        } elseif ($zoom < 8) {
-            $results = $query->selectRaw("
-                country, city,
-                AVG(latitude) as lat,
-                AVG(longitude) as lng,
-                COUNT(*) as total
-            ")->groupBy('country', 'city')->get();
-        } else {
-            $results = $query->select('country', 'city', 'latitude as lat', 'longitude as lng')->get();
-        }
-
-        return [
-            'results' => $results,
-            'message' => '🌍 Distribución lista para heatmap con carga progresiva.',
+        $quarters = [
+            'Q1' => [1,2,3], 'Q2' => [4,5,6], 'Q3' => [7,8,9], 'Q4' => [10,11,12],
         ];
+        if ($quarter && isset($quarters[$quarter])) {
+            $query->whereIn(DB::raw('MONTH(published_at)'), $quarters[$quarter]);
+        }
+
+        $data = $query->orderByDesc('published_at')->get();
+
+        // 🧾 PDF
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('exports.city-demand', [
+                'data' => $data,
+                'filters' => compact('year', 'sources', 'countries', 'modalities'),
+            ])->setPaper('a4', 'landscape');
+
+            return $pdf->download("city-demand-{$year}.pdf");
+        }
+
+        // 📊 Excel
+        return Excel::download(new CityDemandExport($data), "city-demand-{$year}.xlsx");
     }
 }
