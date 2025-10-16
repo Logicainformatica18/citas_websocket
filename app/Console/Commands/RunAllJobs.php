@@ -15,7 +15,7 @@ class RunAllJobs extends Command
         $commands = [
             'arbeitnow:languages',
             'arbeitnow:methodologies',
-          //  'arbeitnow:import',
+         'arbeitnow:technologies',
             'getonboard:languages',
             'getonboard:methodologies',
             'getonboard:technologies',

@@ -27,6 +27,8 @@ class GetOnBoardByTechnologiesCommand extends Command
         'Venezuela' => ['city' => 'Caracas', 'lat' => 10.4806, 'lng' => -66.9036],
     ];
 
+    protected $geoCache = [];
+
     public function handle()
     {
         $pages = (int) $this->option('pages');
@@ -61,7 +63,7 @@ class GetOnBoardByTechnologiesCommand extends Command
 
                         $title = $attr['title'] ?? 'N/A';
                         $company = $attr['company']['data']['attributes']['name'] ?? null;
-                        $country = $attr['countries'][0] ?? 'Desconocido';
+                        $country = $attr['countries'][0] ?? 'Unknown';
                         $city = $attr['city'] ?? null;
                         $modality = $attr['remote_modality'] ?? 'unknown';
                         $urlJob = $job['links']['public_url'] ?? null;
@@ -70,34 +72,30 @@ class GetOnBoardByTechnologiesCommand extends Command
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                         [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $country);
-
                         if (!$lat || !$lng) {
                             $totalUnmapped++;
                             continue;
                         }
 
-                      // 🧠 Evita duplicados avanzados por múltiples campos y similitud de URL
-$exists = JobOffer::where('source', 'GetOnBoard')
-    ->where(function ($q) use ($job, $attr, $title, $company, $city, $country, $techName, $urlJob) {
-        $externalId = $job['id'] ?? null;
+                        $exists = JobOffer::where('source', 'GetOnBoard')
+                            ->where(function ($q) use ($job, $title, $company, $city, $country, $techName, $urlJob) {
+                                $externalId = $job['id'] ?? null;
+                                $q->where('external_id', $externalId)
+                                  ->orWhere(function ($q2) use ($title, $company, $city, $country, $techName, $urlJob) {
+                                      $q2->where('title', $title)
+                                         ->where('company', $company)
+                                         ->where('city', $city)
+                                         ->where('country', $country)
+                                         ->where('search_query', $techName)
+                                         ->where(function ($q3) use ($urlJob) {
+                                             $q3->where('url', $urlJob)
+                                                ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+                                         });
+                                  });
+                            })
+                            ->exists();
 
-        $q->where('external_id', $externalId)
-          ->orWhere(function ($q2) use ($title, $company, $city, $country, $techName, $urlJob) {
-              $q2->where('title', $title)
-                 ->where('company', $company)
-                 ->where('city', $city)
-                 ->where('country', $country)
-                 ->where('search_query', $techName)
-                 ->where(function ($q3) use ($urlJob) {
-                     $q3->where('url', $urlJob)
-                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-                 });
-          });
-    })
-    ->exists();
-
-if ($exists) continue;
-
+                        if ($exists) continue;
 
                         JobOffer::create([
                             'title' => $title,
@@ -128,31 +126,28 @@ if ($exists) continue;
                 }
             }
 
-          // 📆 Verificar si ya existe una métrica registrada hoy
-$today = now()->toDateString();
+            $today = now()->toDateString();
 
-$existsToday = TechnologyMetric::whereDate('run_date', $today)
-    ->where('technology_id', $techId)
-    ->where('source', 'GetOnBoard')
-    ->exists();
+            $existsToday = TechnologyMetric::whereDate('run_date', $today)
+                ->where('technology_id', $techId)
+                ->where('source', 'GetOnBoard')
+                ->exists();
 
-if ($existsToday) {
-    $this->warn("📆 Ya existe una métrica registrada hoy ({$today}) para {$techName}, se omite.");
-    continue;
-}
+            if ($existsToday) {
+                $this->warn("📆 Ya existe una métrica registrada hoy ({$today}) para {$techName}, se omite.");
+                continue;
+            }
 
-// 💾 Crear la métrica solo si no existe una de hoy
-TechnologyMetric::create([
-    'technology_id' => $techId,
-    'technology_name' => $techName,
-    'jobs_found_count' => $totalFound,
-    'jobs_new_count' => $totalNew,
-    'countries_breakdown' => $countries,
-    'modality_breakdown' => $modalities,
-    'run_date' => Carbon::today(), // 👈 solo la fecha, sin hora
-    'source' => 'GetOnBoard',
-]);
-
+            TechnologyMetric::create([
+                'technology_id' => $techId,
+                'technology_name' => $techName,
+                'jobs_found_count' => $totalFound,
+                'jobs_new_count' => $totalNew,
+                'countries_breakdown' => $countries,
+                'modality_breakdown' => $modalities,
+                'run_date' => Carbon::today(),
+                'source' => 'GetOnBoard',
+            ]);
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} encontradas");
         }
@@ -177,6 +172,9 @@ TechnologyMetric::create([
 
     protected function getCoords(?string $city, ?string $country)
     {
+        $key = strtolower(trim("{$city},{$country}"));
+        if (isset($this->geoCache[$key])) return $this->geoCache[$key];
+
         try {
             $res = Http::timeout(10)->get('https://nominatim.openstreetmap.org/search', [
                 'q' => "{$city}, {$country}",
@@ -186,12 +184,12 @@ TechnologyMetric::create([
 
             if ($res->ok() && count($res->json()) > 0) {
                 $data = $res->json()[0];
-                return [(float) $data['lat'], (float) $data['lon']];
+                return $this->geoCache[$key] = [(float)$data['lat'], (float)$data['lon']];
             }
         } catch (\Throwable $th) {
             Log::warning("🌍 Error geocodificando {$city}, {$country}: " . $th->getMessage());
         }
 
-        return [null, null];
+        return $this->geoCache[$key] = [null, null];
     }
 }

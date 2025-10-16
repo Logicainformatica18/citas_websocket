@@ -5,21 +5,20 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Methodology;
+use App\Models\Technology;
 use App\Models\JobOffer;
-use App\Models\MethodologyMetric;
+use App\Models\TechnologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
 
-class ArbeitnowByMethodologiesCommand extends Command
+class ArbeitnowByTechnologiesCommand extends Command
 {
-    protected $signature = 'arbeitnow:methodologies';
-    protected $description = '🌍 Recorre todas las metodologías y registra métricas de demanda laboral desde Arbeitnow (Europa/Asia) con país y geolocalización.';
+    protected $signature = 'arbeitnow:technologies';
+    protected $description = '🌍 Recorre todas las tecnologías y registra métricas de demanda laboral desde Arbeitnow (Europa/Asia) con país y geolocalización.';
 
     protected $stats = ['api_hits' => 0, 'fallback' => 0, 'mapped' => 0];
     protected $geoCache = [];
 
-    // 🌎 Capitales por país (fallback si no hay city o lat/lng)
     protected $capitalMap = [
         'de' => ['city' => 'Berlín', 'lat' => 52.5200, 'lng' => 13.4050, 'country' => 'Germany'],
         'es' => ['city' => 'Madrid', 'lat' => 40.4168, 'lng' => -3.7038, 'country' => 'Spain'],
@@ -37,11 +36,11 @@ class ArbeitnowByMethodologiesCommand extends Command
 
     public function handle()
     {
-        $methodologies = Methodology::pluck('name', 'id');
-        $this->info("🌐 Iniciando scraping de Arbeitnow por metodología ({$methodologies->count()} metodologías)...");
+        $technologies = Technology::pluck('name', 'id');
+        $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
 
-        foreach ($methodologies as $methodologyId => $methodologyName) {
-            $this->warn("\n💡 Procesando metodología: {$methodologyName}");
+        foreach ($technologies as $techId => $techName) {
+            $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             $totalFound = 0;
             $totalNew = 0;
@@ -50,11 +49,11 @@ class ArbeitnowByMethodologiesCommand extends Command
 
             try {
                 $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
-                    'search' => $methodologyName,
+                    'search' => $techName,
                 ]);
 
                 if ($response->failed()) {
-                    $this->error("❌ Falló la API para {$methodologyName}");
+                    $this->error("❌ Falló la API para {$techName}");
                     continue;
                 }
 
@@ -71,7 +70,6 @@ class ArbeitnowByMethodologiesCommand extends Command
                     $countryCode = $this->detectCountryCode($location, $isRemote);
                     [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
 
-                    // 🧭 Fallback si no hay coordenadas
                     if (!$lat || !$lng) {
                         if (isset($this->capitalMap[$countryCode])) {
                             $capital = $this->capitalMap[$countryCode];
@@ -91,15 +89,14 @@ class ArbeitnowByMethodologiesCommand extends Command
 
                     $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
 
-                    // 🔁 Evitar duplicados reales (país por nombre completo)
                     $exists = JobOffer::where('source', 'Arbeitnow')
-                        ->where(function ($q) use ($externalId, $title, $company, $country, $methodologyName, $urlJob) {
+                        ->where(function ($q) use ($externalId, $title, $company, $country, $techName, $urlJob) {
                             $q->where('external_id', $externalId)
-                              ->orWhere(function ($q2) use ($title, $company, $country, $methodologyName, $urlJob) {
+                              ->orWhere(function ($q2) use ($title, $company, $country, $techName, $urlJob) {
                                   $q2->where('title', $title)
                                      ->where('company', $company)
                                      ->where('country', $country ?? 'Unknown')
-                                     ->where('search_query', $methodologyName)
+                                     ->where('search_query', $techName)
                                      ->where(function ($q3) use ($urlJob) {
                                          $q3->where('url', $urlJob)
                                             ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
@@ -110,7 +107,6 @@ class ArbeitnowByMethodologiesCommand extends Command
 
                     if ($exists) continue;
 
-                    // 💾 Guardar oferta
                     JobOffer::create([
                         'title'        => $title,
                         'company'      => $company,
@@ -125,7 +121,7 @@ class ArbeitnowByMethodologiesCommand extends Command
                         'currency'     => 'EUR',
                         'salary_min'   => null,
                         'salary_max'   => null,
-                        'search_query' => $methodologyName,
+                        'search_query' => $techName,
                         'published_at' => isset($job['date']) ? Carbon::parse($job['date']) : now(),
                         'created_at'   => now(),
                         'updated_at'   => now(),
@@ -134,17 +130,17 @@ class ArbeitnowByMethodologiesCommand extends Command
                     $totalNew++;
                 }
 
-                // 📊 Evitar duplicar métricas diarias
+                // 📊 Evita duplicar métricas diarias
                 $today = now()->toDateString();
-                $existsToday = MethodologyMetric::whereDate('run_date', $today)
-                    ->where('methodology_id', $methodologyId)
+                $existsToday = TechnologyMetric::whereDate('run_date', $today)
+                    ->where('technology_id', $techId)
                     ->where('source', 'Arbeitnow')
                     ->exists();
 
                 if (!$existsToday) {
-                    MethodologyMetric::create([
-                        'methodology_id' => $methodologyId,
-                        'methodology_name' => $methodologyName,
+                    TechnologyMetric::create([
+                        'technology_id' => $techId,
+                        'technology_name' => $techName,
                         'jobs_found_count' => $totalFound,
                         'jobs_new_count' => $totalNew,
                         'countries_breakdown' => $countries,
@@ -154,26 +150,26 @@ class ArbeitnowByMethodologiesCommand extends Command
                     ]);
                 }
 
-                $this->info("✅ {$methodologyName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+                $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
             } catch (\Throwable $th) {
-                Log::error("⚠️ Error en {$methodologyName}: " . $th->getMessage());
+                Log::error("⚠️ Error en {$techName}: " . $th->getMessage());
             }
 
             sleep(1.5);
         }
 
-        $this->info("\n🎯 Proceso completado: métricas registradas en `methodology_metrics`.");
+        $this->info("\n🎯 Proceso completado: métricas registradas en `technology_metrics`.");
     }
 
-    // 🌍 Identifica país por patrones
+    // 🔍 Detección del país por texto
     protected function detectCountryCode($location, $isRemote)
     {
         $loc = strtolower($location ?? '');
         if ($isRemote) return 'remote';
 
         return match (true) {
-            str_contains($loc, 'germany') || str_contains($loc, 'berlin') || str_contains($loc, 'deutschland') => 'de',
-            str_contains($loc, 'spain') || str_contains($loc, 'madrid') || str_contains($loc, 'barcelona') => 'es',
+            str_contains($loc, 'germany') || str_contains($loc, 'berlin') => 'de',
+            str_contains($loc, 'spain') || str_contains($loc, 'madrid') => 'es',
             str_contains($loc, 'france') || str_contains($loc, 'paris') => 'fr',
             str_contains($loc, 'portugal') || str_contains($loc, 'lisbon') => 'pt',
             str_contains($loc, 'italy') || str_contains($loc, 'rome') => 'it',
