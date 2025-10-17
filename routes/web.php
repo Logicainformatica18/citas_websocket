@@ -20,8 +20,10 @@ use App\Http\Controllers\CareerController;
 use App\Http\Controllers\CareerCourseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
+use App\Http\Controllers\Ocr\DniOcrController;
 use App\Http\Controllers\Auth\Saml2LoginController;
 use Laravel\Socialite\Facades\Socialite;
+
 
 Route::prefix('auth/saml2')->group(function () {
     Route::get('/redirect', [Saml2LoginController::class, 'redirect'])->name('saml.login');
@@ -217,7 +219,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
         // 🔹 Exportaciones (Excel o PDF)
     Route::get('/ai/city-demand/export', [CityDemandAIController::class, 'export']);
+
+
+    Route::post('/ocr/dni/local', [DniOcrController::class, 'extractLocal']);
+Route::post('/ocr/dni/gcs', [DniOcrController::class, 'extractFromGCS']);
 });
+
 
 
 
