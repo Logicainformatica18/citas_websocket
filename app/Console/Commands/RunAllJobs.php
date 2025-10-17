@@ -19,6 +19,7 @@ class RunAllJobs extends Command
             'getonboard:languages',
             'getonboard:methodologies',
             'getonboard:technologies',
+            'computrabajo:languages'
         ];
 
         foreach ($commands as $cmd) {

@@ -88,9 +88,25 @@ class ProcessSyllabusJob implements ShouldQueue
                 'credentials' => env('GCS_KEY_FILE_PATH'),
             ]);
 
-            // 📡 Llamar a Vision API
-            $operation = $client->asyncBatchAnnotateFiles([$request]);
-            $operation->pollUntilComplete();
+       // 📡 Llamar a Vision API con polling extendido
+$operation = $client->asyncBatchAnnotateFiles([$request]);
+
+$maxAttempts = 20;      // hasta 20 intentos (~2 minutos)
+$interval = 6;          // segundos entre intentos
+
+for ($i = 1; $i <= $maxAttempts; $i++) {
+    if ($operation->isDone()) break;
+
+    Log::info("⌛ Esperando OCR (intento {$i}/{$maxAttempts}) para syllabus {$this->syllabusId}...");
+    sleep($interval);
+    $operation->reload(); // vuelve a consultar el estado
+}
+
+if (!$operation->operationSucceeded()) {
+    $errorMessage = $operation->getError() ? $operation->getError()->getMessage() : 'desconocido';
+    throw new \Exception("Error en OCR PDF: {$errorMessage}");
+}
+
 
             if (!$operation->operationSucceeded()) {
                 throw new \Exception("Error en OCR PDF: " . $operation->getError()->getMessage());

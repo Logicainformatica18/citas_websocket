@@ -5,17 +5,17 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
-use App\Models\Language;
-use App\Models\JobOffer;
-use App\Models\LanguageMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
+use App\Models\Technology;
+use App\Models\JobOffer;
+use App\Models\TechnologyMetric;
+use App\Models\City;
 
-class ComputrabajoByLanguagesCommand extends Command
+class ComputrabajoByTechnologiesCommand extends Command
 {
-    protected $signature = 'computrabajo:languages {--pages=3}';
-    protected $description = '🌎 Scrapea Computrabajo por cada lenguaje (ej: programador-python) y guarda métricas con geolocalización.';
+    protected $signature = 'computrabajo:technologies {--pages=3}';
+    protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
     protected $countryMap = [
         'pe' => 'Peru',
@@ -26,6 +26,7 @@ class ComputrabajoByLanguagesCommand extends Command
         'co' => 'Colombia',
         'ec' => 'Ecuador',
         've' => 'Venezuela',
+        'cl' => 'Chile',
     ];
 
     const DEFAULT_LAT = -12.046374;
@@ -33,26 +34,26 @@ class ComputrabajoByLanguagesCommand extends Command
 
     public function handle()
     {
-        $languages = Language::pluck('name', 'id');
+        $technologies = Technology::pluck('name', 'id');
         $pages = (int) $this->option('pages');
 
-        $this->info("🌐 Scrapeando Computrabajo para {$languages->count()} lenguajes ({$pages} páginas por país)...");
+        $this->info("🌐 Iniciando scraping Computrabajo ({$technologies->count()} tecnologías, {$pages} páginas por país)");
 
-        foreach ($languages as $langId => $langName) {
-            $this->warn("\n💡 Lenguaje actual: {$langName}");
+        foreach ($technologies as $techId => $techName) {
+            $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             $totalFound = 0;
             $totalNew = 0;
             $countries = [];
             $modalities = [];
 
-            $slugLang = $this->makeSearchSlug($langName);
+            $slugTech = $this->makeSearchSlug($techName);
 
             foreach ($this->countryMap as $code => $country) {
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
-                    $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugLang}?p={$i}";
+                    $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugTech}?p={$i}";
                     $this->line("🔗 Página {$i}: {$url}");
 
                     try {
@@ -70,95 +71,97 @@ class ComputrabajoByLanguagesCommand extends Command
                         $offers = $crawler->filter('article[class*="box_offer"]');
 
                         if ($offers->count() === 0) {
-                            $this->warn("⚠️ Sin ofertas para {$langName} en {$country} (página {$i})");
+                            $this->warn("⚠️ Sin ofertas para {$techName} en {$country} (página {$i})");
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code) {
+                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $techName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
+
                                 $href = $offer->filter('h2 a')->attr('href');
                                 $urlJob = "https://{$code}.computrabajo.com" . $href;
 
                                 $city = $this->extractCityFromUrl($urlJob);
-                                [$lat, $lng] = $this->getCoords($city, $country);
-
+                                [$lat, $lng, $countryName] = $this->getCoords($city, $country);
                                 $modality = $this->mapModality($title . ' ' . $city);
                                 $published = now();
 
                                 $totalFound++;
-                                $countries[$country] = ($countries[$country] ?? 0) + 1;
+                                $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
+                                // Verifica si ya existe oferta
                                 $exists = JobOffer::where('source', 'Computrabajo')
                                     ->whereRaw('LOWER(title) = ?', [strtolower($title)])
                                     ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
-                                    ->where('country', $country)
+                                    ->where('country', $countryName)
+                                    ->where('search_query', $techName)
                                     ->exists();
 
                                 if ($exists) return;
 
                                 JobOffer::create([
-                                    'title' => $title,
-                                    'company' => $company,
-                                    'country' => $country,
-                                    'city' => $city,
-                                    'latitude' => $lat,
-                                    'longitude' => $lng,
-                                    'modality' => $modality,
-                                    'source' => 'Computrabajo',
-                                    'search_query' => $langName,
+                                    'title'        => $title,
+                                    'company'      => $company,
+                                    'country'      => $countryName,
+                                    'city'         => $city,
+                                    'latitude'     => $lat,
+                                    'longitude'    => $lng,
+                                    'modality'     => $modality,
+                                    'source'       => 'Computrabajo',
+                                    'search_query' => $techName,
+                                    'url'          => $urlJob,
                                     'published_at' => $published,
-                                    'url' => $urlJob,
-                                    'created_at' => now(),
-                                    'updated_at' => now(),
+                                    'created_at'   => now(),
+                                    'updated_at'   => now(),
                                 ]);
 
                                 $totalNew++;
-                                $this->line("✅ {$title} ({$country} - {$city})");
-
+                                $this->line("✅ {$title} ({$countryName} - {$city})");
                             } catch (\Throwable $th) {
-                                Log::warning("⚠️ Error oferta {$langName}: " . $th->getMessage());
+                                Log::warning("⚠️ Error en oferta {$techName}: " . $th->getMessage());
                             }
                         });
 
-                        usleep(random_int(500000, 1500000));
+                        usleep(random_int(500000, 1500000)); // Pausa aleatoria
                     } catch (\Throwable $th) {
                         $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
                     }
                 }
 
-                sleep(4);
+                sleep(3);
             }
 
-            LanguageMetric::updateOrCreate(
+            // 📊 Guardar métricas de la tecnología
+            TechnologyMetric::updateOrCreate(
                 [
-                    'language_id' => $langId,
+                    'technology_id' => $techId,
                     'run_date' => Carbon::today(),
                     'source' => 'Computrabajo',
                 ],
                 [
-                    'language_name' => $langName,
-                    'jobs_found_count' => $totalFound,
-                    'jobs_new_count' => $totalNew,
-                    'countries_breakdown' => $countries,
-                    'modality_breakdown' => $modalities,
-                    'updated_at' => now(),
+                    'technology_name'      => $techName,
+                    'jobs_found_count'     => $totalFound,
+                    'jobs_new_count'       => $totalNew,
+                    'countries_breakdown'  => $countries,
+                    'modality_breakdown'   => $modalities,
+                    'updated_at'           => now(),
                 ]
             );
 
-            $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
+            $this->info("📊 {$techName}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        $this->info("\n🎯 Scraping + métricas completado exitosamente con geolocalización.");
+        $this->info("\n🎯 Scraping completado exitosamente y métricas guardadas.");
     }
 
-    protected function makeSearchSlug(string $langName): string
+    protected function makeSearchSlug(string $name): string
     {
-        $slug = strtolower(trim($langName));
+        $slug = strtolower(trim($name));
         $slug = str_replace(['#', '++', '+', ' ', '.', '/', '\\'], ['-sharp', '-plus', '-plus', '-', '', '-', '-'], $slug);
         return "programador-{$slug}";
     }
@@ -170,6 +173,7 @@ class ComputrabajoByLanguagesCommand extends Command
         }
         return 'Remote';
     }
+
 
         protected function mapModality(string $text): string
 {
@@ -213,26 +217,33 @@ class ComputrabajoByLanguagesCommand extends Command
     protected function getCoords($city, $country)
     {
         if (!$city || strtolower($city) === 'remote') {
-            return [self::DEFAULT_LAT, self::DEFAULT_LNG];
+            return [$city, self::DEFAULT_LAT, self::DEFAULT_LNG, $country];
         }
 
         try {
-            $res = Http::withHeaders([
-                'User-Agent' => 'LaravelJobScraper/1.0'
-            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
-                'q' => "$city, $country",
-                'format' => 'json',
-                'limit' => 1,
-            ]);
+            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
+                ->first();
+
+            if ($found) {
+                return [$found->city, $found->lat, $found->lng, $found->country];
+            }
+
+            $res = Http::withHeaders(['User-Agent' => 'LaravelJobScraper/1.0'])
+                ->timeout(10)
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => "$city, $country",
+                    'format' => 'json',
+                    'limit' => 1,
+                ]);
 
             if ($res->ok() && count($res->json()) > 0) {
                 $data = $res->json()[0];
-                return [(float) $data['lat'], (float) $data['lon']];
+                return [$city, (float) $data['lat'], (float) $data['lon'], $country];
             }
         } catch (\Throwable $th) {
             Log::warning("⚠️ Error Nominatim {$city}: " . $th->getMessage());
         }
 
-        return [self::DEFAULT_LAT, self::DEFAULT_LNG];
+        return [$city, self::DEFAULT_LAT, self::DEFAULT_LNG, $country];
     }
 }
