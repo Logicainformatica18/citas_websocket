@@ -14,7 +14,7 @@ use App\Models\City;
 
 class ComputrabajoByTechnologiesCommand extends Command
 {
-    protected $signature = 'computrabajo:technologies {--pages=3}';
+    protected $signature = 'computrabajo:technologies {--country=} {--pages=3}';
     protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
     protected $countryMap = [
@@ -34,11 +34,25 @@ class ComputrabajoByTechnologiesCommand extends Command
 
     public function handle()
     {
-        $technologies = Technology::pluck('name', 'id');
+        // 🔹 Parámetros
+        $countryOption = $this->option('country');
         $pages = (int) $this->option('pages');
 
-        $this->info("🌐 Iniciando scraping Computrabajo ({$technologies->count()} tecnologías, {$pages} páginas por país)");
+        // 🔹 Selección de país o todos
+        $activeCountries = $countryOption
+            ? array_intersect_key($this->countryMap, [$countryOption => true])
+            : $this->countryMap;
 
+        if (empty($activeCountries)) {
+            $this->error("❌ País no válido. Usa uno de: " . implode(', ', array_keys($this->countryMap)));
+            return;
+        }
+
+        // 🔹 Cargar tecnologías
+        $technologies = Technology::pluck('name', 'id');
+        $this->info("🌎 Scrapeando " . count($technologies) . " tecnologías para: " . implode(', ', $activeCountries));
+
+        // 🔹 Recorrido principal
         foreach ($technologies as $techId => $techName) {
             $this->warn("\n💡 Procesando tecnología: {$techName}");
 
@@ -49,7 +63,7 @@ class ComputrabajoByTechnologiesCommand extends Command
 
             $slugTech = $this->makeSearchSlug($techName);
 
-            foreach ($this->countryMap as $code => $country) {
+            foreach ($activeCountries as $code => $country) {
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
@@ -60,7 +74,7 @@ class ComputrabajoByTechnologiesCommand extends Command
                         $response = Http::withHeaders([
                             'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
                             'Accept-Language' => 'es-ES,es;q=0.9,en;q=0.8',
-                        ])->timeout(25)->get($url);
+                        ])->timeout(12)->retry(2, 1500)->get($url);
 
                         if ($response->failed()) {
                             $this->warn("❌ Falló la página {$i} en {$country}");
@@ -74,7 +88,7 @@ class ComputrabajoByTechnologiesCommand extends Command
                             $this->warn("⚠️ Sin ofertas para {$techName} en {$country} (página {$i})");
                             continue;
                         }
-
+//WEB API
                         $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $techName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
@@ -86,15 +100,13 @@ class ComputrabajoByTechnologiesCommand extends Command
                                 $urlJob = "https://{$code}.computrabajo.com" . $href;
 
                                 $city = $this->extractCityFromUrl($urlJob);
-                                [$lat, $lng, $countryName] = $this->getCoords($city, $country);
+                                [$city, $lat, $lng, $countryName] = $this->getCoords($city, $country);
                                 $modality = $this->mapModality($title . ' ' . $city);
-                                $published = now();
 
                                 $totalFound++;
                                 $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                                // Verifica si ya existe oferta
                                 $exists = JobOffer::where('source', 'Computrabajo')
                                     ->whereRaw('LOWER(title) = ?', [strtolower($title)])
                                     ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
@@ -115,25 +127,22 @@ class ComputrabajoByTechnologiesCommand extends Command
                                     'source'       => 'Computrabajo',
                                     'search_query' => $techName,
                                     'url'          => $urlJob,
-                                    'published_at' => $published,
-                                    'created_at'   => now(),
-                                    'updated_at'   => now(),
+                                    'published_at' => now(),
                                 ]);
 
                                 $totalNew++;
                                 $this->line("✅ {$title} ({$countryName} - {$city})");
                             } catch (\Throwable $th) {
-                                Log::warning("⚠️ Error en oferta {$techName}: " . $th->getMessage());
+                                Log::warning("⚠️ Error oferta {$techName}: " . $th->getMessage());
                             }
                         });
 
-                        usleep(random_int(500000, 1500000)); // Pausa aleatoria
+                        usleep(random_int(500000, 1500000)); // Pausa aleatoria entre páginas
                     } catch (\Throwable $th) {
                         $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
                     }
                 }
-
-                sleep(3);
+                sleep(2); // Pequeña pausa entre países
             }
 
             // 📊 Guardar métricas de la tecnología
@@ -144,12 +153,12 @@ class ComputrabajoByTechnologiesCommand extends Command
                     'source' => 'Computrabajo',
                 ],
                 [
-                    'technology_name'      => $techName,
-                    'jobs_found_count'     => $totalFound,
-                    'jobs_new_count'       => $totalNew,
-                    'countries_breakdown'  => $countries,
-                    'modality_breakdown'   => $modalities,
-                    'updated_at'           => now(),
+                    'technology_name' => $techName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count' => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown' => $modalities,
+                    'updated_at' => now(),
                 ]
             );
 
@@ -158,6 +167,10 @@ class ComputrabajoByTechnologiesCommand extends Command
 
         $this->info("\n🎯 Scraping completado exitosamente y métricas guardadas.");
     }
+
+    // ---------------------------------------------------------------------
+    // 🔧 Helpers
+    // ---------------------------------------------------------------------
 
     protected function makeSearchSlug(string $name): string
     {
@@ -174,44 +187,38 @@ class ComputrabajoByTechnologiesCommand extends Command
         return 'Remote';
     }
 
+    protected function mapModality(string $text): string
+    {
+        $t = strtolower($text);
 
-        protected function mapModality(string $text): string
-{
-    $t = strtolower($text);
+        if (
+            (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
+            (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
+            (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
+            str_contains($t, 'híbrido') ||
+            str_contains($t, 'mixto') ||
+            str_contains($t, 'parcial')
+        ) {
+            return 'hybrid';
+        }
 
-    // 🟢 1. Casos combinados ("presencial y remoto", "híbrido", etc.)
-    if (
-        (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
-        str_contains($t, 'híbrido') ||
-        str_contains($t, 'mixto') ||
-        str_contains($t, 'parcial')
-    ) {
-        return 'hybrid';
-    }
+        if (
+            str_contains($t, 'remoto') ||
+            str_contains($t, 'teletrabajo') ||
+            str_contains($t, 'home office')
+        ) {
+            return 'fully_remote';
+        }
 
-    // 🔵 2. Solo remoto
-    if (
-        str_contains($t, 'remoto') ||
-        str_contains($t, 'teletrabajo') ||
-        str_contains($t, 'home office')
-    ) {
-        return 'fully_remote';
-    }
+        if (
+            str_contains($t, 'presencial') ||
+            str_contains($t, 'oficina') ||
+            str_contains($t, 'onsite')
+        ) {
+            return 'no_remote';
+        }
 
-    // 🟣 3. Solo presencial
-    if (
-        str_contains($t, 'presencial') ||
-        str_contains($t, 'oficina') ||
-        str_contains($t, 'onsite')
-    ) {
         return 'no_remote';
-    }
-
-    // ⚪ 4. Desconocido / local genérico
-    return 'no_remote';
-
     }
 
     protected function getCoords($city, $country)
@@ -221,8 +228,7 @@ class ComputrabajoByTechnologiesCommand extends Command
         }
 
         try {
-            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-                ->first();
+            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->first();
 
             if ($found) {
                 return [$found->city, $found->lat, $found->lng, $found->country];
