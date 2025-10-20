@@ -5,17 +5,16 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
-use App\Models\Language;
-use App\Models\JobOffer;
-use App\Models\LanguageMetric;
 use Symfony\Component\DomCrawler\Crawler;
+use App\Models\Methodology;
+use App\Models\JobOffer;
+use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 
-class ComputrabajoByLanguagesCommand extends Command
+class ComputrabajoByMethodologiesCommand extends Command
 {
-    protected $signature = 'computrabajo:languages {--pages=3}';
-    protected $description = '🌎 Scrapea Computrabajo por cada lenguaje (ej: programador-python) y guarda métricas con geolocalización.';
+    protected $signature = 'computrabajo:methodologies {--pages=3}';
+    protected $description = '🧩 Scrapea Computrabajo por cada metodología (ej: scrum, agile, kanban) y guarda métricas.';
 
     protected $countryMap = [
         'pe' => 'Peru',
@@ -33,33 +32,28 @@ class ComputrabajoByLanguagesCommand extends Command
 
     public function handle()
     {
-       $languages = Language::select('id', 'name', 'search_context')->get();
-
+        $methodologies = Methodology::pluck('name', 'id');
         $pages = (int) $this->option('pages');
 
-        $this->info("🌐 Scrapeando Computrabajo para {$languages->count()} lenguajes ({$pages} páginas por país)...");
+        $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
 
-        foreach ($languages as $lang) {
-    $langId = $lang->id;
-    $langName = $lang->name;
-    $context = $lang->search_context;
-
-    $this->warn("\n💡 Lenguaje actual: {$langName} ({$context})");
-
+        foreach ($methodologies as $methodId => $methodName) {
+            $this->warn("\n💡 Metodología actual: {$methodName}");
 
             $totalFound = 0;
             $totalNew = 0;
             $countries = [];
             $modalities = [];
 
-         $slugLang = $this->makeSearchSlug($langName, $context);
+           $context = Methodology::find($methodId)->search_context;
+$slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $methodName);
 
 
             foreach ($this->countryMap as $code => $country) {
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
-                    $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugLang}?p={$i}";
+                    $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugMethod}?p={$i}";
                     $this->line("🔗 Página {$i}: {$url}");
 
                     try {
@@ -77,11 +71,11 @@ class ComputrabajoByLanguagesCommand extends Command
                         $offers = $crawler->filter('article[class*="box_offer"]');
 
                         if ($offers->count() === 0) {
-                            $this->warn("⚠️ Sin ofertas para {$langName} en {$country} (página {$i})");
+                            $this->warn("⚠️ Sin ofertas para {$methodName} en {$country} (página {$i})");
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code) {
+                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $methodName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
                                 $company = $offer->filter('p.fc_base a')->count()
@@ -100,10 +94,12 @@ class ComputrabajoByLanguagesCommand extends Command
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
+                                // Evitar duplicados
                                 $exists = JobOffer::where('source', 'Computrabajo')
                                     ->whereRaw('LOWER(title) = ?', [strtolower($title)])
                                     ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
                                     ->where('country', $country)
+                                    ->where('search_query', $methodName)
                                     ->exists();
 
                                 if ($exists) return;
@@ -117,7 +113,7 @@ class ComputrabajoByLanguagesCommand extends Command
                                     'longitude' => $lng,
                                     'modality' => $modality,
                                     'source' => 'Computrabajo',
-                                    'search_query' => $langName,
+                                    'search_query' => $methodName,
                                     'published_at' => $published,
                                     'url' => $urlJob,
                                     'created_at' => now(),
@@ -128,11 +124,11 @@ class ComputrabajoByLanguagesCommand extends Command
                                 $this->line("✅ {$title} ({$country} - {$city})");
 
                             } catch (\Throwable $th) {
-                                Log::warning("⚠️ Error oferta {$langName}: " . $th->getMessage());
+                                Log::warning("⚠️ Error oferta {$methodName}: " . $th->getMessage());
                             }
                         });
 
-                        usleep(random_int(500000, 1500000));
+                        usleep(random_int(500000, 1500000)); // delay
                     } catch (\Throwable $th) {
                         $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
                     }
@@ -141,14 +137,15 @@ class ComputrabajoByLanguagesCommand extends Command
                 sleep(4);
             }
 
-            LanguageMetric::updateOrCreate(
+            // 🧾 Registrar métricas del día
+            MethodologyMetric::updateOrCreate(
                 [
-                    'language_id' => $langId,
+                    'methodology_id' => $methodId,
                     'run_date' => Carbon::today(),
                     'source' => 'Computrabajo',
                 ],
                 [
-                    'language_name' => $langName,
+                    'methodology_name' => $methodName,
                     'jobs_found_count' => $totalFound,
                     'jobs_new_count' => $totalNew,
                     'countries_breakdown' => $countries,
@@ -157,32 +154,23 @@ class ComputrabajoByLanguagesCommand extends Command
                 ]
             );
 
-            $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
+            $this->info("📊 {$methodName}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        $this->info("\n🎯 Scraping + métricas completado exitosamente con geolocalización.");
+        $this->info("\n🎯 Scraping + métricas completado exitosamente (metodologías).");
     }
 
-protected function makeSearchSlug(string $langName, ?string $context = null): string
-{
-    $slug = strtolower(trim($langName));
-
-    // 🧠 Casos especiales
-    $slug = str_replace(['c#', 'c++', '.net'], ['c-sharp', 'c-plus-plus', 'dotnet'], $slug);
-
-    // Limpieza general
-    $slug = str_replace(['#', '+', '.', ' ', '/', '\\'], ['sharp', 'plus', '', '-', '-', '-'], $slug);
-
-    // Agregar contexto si existe
-    if ($context) {
-        $contextSlug = str_replace(' ', '-', strtolower($context));
-        return "{$contextSlug}-{$slug}";
+    protected function makeSearchSlug(string $name): string
+    {
+        $slug = strtolower(trim($name));
+        // Quita caracteres raros y adapta casos comunes
+        $slug = str_replace(
+            ['#', '++', '+', ' ', '.', '/', '\\'],
+            ['sharp', 'plus', 'plus', '-', '', '-', '-'],
+            $slug
+        );
+        return $slug; // 🔸 sin "programador-" porque las metodologías se buscan solas
     }
-
-    return $slug;
-}
-
-
 
     protected function extractCityFromUrl($url)
     {
@@ -192,43 +180,33 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
         return 'Remote';
     }
 
-        protected function mapModality(string $text): string
-{
-    $t = strtolower($text);
+    protected function mapModality(string $text): string
+    {
+        $t = strtolower($text);
 
-    // 🟢 1. Casos combinados ("presencial y remoto", "híbrido", etc.)
-    if (
-        (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
-        str_contains($t, 'híbrido') ||
-        str_contains($t, 'mixto') ||
-        str_contains($t, 'parcial')
-    ) {
-        return 'hybrid';
-    }
+        if (
+            (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
+            (str_contains($t, 'híbrido')) || str_contains($t, 'mixto')
+        ) {
+            return 'hybrid';
+        }
 
-    // 🔵 2. Solo remoto
-    if (
-        str_contains($t, 'remoto') ||
-        str_contains($t, 'teletrabajo') ||
-        str_contains($t, 'home office')
-    ) {
-        return 'fully_remote';
-    }
+        if (
+            str_contains($t, 'remoto') ||
+            str_contains($t, 'teletrabajo') ||
+            str_contains($t, 'home office')
+        ) {
+            return 'fully_remote';
+        }
 
-    // 🟣 3. Solo presencial
-    if (
-        str_contains($t, 'presencial') ||
-        str_contains($t, 'oficina') ||
-        str_contains($t, 'onsite')
-    ) {
+        if (
+            str_contains($t, 'presencial') ||
+            str_contains($t, 'oficina')
+        ) {
+            return 'no_remote';
+        }
+
         return 'no_remote';
-    }
-
-    // ⚪ 4. Desconocido / local genérico
-    return 'no_remote';
-
     }
 
     protected function getCoords($city, $country)
@@ -238,9 +216,7 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
         }
 
         try {
-            $res = Http::withHeaders([
-                'User-Agent' => 'LaravelJobScraper/1.0'
-            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
+            $res = Http::timeout(10)->get('https://nominatim.openstreetmap.org/search', [
                 'q' => "$city, $country",
                 'format' => 'json',
                 'limit' => 1,

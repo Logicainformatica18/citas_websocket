@@ -19,5 +19,8 @@ public function metrics()
 {
     return $this->hasMany(TechnologyMetric::class);
 }
+public function context() {
+    return $this->belongsTo(SemanticContext::class, 'context_id');
+}
 
 }

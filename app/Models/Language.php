@@ -12,5 +12,9 @@ class Language extends Model
     {
         return $this->belongsToMany(Course::class);
     }
+    public function context() {
+    return $this->belongsTo(SemanticContext::class, 'context_id');
+}
+
 }
 

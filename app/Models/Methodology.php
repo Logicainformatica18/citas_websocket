@@ -15,5 +15,8 @@ class Methodology extends Model
 {
     return $this->hasMany(MethodologyMetric::class);
 }
+public function context() {
+    return $this->belongsTo(SemanticContext::class, 'context_id');
+}
 
 }
