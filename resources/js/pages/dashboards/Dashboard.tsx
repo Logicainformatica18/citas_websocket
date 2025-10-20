@@ -13,12 +13,15 @@ import CareerAlignmentChart from "./components/CareerAlignmentChart";
 import WordlBankChart from "./components/WorldBankChart";
 import DemandByCareerChart from "./components/DemandByCareerChart";
 import EmploymentRequestChart from "./components/EmploymentRequestChart";
+import LanguageMetricsIndex from "./components/Metrics/CareerLanguageIndex";
+
 import AiChat from "./components/AiChat";
 import MetricsChart from "./components/MetricsChart";
 import { DashboardProvider } from "./DashboardContext";
 import { MessageCircle } from "lucide-react";
 import ProfileBlock from "./components/StackOverFlow/Profileblock";
 import BackgroundParticles from "../../components/BackgroundParticles"; // 👈 Fondo animado
+
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
@@ -59,7 +62,13 @@ export default function Dashboard({ initialData }: { initialData: any }) {
         {/* 🔹 Contenido principal sobre el fondo */}
         <div className="relative p-4 overflow-y-auto space-y-4 z-10">
           <DashboardProvider>
-            {/* 🔹 WordlBank + Métricas */}
+              <ExpandableCard
+              isExpanded={expandedCard === 0}
+              onToggleExpand={() => handleExpand(0)}
+            >
+              <LanguageMetricsIndex />
+            </ExpandableCard>
+
             <ExpandableCard
               isExpanded={expandedCard === 0}
               onToggleExpand={() => handleExpand(0)}

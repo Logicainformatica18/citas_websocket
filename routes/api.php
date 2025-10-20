@@ -15,7 +15,11 @@ use App\Http\Controllers\AI\CityDemandAIController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\AI\MetricsAIController;
 use App\Http\Controllers\AI\TechnologiesAIController;
- 
+//use App\Http\Controllers\AI\LanguageAlignmentAIController;
+use App\Http\Controllers\AI\Metrics\TechnologyAlignmentAIController;
+use App\Http\Controllers\AI\Metrics\MethodologyAlignmentAIController;
+use App\Http\Controllers\AI\Metrics\CareerLanguageAlignmentAIController;
+
 
 Route::middleware('apikey')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index']);
@@ -118,10 +122,10 @@ Route::prefix('ai/worldbank')->group(function () {
     Route::get('get-data', [App\Http\Controllers\AI\WorldBankAIController::class, 'getData']);
 });
 
- 
 
- 
- 
+
+
+
 Route::prefix('ai/stackoverflow')->group(function () {
     // Bloque Perfil Profesional
     Route::get('profile/workmode/metadata', [\App\Http\Controllers\AI\StackOverflow\ProfileWorkModeAIController::class, 'metadata']);
@@ -133,6 +137,31 @@ Route::prefix('ai/stackoverflow')->group(function () {
     Route::get('profile/age/metadata', [\App\Http\Controllers\AI\StackOverflow\ProfileAgeAIController::class, 'metadata']);
     Route::get('profile/age', [\App\Http\Controllers\AI\StackOverflow\ProfileAgeAIController::class, 'getData']);
 });
+
+
+
+
+
+
+
+  // 💬 Lenguajes
+    Route::get('ai/career-language-alignment/metadata', [CareerLanguageAlignmentAIController::class, 'metadata']);
+    Route::get('ai/career-language-alignment/data', [CareerLanguageAlignmentAIController::class, 'getData']);
+    Route::get('ai/career-language-alignment/export', [CareerLanguageAlignmentAIController::class, 'export']);
+
+
+
+
+
+    // ⚙️ Tecnologías
+    // Route::get('technology-alignment/metadata', [TechnologyAlignmentAIController::class, 'metadata']);
+    // Route::get('technology-alignment/data', [TechnologyAlignmentAIController::class, 'getData']);
+    // Route::get('technology-alignment/export', [TechnologyAlignmentAIController::class, 'export']);
+
+    // // 🧭 Metodologías
+    // Route::get('methodology-alignment/metadata', [MethodologyAlignmentAIController::class, 'metadata']);
+    // Route::get('methodology-alignment/data', [MethodologyAlignmentAIController::class, 'getData']);
+    // Route::get('methodology-alignment/export', [MethodologyAlignmentAIController::class, 'export']);
 
 
 
