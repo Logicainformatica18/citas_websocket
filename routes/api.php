@@ -19,6 +19,10 @@ use App\Http\Controllers\AI\TechnologiesAIController;
 use App\Http\Controllers\AI\Metrics\TechnologyAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\MethodologyAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\CareerLanguageAlignmentAIController;
+use App\Http\Controllers\AI\Metrics\CareerTechnologyAlignmentAIController;
+use App\Http\Controllers\AI\Metrics\CareerMethodologyAlignmentAIController;
+
+
 
 
 Route::middleware('apikey')->group(function () {
@@ -152,17 +156,15 @@ Route::prefix('ai/stackoverflow')->group(function () {
 
 
 
+// ⚙️ Tecnologías
+Route::get('ai/career-technology-alignment/metadata', [CareerTechnologyAlignmentAIController::class, 'metadata']);
+Route::get('ai/career-technology-alignment/data', [CareerTechnologyAlignmentAIController::class, 'getData']);
+Route::get('ai/career-technology-alignment/export', [CareerTechnologyAlignmentAIController::class, 'export']);
 
-    // ⚙️ Tecnologías
-    // Route::get('technology-alignment/metadata', [TechnologyAlignmentAIController::class, 'metadata']);
-    // Route::get('technology-alignment/data', [TechnologyAlignmentAIController::class, 'getData']);
-    // Route::get('technology-alignment/export', [TechnologyAlignmentAIController::class, 'export']);
-
-    // // 🧭 Metodologías
-    // Route::get('methodology-alignment/metadata', [MethodologyAlignmentAIController::class, 'metadata']);
-    // Route::get('methodology-alignment/data', [MethodologyAlignmentAIController::class, 'getData']);
-    // Route::get('methodology-alignment/export', [MethodologyAlignmentAIController::class, 'export']);
-
+// 🧭 Metodologías
+Route::get('ai/career-methodology-alignment/metadata', [CareerMethodologyAlignmentAIController::class, 'metadata']);
+Route::get('ai/career-methodology-alignment/data', [CareerMethodologyAlignmentAIController::class, 'getData']);
+Route::get('ai/career-methodology-alignment/export', [CareerMethodologyAlignmentAIController::class, 'export']);
 
 
 });
