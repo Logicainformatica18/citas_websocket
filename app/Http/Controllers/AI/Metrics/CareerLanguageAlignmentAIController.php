@@ -6,184 +6,326 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 class CareerLanguageAlignmentAIController extends Controller
 {
     /**
      * 📋 Devuelve metadata para filtros dinámicos
      */
-    public function metadata()
-    {
-        return response()->json([
-            'years' => DB::table('language_metrics')
-                ->selectRaw('YEAR(run_date) as year')
-                ->distinct()
-                ->orderBy('year', 'desc')
-                ->pluck('year'),
-            'careers' => DB::table('careers')
-                ->select('id', 'name')
-                ->orderBy('name')
-                ->get(),
-        ]);
-    }
+ public function metadata()
+{
+    return response()->json([
+        'years' => DB::table('language_metrics')
+            ->selectRaw('YEAR(run_date) as year')
+            ->distinct()
+            ->orderBy('year', 'desc')
+            ->pluck('year'),
+
+        'careers' => DB::table('careers')
+            ->select('id', 'name')
+            ->where('name', 'NOT LIKE', '%Diseño y Desarrollo de Videojuegos%') // 🚫 Excluye esta carrera
+            ->orderBy('name')
+            ->get(),
+    ]);
+}
+
 
     /**
      * 📊 Devuelve métricas de alineación por carrera (basado en lenguajes)
      */
-    public function getData(Request $request)
-    {
-        try {
-            // 🔹 Filtros recibidos
-            $year = (int) $request->get('year', now()->year);
-            $careerIds = (array) $request->get('careers', []);
-            $periodType = $request->get('period_type');   // "quarter" o "semester"
-            $periodValue = $request->get('period_value'); // "Q1", "S2", etc.
+public function getData(Request $request)
+{
+    try {
+        // 📆 Parámetros recibidos
+        $groupBy = in_array($request->get('group_by'), ['week', 'month'])
+    ? $request->get('group_by')
+    : 'week';
 
-            \Log::info("🧩 [CareerLanguageAlignmentAIController@getData] Filtros recibidos", [
-                'year' => $year,
-                'careers' => $careerIds,
-                'period_type' => $periodType,
-                'period_value' => $periodValue,
-            ]);
+        $careerIds = (array) $request->get('careers', []);
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
-            // 🔹 Mapeo de trimestres y semestres
-            $quarters = [
-                'Q1' => [1, 2, 3],
-                'Q2' => [4, 5, 6],
-                'Q3' => [7, 8, 9],
-                'Q4' => [10, 11, 12],
-            ];
-            $semesters = [
-                'S1' => [1, 2, 3, 4, 5, 6],
-                'S2' => [7, 8, 9, 10, 11, 12],
-            ];
-
-            // 🔹 Promedio global de jobs_found_count (para normalización)
-            $avgJobsFound = DB::table('language_metrics')
-                ->avg('jobs_found_count') ?: 1;
-
-            // 🔹 Query base
-            $query = DB::table('careers as c')
-                ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
-                ->join('course_language as cl', 'cl.course_id', '=', 'cc.course_id')
-                ->leftJoin('language_metrics as lm', function ($join) use ($year, $periodType, $periodValue, $quarters, $semesters) {
-                    $join->on('lm.language_id', '=', 'cl.language_id')
-                         ->whereYear('lm.run_date', '=', $year);
-
-                    // 🔸 Filtrado por trimestre o semestre
-                    if ($periodType === 'quarter' && isset($quarters[$periodValue])) {
-                        $join->whereIn(DB::raw('MONTH(lm.run_date)'), $quarters[$periodValue]);
-                    }
-                    if ($periodType === 'semester' && isset($semesters[$periodValue])) {
-                        $join->whereIn(DB::raw('MONTH(lm.run_date)'), $semesters[$periodValue]);
-                    }
-                })
-                ->select(
-                    'c.id',
-                    'c.name as career',
-                    DB::raw("ROUND(AVG(
-                        0.4 * (CASE WHEN lm.jobs_found_count > 0 THEN 1 ELSE 0 END) +
-                        0.4 * LEAST(lm.jobs_found_count / {$avgJobsFound}, 1) +
-                        0.2 * (
-                            CASE
-                                WHEN JSON_VALID(lm.countries_breakdown)
-                                THEN JSON_LENGTH(lm.countries_breakdown) / 5
-                                ELSE 0
-                            END
-                        )
-                    ) * 100, 2) AS language_alignment"),
-                    DB::raw("COUNT(DISTINCT cl.language_id) AS total_languages")
-                )
-                ->groupBy('c.id', 'c.name')
-                ->orderByDesc('language_alignment');
-
-            // 🔹 Filtro por carrera (si aplica)
-            if (!empty($careerIds)) {
-                $query->whereIn('c.id', $careerIds);
-            }
-
-            // 🔹 Log del SQL
-            \Log::debug("🧠 [CareerLanguageAlignmentAIController@getData] SQL generado", [
-                'sql' => $query->toSql(),
-                'bindings' => $query->getBindings(),
-            ]);
-
-            // 🔹 Ejecutar consulta
-            $results = $query->get();
-
-            $avgAlignment = round($results->avg('language_alignment'), 2);
-
-            // 🔹 Log final
-            \Log::info("✅ [CareerLanguageAlignmentAIController@getData] Resultados obtenidos", [
-                'count' => $results->count(),
-                'avg_alignment' => $avgAlignment,
-                'sample' => $results->take(5),
-            ]);
-
-            // 🔹 Respuesta final
-            return response()->json([
-                'year' => $year,
-                'period_type' => $periodType,
-                'period_value' => $periodValue,
-                'count' => $results->count(),
-                'results' => $results,
-                'avg_alignment' => $avgAlignment,
-                'message' => '📊 Alineación de carreras por lenguajes según trimestre o semestre seleccionado.',
-            ]);
-        } catch (\Throwable $e) {
-            \Log::error("❌ [CareerLanguageAlignmentAIController@getData] Error", [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'error' => 'Error interno al procesar los datos',
-                'details' => $e->getMessage(),
-            ], 500);
+        // 🕒 Por defecto: últimos 3 meses
+        if (!$startDate || !$endDate) {
+            $startDate = now()->subMonths(3)->toDateString();
+            $endDate = now()->toDateString();
         }
+
+        // 🧮 Query principal
+        $sql = "
+            WITH metricas_filtradas AS (
+                SELECT
+                    language_id,
+                    jobs_found_count AS empleos_actuales,
+                    JSON_LENGTH(countries_breakdown) AS paises_actuales,
+                    run_date
+                FROM language_metrics
+                WHERE DATE(run_date) BETWEEN ? AND ?
+            ),
+            metricas_previas AS (
+                SELECT
+                    lm.language_id,
+                    lm.jobs_found_count AS empleos_previos
+                FROM language_metrics lm
+                WHERE lm.run_date = (
+                    SELECT MAX(run_date)
+                    FROM language_metrics
+                    WHERE run_date < (SELECT MIN(run_date) FROM language_metrics WHERE DATE(run_date) BETWEEN ? AND ?)
+                )
+            ),
+            promedio_global AS (
+                SELECT AVG(jobs_found_count) AS promedio_empleos
+                FROM language_metrics
+                WHERE DATE(run_date) BETWEEN ? AND ?
+            )
+            SELECT
+                c.id AS id_carrera,
+                c.name AS carrera,
+              CASE
+    WHEN ? = 'day' THEN
+        DATE_FORMAT(mf.run_date, '%d %b %Y')
+
+    WHEN ? = 'week' THEN CONCAT(
+        'Semana del ',
+        DATE_FORMAT(DATE_SUB(mf.run_date, INTERVAL WEEKDAY(mf.run_date) DAY), '%d %b'),
+        ' al ',
+        DATE_FORMAT(DATE_ADD(mf.run_date, INTERVAL (6 - WEEKDAY(mf.run_date)) DAY), '%d %b %Y')
+    )
+
+    WHEN ? = 'month' THEN
+        DATE_FORMAT(mf.run_date, '%M %Y')
+END AS periodo,
+
+                ROUND(AVG(
+                    100 * (
+                        0.35 * (CASE WHEN mf.empleos_actuales > 0 THEN 1 ELSE 0 END) +
+                        0.35 * (CASE WHEN pg.promedio_empleos > 0 THEN LEAST(mf.empleos_actuales / pg.promedio_empleos, 1) ELSE 0 END) +
+                        0.15 * LEAST(mf.paises_actuales / 5, 1) +
+                        0.15 * (CASE WHEN mp.empleos_previos > 0 THEN LEAST((mf.empleos_actuales - mp.empleos_previos) / mp.empleos_previos, 1) ELSE 0 END)
+                    )
+                ), 2) AS alineacion_lenguajes
+            FROM careers c
+            JOIN career_course cc ON cc.career_id = c.id
+            JOIN course_language cl ON cl.course_id = cc.course_id
+            LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
+            LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
+            CROSS JOIN promedio_global pg
+        ";
+
+        // 🔹 Filtro por carrera
+        if (!empty($careerIds)) {
+            $ids = implode(',', array_map('intval', $careerIds));
+            $sql .= " WHERE c.id IN ($ids)";
+        }
+
+        // 🔹 Agrupar y ordenar
+        $sql .= "
+        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            GROUP BY c.id, c.name, periodo
+            ORDER BY periodo ASC, alineacion_lenguajes DESC;
+        ";
+
+        // 🔹 Ejecutar
+        $results = DB::select($sql, [
+            $startDate, $endDate,
+            $startDate, $endDate,
+            $startDate, $endDate,
+            $groupBy, $groupBy, $groupBy,
+        ]);
+
+        // 🔄 Convertir resultados en formato de tendencia
+        $collection = collect($results);
+
+        // 🔹 Obtener todos los periodos únicos
+        $periods = $collection->pluck('periodo')->unique()->values();
+
+        // 🔹 Armar dataset pivotado (por periodo)
+        $trendData = $periods->map(function ($periodo) use ($collection) {
+            $row = ['periodo' => $periodo];
+            foreach ($collection->where('periodo', $periodo) as $item) {
+                $row[$item->carrera] = round($item->alineacion_lenguajes, 2);
+            }
+            return $row;
+        });
+
+        // 🔹 Promedio global
+        $avgAlignment = round($collection->avg('alineacion_lenguajes'), 2);
+$totalCareers = $collection->pluck('id_carrera')->unique()->count();
+
+        return response()->json([
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'group_by' => $groupBy,
+            'avg_alignment' => $avgAlignment,
+                'total_careers' => $totalCareers,
+            'trend_data' => $trendData,
+            'results' => $results,
+            'message' => "📊 Datos agrupados por $groupBy (modelo 4D)."
+        ]);
+    } catch (\Throwable $e) {
+        \Log::error("❌ [CareerLanguageAlignmentAIController@getData] Error", [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return response()->json([
+            'error' => 'Error interno al procesar los datos',
+            'details' => $e->getMessage(),
+        ], 500);
     }
+}
+
+
+
+
 
     /**
      * 📤 Exporta resultados a Excel (opcional)
      */
-    public function export(Request $request)
-    {
-        $year = (int) $request->get('year', now()->year);
-        $periodType = $request->get('period_type');
-        $periodValue = $request->get('period_value');
+    
+public function export(Request $request)
+{
+    try {
+        $format = $request->get('format', 'excel'); // excel | pdf
+        $groupBy = in_array($request->get('group_by'), ['week', 'month'])
+            ? $request->get('group_by')
+            : 'week';
+        $careerIds = (array) $request->get('careers', []);
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
-        $quarters = [
-            'Q1' => [1, 2, 3],
-            'Q2' => [4, 5, 6],
-            'Q3' => [7, 8, 9],
-            'Q4' => [10, 11, 12],
-        ];
-        $semesters = [
-            'S1' => [1, 2, 3, 4, 5, 6],
-            'S2' => [7, 8, 9, 10, 11, 12],
-        ];
+        if (!$startDate || !$endDate) {
+            $startDate = now()->subMonths(3)->toDateString();
+            $endDate = now()->toDateString();
+        }
 
-        $data = DB::table('careers as c')
-            ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
-            ->join('course_language as cl', 'cl.course_id', '=', 'cc.course_id')
-            ->leftJoin('language_metrics as lm', function ($join) use ($year, $periodType, $periodValue, $quarters, $semesters) {
-                $join->on('lm.language_id', '=', 'cl.language_id')
-                     ->whereYear('lm.run_date', '=', $year);
+        // 🔹 Reutilizamos la misma query de getData()
+        $sql = "
+            WITH metricas_filtradas AS (
+                SELECT
+                    language_id,
+                    jobs_found_count AS empleos_actuales,
+                    JSON_LENGTH(countries_breakdown) AS paises_actuales,
+                    run_date
+                FROM language_metrics
+                WHERE DATE(run_date) BETWEEN ? AND ?
+            ),
+            metricas_previas AS (
+                SELECT
+                    lm.language_id,
+                    lm.jobs_found_count AS empleos_previos
+                FROM language_metrics lm
+                WHERE lm.run_date = (
+                    SELECT MAX(run_date)
+                    FROM language_metrics
+                    WHERE run_date < (SELECT MIN(run_date) FROM language_metrics WHERE DATE(run_date) BETWEEN ? AND ?)
+                )
+            ),
+            promedio_global AS (
+                SELECT AVG(jobs_found_count) AS promedio_empleos
+                FROM language_metrics
+                WHERE DATE(run_date) BETWEEN ? AND ?
+            )
+            SELECT
+                c.id AS id_carrera,
+                c.name AS carrera,
+                CASE
+                    WHEN ? = 'week' THEN CONCAT(
+                        'Semana del ',
+                        DATE_FORMAT(DATE_SUB(mf.run_date, INTERVAL WEEKDAY(mf.run_date) DAY), '%d %b'),
+                        ' al ',
+                        DATE_FORMAT(DATE_ADD(mf.run_date, INTERVAL (6 - WEEKDAY(mf.run_date)) DAY), '%d %b %Y')
+                    )
+                    WHEN ? = 'month' THEN DATE_FORMAT(mf.run_date, '%M %Y')
+                END AS periodo,
+                ROUND(AVG(
+                    100 * (
+                        0.35 * (CASE WHEN mf.empleos_actuales > 0 THEN 1 ELSE 0 END) +
+                        0.35 * (CASE WHEN pg.promedio_empleos > 0 THEN LEAST(mf.empleos_actuales / pg.promedio_empleos, 1) ELSE 0 END) +
+                        0.15 * LEAST(mf.paises_actuales / 5, 1) +
+                        0.15 * (CASE WHEN mp.empleos_previos > 0 THEN LEAST((mf.empleos_actuales - mp.empleos_previos) / mp.empleos_previos, 1) ELSE 0 END)
+                    )
+                ), 2) AS alineacion_lenguajes
+            FROM careers c
+            JOIN career_course cc ON cc.career_id = c.id
+            JOIN course_language cl ON cl.course_id = cc.course_id
+            LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
+            LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
+            CROSS JOIN promedio_global pg
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+        ";
 
-                if ($periodType === 'quarter' && isset($quarters[$periodValue])) {
-                    $join->whereIn(DB::raw('MONTH(lm.run_date)'), $quarters[$periodValue]);
-                }
-                if ($periodType === 'semester' && isset($semesters[$periodValue])) {
-                    $join->whereIn(DB::raw('MONTH(lm.run_date)'), $semesters[$periodValue]);
-                }
-            })
-            ->select('c.name as career', 'lm.*')
-            ->orderBy('c.name')
-            ->get();
+        if (!empty($careerIds)) {
+            $ids = implode(',', array_map('intval', $careerIds));
+            $sql .= " AND c.id IN ($ids)";
+        }
 
-        // return \Maatwebsite\Excel\Facades\Excel::download(
-        //     new \App\Exports\GenericExport($data),
-        //     "career-language-alignment-{$year}-{$periodValue}.xlsx"
-        // );
+        $sql .= "
+            GROUP BY c.id, c.name, periodo
+            ORDER BY periodo ASC, alineacion_lenguajes DESC;
+        ";
+
+        $data = collect(DB::select($sql, [
+            $startDate, $endDate,
+            $startDate, $endDate,
+            $startDate, $endDate,
+            $groupBy, $groupBy,
+        ]));
+
+        if ($data->isEmpty()) {
+            return response()->json(['error' => 'No hay datos para exportar'], 404);
+        }
+
+        // 🔹 Si el formato es Excel
+        if ($format === 'excel') {
+            $exportData = $data->map(fn($row) => [
+                'Carrera' => $row->carrera,
+                'Periodo' => $row->periodo,
+                'Alineación Total (%)' => $row->alineacion_lenguajes,
+            ]);
+
+            $filename = "Alineacion_Carreras_{$groupBy}_" . now()->format('Ymd_His') . ".xlsx";
+
+            return Excel::download(
+                new \App\Exports\ArrayExport($exportData->toArray(), [
+                    'title' => 'Alineación de Carreras por Lenguajes (Modelo 4D)',
+                    'created_at' => now()->format('d/m/Y H:i'),
+                ]),
+                $filename
+            );
+        }
+
+       // 🔹 Si el formato es PDF
+if ($format === 'pdf') {
+    // Asegurar colección
+    $dataCollection = collect($data);
+
+    // Generar PDF con Blade
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.alignment_report', [
+        'data' => $dataCollection, // 👈 importante: debe ser colección
+        'groupBy' => $groupBy,
+        'startDate' => $startDate,
+        'endDate' => $endDate,
+        'generatedAt' => now()->format('d/m/Y H:i'),
+    ])
+    ->setPaper('a4', 'landscape')
+    ->setOption('isHtml5ParserEnabled', true)
+    ->setOption('isRemoteEnabled', true); // permite cargar imágenes o fuentes externas (ej: QuickChart)
+
+    $filename = "Alineacion_Carreras_{$groupBy}_" . now()->format('Ymd_His') . ".pdf";
+
+    return $pdf->download($filename);
+}
+
+
+        return response()->json(['error' => 'Formato no soportado'], 400);
+
+    } catch (\Throwable $e) {
+        \Log::error("❌ [CareerLanguageAlignmentAIController@export] Error", [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return response()->json(['error' => 'Error interno al exportar', 'details' => $e->getMessage()], 500);
     }
+}
 }
