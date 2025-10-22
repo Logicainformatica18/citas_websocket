@@ -31,6 +31,7 @@ class JobOffer extends Model
         'url',
         'search_query',
         'published_at',
+        'region'
     ];
 
     /**

@@ -5,37 +5,37 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Language;
+use App\Models\Technology;
 use App\Models\JobOffer;
-use App\Models\LanguageMetric;
+use App\Models\TechnologyMetric;
 use Carbon\Carbon;
 
-class RemoteOkByLanguagesCommand extends Command
+class RemoteOkByTechnologiesCommand extends Command
 {
-    protected $signature = 'remoteok:languages';
-    protected $description = '🌍 Registra únicamente empleos remotos reales desde RemoteOK, agrupados por lenguaje.';
+    protected $signature = 'remoteok:technologies';
+    protected $description = '🧩 Registra empleos 100% remotos desde RemoteOK, agrupados por tecnología.';
 
     public function handle()
     {
-        $languages = Language::pluck('name', 'id');
-        $this->info("🚀 Iniciando scraping de RemoteOK (solo empleos con ubicación remota real)...");
+        $technologies = Technology::pluck('name', 'id');
+        $this->info("🚀 Iniciando scraping de RemoteOK (solo empleos con ubicación remota real, por tecnología)...");
 
-        foreach ($languages as $languageId => $languageName) {
-            $this->warn("\n💡 Procesando lenguaje: {$languageName}");
+        foreach ($technologies as $techId => $techName) {
+            $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             $totalFound = 0;
             $totalNew = 0;
 
             try {
-                // 📡 Llamada a la API
+                // 📡 Llamada a la API principal de RemoteOK
                 $response = Http::timeout(25)->get('https://remoteok.com/api');
                 if ($response->failed()) {
-                    $this->warn("❌ Falló la API para {$languageName}");
+                    $this->warn("❌ Falló la API para {$techName}");
                     continue;
                 }
 
                 $jobs = collect($response->json())
-                    ->skip(1) // ignora el aviso legal
+                    ->skip(1) // Ignora el aviso legal
                     ->filter(fn($j) => isset($j['position']));
 
                 foreach ($jobs as $job) {
@@ -46,9 +46,9 @@ class RemoteOkByLanguagesCommand extends Command
                     $tags = $job['tags'] ?? [];
                     $location = $job['location'] ?? null;
 
-                    // 🧠 Validar que esté relacionado con el lenguaje
+                    // 🧠 Validar que esté relacionado con la tecnología
                     $text = strtolower($title . ' ' . implode(' ', $tags));
-                    if (!str_contains($text, strtolower($languageName))) {
+                    if (!str_contains($text, strtolower($techName))) {
                         continue;
                     }
 
@@ -72,13 +72,13 @@ class RemoteOkByLanguagesCommand extends Command
                     JobOffer::create([
                         'title' => $title,
                         'company' => $company,
-                        'country' => 'Remote', // 🌍 siempre "Remote"
+                        'country' => 'Remote',
                         'city' => null,
                         'modality' => 'remote',
                         'latitude' => null,
                         'longitude' => null,
                         'source' => 'RemoteOK',
-                        'search_query' => $languageName,
+                        'search_query' => $techName,
                         'external_id' => $externalId,
                         'url' => $urlJob,
                         'published_at' => isset($job['date'])
@@ -95,15 +95,15 @@ class RemoteOkByLanguagesCommand extends Command
                 if ($totalFound > 0) {
                     $today = now()->toDateString();
 
-                    $existsToday = LanguageMetric::whereDate('run_date', $today)
-                        ->where('language_id', $languageId)
+                    $existsToday = TechnologyMetric::whereDate('run_date', $today)
+                        ->where('technology_id', $techId)
                         ->where('source', 'RemoteOK')
                         ->exists();
 
                     if (!$existsToday) {
-                        LanguageMetric::create([
-                            'language_id' => $languageId,
-                            'language_name' => $languageName,
+                        TechnologyMetric::create([
+                            'technology_id' => $techId,
+                            'technology_name' => $techName,
                             'jobs_found_count' => $totalFound,
                             'jobs_new_count' => $totalNew,
                             'countries_breakdown' => ['remote' => $totalFound],
@@ -113,15 +113,15 @@ class RemoteOkByLanguagesCommand extends Command
                         ]);
                     }
 
-                    $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} remotas encontradas");
+                    $this->info("✅ {$techName}: {$totalNew} nuevas / {$totalFound} remotas encontradas");
                 } else {
-                    $this->warn("⚠️ No se encontraron empleos remotos válidos para {$languageName}");
+                    $this->warn("⚠️ No se encontraron empleos remotos válidos para {$techName}");
                 }
 
                 sleep(1.5);
 
             } catch (\Throwable $th) {
-                Log::error("⚠️ Error procesando {$languageName}: " . $th->getMessage());
+                Log::error("⚠️ Error procesando {$techName}: " . $th->getMessage());
             }
         }
 

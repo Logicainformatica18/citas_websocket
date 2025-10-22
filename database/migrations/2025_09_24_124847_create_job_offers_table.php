@@ -51,6 +51,7 @@ return new class extends Migration
             $table->timestamp('published_at')->nullable();  // Fecha de publicación
             $table->timestamp('expiry')->nullable();        // Fecha de expiración si aplica
             $table->timestamps(); // created_at, updated_at
+            $table->string("region")->nullable();
 
             // 📌 Índices y unicidad
             $table->unique(['title', 'company', 'modality', 'url'], 'unique_job_offer');

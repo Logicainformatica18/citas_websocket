@@ -83,8 +83,29 @@ class ArbeitnowByLanguagesCommand extends Command
                     $title = $job['title'] ?? 'N/A';
                     $company = $job['company_name'] ?? null;
                     $location = $job['location'] ?? '';
-                    $isRemote = $job['remote'] ?? false;
-                    $urlJob = $job['url'] ?? null;
+                   // 🔍 Detección avanzada de modalidad (compatible con 2025)
+$location = $job['location'] ?? '';
+$description = $job['description'] ?? '';
+$title = $job['title'] ?? '';
+
+$isRemote = (
+    ($job['remote'] ?? false)
+    || str_contains(strtolower($location), 'remote')
+    || str_contains(strtolower($title), 'remote')
+    || str_contains(strtolower($description), 'remote')
+    || str_contains(strtolower($description), 'work from home')
+    || str_contains(strtolower($description), 'home office')
+);
+
+$urlJob = $job['url'] ?? null;
+
+// 🧭 Detectar país
+$countryCode = $this->detectCountryCode($location, $isRemote);
+[$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
+
+// ⚙️ Calcular modalidad
+$modality = $this->extractModality($location, $isRemote);
+
 
                     $countryCode = $this->detectCountryCode($location, $isRemote);
               [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
@@ -284,13 +305,26 @@ protected function getCoords($city, $country)
 
 
 
-    protected function extractModality(string $location, bool $isRemote): string
-    {
-        $loc = strtolower($location);
-        return match (true) {
-            $isRemote, str_contains($loc, 'remote') => 'fully_remote',
-            str_contains($loc, 'hybrid') || str_contains($loc, 'híbrido') => 'hybrid',
-            default => 'no_remote'
-        };
-    }
+protected function extractModality(string $location, bool $isRemote): string
+{
+    $loc = strtolower($location);
+
+    return match (true) {
+        // 🌎 100% remoto (sin restricción de país)
+        $isRemote,
+        str_contains($loc, 'remote'),
+        str_contains($loc, 'anywhere'),
+        str_contains($loc, 'work from home'),
+        str_contains($loc, 'home office') => 'remote',
+
+        // 🏠 Híbrido
+        str_contains($loc, 'hybrid'),
+        str_contains($loc, 'híbrido') => 'hybrid',
+
+        // 🏢 Presencial / sin dato remoto
+        default => 'no_remote',
+    };
+}
+
+
 }

@@ -232,13 +232,25 @@ class ArbeitnowByTechnologiesCommand extends Command
         return $this->geoCache[$key] = [null, null, null];
     }
 
-    protected function extractModality(string $location, bool $isRemote): string
-    {
-        $loc = strtolower($location);
-        return match (true) {
-            $isRemote, str_contains($loc, 'remote') => 'fully_remote',
-            str_contains($loc, 'hybrid') || str_contains($loc, 'híbrido') => 'hybrid',
-            default => 'no_remote',
-        };
-    }
+ protected function extractModality(string $location, bool $isRemote): string
+{
+    $loc = strtolower($location);
+
+    return match (true) {
+        // 🌎 100% remoto (sin restricción de país)
+        $isRemote,
+        str_contains($loc, 'remote'),
+        str_contains($loc, 'anywhere'),
+        str_contains($loc, 'work from home'),
+        str_contains($loc, 'home office') => 'remote',
+
+        // 🏠 Híbrido
+        str_contains($loc, 'hybrid'),
+        str_contains($loc, 'híbrido') => 'hybrid',
+
+        // 🏢 Presencial o sin indicio de remoto
+        default => 'no_remote',
+    };
+}
+
 }
