@@ -34,6 +34,10 @@ class ProcessSyllabusJob implements ShouldQueue
     {
         $this->syllabusId = $syllabusId;
     }
+private function normalizeName(string $name): string
+{
+    return Str::lower(Str::ascii(trim($name)));
+}
 
     public function handle(): void
     {
@@ -150,22 +154,30 @@ if (!$operation->operationSucceeded()) {
             ]);
 
             // 🤖 Procesar con OpenAI
-        $prompt = "
-Extrae del siguiente sílabo la información en JSON.
+     $prompt = "
+Extrae del siguiente sílabo la información en formato JSON estricto.
 
-IMPORTANTE:
-- 'lenguajes' deben ser lenguajes de programación (Java, Python, C#, JavaScript, etc.)
-- 'tecnologias' deben ser frameworks, librerías o herramientas de software, e incluir su tipo (framework, library, tool, cloud, database, etc.)
-- 'metodologias' deben ser metodologías de desarrollo de software (Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps)
-- Ignora metodologías de enseñanza o aprendizaje.
+Reglas:
+- 'curso' debe contener el nombre principal del sílabo.
+- 'lenguajes' incluyen todos los lenguajes utilizados en el desarrollo de software,
+  no solo los de programación. Esto abarca HTML, CSS, SQL, XML, JSON, etc.
+- 'tecnologias' incluyen frameworks, librerías, herramientas de software, modelos, motores,
+  estructuras de datos, algoritmos, conceptos o tecnologías relevantes como 'Inteligencia Artificial'.
+  Para cada elemento incluye su tipo (framework, library, tool, cloud, database, engine, model, concept, etc.),
+  siguiendo una de las categorías existentes en la tabla technology_categories.
+- Si el texto menciona algoritmos heurísticos, árboles de decisión, grafos,
+  búsqueda inteligente o toma de decisiones automatizada, incluye 'Inteligencia Artificial'
+  como tecnología con tipo 'model' o 'concept'.
+- 'metodologias' deben ser metodologías de desarrollo de software (Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps).
+- Ignora metodologías de enseñanza o aprendizaje (aprendizaje cooperativo, adaptativo, basado en problemas, método de casos, etc.).
+- Devuelve SOLO el JSON solicitado, sin texto adicional ni comentarios.
 
 Formato JSON:
 {
   \"curso\": \"\",
   \"lenguajes\": [],
   \"tecnologias\": [
-    { \"nombre\": \"Laravel\", \"tipo\": \"framework\" },
-    { \"nombre\": \"AWS S3\", \"tipo\": \"cloud\" }
+    { \"nombre\": \"\", \"tipo\": \"\" }
   ],
   \"metodologias\": []
 }
@@ -173,6 +185,7 @@ Formato JSON:
 Texto:
 $text
 ";
+
 
 
             $openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
@@ -219,31 +232,49 @@ $text
                 'metodologias' => $decoded['metodologias'] ?? []
             ]);
 
-            // 📊 Crear o buscar curso por nombre único
-          $normalizedName = Str::title(Str::ascii(trim($decoded['curso'])));
-$course = Course::firstOrCreate(['name' => $normalizedName]);
+      // 🧠 Normaliza para comparar sin tildes ni mayúsculas
+
+
+// 🧩 Normalizar nombre del curso detectado
+$normalizedName = Str::title(Str::ascii(trim($decoded['curso'])));
+$normalizedKey = $this->normalizeName($normalizedName);
+
+// 🔍 Buscar coincidencia exacta ignorando tildes y ñ/ni
+$existingCourse = \App\Models\Course::all()->first(function ($c) use ($normalizedKey) {
+    return $this->normalizeName($c->name) === $normalizedKey;
+});
+
+// ⚙️ Crear o reutilizar
+if ($existingCourse) {
+    $course = $existingCourse;
+    Log::info("🔁 Curso encontrado (coincidencia flexible): {$existingCourse->name}");
+} else {
+    $course = \App\Models\Course::create(['name' => $normalizedName]);
+    Log::info("🆕 Curso creado: {$normalizedName}");
+}
+
             // =====================================================
 // 🔁 ACTUALIZAR RELACIONES SIN ELIMINAR LAS EXISTENTES
 // =====================================================
 
-            // Lenguajes
-            if (!empty($decoded['lenguajes'])) {
-                $languageIds = [];
-                foreach ($decoded['lenguajes'] as $langName) {
-                    $lang = Language::firstOrCreate(['name' => trim($langName)]);
-                    $languageIds[] = $lang->id;
-                }
+       // =====================================================
+// 🔁 ACTUALIZAR RELACIONES (REGENERAR COMPLETAMENTE)
+// =====================================================
 
-                // 👉 En lugar de sync() (que reemplaza), usamos syncWithoutDetaching()
-                $course->languages()->syncWithoutDetaching($languageIds);
-            }
+// 🧠 1. Lenguajes — se reemplazan completamente (el sílabo define los nuevos)
+$languageIds = [];
+if (!empty($decoded['lenguajes'])) {
+    foreach ($decoded['lenguajes'] as $langName) {
+        $lang = \App\Models\Language::firstOrCreate(['name' => trim($langName)]);
+        $languageIds[] = $lang->id;
+    }
+}
+// 🔄 Se eliminan las relaciones anteriores y se agregan las nuevas detectadas
+$course->languages()->sync($languageIds);
 
-            // Tecnologías
-          // 🧠 Procesar tecnologías con categoría
-// Tecnologías
+// 🧠 2. Tecnologías — también se regeneran, porque cambian con los sílabos
+$techIds = [];
 if (!empty($decoded['tecnologias'])) {
-    $techIds = [];
-
     foreach ($decoded['tecnologias'] as $techItem) {
         if (is_array($techItem)) {
             $name = trim($techItem['nombre'] ?? '');
@@ -257,7 +288,7 @@ if (!empty($decoded['tecnologias'])) {
 
         $tech = \App\Models\Technology::firstOrCreate(['name' => $name]);
 
-        // 🧠 Si la IA devolvió tipo y el registro no tiene categoría, la asignamos
+        // 🧩 Si la IA devolvió un tipo y la tecnología no tiene categoría, se asigna
         if ($type && !$tech->category_id) {
             $category = \App\Models\TechnologyCategory::firstOrCreate(['name' => $type]);
             $tech->category_id = $category->id;
@@ -266,26 +297,29 @@ if (!empty($decoded['tecnologias'])) {
 
         $techIds[] = $tech->id;
     }
-
-    $course->technologies()->syncWithoutDetaching($techIds);
 }
+// 🔄 Se regeneran las relaciones tecnológicas
+$course->technologies()->sync($techIds);
+
+// 🧠 3. Metodologías — igual, se reemplazan para reflejar solo las vigentes
+$methIds = [];
+if (!empty($decoded['metodologias'])) {
+    foreach ($decoded['metodologias'] as $methName) {
+        $meth = \App\Models\Methodology::firstOrCreate(['name' => trim($methName)]);
+        $methIds[] = $meth->id;
+    }
+}
+// 🔄 Se reemplazan las metodologías anteriores por las nuevas
+$course->methodologies()->sync($methIds);
+
+Log::info("✅ Curso '{$decoded['curso']}' actualizado (relaciones regeneradas completamente).");
 
 
 
-            // Metodologías
-            if (!empty($decoded['metodologias'])) {
-                $methIds = [];
-                foreach ($decoded['metodologias'] as $methName) {
-                    $meth = Methodology::firstOrCreate(['name' => trim($methName)]);
-                    $methIds[] = $meth->id;
-                }
-                $course->methodologies()->syncWithoutDetaching($methIds);
-            }
-
-            Log::info("✅ Curso '{$decoded['curso']}' actualizado con nuevas relaciones sin eliminar las previas.");
 
 
-            Log::info("✅ Procesado syllabus ID {$this->syllabusId} → curso '{$decoded['curso']}'");
+
+
 
         } catch (\Exception $e) {
             Log::error("❌ Error en ProcessSyllabusJob: " . $e->getMessage(), [

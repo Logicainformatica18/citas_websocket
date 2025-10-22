@@ -13,13 +13,28 @@ class RunAllJobs extends Command
     public function handle()
     {
         $commands = [
-            'arbeitnow:languages',
-            'arbeitnow:methodologies',
-         'arbeitnow:technologies',
-            'getonboard:languages',
-            'getonboard:methodologies',
-            'getonboard:technologies',
-            'computrabajo:languages'
+        //     'arbeitnow:languages',
+        //     'arbeitnow:methodologies',
+        //  'arbeitnow:technologies',
+
+        //     'getonboard:languages',
+        //     'getonboard:methodologies',
+        //     'getonboard:technologies',
+
+
+ 'computrabajo:technologies --country=pe --pages=1',
+    'computrabajo:technologies --country=bo --pages=1',
+    'computrabajo:technologies --country=ar --pages=1',
+    'computrabajo:technologies --country=uy --pages=1',
+    'computrabajo:technologies --country=mx --pages=1',
+    'computrabajo:technologies --country=co --pages=1',
+    'computrabajo:technologies --country=ec --pages=1',
+    'computrabajo:technologies --country=ve --pages=1',
+    'computrabajo:technologies --country=cl --pages=1',
+
+    // 'computrabajo:languages --pages=1',
+    // 'computrabajo:methodologies --pages=1',
+
         ];
 
         foreach ($commands as $cmd) {
