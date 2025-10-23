@@ -24,6 +24,7 @@ class CareerMethodologyAlignmentAIController extends Controller
             'careers' => DB::table('careers')
                 ->select('id', 'name')
                 ->where('name', 'NOT LIKE', '%Diseño y Desarrollo de Videojuegos%')
+                ->where('name', 'NOT LIKE', '%Diseño de Medios Interactivos (UX)%') // 🚫 Excluye esta carrera
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -113,7 +114,8 @@ class CareerMethodologyAlignmentAIController extends Controller
             LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
             LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
             ";
 
             if (!empty($careerIds)) {
@@ -246,7 +248,8 @@ class CareerMethodologyAlignmentAIController extends Controller
         LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
         LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
         CROSS JOIN promedio_global pg
-        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
+        and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%
         ";
 
         if (!empty($careerIds)) {

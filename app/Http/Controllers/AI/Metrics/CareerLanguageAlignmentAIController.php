@@ -26,6 +26,7 @@ class CareerLanguageAlignmentAIController extends Controller
             'careers' => DB::table('careers')
                 ->select('id', 'name')
                 ->where('name', 'NOT LIKE', '%Diseño y Desarrollo de Videojuegos%') // 🚫 Excluye esta carrera
+                ->where('name', 'NOT LIKE', '%Diseño de Medios Interactivos (UX)%') // 🚫 Excluye esta carrera
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -124,7 +125,9 @@ IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
             LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
             LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%
+            '
         ";
 
             // 🔹 Filtro por carrera (si se eligieron)
@@ -271,7 +274,8 @@ IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
             LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
             LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%%
         ";
 
             if (!empty($careerIds)) {
