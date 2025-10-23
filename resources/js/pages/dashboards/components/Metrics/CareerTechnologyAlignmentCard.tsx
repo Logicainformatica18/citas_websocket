@@ -32,16 +32,16 @@ export default function CareerTechnologyAlignmentCard() {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // Etiquetas y colores
+  // 🔸 Etiquetas y colores (estilo ISIL)
   const fieldLabels: Record<string, string> = {
-    alineacion_tecnologias: "Alineación total",
+    alineacion_tecnologias: "Alineación tecnológica total",
   };
 
   const fieldColors: Record<string, string> = {
-    alineacion_tecnologias: "#f97316", // naranja ISIL
+    alineacion_tecnologias: "#00b5e2", // celeste ISIL
   };
 
-  // Alternar campos visibles
+  // 🧩 Alternar campos visibles (por si se agregan otros en el futuro)
   const toggleField = (field: string) => {
     setVisibleFields((prev) =>
       prev.includes(field)
@@ -50,7 +50,7 @@ export default function CareerTechnologyAlignmentCard() {
     );
   };
 
-  // Obtener datos
+  // 📡 Obtener datos desde el backend
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -79,25 +79,25 @@ export default function CareerTechnologyAlignmentCard() {
         end_date: res.data.end_date,
       });
     } catch (err) {
-      console.error("❌ Error al obtener datos", err);
+      console.error("❌ Error al obtener datos de tecnologías", err);
     } finally {
       setLoading(false);
     }
   }, [filters]);
 
-  // Metadata inicial
+  // 📋 Cargar metadata inicial (años, carreras)
   useEffect(() => {
     axios
       .get("/api/ai/career-technology-alignment/metadata")
       .then((res) => setMetadata(res.data));
   }, []);
 
-  // Actualizar cuando cambian los filtros
+  // 🔁 Actualizar datos al cambiar filtros
   useEffect(() => {
     fetchData();
   }, [filters]);
 
-  // Exportar
+  // 💾 Exportar resultados
   const handleExport = (format: "excel" | "pdf") => {
     const query = new URLSearchParams({ ...filters, format });
     window.open(
@@ -106,7 +106,7 @@ export default function CareerTechnologyAlignmentCard() {
     );
   };
 
-  // Escala eje X (barras)
+  // ⚙️ Rango del eje X
   const xDomain = useMemo(() => {
     if (data.length === 0) return [0, 100];
     const vals = data.map((d) => parseFloat(d.alineacion_tecnologias) || 0);
@@ -121,14 +121,14 @@ export default function CareerTechnologyAlignmentCard() {
   return (
     <Card className="bg-[#0d0d0d] text-white rounded-xl border border-gray-700 relative">
       <CardContent className="p-6 flex flex-col gap-4 relative">
-        {/* 🔹 Header */}
+        {/* 🔹 Encabezado */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-base font-semibold text-white">
+            <h2 className="text-base font-semibold text-[#00b5e2]">
               ⚙️ Alineación de Carreras por Tecnologías
             </h2>
             <p className="text-xs text-gray-400">
-              Basado en el modelo 4D (Presencia · Demanda · Alcance · Dinámica)
+              Modelo 4D — Presencia · Adopción · Difusión · Evolución
             </p>
             {summary?.start_date && (
               <p className="text-[11px] text-gray-500 mt-1">
@@ -237,7 +237,7 @@ export default function CareerTechnologyAlignmentCard() {
                 />
                 <YAxis
                   type="category"
-                  dataKey="career"
+                  dataKey="carrera"
                   tick={{ fill: "#bbb", fontSize: 12 }}
                   width={180}
                 />
@@ -291,7 +291,7 @@ export default function CareerTechnologyAlignmentCard() {
           )}
         </div>
 
-        {/* 🔹 Filtros laterales */}
+        {/* 🔹 Panel lateral de filtros */}
         <CareerTechnologyFilters
           show={showFilters}
           onClose={() => setShowFilters(false)}

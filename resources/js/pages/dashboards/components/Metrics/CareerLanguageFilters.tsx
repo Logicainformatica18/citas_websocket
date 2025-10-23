@@ -6,6 +6,7 @@ import {
   Clock,
   Layers,
   Filter,
+  GraduationCap,
 } from "lucide-react";
 
 interface Props {
@@ -34,7 +35,6 @@ export default function CareerLanguageFilters({
   };
 
   const temporalOptions = [
-
     {
       key: "week",
       label: "Semanal",
@@ -47,6 +47,12 @@ export default function CareerLanguageFilters({
       icon: <LineChart className="w-4 h-4" />,
       desc: "Tendencia mensual consolidada",
     },
+  ];
+
+  // 🧮 Semestres dinámicos (por año)
+  const semesters = [
+    { key: "S1", label: "1° Semestre (Ene - Jun)" },
+    { key: "S2", label: "2° Semestre (Jul - Dic)" },
   ];
 
   return (
@@ -69,7 +75,7 @@ export default function CareerLanguageFilters({
           </button>
         </div>
 
-        {/* Fechas */}
+        {/* 📅 Fechas */}
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-xs text-gray-400 mb-1 flex items-center gap-1">
@@ -102,7 +108,7 @@ export default function CareerLanguageFilters({
           </div>
         </div>
 
-        {/* Agrupación temporal */}
+        {/* 📆 Agrupación temporal */}
         <div className="mb-6">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <Clock className="w-3 h-3 text-gray-400" />
@@ -127,7 +133,47 @@ export default function CareerLanguageFilters({
           </div>
         </div>
 
-        {/* Carreras */}
+        {/* 🎓 Año y Semestre */}
+        <div className="mb-6">
+          <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
+            <GraduationCap className="w-3 h-3 text-gray-400" />
+            Periodo académico
+          </label>
+
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <select
+              value={filters.year || ""}
+              onChange={(e) =>
+                setFilters({ ...filters, year: e.target.value })
+              }
+              className="bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Año</option>
+              {metadata.years?.map((year: number) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.semester || ""}
+              onChange={(e) =>
+                setFilters({ ...filters, semester: e.target.value })
+              }
+              className="bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Semestre</option>
+              {semesters.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* 🧩 Carreras */}
         <div className="mb-6">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <Layers className="w-3 h-3 text-gray-400" />
@@ -161,7 +207,7 @@ export default function CareerLanguageFilters({
           </div>
         </div>
 
-        {/* Dimensiones del modelo 4D */}
+        {/* ⚙️ Dimensiones del modelo 4D */}
         <div className="mb-6 border-t border-gray-800 pt-4">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <BarChart3 className="w-3 h-3 text-gray-400" />
@@ -197,7 +243,7 @@ export default function CareerLanguageFilters({
           ))}
         </div>
 
-        {/* Botón de acción */}
+        {/* 🚀 Botón de acción */}
         <button
           onClick={onClose}
           className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition flex items-center justify-center gap-2"

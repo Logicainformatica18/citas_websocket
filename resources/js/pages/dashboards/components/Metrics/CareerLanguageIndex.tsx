@@ -23,12 +23,10 @@ export default function CareerLanguageAlignmentCard() {
   const [filters, setFilters] = useState({
     start_date: "",
     end_date: "",
-    group_by: "week", // 👈 cambia vista entre diaria / semanal / mensual
+    group_by: "week", // 👈 vista temporal
     careers: [] as number[],
   });
-  const [visibleFields, setVisibleFields] = useState([
-    "alineacion_lenguajes",
-  ]);
+  const [visibleFields, setVisibleFields] = useState(["alineacion_lenguajes"]);
   const [data, setData] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -76,13 +74,12 @@ export default function CareerLanguageAlignmentCard() {
 
       setData(res.data.results || []);
       setTrendData(res.data.trend_data || []);
-    setSummary({
-  avg_alignment: res.data.avg_alignment,
-  total_careers: res.data.total_careers ?? 0, // ✅ correcto
-  start_date: res.data.start_date,
-  end_date: res.data.end_date,
-});
-
+      setSummary({
+        avg_alignment: res.data.avg_alignment,
+        total_careers: res.data.total_careers ?? 0,
+        start_date: res.data.start_date,
+        end_date: res.data.end_date,
+      });
     } catch (err) {
       console.error("❌ Error al obtener datos", err);
     } finally {
@@ -114,9 +111,9 @@ export default function CareerLanguageAlignmentCard() {
   // Escala eje X (barras)
   const xDomain = useMemo(() => {
     if (data.length === 0) return [0, 100];
-    const vals = data.map((d) => parseFloat(d.alineacion_lenguajes) || 0);
-    const min = Math.max(Math.floor(Math.min(...vals) - 5), 0);
-    const max = Math.min(Math.ceil(Math.max(...vals) + 5), 100);
+    const vals = data.map((d) => Number(d.alineacion_lenguajes) || 0);
+    const min = Math.max(Math.floor(Math.min(...vals, 0) - 5), 0);
+    const max = Math.min(Math.ceil(Math.max(...vals, 0) + 5), 100);
     return [min, max];
   }, [data]);
 
@@ -170,12 +167,12 @@ export default function CareerLanguageAlignmentCard() {
         </div>
 
         {/* 🔹 KPIs */}
-        {summary && (
+        {summary && summary.total_careers > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs text-gray-300 mt-2">
             <div className="bg-gray-900/60 rounded-lg p-2">
               <p>Promedio de Alineación</p>
               <p className="text-white font-semibold text-lg">
-                {summary.avg_alignment ?? 0}%
+                {(summary.avg_alignment ?? 0).toFixed(2)}%
               </p>
             </div>
             <div className="bg-gray-900/60 rounded-lg p-2">
@@ -194,43 +191,44 @@ export default function CareerLanguageAlignmentCard() {
               Cargando datos...
             </div>
           ) : isTemporal ? (
-            // 📈 Vista temporal (líneas)
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="periodo" tick={{ fill: "#bbb", fontSize: 11 }} />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fill: "#bbb", fontSize: 11 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e1e1e",
-                    border: "none",
-                    borderRadius: "6px",
-                  }}
-                  formatter={(v: any) =>
-                    isNaN(v) ? "—" : `${parseFloat(v).toFixed(1)}%`
-                  }
-                />
-                <Legend verticalAlign="top" height={36} />
-                {Object.keys(trendData[0] || {})
-                  .filter((key) => key !== "periodo")
-                  .map((career, i) => (
-                    <Line
-                      key={career}
-                      type="monotone"
-                      dataKey={career}
-                      strokeWidth={2}
-                      stroke={`hsl(${(i * 47) % 360}, 70%, 60%)`}
-                      dot={false}
-                      name={career}
-                    />
-                  ))}
-              </LineChart>
-            </ResponsiveContainer>
+            trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="periodo" tick={{ fill: "#bbb", fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "#bbb", fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1e1e1e",
+                      border: "none",
+                      borderRadius: "6px",
+                    }}
+                    formatter={(v: any) =>
+                      isNaN(v) ? "—" : `${parseFloat(v).toFixed(1)}%`
+                    }
+                  />
+                  <Legend verticalAlign="top" height={36} />
+                  {Object.keys(trendData[0] || {})
+                    .filter((key) => key !== "periodo")
+                    .map((career, i) => (
+                      <Line
+                        key={career}
+                        type="monotone"
+                        dataKey={career}
+                        strokeWidth={2}
+                        stroke={`hsl(${(i * 47) % 360}, 70%, 60%)`}
+                        dot={false}
+                        name={career}
+                      />
+                    ))}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                No hay datos para el periodo seleccionado.
+              </div>
+            )
           ) : (
-            // 📊 Vista snapshot (barras)
             <ResponsiveContainer width="100%" height={400}>
               <BarChart
                 data={data}
@@ -245,7 +243,7 @@ export default function CareerLanguageAlignmentCard() {
                 />
                 <YAxis
                   type="category"
-                  dataKey="career"
+                  dataKey="carrera"
                   tick={{ fill: "#bbb", fontSize: 12 }}
                   width={180}
                 />
@@ -257,7 +255,7 @@ export default function CareerLanguageAlignmentCard() {
                       fieldLabels[name] || name,
                     ];
                   }}
-                  labelFormatter={(label) => `Carrera: ${label}`}
+                  labelFormatter={(label) => `Carrera: ${label || "—"}`}
                   contentStyle={{
                     backgroundColor: "#1e1e1e",
                     border: "none",

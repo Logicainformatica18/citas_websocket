@@ -5,8 +5,9 @@ import {
   LineChart,
   Clock,
   Layers,
-  Filter,
   Puzzle,
+  GraduationCap,
+  Filter,
 } from "lucide-react";
 
 interface Props {
@@ -26,6 +27,7 @@ export default function CareerMethodologyFilters({
 }: Props) {
   if (!show) return null;
 
+  // Alternar selección de carrera
   const toggleCareer = (id: number) => {
     const current = filters.careers || [];
     const updated = current.includes(id)
@@ -34,6 +36,7 @@ export default function CareerMethodologyFilters({
     setFilters({ ...filters, careers: updated });
   };
 
+  // Agrupación temporal
   const temporalOptions = [
     {
       key: "week",
@@ -55,7 +58,7 @@ export default function CareerMethodologyFilters({
         {/* Header */}
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-2">
-            <Puzzle className="w-4 h-4 text-purple-400" />
+            <Puzzle className="w-4 h-4 text-[#00b5e2]" />
             <h3 className="font-semibold text-gray-100">
               Filtros de Alineación (Metodologías)
             </h3>
@@ -69,7 +72,7 @@ export default function CareerMethodologyFilters({
           </button>
         </div>
 
-        {/* Fechas */}
+        {/* 🔹 Fechas */}
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-xs text-gray-400 mb-1 flex items-center gap-1">
@@ -82,7 +85,7 @@ export default function CareerMethodologyFilters({
               onChange={(e) =>
                 setFilters({ ...filters, start_date: e.target.value })
               }
-              className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-purple-500"
+              className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-[#00b5e2]"
             />
           </div>
 
@@ -97,12 +100,12 @@ export default function CareerMethodologyFilters({
               onChange={(e) =>
                 setFilters({ ...filters, end_date: e.target.value })
               }
-              className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-purple-500"
+              className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-[#00b5e2]"
             />
           </div>
         </div>
 
-        {/* Agrupación temporal */}
+        {/* 🔹 Agrupación temporal */}
         <div className="mb-6">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <Clock className="w-3 h-3 text-gray-400" />
@@ -115,7 +118,7 @@ export default function CareerMethodologyFilters({
                 onClick={() => setFilters({ ...filters, group_by: opt.key })}
                 className={`flex flex-col items-center justify-center gap-1 px-2 py-2 rounded border text-xs transition-all ${
                   filters.group_by === opt.key
-                    ? "bg-purple-600 text-white border-purple-500 shadow-md"
+                    ? "bg-[#00b5e2] text-white border-[#00b5e2] shadow-md"
                     : "bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-600 hover:text-gray-200"
                 }`}
                 title={opt.desc}
@@ -127,7 +130,46 @@ export default function CareerMethodologyFilters({
           </div>
         </div>
 
-        {/* Carreras */}
+        {/* 🔹 Año y Semestre */}
+        {metadata.years?.length > 0 && (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
+                <GraduationCap className="w-3 h-3 text-gray-400" />
+                Año
+              </label>
+              <select
+                value={filters.year || ""}
+                onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-[#00b5e2]"
+              >
+                <option value="">Todos</option>
+                {metadata.years.map((y: number) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-2">Semestre</label>
+              <select
+                value={filters.semester || ""}
+                onChange={(e) =>
+                  setFilters({ ...filters, semester: e.target.value })
+                }
+                className="w-full bg-gray-800 text-white p-2 rounded border border-gray-700 focus:ring-1 focus:ring-[#00b5e2]"
+              >
+                <option value="">Todos</option>
+                <option value="1">1° Semestre</option>
+                <option value="2">2° Semestre</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* 🔹 Carreras */}
         <div className="mb-6">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <Layers className="w-3 h-3 text-gray-400" />
@@ -140,13 +182,13 @@ export default function CareerMethodologyFilters({
                   key={career.id}
                   className={`flex items-center gap-2 cursor-pointer px-2 py-1 rounded transition-all ${
                     filters.careers.includes(career.id)
-                      ? "bg-purple-600/30 border border-purple-600/40"
+                      ? "bg-[#00b5e2]/30 border border-[#00b5e2]/40"
                       : "hover:bg-gray-800/50"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    className="accent-purple-500 cursor-pointer"
+                    className="accent-[#00b5e2] cursor-pointer"
                     checked={filters.careers.includes(career.id)}
                     onChange={() => toggleCareer(career.id)}
                   />
@@ -161,7 +203,7 @@ export default function CareerMethodologyFilters({
           </div>
         </div>
 
-        {/* Dimensiones del modelo 4D */}
+        {/* 🔹 Dimensiones del modelo 4D */}
         <div className="mb-6 border-t border-gray-800 pt-4">
           <label className="block text-xs text-gray-400 mb-2 flex items-center gap-1">
             <BarChart3 className="w-3 h-3 text-gray-400" />
@@ -180,7 +222,7 @@ export default function CareerMethodologyFilters({
             >
               <input
                 type="checkbox"
-                className="accent-purple-500 cursor-pointer"
+                className="accent-[#00b5e2] cursor-pointer"
                 checked={filters.visibleFields?.includes(key)}
                 onChange={() => {
                   const current = filters.visibleFields || [];
@@ -191,16 +233,16 @@ export default function CareerMethodologyFilters({
                 }}
               />
               <span className="capitalize text-gray-300 text-sm">
-                {key.replace("_", " ")}
+                {key.replace(/_/g, " ")}
               </span>
             </label>
           ))}
         </div>
 
-        {/* Botón de acción */}
+        {/* 🔹 Botón de acción */}
         <button
           onClick={onClose}
-          className="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg transition flex items-center justify-center gap-2"
+          className="mt-6 w-full bg-[#00b5e2] hover:bg-[#00a0cb] text-white py-2 rounded-lg transition flex items-center justify-center gap-2"
         >
           <BarChart3 className="w-4 h-4" />
           Aplicar filtros

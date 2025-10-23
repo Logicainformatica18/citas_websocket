@@ -5,7 +5,9 @@ namespace App\Http\Controllers\AI\Metrics;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CareerMethodologyAlignmentAIController extends Controller
 {
@@ -18,169 +20,32 @@ class CareerMethodologyAlignmentAIController extends Controller
             'years' => DB::table('methodology_metrics')
                 ->selectRaw('YEAR(run_date) as year')
                 ->distinct()
-                ->orderBy('year', 'desc')
+                ->orderByDesc('year')
                 ->pluck('year'),
 
             'careers' => DB::table('careers')
                 ->select('id', 'name')
-                ->where('name', 'NOT LIKE', '%Diseño y Desarrollo de Videojuegos%')
-                ->where('name', 'NOT LIKE', '%Diseño de Medios Interactivos (UX)%') // 🚫 Excluye esta carrera
+                ->whereNotLike('name', '%Diseño y Desarrollo de Videojuegos%')
+                ->whereNotLike('name', '%Diseño de Medios Interactivos (UX)%')
                 ->orderBy('name')
                 ->get(),
         ]);
     }
 
     /**
-     * 📊 Devuelve métricas de alineación por carrera (basado en metodologías)
+     * 🧠 Construye la consulta base reutilizable
      */
-    public function getData(Request $request)
+    private function buildQuery($careerIds = [], $groupBy = 'week')
     {
-        try {
-            $groupBy = in_array($request->get('group_by'), ['week', 'month'])
-                ? $request->get('group_by')
-                : 'week';
+        $periodCase = $groupBy === 'week'
+            ? "CONCAT(
+                    'Semana del ',
+                    DATE_FORMAT(DATE_SUB(DATE(mf.run_date), INTERVAL WEEKDAY(DATE(mf.run_date)) DAY), '%d %b'),
+                    ' al ',
+                    DATE_FORMAT(DATE_ADD(DATE(mf.run_date), INTERVAL (6 - WEEKDAY(DATE(mf.run_date))) DAY), '%d %b %Y')
+                )"
+            : "DATE_FORMAT(DATE(mf.run_date), '%M %Y')";
 
-            $careerIds = (array) $request->get('careers', []);
-            $startDate = $request->get('start_date');
-            $endDate = $request->get('end_date');
-
-            if (!$startDate || !$endDate) {
-                $startDate = now()->subMonths(3)->toDateString();
-                $endDate = now()->toDateString();
-            }
-
-            // 🧮 Query 4D de Metodologías
-            $sql = "
-            WITH metricas_filtradas AS (
-                SELECT
-                    methodology_id,
-                    jobs_found_count AS empleos_actuales,
-                    JSON_LENGTH(countries_breakdown) AS paises_actuales,
-                    run_date
-                FROM methodology_metrics
-                WHERE DATE(run_date) BETWEEN ? AND ?
-            ),
-            metricas_previas AS (
-                SELECT
-                    mm.methodology_id,
-                    mm.jobs_found_count AS empleos_previos
-                FROM methodology_metrics mm
-                WHERE mm.run_date = (
-                    SELECT MAX(run_date)
-                    FROM methodology_metrics
-                    WHERE run_date < (
-                        SELECT MIN(run_date)
-                        FROM methodology_metrics
-                        WHERE DATE(run_date) BETWEEN ? AND ?
-                    )
-                )
-            ),
-            promedio_global AS (
-                SELECT AVG(jobs_found_count) AS promedio_empleos
-                FROM methodology_metrics
-                WHERE DATE(run_date) BETWEEN ? AND ?
-            )
-            SELECT
-                c.id AS id_carrera,
-                c.name AS carrera,
-
-                IF(? = 'week',
-                    CONCAT(
-                        'Semana del ',
-                        DATE_FORMAT(DATE_SUB(mf.run_date, INTERVAL WEEKDAY(mf.run_date) DAY), '%d %b'),
-                        ' al ',
-                        DATE_FORMAT(DATE_ADD(mf.run_date, INTERVAL (6 - WEEKDAY(mf.run_date)) DAY), '%d %b %Y')
-                    ),
-                    DATE_FORMAT(mf.run_date, '%M %Y')
-                ) AS periodo,
-
-                IFNULL(AVG(mf.empleos_actuales), 0) AS empleos_actuales,
-                IFNULL(AVG(mp.empleos_previos), 0) AS empleos_previos,
-                IFNULL(AVG(pg.promedio_empleos), 0) AS promedio_empleos,
-                IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
-
-                ROUND(AVG(
-                    100 * (
-                        0.35 * (CASE WHEN mf.empleos_actuales > 0 THEN 1 ELSE 0 END) +
-                        0.35 * (CASE WHEN pg.promedio_empleos > 0 THEN LEAST(mf.empleos_actuales / pg.promedio_empleos, 1) ELSE 0 END) +
-                        0.15 * LEAST(mf.paises_actuales / 5, 1) +
-                        0.15 * (CASE WHEN mp.empleos_previos > 0 THEN LEAST((mf.empleos_actuales - mp.empleos_previos) / mp.empleos_previos, 1) ELSE 0 END)
-                    )
-                ), 2) AS alineacion_metodologias
-
-            FROM careers c
-            JOIN career_course cc ON cc.career_id = c.id
-            JOIN course_methodology cm ON cm.course_id = cc.course_id
-            LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
-            LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
-            CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
-            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
-            ";
-
-            if (!empty($careerIds)) {
-                $ids = implode(',', array_map('intval', $careerIds));
-                $sql .= " AND c.id IN ($ids)";
-            }
-
-            $sql .= "
-            GROUP BY c.id, c.name, periodo
-            ORDER BY STR_TO_DATE(periodo, '%Y-%m-%d') ASC, alineacion_metodologias DESC;
-            ";
-
-            $results = DB::select($sql, [
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $groupBy,
-            ]);
-
-            $collection = collect($results);
-            $periods = $collection->pluck('periodo')->unique()->values();
-
-            $trendData = $periods->map(function ($periodo) use ($collection) {
-                $row = ['periodo' => $periodo];
-                foreach ($collection->where('periodo', $periodo) as $item) {
-                    $row[$item->carrera] = round($item->alineacion_metodologias, 2);
-                }
-                return $row;
-            });
-
-            return response()->json([
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'group_by' => $groupBy,
-                'avg_alignment' => round($collection->avg('alineacion_metodologias'), 2),
-                'total_careers' => $collection->pluck('id_carrera')->unique()->count(),
-                'trend_data' => $trendData,
-                'results' => $results,
-                'message' => "📊 Datos agrupados por $groupBy (modelo 4D, metodologías)."
-            ]);
-        } catch (\Throwable $e) {
-            \Log::error('❌ [CareerMethodologyAlignmentAIController@getData] Error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json(['error' => 'Error interno', 'details' => $e->getMessage()], 500);
-        }
-    }
-    public function export(Request $request)
-{
-    try {
-        $format = $request->get('format', 'excel'); // excel | pdf
-        $groupBy = in_array($request->get('group_by'), ['week', 'month'])
-            ? $request->get('group_by')
-            : 'week';
-        $careerIds = (array) $request->get('careers', []);
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
-
-        if (!$startDate || !$endDate) {
-            $startDate = now()->subMonths(3)->toDateString();
-            $endDate = now()->toDateString();
-        }
-
-        // 🧮 Query principal (basada en methodology_metrics)
         $sql = "
         WITH metricas_filtradas AS (
             SELECT
@@ -210,111 +75,171 @@ class CareerMethodologyAlignmentAIController extends Controller
             SELECT AVG(jobs_found_count) AS promedio_empleos
             FROM methodology_metrics
             WHERE DATE(run_date) BETWEEN ? AND ?
+        ),
+        base AS (
+            SELECT
+                c.id AS id_carrera,
+                c.name AS carrera,
+                DATE(mf.run_date) AS fecha_ref,
+                mf.empleos_actuales,
+                mf.paises_actuales,
+                mp.empleos_previos,
+                pg.promedio_empleos,
+                $periodCase AS periodo
+            FROM careers c
+            JOIN career_course cc ON cc.career_id = c.id
+            JOIN course_methodology cm ON cm.course_id = cc.course_id
+            LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
+            LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
+            CROSS JOIN promedio_global pg
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+              AND c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
         )
         SELECT
-            c.id AS id_carrera,
-            c.name AS carrera,
-
-            -- 🔹 Periodo dinámico (semanal o mensual)
-            IF(? = 'week',
-                CONCAT(
-                    'Semana del ',
-                    DATE_FORMAT(DATE_SUB(mf.run_date, INTERVAL WEEKDAY(mf.run_date) DAY), '%d %b'),
-                    ' al ',
-                    DATE_FORMAT(DATE_ADD(mf.run_date, INTERVAL (6 - WEEKDAY(mf.run_date)) DAY), '%d %b %Y')
-                ),
-                DATE_FORMAT(mf.run_date, '%M %Y')
-            ) AS periodo,
-
-            -- 🔹 Valores base
-            IFNULL(AVG(mf.empleos_actuales), 0) AS empleos_actuales,
-            IFNULL(AVG(mp.empleos_previos), 0) AS empleos_previos,
-            IFNULL(AVG(pg.promedio_empleos), 0) AS promedio_empleos,
-            IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
-
-            -- 🔹 Modelo 4D metodológico
+            b.id_carrera,
+            b.carrera,
+            MIN(b.fecha_ref) AS fecha_inicio,
+            MAX(b.fecha_ref) AS fecha_fin,
+            b.periodo,
+            IFNULL(AVG(b.empleos_actuales), 0) AS empleos_actuales,
+            IFNULL(AVG(b.empleos_previos), 0) AS empleos_previos,
+            IFNULL(AVG(b.promedio_empleos), 0) AS promedio_empleos,
+            IFNULL(AVG(b.paises_actuales), 0) AS paises_actuales,
             ROUND(AVG(
                 100 * (
-                    0.35 * (CASE WHEN mf.empleos_actuales > 0 THEN 1 ELSE 0 END) +  -- Presencia metodológica
-                    0.35 * (CASE WHEN pg.promedio_empleos > 0 THEN LEAST(mf.empleos_actuales / pg.promedio_empleos, 1) ELSE 0 END) +  -- Adopción relativa
-                    0.15 * LEAST(mf.paises_actuales / 5, 1) +                        -- Difusión regional
-                    0.15 * (CASE WHEN mp.empleos_previos > 0 THEN LEAST((mf.empleos_actuales - mp.empleos_previos) / mp.empleos_previos, 1) ELSE 0 END)  -- Evolución temporal
+                    0.35 * (CASE WHEN b.empleos_actuales > 0 THEN 1 ELSE 0 END) +
+                    0.35 * (CASE WHEN b.promedio_empleos > 0 THEN LEAST(b.empleos_actuales / b.promedio_empleos, 1) ELSE 0 END) +
+                    0.15 * LEAST(b.paises_actuales / 5, 1) +
+                    0.15 * (CASE WHEN b.empleos_previos > 0 THEN LEAST((b.empleos_actuales - b.empleos_previos) / b.empleos_previos, 1) ELSE 0 END)
                 )
             ), 2) AS alineacion_metodologias
-
-        FROM careers c
-        JOIN career_course cc ON cc.career_id = c.id
-        JOIN course_methodology cm ON cm.course_id = cc.course_id
-        LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
-        LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
-        CROSS JOIN promedio_global pg
-        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
-        and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
+        FROM base b
+        GROUP BY b.id_carrera, b.carrera, b.periodo
+        ORDER BY fecha_inicio ASC, alineacion_metodologias DESC;
         ";
 
         if (!empty($careerIds)) {
             $ids = implode(',', array_map('intval', $careerIds));
-            $sql .= " AND c.id IN ($ids)";
-        }
-
-        $sql .= "
-        GROUP BY c.id, c.name, periodo
-        ORDER BY periodo ASC, alineacion_metodologias DESC;
-        ";
-
-        // 🔹 Ejecutar consulta
-        $data = collect(DB::select($sql, [
-            $startDate, $endDate,
-            $startDate, $endDate,
-            $startDate, $endDate,
-            $groupBy,
-        ]));
-
-        if ($data->isEmpty()) {
-            return response()->json(['error' => 'No hay datos para exportar'], 404);
-        }
-
-        // 📤 Exportar a Excel
-        if ($format === 'excel') {
-            $exportData = $data->map(fn($row) => [
-                'Carrera' => $row->carrera,
-                'Periodo' => $row->periodo,
-                'Alineación Metodológica (%)' => $row->alineacion_metodologias,
-            ]);
-
-            $filename = "Alineacion_Metodologias_{$groupBy}_" . now()->format('Ymd_His') . ".xlsx";
-
-            return \Maatwebsite\Excel\Facades\Excel::download(
-                new \App\Exports\ArrayExport($exportData->toArray(), [
-                    'title' => 'Alineación de Carreras por Metodologías (Modelo 4D)',
-                    'created_at' => now()->format('d/m/Y H:i'),
-                ]),
-                $filename
+            $sql = str_replace(
+                "WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'",
+                "WHERE c.id IN ($ids) AND c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'",
+                $sql
             );
         }
 
-        // 📄 Exportar a PDF
-        if ($format === 'pdf') {
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.methodologies_alignment_report', [
-                'data' => $data,
-                'groupBy' => $groupBy,
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'generatedAt' => now()->format('d/m/Y H:i'),
-            ])->setPaper('a4', 'landscape');
-
-            $filename = "Alineacion_Metodologias_{$groupBy}_" . now()->format('Ymd_His') . ".pdf";
-            return $pdf->download($filename);
-        }
-
-        return response()->json(['error' => 'Formato no soportado'], 400);
-    } catch (\Throwable $e) {
-        \Log::error("❌ [CareerMethodologyAlignmentAIController@export] Error", [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return response()->json(['error' => 'Error interno al exportar', 'details' => $e->getMessage()], 500);
+        return $sql;
     }
-}
 
+    /**
+     * 📊 Devuelve métricas (vista web / API)
+     */
+    public function getData(Request $request)
+    {
+        try {
+            $groupBy = in_array($request->get('group_by'), ['week', 'month']) ? $request->get('group_by') : 'week';
+            $careerIds = (array) $request->get('careers', []);
+            $startDate = $request->get('start_date') ?? now()->subMonths(3)->toDateString();
+            $endDate = $request->get('end_date') ?? now()->toDateString();
+
+            $sql = $this->buildQuery($careerIds, $groupBy);
+
+            $results = DB::select($sql, [
+                $startDate, $endDate,
+                $startDate, $endDate,
+                $startDate, $endDate
+            ]);
+
+            $collection = collect($results);
+
+            $periods = $collection->pluck('periodo')->unique()->values();
+            $trendData = $periods->map(function ($periodo) use ($collection) {
+                $row = ['periodo' => $periodo];
+                foreach ($collection->where('periodo', $periodo) as $item) {
+                    $row[$item->carrera] = round($item->alineacion_metodologias, 2);
+                }
+                return $row;
+            });
+
+            return response()->json([
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'group_by' => $groupBy,
+                'avg_alignment' => round($collection->avg('alineacion_metodologias'), 2),
+                'total_careers' => $collection->pluck('id_carrera')->unique()->count(),
+                'trend_data' => $trendData,
+                'results' => $results,
+                'message' => "📊 Datos agrupados por $groupBy (modelo 4D de metodologías)."
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('❌ [CareerMethodologyAlignmentAIController@getData] Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Error interno', 'details' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 📤 Exporta resultados a Excel o PDF
+     */
+    public function export(Request $request)
+    {
+        try {
+            $format = $request->get('format', 'excel');
+            $groupBy = in_array($request->get('group_by'), ['week', 'month']) ? $request->get('group_by') : 'week';
+            $careerIds = (array) $request->get('careers', []);
+            $startDate = $request->get('start_date') ?? now()->subMonths(3)->toDateString();
+            $endDate = $request->get('end_date') ?? now()->toDateString();
+
+            $sql = $this->buildQuery($careerIds, $groupBy);
+            $data = collect(DB::select($sql, [
+                $startDate, $endDate,
+                $startDate, $endDate,
+                $startDate, $endDate
+            ]));
+
+            if ($data->isEmpty()) {
+                return response()->json(['error' => 'No hay datos para exportar'], 404);
+            }
+
+            if ($format === 'excel') {
+                $exportData = $data->map(fn($r) => [
+                    'Carrera' => $r->carrera,
+                    'Periodo' => $r->periodo,
+                    'Empleos Actuales' => $r->empleos_actuales,
+                    'Promedio Empleos' => $r->promedio_empleos,
+                    'Alineación (%)' => $r->alineacion_metodologias,
+                ]);
+
+                return Excel::download(
+                    new \App\Exports\ArrayExport($exportData->toArray(), [
+                        'title' => 'Alineación de Carreras (Modelo 4D por Metodología)',
+                        'created_at' => now()->format('d/m/Y H:i'),
+                    ]),
+                    "Alineacion_Metodologias_{$groupBy}_" . now()->format('Ymd_His') . ".xlsx"
+                );
+            }
+
+            if ($format === 'pdf') {
+                $pdf = Pdf::loadView('exports.methodologies_alignment_report', [
+                    'data' => $data,
+                    'groupBy' => $groupBy,
+                    'startDate' => $startDate,
+                    'endDate' => $endDate,
+                    'generatedAt' => now()->format('d/m/Y H:i'),
+                ])
+                ->setPaper('a4', 'landscape')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true);
+
+                return $pdf->download("Alineacion_Metodologias_{$groupBy}_" . now()->format('Ymd_His') . ".pdf");
+            }
+
+            return response()->json(['error' => 'Formato no soportado'], 400);
+        } catch (\Throwable $e) {
+            Log::error('❌ [CareerMethodologyAlignmentAIController@export] Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Error interno al exportar', 'details' => $e->getMessage()], 500);
+        }
+    }
 }
