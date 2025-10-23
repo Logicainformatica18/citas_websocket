@@ -24,6 +24,7 @@ import { DashboardProvider } from "./DashboardContext";
 import { MessageCircle } from "lucide-react";
 import ProfileBlock from "./components/StackOverFlow/Profileblock";
 import BackgroundParticles from "../../components/BackgroundParticles"; // 👈 Fondo animado
+import MetricCard from "./components/Metrics/MetricCard";
 
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,6 +66,22 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                 {/* 🔹 Contenido principal sobre el fondo */}
                 <div className="relative p-4 overflow-y-auto space-y-4 z-10">
                     <DashboardProvider>
+
+<div className="grid grid-cols-3 gap-3">
+  <MetricCard metric="global-alignment" />
+  <MetricCard metric="ai-integration" />
+  <MetricCard metric="curricular-updates" />
+  <MetricCard metric="tech-growth" />
+  <MetricCard metric="obsolescence-index" />
+  <MetricCard metric="career-improvement" />
+</div>
+
+
+
+
+
+
+
                         <ExpandableCard
                             isExpanded={expandedCard === 0}
                             onToggleExpand={() => handleExpand(0)}

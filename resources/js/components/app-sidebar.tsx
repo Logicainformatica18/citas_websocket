@@ -21,9 +21,11 @@ import {
     BriefcaseBusiness,
     UserCircle2,
     Shield,
-    Banknote,
     Database,
 } from 'lucide-react';
+
+// Color institucional ISIL
+const isilBlue = 'text-sky-500 dark:text-sky-400';
 
 type PageProps = {
     permissions: string[];
@@ -60,18 +62,19 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-
-
-
-
                 {/* Scrapings */}
                 <div className="mb-4">
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/dashboard" className="flex items-center gap-2">
-                                    <BarChart3 className="w-5 h-5" />
-                                    <span>Dashboard</span>
+                                <Link
+                                    href="/dashboard"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Dashboard
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -91,19 +94,14 @@ export function AppSidebar() {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/syllabus" className="flex items-center gap-2">
-                                    <FileText className="w-5 h-5" />
-                                    <span>Syllabus</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-                     <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/careers" className="flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5" />
-                                    <span>Carreras</span>
+                                <Link
+                                    href="/syllabus"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <FileText className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Syllabus
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -112,9 +110,14 @@ export function AppSidebar() {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/courses" className="flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5" />
-                                    <span>Cursos ISIL</span>
+                                <Link
+                                    href="/careers"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <BookOpen className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Carreras
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -123,9 +126,46 @@ export function AppSidebar() {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/job-offers" className="flex items-center gap-2">
-                                    <BriefcaseBusiness className="w-5 h-5" />
-                                    <span>Bolsa de Empleo</span>
+                                <Link
+                                    href="/courses"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <BookOpen className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Cursos ISIL
+                                    </span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link
+                                    href="/admin/report-queries"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <Database className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Entrenamiento IA
+                                    </span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link
+                                    href="/job-offers"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Bolsa de Empleo
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -137,17 +177,28 @@ export function AppSidebar() {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/users" className="flex items-center gap-2">
-                                    <UserCircle2 className="w-5 h-5" />
-                                    <span>Usuarios</span>
+                                <Link
+                                    href="/users"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <UserCircle2 className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Usuarios
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/roles" className="flex items-center gap-2">
-                                    <Shield className="w-5 h-5" />
-                                    <span>Roles</span>
+                                <Link
+                                    href="/roles"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <Shield className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Roles
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

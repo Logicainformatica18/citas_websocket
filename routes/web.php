@@ -22,7 +22,10 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
 use App\Http\Controllers\Ocr\DniOcrController;
 use App\Http\Controllers\Auth\Saml2LoginController;
+use App\Http\Controllers\ReportQueryController;
+
 use Laravel\Socialite\Facades\Socialite;
+
 
 
 Route::prefix('auth/saml2')->group(function () {
@@ -223,6 +226,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/ocr/dni/local', [DniOcrController::class, 'extractLocal']);
 Route::post('/ocr/dni/gcs', [DniOcrController::class, 'extractFromGCS']);
+
+
+
+Route::prefix('admin/report-queries')->group(function () {
+    Route::get('/', [ReportQueryController::class, 'index'])->name('report-queries.index');
+    Route::post('/', [ReportQueryController::class, 'store'])->name('report-queries.store');
+    Route::get('/{id}', [ReportQueryController::class, 'show'])->name('report-queries.show');
+    Route::put('/{id}', [ReportQueryController::class, 'update'])->name('report-queries.update');
+    Route::delete('/{id}', [ReportQueryController::class, 'destroy'])->name('report-queries.destroy');
+    Route::post('/{id}/toggle-active', [ReportQueryController::class, 'toggleActive']);
+    Route::post('/{id}/toggle-ai', [ReportQueryController::class, 'toggleAI']);
+    Route::post('/{id}/duplicate', [ReportQueryController::class, 'duplicate']);
+});
 });
 
 

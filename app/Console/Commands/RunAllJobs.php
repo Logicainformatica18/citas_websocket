@@ -22,8 +22,8 @@ class RunAllJobs extends Command
         //     'getonboard:technologies',
 
 
- 'computrabajo:technologies --country=pe --pages=1',
-    'computrabajo:technologies --country=bo --pages=1',
+//  'computrabajo:technologies --country=pe --pages=1',
+//     'computrabajo:technologies --country=bo --pages=1',
     'computrabajo:technologies --country=ar --pages=1',
     'computrabajo:technologies --country=uy --pages=1',
     'computrabajo:technologies --country=mx --pages=1',
