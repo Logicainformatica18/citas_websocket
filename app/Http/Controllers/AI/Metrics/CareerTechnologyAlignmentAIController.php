@@ -115,8 +115,8 @@ class CareerTechnologyAlignmentAIController extends Controller
             LEFT JOIN metricas_filtradas mf ON mf.technology_id = ct.technology_id
             LEFT JOIN metricas_previas mp ON mp.technology_id = ct.technology_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
-            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
             ";
 
             if (!empty($careerIds)) {
@@ -249,8 +249,8 @@ class CareerTechnologyAlignmentAIController extends Controller
         LEFT JOIN metricas_filtradas mf ON mf.technology_id = ct.technology_id
         LEFT JOIN metricas_previas mp ON mp.technology_id = ct.technology_id
         CROSS JOIN promedio_global pg
-        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
-        and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%
+        WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+        and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
         ";
 
         if (!empty($careerIds)) {

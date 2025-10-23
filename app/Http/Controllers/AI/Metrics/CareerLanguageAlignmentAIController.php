@@ -14,23 +14,24 @@ class CareerLanguageAlignmentAIController extends Controller
     /**
      * 📋 Devuelve metadata para filtros dinámicos
      */
-    public function metadata()
-    {
-        return response()->json([
-            'years' => DB::table('language_metrics')
-                ->selectRaw('YEAR(run_date) as year')
-                ->distinct()
-                ->orderBy('year', 'desc')
-                ->pluck('year'),
+ public function metadata()
+{
+    return response()->json([
+        'years' => DB::table('language_metrics')
+            ->selectRaw('YEAR(run_date) as year')
+            ->distinct()
+            ->orderBy('year', 'desc')
+            ->pluck('year'),
 
-            'careers' => DB::table('careers')
-                ->select('id', 'name')
-                ->where('name', 'NOT LIKE', '%Diseño y Desarrollo de Videojuegos%') // 🚫 Excluye esta carrera
-                ->where('name', 'NOT LIKE', '%Diseño de Medios Interactivos (UX)%') // 🚫 Excluye esta carrera
-                ->orderBy('name')
-                ->get(),
-        ]);
-    }
+        'careers' => DB::table('careers')
+            ->select('id', 'name')
+            ->where('name', 'not like', '%Diseño y Desarrollo de Videojuegos%') // 🚫 Excluye esta carrera
+            ->where('name', 'not like', '%Diseño de Medios Interactivos (UX)%') // 🚫 Excluye esta carrera
+            ->orderBy('name')
+            ->get(),
+    ]);
+}
+
 
 
     /**
@@ -125,9 +126,8 @@ IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
             LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
             LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
-            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%
-            '
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
         ";
 
             // 🔹 Filtro por carrera (si se eligieron)
@@ -274,8 +274,8 @@ IFNULL(AVG(mf.paises_actuales), 0) AS paises_actuales,
             LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
             LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
             CROSS JOIN promedio_global pg
-            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%
-            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%%
+            WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
+            and c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
         ";
 
             if (!empty($careerIds)) {
