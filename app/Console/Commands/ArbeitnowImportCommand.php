@@ -124,18 +124,18 @@ if (!$lat || !$lng) {
 }
 
 
-         $modality = 'remote_local'; // valor por defecto
+         $modality = 'remote'; // valor por defecto
 $locLower = strtolower($location ?? '');
 
 // 🧠 Normalizar modalidad según tu estándar global
 if ($isRemote === true || str_contains($locLower, 'remote')) {
     $modality = 'fully_remote';          // 🟢 Remoto total
 } elseif (str_contains($locLower, 'hybrid') || str_contains($locLower, 'híbrido')) {
-    $modality = 'híbrido';               // 🟡 Híbrido
+    $modality = 'hybrid';               // 🟡 Híbrido
 } elseif ($isRemote === false || str_contains($locLower, 'no remote') || str_contains($locLower, 'presencial')) {
     $modality = 'no_remote';             // 🔴 Presencial o sin opción remota
 } else {
-    $modality = 'remote_local';          // 🔵 Ambiguo o semi-remoto (fallback)
+    $modality = 'remote';          // 🔵 Ambiguo o semi-remoto (fallback)
 }
 
 // 🔁 Evitar duplicados

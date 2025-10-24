@@ -4,152 +4,210 @@ namespace App\Http\Controllers\AI;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\AI\WorkModeAIController;
-use App\Http\Controllers\AI\CityDemandAIController;
-use App\Http\Controllers\AI\TechnologiesAIController;
-use App\Http\Controllers\AI\RolesAIController;
 
 class DashboardAIController extends Controller
 {
+    /**
+     * 🎯 Endpoint principal del chat IA
+     */
     public function chat(Request $request)
     {
         $request->validate([
             'message' => 'required|string',
         ]);
 
-        $userMessage = $request->message;
+        $userMessage = trim($request->message);
+        Log::info("💬 Mensaje recibido del usuario", ['message' => $userMessage]);
 
-        // 1️⃣ Interpretar la intención con OpenAI
-        $instruction = $this->getInstructionFromAI($userMessage);
+        // 1️⃣ Buscar entrenamiento relevante en ai_trainings
+        $training = $this->resolveTraining($userMessage);
 
-        if (!$instruction) {
+        if (!$training) {
             return response()->json([
-                'error' => '❌ No se pudo interpretar la instrucción de la IA',
-                'message' => '⚠️ Hubo un error procesando tu consulta, intenta de nuevo.',
+                'message' => '🤖 No encontré un entrenamiento relacionado con tu consulta.',
+                'suggestion' => 'Puedes intentar reformular la pregunta o consultar temas de métricas, tendencias o empleabilidad.',
+            ], 404);
+        }
+
+        Log::info("🎯 Entrenamiento detectado", [
+            'topic' => $training->topic,
+            'prompt' => $training->prompt,
+            'interpreter' => $training->interpreter,
+        ]);
+
+        // 2️⃣ Ejecutar el método indicado en el campo interpreter
+        $result = $this->executeInterpreter($training->interpreter);
+
+        if (!$result) {
+            return response()->json([
+                'message' => '⚠️ No se pudo ejecutar el controlador asociado a esta consulta.',
+                'training' => $training,
             ], 500);
         }
 
-        // 2️⃣ Si la IA pide confirmación → sugerencia
-        if (($instruction['status'] ?? null) === 'pending_confirmation') {
-            return response()->json([
-                'message' => '💡 ' . ($instruction['suggestion'] ?? '¿Quieres confirmar esta consulta?'),
-                'instruction' => $instruction,
-            ]);
+        // 3️⃣ (Opcional) Generar explicación IA si has_ai_response = 1
+        $explanation = null;
+        if ($training->has_ai_response && $training->explanation_prompt) {
+            $explanation = $this->generateExplanation($training->explanation_prompt, $result);
         }
 
-        // 3️⃣ Si está confirmado → enrutar a los controladores hijos
-        $results = [];
-        foreach ($instruction['targets'] ?? [] as $target) {
-            switch ($target) {
-                case 'WorkModeChart':
-                    $controller = app(WorkModeAIController::class);
-                    $results[$target] = $controller->getData($instruction);
-                    break;
-
-                case 'CityDemandMap':
-                    $controller = app(CityDemandAIController::class);
-                    $results[$target] = $controller->getData($instruction);
-                    break;
-
-                case 'TechnologiesChart':
-                    $controller = app(TechnologiesAIController::class);
-                    $results[$target] = $controller->getData($instruction);
-                    break;
-
-                case 'RolesChart':
-                    $controller = app(RolesAIController::class);
-                    $results[$target] = $controller->getData($instruction);
-                    break;
-
-                default:
-                    Log::warning("⚠️ Target desconocido: {$target}");
-            }
-        }
-
+        // 4️⃣ Respuesta final estructurada
         return response()->json([
-            'message' => '✅ Consulta procesada. Revisa el dashboard.',
-            'instruction' => $instruction,
-            'results' => $results,
+            'topic' => $training->topic,
+            'prompt' => $training->prompt,
+            'component' => $training->component ?? null,
+            'result' => $result,
+            'explanation' => $explanation,
         ]);
     }
 
+    // =====================================================
+    // 🔍 LOCAL FUNCTIONS
+    // =====================================================
+
     /**
-     * 🔹 Llama a OpenAI para interpretar el mensaje
+     * 🔎 Busca el entrenamiento más relevante basado en el mensaje del usuario
      */
-    private function getInstructionFromAI(string $userMessage): ?array
+   private function resolveTraining(string $message)
+{
+    Log::info("🧠 [resolveTraining] Iniciando búsqueda de entrenamiento", [
+        'input_message' => $message,
+    ]);
+
+    $messageLower = mb_strtolower($message);
+
+    // 🧩 Extraer palabras clave (sin artículos ni palabras cortas)
+    $keywords = collect(explode(' ', $messageLower))
+        ->map(fn($w) => trim($w))
+        ->reject(fn($w) => strlen($w) < 3)
+        ->values()
+        ->all();
+
+    Log::info("🪄 [resolveTraining] Palabras clave generadas", ['keywords' => $keywords]);
+
+    // 🔍 Consulta
+    $query = DB::table('ai_trainings')
+        ->where('is_active', 1)
+        ->where(function ($q) use ($messageLower, $keywords) {
+            $q->whereRaw('LOWER(prompt) LIKE ?', ["%{$messageLower}%"])
+              ->orWhereRaw('LOWER(description) LIKE ?', ["%{$messageLower}%"]);
+
+            foreach ($keywords as $word) {
+                $q->orWhereRaw('LOWER(prompt) LIKE ?', ["%{$word}%"])
+                  ->orWhereRaw('LOWER(description) LIKE ?', ["%{$word}%"])
+                  ->orWhereRaw("JSON_SEARCH(LOWER(tags), 'one', '%{$word}%') IS NOT NULL");
+            }
+        })
+        ->orderByRaw('CHAR_LENGTH(prompt) ASC');
+
+    // 🧾 Mostrar SQL generado (solo para debugging)
+    Log::debug("🧩 [resolveTraining] SQL generado", [
+        'sql' => $query->toSql(),
+        'bindings' => $query->getBindings(),
+    ]);
+
+    // 🧠 Obtener resultado
+    $training = $query->first();
+
+    if ($training) {
+        Log::info("✅ [resolveTraining] Entrenamiento encontrado", [
+            'id' => $training->id ?? null,
+            'topic' => $training->topic ?? null,
+            'prompt' => $training->prompt ?? null,
+        ]);
+    } else {
+        Log::warning("⚠️ [resolveTraining] No se encontró coincidencia para el mensaje", [
+            'input_message' => $message,
+            'keywords' => $keywords,
+        ]);
+    }
+
+    return $training;
+}
+
+
+    /**
+     * ⚙️ Ejecuta el controlador indicado en el campo interpreter
+     * Ejemplo: MetricsDashboardController@globalAlignment
+     */
+    private function executeInterpreter(?string $interpreter)
+    {
+        if (!$interpreter || !str_contains($interpreter, '@')) {
+            Log::warning("⚠️ Interpreter inválido", ['interpreter' => $interpreter]);
+            return null;
+        }
+
+        [$controller, $method] = explode('@', $interpreter);
+        $controllerClass = "App\\Http\\Controllers\\AI\\Metrics\\{$controller}";
+
+        if (!class_exists($controllerClass)) {
+            Log::error("❌ Controlador no encontrado", ['controller' => $controllerClass]);
+            return null;
+        }
+
+        $instance = app($controllerClass);
+
+        if (!method_exists($instance, $method)) {
+            Log::error("❌ Método no encontrado en controlador", ['method' => $method]);
+            return null;
+        }
+
+        try {
+            $response = $instance->$method();
+            return method_exists($response, 'getData')
+                ? $response->getData(true)
+                : $response;
+        } catch (\Throwable $e) {
+            Log::error("💥 Error ejecutando interpreter", [
+                'interpreter' => $interpreter,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 💬 Genera una explicación natural del resultado usando OpenAI
+     */
+    private function generateExplanation(string $promptTemplate, $data): ?string
     {
         $apiKey = env('OPENAI_API_KEY');
 
-        $systemPrompt = <<<EOT
-Eres un asistente para un Dashboard de Ofertas Laborales.
-Debes responder **SOLO en JSON válido**.
-
-🎯 Tu rol:
-- Traducir lenguaje natural del usuario a filtros estructurados.
-- NO devuelvas texto libre, solo JSON.
-- Haz preguntas aclaratorias si falta contexto (status="pending_confirmation").
-- Si está claro → responde con status="confirmed".
-
-📊 Targets disponibles:
-- Modalidad de trabajo → "WorkModeChart"
-- País o ciudad → "CityDemandMap"
-- Tecnologías/lenguajes → "TechnologiesChart"
-- Roles o perfiles → "RolesChart"
-
-📌 Formato esperado:
-{
-  "targets": ["TechnologiesChart"],
-  "filters": { "year": 2024, "quarter": "all" },
-  "fields": [],
-  "aggregations": ["percent"],
-  "status": "pending_confirmation" | "confirmed",
-  "suggestion": "Texto para confirmar con el usuario"
-}
-
-📌 Reglas:
-- Si dice "todo", "general" → status="confirmed" con filtros vacíos.
-- Si menciona solo año → usa {year: XXXX, quarter:"all"}.
-- Si menciona trimestre pero no año → pide el año (pending_confirmation).
-- Si menciona ambos → confirmed.
-- Nunca inventes valores.
-EOT;
-
-        Log::info("🤖 Enviando mensaje a OpenAI (Dashboard)", ['message' => $userMessage]);
-
-        $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o-mini',
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage],
-            ],
-            'temperature' => 0,
-            'max_tokens' => 500,
-            'response_format' => ['type' => 'json_object'], // 🚀 JSON Mode
-        ]);
-
-        if ($response->failed()) {
-            Log::error("❌ Error en petición OpenAI (Dashboard)", [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
+        if (!$apiKey) {
+            Log::warning("⚠️ Falta OPENAI_API_KEY, se omite explicación IA");
             return null;
         }
 
-        $raw = $response->json('choices.0.message.content');
-        Log::info("📝 Instrucción IA Dashboard RAW", ['raw' => $raw]);
+        $prompt = $promptTemplate . "\n\nDatos actuales:\n" . json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
-        $decoded = json_decode($raw, true);
+        try {
+            $response = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+                'model' => 'gpt-4o-mini',
+                'messages' => [
+                    ['role' => 'system', 'content' => 'Eres un analista institucional de ISIL. Explica métricas en lenguaje claro, técnico y breve.'],
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'max_tokens' => 300,
+                'temperature' => 0.3,
+            ]);
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::error("❌ Error parseando JSON IA Dashboard", [
-                'error' => json_last_error_msg(),
-                'raw' => $raw,
+            if ($response->failed()) {
+                Log::error("❌ Error generando explicación IA", [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return null;
+            }
+
+            return trim($response->json('choices.0.message.content'));
+        } catch (\Throwable $e) {
+            Log::error("💥 Excepción al generar explicación IA", [
+                'error' => $e->getMessage(),
             ]);
             return null;
         }
-
-        return $decoded;
     }
 }

@@ -12,71 +12,94 @@ type Message = {
 
 export default function AiChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { from: "ai", text: "👋 Hola, ¿qué información te gustaría saber hoy?" },
+    { from: "ai", text: "👋 Hola, soy VERA. ¿Qué información deseas analizar hoy?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [typingText, setTypingText] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Contexto del dashboard (actualiza visualizaciones)
   const { updateDashboard } = useDashboard();
 
- const handleSend = async () => {
-  if (!input.trim()) return;
+  // =====================================================
+  // 🚀 Enviar mensaje al backend
+  // =====================================================
+  const handleSend = async () => {
+    if (!input.trim()) return;
 
-  const userMessage = { from: "user" as const, text: input };
-  setMessages((prev) => [...prev, userMessage]);
-  setInput("");
-  setLoading(true);
-  setTypingText("");
+    const userMessage = { from: "user" as const, text: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
+    setTypingText("");
 
-  try {
-    const res = await axios.post("dashboard/ai/chat", { message: userMessage.text });
+    try {
+      const res = await axios.post("/ai/chat", { message: userMessage.text });
+      const data = res.data;
 
-    const { message, suggestion, instruction, results, aggregations } = res.data;
+      console.log("🧠 Respuesta IA:", data);
 
-    // 🔹 Actualizar dashboard si hay datos
-    if (results || aggregations || instruction) {
-      updateDashboard(results, aggregations, instruction);
-    }
+      // =====================================================
+      // 🧩 Caso 1: Respuesta tipo entrenamiento AITraining
+      // =====================================================
+      if (data.topic && data.result) {
+        // Mostrar respuesta natural
+        let explanationText = `📊 **${data.prompt}**\n\n`;
+        explanationText += data.explanation
+          ? `${data.explanation}`
+          : "✅ Consulta procesada correctamente.";
 
-    // 🔹 Caso 1: Hay message
-    if (message) {
-      setMessages((prev) => [...prev, { from: "ai", text: message }]);
-    }
+        setMessages((prev) => [...prev, { from: "ai", text: explanationText }]);
 
-    // 🔹 Caso 2: Hay suggestion
-    if (suggestion) {
-      setMessages((prev) => [...prev, { from: "ai", text: "💡 " + suggestion }]);
-    }
+        // Actualiza dashboard con componente dinámico si aplica
+        updateDashboard(data.result, data.topic, data.component ?? null);
+      }
 
-    // 🔹 Caso 3: No hay message ni suggestion → feedback genérico
-    if (!message && !suggestion && (results || instruction)) {
+      // =====================================================
+      // 💬 Caso 2: Mensaje directo o sugerencia textual
+      // =====================================================
+      else if (data.message || data.suggestion) {
+        const text = data.message ?? `💡 ${data.suggestion}`;
+        setMessages((prev) => [...prev, { from: "ai", text }]);
+      }
+
+      // =====================================================
+      // ⚠️ Caso 3: Sin resultados ni texto (fallback)
+      // =====================================================
+      else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "ai",
+            text: "⚠️ No se encontró un entrenamiento asociado a tu pregunta.",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ Error al conectar con IA:", error);
       setMessages((prev) => [
         ...prev,
-        { from: "ai", text: "✅ Consulta procesada. Revisa el dashboard." },
+        { from: "ai", text: "⚠️ Error al conectar con el servidor o la IA." },
       ]);
+    } finally {
+      setLoading(false);
+      setTypingText("");
     }
-  } catch (error) {
-    console.error(error);
-    setMessages((prev) => [
-      ...prev,
-      { from: "ai", text: "⚠️ Error al conectar con el servidor." },
-    ]);
-  } finally {
-    setLoading(false);
-    setTypingText("");
-  }
-};
+  };
 
-
-  // 🔹 Auto scroll
+  // =====================================================
+  // 🔄 Auto scroll al final del chat
+  // =====================================================
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingText, loading]);
 
+  // =====================================================
+  // 💬 Render
+  // =====================================================
   return (
-    <Card className="bg-gray-800 h-full flex flex-col">
+    <Card className="bg-gray-800 h-full flex flex-col border border-gray-700 rounded-lg shadow-lg">
       {/* Chat content */}
       <CardContent className="p-4 flex-1 overflow-y-auto space-y-3">
         {messages.map((m, i) => (
@@ -119,7 +142,6 @@ export default function AiChat() {
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
 
-      </div>
         <button
           onClick={handleSend}
           disabled={loading}
@@ -128,6 +150,7 @@ export default function AiChat() {
           <Send className="w-4 h-4" />
           Enviar
         </button>
+      </div>
     </Card>
   );
 }

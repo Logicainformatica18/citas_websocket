@@ -82,61 +82,50 @@ class AdzunaImportCommand extends Command
 
                 $saved = $duplicates = $unmapped = 0;
 
-                foreach ($results as $job) {
-                    $title   = $job['title'] ?? 'N/A';
-                    $company = $job['company']['display_name'] ?? null;
-                    $urlJob  = $job['redirect_url'] ?? null;
+               foreach ($results as $job) {
+    $title   = $job['title'] ?? 'N/A';
+    $company = $job['company']['display_name'] ?? null;
+    $urlJob  = $job['redirect_url'] ?? null;
 
-                    $area    = $job['location']['area'] ?? [];
-                    $countryCode = strtolower($country);
-                    $city    = $area[1] ?? null;
+    $area    = $job['location']['area'] ?? [];
+    $countryCode = strtolower($country);
+    $city    = $area[1] ?? null;
 
-                   [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
+    [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
 
-if (!$latitude || !$longitude) {
-    if (isset($this->capitalMap[$countryCode])) {
-        $capital = $this->capitalMap[$countryCode];
-        $city = $capital['city'];
-        $latitude = $capital['lat'];
-        $longitude = $capital['lng'];
-        $this->stats['fallback']++;
-        $this->warn("⚠️ {$countryCode}: sin coordenadas válidas, usando capital {$city}");
-    } else {
-        $this->warn("⚠️ {$countryCode}: sin coordenadas ni capital conocida, usando Lima");
-        $city = 'Lima';
-        $latitude = -12.0464;
-        $longitude = -77.0428;
-        $this->stats['fallback']++;
+    // ⚠️ Si no hay coordenadas, saltar (no guardar)
+    if (!$latitude || !$longitude) {
+        $this->warn("⏭️ Omitido: sin coordenadas válidas ({$title} - {$countryCode})");
+        $unmapped++;
+        continue;
     }
-}
 
+    // Evitar duplicados
+    if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) {
+        $duplicates++;
+        continue;
+    }
 
+    JobOffer::create([
+        'title'        => $title,
+        'company'      => $company,
+        'country'      => strtoupper($countryCode),
+        'city'         => $city,
+        'latitude'     => $latitude,
+        'longitude'    => $longitude,
+        'modality'     => null,
+        'salary_min'   => $job['salary_min'] ?? null,
+        'salary_max'   => $job['salary_max'] ?? null,
+        'currency'     => $job['salary_currency'] ?? 'USD',
+        'source'       => 'Adzuna',
+        'external_id'  => $job['id'] ?? null,
+        'url'          => $urlJob,
+        'search_query' => $query,
+        'published_at' => isset($job['created']) ? Carbon::parse($job['created']) : now(),
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
 
-                 if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) {
-    $duplicates++;
-    continue;
-}
-
-
-                    JobOffer::create([
-                        'title'        => $title,
-                        'company'      => $company,
-                        'country'      => strtoupper($countryCode),
-                        'city'         => $city,
-                        'latitude'     => $latitude,
-                        'longitude'    => $longitude,
-                        'modality'     => null,
-                        'salary_min'   => $job['salary_min'] ?? null,
-                        'salary_max'   => $job['salary_max'] ?? null,
-                        'currency'     => $job['salary_currency'] ?? 'USD',
-                        'source'       => 'Adzuna',
-                        'external_id'  => $job['id'] ?? null,
-                        'url'          => $urlJob,
-                        'search_query' => $query,
-                        'published_at' => isset($job['created']) ? Carbon::parse($job['created']) : now(),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
-                    ]);
 
                     $saved++;
                 }

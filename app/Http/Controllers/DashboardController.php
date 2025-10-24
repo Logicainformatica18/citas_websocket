@@ -15,12 +15,9 @@ class DashboardController extends Controller
 
         // 🔹 Datos iniciales para los cards
         try {
-            $workmode = app(WorkModeAIController::class)->index()->getData(true);
-            Log::info("✅ Datos iniciales WorkMode", ['data' => $workmode]);
-
-            $cityDemand = app(CityDemandAIController::class)->index()->getData(true);
-
-            Log::info("✅ Datos iniciales CityDemand", ['data' => $cityDemand]);
+           // $workmode = app(WorkModeAIController::class)->index()->getData(true);
+            
+            
         } catch (\Throwable $e) {
             Log::error("❌ Error obteniendo datos iniciales en Dashboard", [
                 'error' => $e->getMessage(),

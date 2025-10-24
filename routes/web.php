@@ -239,6 +239,15 @@ Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->gr
     Route::post('/{id}/toggle-ai', 'toggleAI');
     Route::post('/{id}/duplicate', 'duplicate');
 });
+
+
+
+
+
+
+
+
+
 });
 
 

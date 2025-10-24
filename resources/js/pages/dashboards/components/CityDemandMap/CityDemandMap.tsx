@@ -10,27 +10,44 @@ import CityDemandFilters from "./CityDemandFilters";
 function MapEvents({ onChange, onZoom }: any) {
   const map = useMap();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPosition = useRef<string>("");
 
   useEffect(() => {
     const update = () => {
-     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-timeoutRef.current = setTimeout(() => {
-  onChange(map.getBounds(), map.getZoom());
-  onZoom(map.getZoom());
-}, 1800); // antes 500ms
+      // Serializa el estado actual del mapa (centro + zoom)
+      const current = JSON.stringify({
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+      });
 
+      // Si no ha cambiado realmente, no vuelvas a disparar
+      if (current === lastPosition.current) return;
+      lastPosition.current = current;
+
+      // Aplica debounce real de 3 s para evitar spam
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        onChange(map.getBounds(), map.getZoom());
+        onZoom(map.getZoom());
+      }, 3000);
     };
+
     map.on("moveend", update);
     map.on("zoomend", update);
+
+    // Ejecuta solo una vez al montar
     update();
+
     return () => {
       map.off("moveend", update);
       map.off("zoomend", update);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [map, onChange, onZoom]);
+
   return null;
 }
+
 
 function GlobalHeatLayer({ data }: { data: any[] }) {
   const map = useMap();
@@ -106,6 +123,8 @@ export default function CityDemandMap() {
   const [lastBounds, setLastBounds] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+ const prevFilters = useRef<any>(null);
+
   const fetchData = useCallback(async (filters: any, bounds: any, zoom: number) => {
     try {
       setLoading(true);
@@ -125,10 +144,20 @@ export default function CityDemandMap() {
   useEffect(() => {
     axios.get("api/ai/city-demand/metadata").then((res) => setMetadata(res.data));
   }, []);
+useEffect(() => {
+  // 🚀 Carga inicial
+  fetchData(filters, null, zoomLevel);
+}, []);
 
-  useEffect(() => {
-    if (lastBounds) fetchData(filters, lastBounds, zoomLevel);
-  }, [filters]);
+
+useEffect(() => {
+  // ✅ Evitar llamadas innecesarias si los filtros no cambiaron realmente
+  if (JSON.stringify(prevFilters.current) === JSON.stringify(filters)) return;
+  prevFilters.current = filters;
+
+  if (lastBounds) fetchData(filters, lastBounds, zoomLevel);
+}, [filters, lastBounds, zoomLevel]);
+
 
   const handleExport = (format: "pdf" | "excel") => {
     const query = new URLSearchParams({ ...filters, format });
@@ -208,13 +237,11 @@ export default function CityDemandMap() {
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
             />
-            <MapEvents
-              onChange={(bounds: any) => {
-                setLastBounds(bounds);
-                fetchData(filters, bounds, zoomLevel);
-              }}
-              onZoom={(z: number) => setZoomLevel(z)}
-            />
+           <MapEvents
+  onChange={(bounds: any) => setLastBounds(bounds)}
+  onZoom={(z: number) => setZoomLevel(z)}
+/>
+
             <GlobalHeatLayer data={data} />
           </MapContainer>
 

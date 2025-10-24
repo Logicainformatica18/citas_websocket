@@ -40,7 +40,7 @@ class WorkModeAIController extends Controller
     $map = [
         'hybrid'        => 'Híbrido',
         'fully_remote'  => 'Remoto',
-        'remote_local'  => 'Remoto local',
+        'remote'  => 'Remoto local',
         'no_remote'     => 'Presencial',
     ];
 

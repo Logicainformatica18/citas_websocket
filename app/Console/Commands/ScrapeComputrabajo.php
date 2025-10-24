@@ -41,8 +41,8 @@ JOIN job_offers j2
       OR LEFT(j1.url, 100) = LEFT(j2.url, 100)
   );
 
-  ////////////////////// LISTAR DUPLICADOS 
-  SELECT 
+  ////////////////////// LISTAR DUPLICADOS
+  SELECT
   j1.id AS to_delete,
   j2.id AS keep_id,
   j1.title, j1.company, j1.modality,
@@ -265,7 +265,7 @@ $this->line("📊 Local: {$this->stats['local_hits']} | API: {$this->stats['api_
             str_contains($t, 'desde casa') ||
             str_contains($t, 'remote')
         ) {
-            return 'remote_local';
+            return 'remote';
         }
 
         if (

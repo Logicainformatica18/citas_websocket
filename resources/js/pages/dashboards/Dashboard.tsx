@@ -67,14 +67,14 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                 <div className="relative p-4 overflow-y-auto space-y-4 z-10">
                     <DashboardProvider>
 
-<div className="grid grid-cols-3 gap-3">
+{/* <div className="grid grid-cols-3 gap-3">
   <MetricCard metric="global-alignment" />
   <MetricCard metric="ai-integration" />
   <MetricCard metric="curricular-updates" />
   <MetricCard metric="tech-growth" />
   <MetricCard metric="obsolescence-index" />
   <MetricCard metric="career-improvement" />
-</div>
+</div> */}
 
 
 

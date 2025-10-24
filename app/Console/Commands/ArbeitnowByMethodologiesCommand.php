@@ -248,7 +248,7 @@ class ArbeitnowByMethodologiesCommand extends Command
         str_contains($loc, 'work from home'),
         str_contains($loc, 'home office') => 'remote',
 
-        // 🏠 Híbrido
+        // 🏠 Híbrido  aspera
         str_contains($loc, 'hybrid'),
         str_contains($loc, 'híbrido') => 'hybrid',
 
