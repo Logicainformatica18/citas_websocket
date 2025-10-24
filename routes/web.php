@@ -22,7 +22,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
 use App\Http\Controllers\Ocr\DniOcrController;
 use App\Http\Controllers\Auth\Saml2LoginController;
-use App\Http\Controllers\ReportQueryController;
+use App\Http\Controllers\AI\AITrainingController;
 
 use Laravel\Socialite\Facades\Socialite;
 
@@ -229,15 +229,15 @@ Route::post('/ocr/dni/gcs', [DniOcrController::class, 'extractFromGCS']);
 
 
 
-Route::prefix('admin/report-queries')->group(function () {
-    Route::get('/', [ReportQueryController::class, 'index'])->name('report-queries.index');
-    Route::post('/', [ReportQueryController::class, 'store'])->name('report-queries.store');
-    Route::get('/{id}', [ReportQueryController::class, 'show'])->name('report-queries.show');
-    Route::put('/{id}', [ReportQueryController::class, 'update'])->name('report-queries.update');
-    Route::delete('/{id}', [ReportQueryController::class, 'destroy'])->name('report-queries.destroy');
-    Route::post('/{id}/toggle-active', [ReportQueryController::class, 'toggleActive']);
-    Route::post('/{id}/toggle-ai', [ReportQueryController::class, 'toggleAI']);
-    Route::post('/{id}/duplicate', [ReportQueryController::class, 'duplicate']);
+Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::post('/', 'store');
+    Route::get('/{id}', 'show');
+    Route::put('/{id}', 'update');
+    Route::delete('/{id}', 'destroy');
+    Route::post('/{id}/toggle-active', 'toggleActive');
+    Route::post('/{id}/toggle-ai', 'toggleAI');
+    Route::post('/{id}/duplicate', 'duplicate');
 });
 });
 

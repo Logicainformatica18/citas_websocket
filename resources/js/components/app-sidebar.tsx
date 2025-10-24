@@ -22,6 +22,7 @@ import {
     UserCircle2,
     Shield,
     Database,
+    GraduationCap, // 🎓 Nuevo ícono para Cursos
 } from 'lucide-react';
 
 // Color institucional ISIL
@@ -62,8 +63,14 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                {/* Scrapings */}
+                {/* ================================== */}
+                {/* 🧩 BLOQUE: MÓDULOS PRINCIPALES     */}
+                {/* ================================== */}
                 <div className="mb-4">
+                    <h4 className="px-3 py-2 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        Módulos principales
+                    </h4>
+
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
@@ -78,20 +85,7 @@ export function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarMenu>
 
-                    {/* <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/scrapings" className="flex items-center gap-2">
-                                    <Database className="w-5 h-5" />
-                                    <span>Scrapings</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu> */}
-
-                    <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link
@@ -105,9 +99,7 @@ export function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarMenu>
 
-                    <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link
@@ -121,41 +113,21 @@ export function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarMenu>
 
-                    <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link
                                     href="/courses"
                                     className="flex items-center gap-2 hover:text-sky-500 transition-colors"
                                 >
-                                    <BookOpen className={`w-5 h-5 ${isilBlue}`} />
+                                    <GraduationCap className={`w-5 h-5 ${isilBlue}`} />
                                     <span className="text-gray-800 dark:text-gray-100">
                                         Cursos ISIL
                                     </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                    </SidebarMenu>
 
-                    <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link
-                                    href="/admin/report-queries"
-                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
-                                >
-                                    <Database className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100">
-                                        Entrenamiento IA
-                                    </span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-
-                    <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link
@@ -172,8 +144,39 @@ export function AppSidebar() {
                     </SidebarMenu>
                 </div>
 
-                {/* Users & Roles */}
+                {/* ================================== */}
+                {/* 🧠 BLOQUE: INTELIGENCIA ARTIFICIAL  */}
+                {/* ================================== */}
                 <div className="mb-4">
+                    <h4 className="px-3 py-2 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        Inteligencia Artificial
+                    </h4>
+
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link
+                                    href="/admin/ai-trainings"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <Database className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Entrenamiento IA
+                                    </span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </div>
+
+                {/* ================================== */}
+                {/* 👥 BLOQUE: ADMINISTRACIÓN          */}
+                {/* ================================== */}
+                <div className="mb-4">
+                    <h4 className="px-3 py-2 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        Administración
+                    </h4>
+
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
@@ -205,17 +208,29 @@ export function AppSidebar() {
                     </SidebarMenu>
                 </div>
 
-                {/* Backups */}
-                {/* <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild>
-                            <Link href="/backups" className="flex items-center gap-2">
-                                <Shield className="w-5 h-5" />
-                                <span>Backups</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu> */}
+                {/* ================================== */}
+                {/* 💾 BLOQUE OPCIONAL: BACKUPS        */}
+                {/* ================================== */}
+                {/* <div className="mb-4">
+                    <h4 className="px-3 py-2 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        Sistema
+                    </h4>
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link
+                                    href="/backups"
+                                    className="flex items-center gap-2 hover:text-sky-500 transition-colors"
+                                >
+                                    <Shield className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100">
+                                        Backups
+                                    </span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </div> */}
             </SidebarContent>
 
             {/* Footer con el usuario logueado */}

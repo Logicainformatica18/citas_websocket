@@ -6,13 +6,13 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
-  editItem?: ReportQuery | null;
+  editItem?: AITraining | null;
 };
 
-type ReportQuery = {
+type AITraining = {
   id?: number;
-  category: string;
-  question: string;
+  topic: string;
+  prompt: string;
   interpreter: string;
   component?: string | null;
   description?: string | null;
@@ -21,10 +21,10 @@ type ReportQuery = {
   has_ai_response?: boolean;
 };
 
-export default function ReportQueryModal({ open, onClose, onSaved, editItem }: Props) {
-  const [form, setForm] = useState<ReportQuery>({
-    category: "",
-    question: "",
+export default function AITrainingModal({ open, onClose, onSaved, editItem }: Props) {
+  const [form, setForm] = useState<AITraining>({
+    topic: "",
+    prompt: "",
     interpreter: "",
     component: "",
     description: "",
@@ -36,7 +36,23 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (editItem) setForm(editItem);
+    if (editItem) {
+      setForm({
+        ...editItem,
+        tags: editItem.tags ?? [],
+      });
+    } else {
+      setForm({
+        topic: "",
+        prompt: "",
+        interpreter: "",
+        component: "",
+        description: "",
+        tags: [],
+        is_active: true,
+        has_ai_response: true,
+      });
+    }
   }, [editItem]);
 
   if (!open) return null;
@@ -46,7 +62,7 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckbox = (name: keyof ReportQuery) => {
+  const handleCheckbox = (name: keyof AITraining) => {
     setForm((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
@@ -62,15 +78,15 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
     try {
       setSaving(true);
       if (editItem?.id) {
-        await axios.put(`/admin/report-queries/${editItem.id}`, form);
+        await axios.put(`/admin/ai-trainings/${editItem.id}`, form);
       } else {
-        await axios.post("/admin/report-queries", form);
+        await axios.post("/admin/ai-trainings", form);
       }
       onSaved();
       onClose();
     } catch (err) {
       console.error("Error al guardar", err);
-      alert("❌ No se pudo guardar el reporte.");
+      alert("❌ No se pudo guardar el entrenamiento IA.");
     } finally {
       setSaving(false);
     }
@@ -78,7 +94,7 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
 
   return (
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg w-[650px] p-6 shadow-lg border border-gray-300 dark:border-gray-700 relative">
+      <div className="bg-white dark:bg-gray-900 rounded-lg w-[650px] p-6 shadow-lg border border-gray-300 dark:border-gray-700 relative animate-fade-in">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 dark:text-gray-300 hover:text-red-500"
@@ -87,77 +103,83 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
         </button>
 
         <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">
-          {editItem ? "✏️ Editar Reporte" : "🆕 Nuevo Reporte"}
+          {editItem ? "✏️ Editar Entrenamiento IA" : "🧠 Nuevo Entrenamiento IA"}
         </h2>
 
         <div className="space-y-3">
+          {/* Tema */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Categoría
+              Tema
             </label>
             <input
-              name="category"
-              value={form.category}
+              name="topic"
+              value={form.topic}
               onChange={handleChange}
-              placeholder="Ejemplo: Métricas y Monitoreo"
+              placeholder="Ejemplo: Tendencias tecnológicas"
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
+          {/* Prompt */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Pregunta
+              Prompt / Instrucción
             </label>
             <textarea
-              name="question"
-              value={form.question}
+              name="prompt"
+              value={form.prompt}
               onChange={handleChange}
               rows={2}
-              placeholder="¿Qué tecnologías han aumentado más su demanda?"
+              placeholder="Describe la instrucción que entrenará la IA..."
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
             ></textarea>
           </div>
 
+          {/* Interpreter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Intérprete (comando / método a ejecutar)
+              Intérprete / Método
             </label>
             <input
               name="interpreter"
               value={form.interpreter}
               onChange={handleChange}
-              placeholder="metricsController@getTopTechnologies"
+              placeholder="Ejemplo: aiTrainerController@analyzeTrends"
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
+          {/* Componente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Componente React
+              Componente React asociado
             </label>
             <input
               name="component"
               value={form.component ?? ""}
               onChange={handleChange}
-              placeholder="TopTechnologiesChart"
+              placeholder="Ejemplo: TrendChart"
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
+          {/* Descripción */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Descripción / Prompt IA
+              Descripción / Detalle del entrenamiento
             </label>
             <textarea
               name="description"
               value={form.description ?? ""}
               onChange={handleChange}
               rows={3}
-              placeholder="Ejemplo: Explica las tendencias tecnológicas del último trimestre con base en los datos de demanda laboral."
+              placeholder="Explica brevemente qué hace este entrenamiento IA..."
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
             ></textarea>
           </div>
 
+          {/* Tags */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Tags (separados por coma)
@@ -166,11 +188,12 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
               type="text"
               value={form.tags?.join(", ") ?? ""}
               onChange={handleTagsChange}
-              placeholder="ia, tendencias, empleabilidad"
+              placeholder="ia, entrenamiento, tendencias"
               className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
+          {/* Switches */}
           <div className="flex items-center gap-6 mt-3">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -189,11 +212,12 @@ export default function ReportQueryModal({ open, onClose, onSaved, editItem }: P
                 onChange={() => handleCheckbox("has_ai_response")}
                 className="accent-indigo-600 w-4 h-4"
               />
-              <span className="text-gray-800 dark:text-gray-200">Respuesta IA</span>
+              <span className="text-gray-800 dark:text-gray-200">Usa IA</span>
             </label>
           </div>
         </div>
 
+        {/* Botones */}
         <div className="flex justify-end gap-2 mt-6">
           <button
             onClick={onClose}

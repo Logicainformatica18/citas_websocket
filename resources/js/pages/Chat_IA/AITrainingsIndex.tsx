@@ -3,16 +3,17 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, Copy, Zap, Power } from 'lucide-react';
+import { Plus, Trash2, Copy, Zap, Power, Edit } from 'lucide-react';
+import AITrainingModal from  './ai-training-modal'; // ✅ importa tu modal
 
 const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Reportes', href: '/admin/report-queries' },
+  { title: 'Entrenamiento IA', href: '/admin/ai-trainings' },
 ];
 
-type ReportQuery = {
+type AITraining = {
   id: number;
-  category: string;
-  question: string;
+  topic: string;
+  prompt: string;
   interpreter: string;
   component?: string | null;
   description?: string | null;
@@ -30,40 +31,44 @@ type Pagination<T> = {
   prev_page_url?: string | null;
 };
 
-export default function ReportQueriesIndex() {
-  const { queries: initialPagination, categories: initialCategories } = usePage<{
-    queries: Pagination<ReportQuery>;
-    categories: string[];
+export default function AITrainingsIndex() {
+  const { trainings: initialPagination, topics: initialTopics } = usePage<{
+    trainings: Pagination<AITraining>;
+    topics: string[];
   }>().props;
 
-  const [items, setItems] = useState<ReportQuery[]>(initialPagination.data);
+  const [items, setItems] = useState<AITraining[]>(initialPagination.data);
   const [pagination, setPagination] = useState(initialPagination);
-  const [categories, setCategories] = useState(initialCategories);
+  const [topics, setTopics] = useState(initialTopics);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [topicFilter, setTopicFilter] = useState('');
+
+  // 🔹 Estado del modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<AITraining | null>(null);
 
   useEffect(() => {
     setItems(initialPagination.data);
     setPagination(initialPagination);
   }, [initialPagination]);
 
-  const fetchPage = async (url: string) => {
+  const fetchPage = async (url: string = '/admin/ai-trainings') => {
     try {
       const res = await axios.get(url, {
-        params: { search, category: categoryFilter },
+        params: { search, topic: topicFilter },
       });
-      setItems(res.data.queries.data ?? []);
-      setPagination(res.data.queries);
+      setItems(res.data.trainings.data ?? []);
+      setPagination(res.data.trainings);
     } catch (e) {
-      console.error('Error al cargar reportes', e);
+      console.error('Error al cargar entrenamientos', e);
       alert('No se pudo cargar la página.');
     }
   };
 
   const removeOne = async (id: number) => {
-    if (!confirm('¿Eliminar este reporte?')) return;
+    if (!confirm('¿Eliminar este entrenamiento?')) return;
     try {
-      await axios.delete(`/admin/report-queries/${id}`);
+      await axios.delete(`/admin/ai-trainings/${id}`);
       setItems((prev) => prev.filter((i) => i.id !== id));
     } catch {
       alert('No se pudo eliminar.');
@@ -72,7 +77,7 @@ export default function ReportQueriesIndex() {
 
   const toggleActive = async (id: number) => {
     try {
-      const res = await axios.post(`/admin/report-queries/${id}/toggle-active`);
+      const res = await axios.post(`/admin/ai-trainings/${id}/toggle-active`);
       setItems((prev) =>
         prev.map((i) => (i.id === id ? { ...i, is_active: res.data.is_active } : i))
       );
@@ -83,9 +88,11 @@ export default function ReportQueriesIndex() {
 
   const toggleAI = async (id: number) => {
     try {
-      const res = await axios.post(`/admin/report-queries/${id}/toggle-ai`);
+      const res = await axios.post(`/admin/ai-trainings/${id}/toggle-ai`);
       setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, has_ai_response: res.data.has_ai_response } : i))
+        prev.map((i) =>
+          i.id === id ? { ...i, has_ai_response: res.data.has_ai_response } : i
+        )
       );
     } catch {
       alert('Error al cambiar estado de IA.');
@@ -94,49 +101,63 @@ export default function ReportQueriesIndex() {
 
   const duplicate = async (id: number) => {
     try {
-      const res = await axios.post(`/admin/report-queries/${id}/duplicate`);
+      const res = await axios.post(`/admin/ai-trainings/${id}/duplicate`);
       alert('✅ Copia creada correctamente.');
-      setItems((prev) => [res.data.query, ...prev]);
+      setItems((prev) => [res.data.training, ...prev]);
     } catch {
       alert('No se pudo duplicar.');
     }
+  };
+
+  const handleOpenNew = () => {
+    setEditItem(null);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (training: AITraining) => {
+    setEditItem(training);
+    setModalOpen(true);
+  };
+
+  const handleSaved = async () => {
+    await fetchPage();
   };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8 text-gray-900 dark:text-gray-100 transition-colors duration-200">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Gestión de Reportes (Report Queries)</h1>
+          <h1 className="text-2xl font-bold">Entrenamiento de IA (Prompt Library)</h1>
           <button
-            onClick={() => alert('Abrir modal de creación (pendiente)')}
+            onClick={handleOpenNew}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Nuevo Reporte
+            <Plus className="w-4 h-4" /> Nuevo Entrenamiento
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <input
             type="text"
-            placeholder="Buscar pregunta..."
+            placeholder="Buscar prompt o instrucción..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="px-3 py-2 border rounded bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-white flex-1"
           />
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            value={topicFilter}
+            onChange={(e) => setTopicFilter(e.target.value)}
             className="px-3 py-2 border rounded bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
           >
-            <option value="">Todas las categorías</option>
-            {categories.map((cat, i) => (
+            <option value="">Todos los temas</option>
+            {topics.map((cat, i) => (
               <option key={i} value={cat}>
                 {cat}
               </option>
             ))}
           </select>
           <button
-            onClick={() => fetchPage('/admin/report-queries')}
+            onClick={() => fetchPage()}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
           >
             Buscar
@@ -148,10 +169,10 @@ export default function ReportQueriesIndex() {
             <thead className="bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-300">
               <tr>
                 <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Categoría</th>
-                <th className="px-4 py-2">Pregunta</th>
+                <th className="px-4 py-2">Tema</th>
+                <th className="px-4 py-2">Prompt / Instrucción</th>
                 <th className="px-4 py-2">Componente</th>
-                <th className="px-4 py-2">Activo</th>
+                <th className="px-4 py-2">Disponible</th>
                 <th className="px-4 py-2">IA</th>
                 <th className="px-4 py-2">Creado</th>
               </tr>
@@ -164,6 +185,13 @@ export default function ReportQueriesIndex() {
                 >
                   <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="text-yellow-500 hover:text-yellow-400"
+                        title="Editar"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => duplicate(item.id)}
                         className="text-blue-500 hover:text-blue-400"
@@ -180,8 +208,8 @@ export default function ReportQueriesIndex() {
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-2">{item.category}</td>
-                  <td className="px-4 py-2 max-w-md truncate">{item.question}</td>
+                  <td className="px-4 py-2">{item.topic}</td>
+                  <td className="px-4 py-2 max-w-md truncate">{item.prompt}</td>
                   <td className="px-4 py-2">{item.component ?? '-'}</td>
                   <td className="px-4 py-2 text-center">
                     <button
@@ -219,7 +247,7 @@ export default function ReportQueriesIndex() {
                     colSpan={7}
                     className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
                   >
-                    No hay reportes disponibles.
+                    No hay entrenamientos configurados.
                   </td>
                 </tr>
               )}
@@ -233,7 +261,7 @@ export default function ReportQueriesIndex() {
             {Array.from({ length: pagination.last_page }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
-                onClick={() => fetchPage(`/admin/report-queries?page=${p}`)}
+                onClick={() => fetchPage(`/admin/ai-trainings?page=${p}`)}
                 className={`px-3 py-1 rounded text-sm font-medium transition ${
                   pagination.current_page === p
                     ? 'bg-blue-600 text-white'
@@ -246,6 +274,14 @@ export default function ReportQueriesIndex() {
           </div>
         )}
       </div>
+
+      {/* 🔹 Modal de creación / edición */}
+      <AITrainingModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={handleSaved}
+        editItem={editItem}
+      />
     </AppLayout>
   );
 }
