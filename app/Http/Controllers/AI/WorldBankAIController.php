@@ -15,7 +15,7 @@ class WorldBankAIController extends Controller
      */
     public function metadata()
     {
-        Log::info("🌍 Cargando metadata WorldBankAIController");
+
 
         // 🔹 Traducciones de los indicadores más comunes
         $translations = [

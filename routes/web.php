@@ -93,7 +93,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
     });
 
-    Route::post('/ai/chat', [AIController::class, 'chat'])->middleware('permission:administrar');
 
 
     Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])

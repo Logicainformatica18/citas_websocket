@@ -11,50 +11,87 @@ use Illuminate\Support\Facades\Log;
 class DashboardAIController extends Controller
 {
     /**
-     * 🎯 Endpoint principal del chat IA
+     * 🎯 Endpoint principal del chat IA (por training_id o texto)
      */
     public function chat(Request $request)
     {
-        $request->validate([
-            'message' => 'required|string',
-        ]);
+        Log::info("💬 [IA Chat] Nueva solicitud", ['payload' => $request->all()]);
 
-        $userMessage = trim($request->message);
-        Log::info("💬 Mensaje recibido del usuario", ['message' => $userMessage]);
+        // =====================================================
+        // 1️⃣ Buscar entrenamiento
+        // =====================================================
+        if ($request->has('training_id')) {
+            // 🔹 Caso directo: usuario seleccionó una sugerencia
+            $training = DB::table('aitrainings')
+                ->where('id', $request->training_id)
+                ->where('is_active', 1)
+                ->first();
 
-        // 1️⃣ Buscar entrenamiento relevante en ai_trainings
-        $training = $this->resolveTraining($userMessage);
+            Log::info("🎯 [IA Chat] Búsqueda por ID", [
+                'training_id' => $request->training_id,
+                'encontrado' => (bool) $training,
+            ]);
+        } else {
+            // 🔹 Caso fallback: usuario escribió texto libre
+            $userMessage = trim($request->get('message', ''));
+            if (!$userMessage) {
+                return response()->json(['message' => '⚠️ Mensaje vacío.'], 400);
+            }
+
+            $normalized = mb_strtolower($userMessage);
+
+            $training = DB::table('aitrainings')
+                ->where('is_active', 1)
+                ->whereRaw('LOWER(prompt) LIKE ?', ['%' . $normalized . '%'])
+                ->first();
+
+            Log::info("🎯 [IA Chat] Búsqueda por texto", [
+                'input' => $normalized,
+                'encontrado' => (bool) $training,
+            ]);
+        }
 
         if (!$training) {
+            Log::warning("⚠️ [IA Chat] No se encontró entrenamiento", [
+                'payload' => $request->all(),
+            ]);
+
             return response()->json([
-                'message' => '🤖 No encontré un entrenamiento relacionado con tu consulta.',
-                'suggestion' => 'Puedes intentar reformular la pregunta o consultar temas de métricas, tendencias o empleabilidad.',
+                'message' => '🤖 No encontré una pregunta registrada que coincida con tu consulta.',
+                'suggestion' => 'Selecciona una pregunta de la lista o revisa tus métricas disponibles.',
             ], 404);
         }
 
-        Log::info("🎯 Entrenamiento detectado", [
-            'topic' => $training->topic,
-            'prompt' => $training->prompt,
+        // =====================================================
+        // 2️⃣ Ejecutar el método indicado en el campo interpreter
+        // =====================================================
+        Log::info("⚙️ [IA Chat] Ejecutando interpreter", [
             'interpreter' => $training->interpreter,
         ]);
 
-        // 2️⃣ Ejecutar el método indicado en el campo interpreter
         $result = $this->executeInterpreter($training->interpreter);
 
         if (!$result) {
+            Log::error("💥 [IA Chat] Error ejecutando interpreter", [
+                'training' => $training,
+            ]);
             return response()->json([
                 'message' => '⚠️ No se pudo ejecutar el controlador asociado a esta consulta.',
                 'training' => $training,
             ], 500);
         }
 
-        // 3️⃣ (Opcional) Generar explicación IA si has_ai_response = 1
+        // =====================================================
+        // 3️⃣ (Opcional) Generar explicación con IA
+        // =====================================================
         $explanation = null;
         if ($training->has_ai_response && $training->explanation_prompt) {
             $explanation = $this->generateExplanation($training->explanation_prompt, $result);
         }
 
-        // 4️⃣ Respuesta final estructurada
+        // =====================================================
+        // 4️⃣ Respuesta final
+        // =====================================================
         return response()->json([
             'topic' => $training->topic,
             'prompt' => $training->prompt,
@@ -65,74 +102,8 @@ class DashboardAIController extends Controller
     }
 
     // =====================================================
-    // 🔍 LOCAL FUNCTIONS
+    // ⚙️ Ejecuta el método indicado en el campo interpreter
     // =====================================================
-
-    /**
-     * 🔎 Busca el entrenamiento más relevante basado en el mensaje del usuario
-     */
-   private function resolveTraining(string $message)
-{
-    Log::info("🧠 [resolveTraining] Iniciando búsqueda de entrenamiento", [
-        'input_message' => $message,
-    ]);
-
-    $messageLower = mb_strtolower($message);
-
-    // 🧩 Extraer palabras clave (sin artículos ni palabras cortas)
-    $keywords = collect(explode(' ', $messageLower))
-        ->map(fn($w) => trim($w))
-        ->reject(fn($w) => strlen($w) < 3)
-        ->values()
-        ->all();
-
-    Log::info("🪄 [resolveTraining] Palabras clave generadas", ['keywords' => $keywords]);
-
-    // 🔍 Consulta
-    $query = DB::table('ai_trainings')
-        ->where('is_active', 1)
-        ->where(function ($q) use ($messageLower, $keywords) {
-            $q->whereRaw('LOWER(prompt) LIKE ?', ["%{$messageLower}%"])
-              ->orWhereRaw('LOWER(description) LIKE ?', ["%{$messageLower}%"]);
-
-            foreach ($keywords as $word) {
-                $q->orWhereRaw('LOWER(prompt) LIKE ?', ["%{$word}%"])
-                  ->orWhereRaw('LOWER(description) LIKE ?', ["%{$word}%"])
-                  ->orWhereRaw("JSON_SEARCH(LOWER(tags), 'one', '%{$word}%') IS NOT NULL");
-            }
-        })
-        ->orderByRaw('CHAR_LENGTH(prompt) ASC');
-
-    // 🧾 Mostrar SQL generado (solo para debugging)
-    Log::debug("🧩 [resolveTraining] SQL generado", [
-        'sql' => $query->toSql(),
-        'bindings' => $query->getBindings(),
-    ]);
-
-    // 🧠 Obtener resultado
-    $training = $query->first();
-
-    if ($training) {
-        Log::info("✅ [resolveTraining] Entrenamiento encontrado", [
-            'id' => $training->id ?? null,
-            'topic' => $training->topic ?? null,
-            'prompt' => $training->prompt ?? null,
-        ]);
-    } else {
-        Log::warning("⚠️ [resolveTraining] No se encontró coincidencia para el mensaje", [
-            'input_message' => $message,
-            'keywords' => $keywords,
-        ]);
-    }
-
-    return $training;
-}
-
-
-    /**
-     * ⚙️ Ejecuta el controlador indicado en el campo interpreter
-     * Ejemplo: MetricsDashboardController@globalAlignment
-     */
     private function executeInterpreter(?string $interpreter)
     {
         if (!$interpreter || !str_contains($interpreter, '@')) {
@@ -169,9 +140,9 @@ class DashboardAIController extends Controller
         }
     }
 
-    /**
-     * 💬 Genera una explicación natural del resultado usando OpenAI
-     */
+    // =====================================================
+    // 🧠 Explicación natural con OpenAI (opcional)
+    // =====================================================
     private function generateExplanation(string $promptTemplate, $data): ?string
     {
         $apiKey = env('OPENAI_API_KEY');
@@ -210,4 +181,21 @@ class DashboardAIController extends Controller
             return null;
         }
     }
+    public function suggestions(Request $request)
+    {
+        $query = mb_strtolower($request->get('q', ''));
+
+        $results = DB::table('aitrainings')
+            ->where('is_active', 1)
+            ->where('topic', 'Métricas y monitoreo')
+            ->when($query, function ($q) use ($query) {
+                $q->whereRaw('LOWER(prompt) LIKE ?', ['%' . $query . '%']);
+            })
+            ->select('id', 'prompt', 'description', 'component', 'interpreter')
+            ->limit(6)
+            ->get();
+
+        return response()->json(['suggestions' => $results]);
+    }
+
 }

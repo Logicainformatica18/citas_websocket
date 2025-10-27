@@ -11,13 +11,13 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        Log::info("📊 Cargando DashboardController@index");
+
 
         // 🔹 Datos iniciales para los cards
         try {
            // $workmode = app(WorkModeAIController::class)->index()->getData(true);
-            
-            
+
+
         } catch (\Throwable $e) {
             Log::error("❌ Error obteniendo datos iniciales en Dashboard", [
                 'error' => $e->getMessage(),

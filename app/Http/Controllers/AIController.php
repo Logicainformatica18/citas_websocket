@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 use App\Models\ChatHistory;
 use App\Models\ReportQuery;
 
+use Illuminate\Support\Facades\DB;
+
+
 class AIController extends Controller
 {
     public function chat(Request $request)
@@ -58,6 +61,48 @@ class AIController extends Controller
             'message'     => $aiResponse,
         ]);
     }
+/**
+ * 💡 Devuelve 3 preguntas sugeridas aleatorias del bloque "Métricas y monitoreo"
+ */
+/**
+ * ⚡ Devuelve sugerencias en tiempo real (autocompletado tipo YouTube)
+ */
+public function suggestions(Request $request)
+{
+    $search = mb_strtolower(trim($request->get('q', '')));
+
+    $query = DB::table('aitrainings')
+        ->where('is_active', 1)
+        ->where('topic', 'Métricas y monitoreo');
+
+    // Si el usuario está escribiendo, filtramos
+    if ($search !== '') {
+        $query->where(function ($q) use ($search) {
+            $q->whereRaw('LOWER(prompt) LIKE ?', ["%{$search}%"])
+              ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"]);
+        });
+    } else {
+        // Si no escribió nada, mostramos 3 sugerencias aleatorias
+        $query->inRandomOrder()->limit(3);
+    }
+
+    $trainings = $query->get([
+        'id',
+        'topic',
+        'prompt',
+        'description',
+        'interpreter',
+        'component',
+    ]);
+
+    return response()->json([
+        'timestamp' => now()->toDateTimeString(),
+        'count' => $trainings->count(),
+        'suggestions' => $trainings,
+    ]);
+}
+
+
 
     /**
      * 🧠 Encuentra la pregunta que más se parece a lo que escribió el usuario

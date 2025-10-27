@@ -22,6 +22,9 @@ use App\Http\Controllers\AI\Metrics\CareerLanguageAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\CareerTechnologyAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\CareerMethodologyAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\MetricsDashboardController;
+use App\Http\Controllers\AI\DashboardAIController;
+use App\Http\Controllers\AIController;
+
 
 
 
@@ -179,4 +182,8 @@ Route::prefix('ai/metrics')->group(function () {
     Route::get('/career-improvement', [MetricsDashboardController::class, 'careerImprovement']);
 });
 
+
+Route::get('/ai/suggestions', [DashboardAIController::class, 'suggestions']);
+
+Route::post('/ai/chat', [DashboardAIController::class, 'chat']);
 });

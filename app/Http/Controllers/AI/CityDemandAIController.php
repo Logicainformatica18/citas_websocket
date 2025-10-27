@@ -58,9 +58,7 @@ class CityDemandAIController extends Controller
         $startDate  = $request->get('start_date');
         $endDate    = $request->get('end_date');
 
-        Log::info("📩 [CityDemandAIController@getData] Parámetros", compact(
-            'year', 'zoom', 'sources', 'countries', 'modalities', 'quarter', 'startDate', 'endDate'
-        ));
+
 
         // 🔹 Base: ignora ubicaciones remotas para el mapa
         $query = JobOffer::query()

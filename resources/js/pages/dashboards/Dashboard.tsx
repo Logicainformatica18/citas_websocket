@@ -16,6 +16,7 @@ import EmploymentRequestChart from "./components/EmploymentRequestChart";
 import LanguageMetricsIndex from "./components/Metrics/CareerLanguageIndex";
 import CareerTechnologyAlignmentCard from "./components/Metrics/CareerTechnologyAlignmentCard";
 import CareerMethodologyAlignmentCard from "./components/Metrics/CareerMethodologyAlignmentCard";
+import DynamicAIWidget from "./components/DashboardAI/DynamicAIWidget";
 
 
 import AiChat from "./components/AiChat";
@@ -63,10 +64,15 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                 {/* 🔹 Fondo dinámico de partículas */}
                 <BackgroundParticles />
 
+
+
+
+
+
                 {/* 🔹 Contenido principal sobre el fondo */}
                 <div className="relative p-4 overflow-y-auto space-y-4 z-10">
                     <DashboardProvider>
-
+  <DynamicAIWidget />
 {/* <div className="grid grid-cols-3 gap-3">
   <MetricCard metric="global-alignment" />
   <MetricCard metric="ai-integration" />

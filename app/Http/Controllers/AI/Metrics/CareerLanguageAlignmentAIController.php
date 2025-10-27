@@ -154,7 +154,7 @@ CROSS JOIN promedio_global pg
                 $groupBy, $groupBy, $groupBy, $groupBy // CASE params
             ];
 
-            Log::info('📊 Ejecutando getData', compact('sql', 'params'));
+           
 
            $results = DB::select($sql, [
     $startDate, $endDate,

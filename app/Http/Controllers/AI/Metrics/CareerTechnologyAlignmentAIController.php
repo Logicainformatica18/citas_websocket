@@ -146,7 +146,7 @@ CROSS JOIN promedio_global pg
 
             $sql = $this->buildQuery($careerIds, $groupBy);
 
-            Log::info('📊 Ejecutando getData (tecnologías)', compact('sql'));
+
 
             $results = DB::select($sql, [
                 $startDate, $endDate,
