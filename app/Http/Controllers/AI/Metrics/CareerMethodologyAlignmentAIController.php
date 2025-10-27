@@ -86,12 +86,13 @@ class CareerMethodologyAlignmentAIController extends Controller
                 mp.empleos_previos,
                 pg.promedio_empleos,
                 $periodCase AS periodo
-            FROM careers c
-            JOIN career_course cc ON cc.career_id = c.id
-            JOIN course_methodology cm ON cm.course_id = cc.course_id
-            LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
-            LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
-            CROSS JOIN promedio_global pg
+          FROM careers c
+LEFT JOIN career_course cc ON cc.career_id = c.id
+LEFT JOIN course_methodology cm ON cm.course_id = cc.course_id
+LEFT JOIN metricas_filtradas mf ON mf.methodology_id = cm.methodology_id
+LEFT JOIN metricas_previas mp ON mp.methodology_id = cm.methodology_id
+CROSS JOIN promedio_global pg
+
             WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
               AND c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
         )

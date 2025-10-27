@@ -86,12 +86,13 @@ private function buildQuery($careerIds = [], $groupBy = 'week')
             mp.empleos_previos,
             pg.promedio_empleos,
             $periodCase AS periodo
-        FROM careers c
-        JOIN career_course cc ON cc.career_id = c.id
-        JOIN course_language cl ON cl.course_id = cc.course_id
-        LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
-        LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
-        CROSS JOIN promedio_global pg
+       FROM careers c
+LEFT JOIN career_course cc ON cc.career_id = c.id
+LEFT JOIN course_language cl ON cl.course_id = cc.course_id
+LEFT JOIN metricas_filtradas mf ON mf.language_id = cl.language_id
+LEFT JOIN metricas_previas mp ON mp.language_id = cl.language_id
+CROSS JOIN promedio_global pg
+
         WHERE c.name NOT LIKE '%Diseño y Desarrollo de Videojuegos%'
           AND c.name NOT LIKE '%Diseño de Medios Interactivos (UX)%'
     )

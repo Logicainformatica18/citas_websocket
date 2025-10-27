@@ -90,9 +90,17 @@ export default function CareerCoursesModal({
 
   if (!open) return null;
 
-  const filteredCourses = availableCourses.filter((c) =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+// 🔤 Función utilitaria para eliminar tildes / acentos
+const normalizeText = (text: string) =>
+  text
+    .normalize("NFD") // descompone caracteres con tilde
+    .replace(/[\u0300-\u036f]/g, "") // elimina los diacríticos
+    .toLowerCase();
+
+const filteredCourses = availableCourses.filter((c) =>
+  normalizeText(c.name).includes(normalizeText(searchTerm))
+);
+
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
