@@ -5,31 +5,209 @@ namespace App\Http\Controllers\AI\Metrics;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MetricsDashboardController extends Controller
 {
     /**
      * 📈 Nivel global de alineación del portafolio con tendencias
      */
-    public function globalAlignment()
-    {
-        $avg = DB::table('language_metrics')
+public function globalAlignment()
+{
+    try {
+        // ============================================================
+        // 🎯 1️⃣ Obtener solo métricas vinculadas a carreras activas
+        // ============================================================
+        $languageIds = DB::table('course_language AS cl')
+            ->join('career_course AS cc', 'cc.course_id', '=', 'cl.course_id')
+            ->join('careers AS c', 'c.id', '=', 'cc.career_id')
+            ->where('c.active', 1)
+            ->distinct()
+            ->pluck('cl.language_id');
+
+        $technologyIds = DB::table('course_technology AS ct')
+            ->join('career_course AS cc', 'cc.course_id', '=', 'ct.course_id')
+            ->join('careers AS c', 'c.id', '=', 'cc.career_id')
+            ->where('c.active', 1)
+            ->distinct()
+            ->pluck('ct.technology_id');
+
+        $methodologyIds = DB::table('course_methodology AS cm')
+            ->join('career_course AS cc', 'cc.course_id', '=', 'cm.course_id')
+            ->join('careers AS c', 'c.id', '=', 'cc.career_id')
+            ->where('c.active', 1)
+            ->distinct()
+            ->pluck('cm.methodology_id');
+
+        // ============================================================
+        // 🧠 2️⃣ Calcular promedios base por dimensión (evita nulls)
+        // ============================================================
+
+        // 🔹 Lenguajes
+        $avgLangJobs = DB::table('language_metrics')
+            ->whereIn('language_id', $languageIds)
+            ->avg('jobs_found_count') ?? 0;
+
+        $avgLang = DB::table('language_metrics')
+            ->whereIn('language_id', $languageIds)
             ->avg(DB::raw("
                 100 * (
                     0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
-                    0.35 * (CASE WHEN jobs_found_count > 0 THEN LEAST(jobs_found_count / (SELECT AVG(jobs_found_count) FROM language_metrics), 1) ELSE 0 END) +
-                    0.15 * (JSON_LENGTH(countries_breakdown) / 5) +
+                    0.35 * (CASE WHEN {$avgLangJobs} > 0 THEN LEAST(jobs_found_count / {$avgLangJobs}, 1) ELSE 0 END) +
+                    0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
                     0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
                 )
-            "));
+            ")) ?? 0;
 
+        // 🔹 Tecnologías
+        $avgTechJobs = DB::table('technology_metrics')
+            ->whereIn('technology_id', $technologyIds)
+            ->avg('jobs_found_count') ?? 0;
+
+        $avgTech = DB::table('technology_metrics')
+            ->whereIn('technology_id', $technologyIds)
+            ->avg(DB::raw("
+                100 * (
+                    0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
+                    0.35 * (CASE WHEN {$avgTechJobs} > 0 THEN LEAST(jobs_found_count / {$avgTechJobs}, 1) ELSE 0 END) +
+                    0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
+                    0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
+                )
+            ")) ?? 0;
+
+        // 🔹 Metodologías
+        $avgMethJobs = DB::table('methodology_metrics')
+            ->whereIn('methodology_id', $methodologyIds)
+            ->avg('jobs_found_count') ?? 0;
+
+        $avgMeth = DB::table('methodology_metrics')
+            ->whereIn('methodology_id', $methodologyIds)
+            ->avg(DB::raw("
+                100 * (
+                    0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
+                    0.35 * (CASE WHEN {$avgMethJobs} > 0 THEN LEAST(jobs_found_count / {$avgMethJobs}, 1) ELSE 0 END) +
+                    0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
+                    0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
+                )
+            ")) ?? 0;
+
+        // ============================================================
+        // ⚖️ 3️⃣ Promedio ponderado global del portafolio ISIL
+        // ============================================================
+        $global = round(
+            (0.4 * $avgLang) + (0.4 * $avgTech) + (0.2 * $avgMeth),
+            2
+        );
+
+        // ============================================================
+        // 🏆 4️⃣ Top 3 por dimensión (solo carreras activas)
+        // ============================================================
+        $topLanguages = DB::table('language_metrics')
+            ->whereIn('language_id', $languageIds)
+            ->select('language_name as name', DB::raw("
+                ROUND(AVG(
+                    100 * (
+                        0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
+                        0.35 * (CASE WHEN {$avgLangJobs} > 0 THEN LEAST(jobs_found_count / {$avgLangJobs}, 1) ELSE 0 END) +
+                        0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
+                        0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
+                    )
+                ),2) as score
+            "))
+            ->groupBy('language_name')
+            ->orderByDesc('score')
+            ->limit(3)
+            ->pluck('name');
+
+        $topTechnologies = DB::table('technology_metrics')
+            ->whereIn('technology_id', $technologyIds)
+            ->select('technology_name as name', DB::raw("
+                ROUND(AVG(
+                    100 * (
+                        0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
+                        0.35 * (CASE WHEN {$avgTechJobs} > 0 THEN LEAST(jobs_found_count / {$avgTechJobs}, 1) ELSE 0 END) +
+                        0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
+                        0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
+                    )
+                ),2) as score
+            "))
+            ->groupBy('technology_name')
+            ->orderByDesc('score')
+            ->limit(3)
+            ->pluck('name');
+
+        $topMethodologies = DB::table('methodology_metrics')
+            ->whereIn('methodology_id', $methodologyIds)
+            ->select('methodology_name as name', DB::raw("
+                ROUND(AVG(
+                    100 * (
+                        0.35 * (CASE WHEN jobs_found_count > 0 THEN 1 ELSE 0 END) +
+                        0.35 * (CASE WHEN {$avgMethJobs} > 0 THEN LEAST(jobs_found_count / {$avgMethJobs}, 1) ELSE 0 END) +
+                        0.15 * LEAST(JSON_LENGTH(countries_breakdown) / 5, 1) +
+                        0.15 * (CASE WHEN jobs_new_count > 0 THEN 1 ELSE 0 END)
+                    )
+                ),2) as score
+            "))
+            ->groupBy('methodology_name')
+            ->orderByDesc('score')
+            ->limit(3)
+            ->pluck('name');
+
+        // ============================================================
+        // 📊 5️⃣ Respuesta final enriquecida
+        // ============================================================
         return response()->json([
             'metric' => 'global_alignment',
-            'label' => 'Nivel de alineación global',
-            'value' => round($avg, 2),
-            'unit' => '%'
+            'label' => 'Nivel de alineación global del portafolio académico ISIL',
+            'unit' => '%',
+            'value' => round($global, 2),
+            'has_data' => ($avgLang + $avgTech + $avgMeth) > 0,
+            'by_dimension' => [
+                'languages' => round($avgLang, 2),
+                'technologies' => round($avgTech, 2),
+                'methodologies' => round($avgMeth, 2),
+            ],
+            'insights' => [
+                'dominant_dimension' => collect([
+                    'languages' => $avgLang,
+                    'technologies' => $avgTech,
+                    'methodologies' => $avgMeth,
+                ])->sortDesc()->keys()->first(),
+                'lowest_dimension' => collect([
+                    'languages' => $avgLang,
+                    'technologies' => $avgTech,
+                    'methodologies' => $avgMeth,
+                ])->sort()->keys()->first(),
+                'top_languages' => $topLanguages,
+                'top_technologies' => $topTechnologies,
+                'top_methodologies' => $topMethodologies,
+            ],
+            'meta' => [
+                'year' => now()->year,
+                'timestamp' => now()->toDateTimeString(),
+                'records' => [
+                    'languages' => DB::table('language_metrics')->whereIn('language_id', $languageIds)->count(),
+                    'technologies' => DB::table('technology_metrics')->whereIn('technology_id', $technologyIds)->count(),
+                    'methodologies' => DB::table('methodology_metrics')->whereIn('methodology_id', $methodologyIds)->count(),
+                ],
+            ],
         ]);
+
+    } catch (\Throwable $e) {
+        Log::error('💥 [globalAlignment] Error calculando alineación global', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'error' => 'No se pudo calcular la alineación global del portafolio académico.',
+            'details' => $e->getMessage(),
+        ], 500);
     }
+}
+
+
+
 
     /**
      * 🤖 Porcentaje de cursos que integran IA
@@ -117,7 +295,7 @@ class MetricsDashboardController extends Controller
     {
         $data = DB::select("
             SELECT c.name AS carrera,
-                   ROUND(AVG(lm.jobs_found_count) - 
+                   ROUND(AVG(lm.jobs_found_count) -
                          (SELECT AVG(jobs_found_count)
                           FROM language_metrics
                           WHERE YEAR(run_date) = YEAR(CURDATE()) - 1), 2) AS mejora

@@ -206,7 +206,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             <div className="fixed bottom-20 right-6 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-xl w-[400px] h-[500px] z-50 flex flex-col">
                                 <div className="flex justify-between items-center p-2 border-b border-gray-700 bg-gray-800 rounded-t-lg">
                                     <h4 className="text-sm font-semibold text-blue-400">
-                                        💬 Asistente IA
+                                        💬 Vera IA
                                     </h4>
                                     <button
                                         onClick={() => setShowChat(false)}

@@ -1,23 +1,31 @@
-import { useEffect } from "react";
 import { ResponsiveContainer, RadialBarChart, RadialBar } from "recharts";
 
 type Props = {
-  data: {
-    value: number;
-    label: string;
-    unit: string;
+  data?: {
+    value?: number;
+    label?: string;
+    unit?: string;
   };
 };
 
 export default function AlignmentGauge({ data }: Props) {
-  const chartData = [{ name: data.label, value: data.value }];
+  const value = data?.value ?? 0; // valor seguro por defecto
+  const label = data?.label ?? "Alineación Global";
+  const unit = data?.unit ?? "%";
+
+  const chartData = [{ name: label, value }];
 
   return (
     <div className="bg-gray-800 p-4 rounded-xl shadow-lg text-center">
-      <h3 className="text-sm text-gray-400 mb-2">{data.label}</h3>
+      <h3 className="text-sm text-gray-400 mb-2">{label}</h3>
+
       <div className="flex justify-center items-center">
         <ResponsiveContainer width={200} height={200}>
-          <RadialBarChart innerRadius="80%" outerRadius="100%" data={chartData}>
+          <RadialBarChart
+            innerRadius="80%"
+            outerRadius="100%"
+            data={chartData}
+          >
             <RadialBar
               minAngle={15}
               clockWise
@@ -28,8 +36,9 @@ export default function AlignmentGauge({ data }: Props) {
           </RadialBarChart>
         </ResponsiveContainer>
       </div>
+
       <p className="text-2xl font-semibold text-blue-400 mt-2">
-        {data.value.toFixed(1)} {data.unit}
+        {value.toFixed(1)} {unit}
       </p>
     </div>
   );

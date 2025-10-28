@@ -6,7 +6,7 @@ import { useDashboard } from "../DashboardContext";
 import { Send } from "lucide-react";
 
 type Message = {
-  from: "user" | "ai";
+  from: "user" | "ai" | "error";
   text: string;
 };
 
@@ -18,9 +18,12 @@ type Suggestion = {
   component?: string;
 };
 
-export default function AiChat() {
+function AiChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { from: "ai", text: "👋 Hola, soy VERA. ¿Qué información deseas analizar hoy?" },
+    {
+      from: "ai",
+      text: "👋 Hola, soy **VERA**, tu analista del Observatorio de Empleabilidad ISIL. ¿Qué información deseas analizar hoy?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,23 +35,60 @@ export default function AiChat() {
 
   const { updateDashboard } = useDashboard();
 
-  // 🎨 Colores por tipo de tópico
-  const colorByTopic: Record<string, string> = {
-    "Métricas y monitoreo": "bg-blue-600",
-    "Obsolescencia": "bg-red-600",
-    "Alineación": "bg-indigo-600",
-    "Crecimiento": "bg-green-600",
+  // 🎨 Colores según tipo de mensaje
+  const colorByRole: Record<Message["from"], string> = {
+    user: "bg-gray-600 text-white self-end ml-auto",
+    ai: "bg-blue-600 text-white self-start",
+    error: "bg-red-600 text-white self-start",
   };
 
-  // 💾 Mantener historial del chat entre sesiones
-  useEffect(() => {
-    const saved = localStorage.getItem("veraChatHistory");
-    if (saved) setMessages(JSON.parse(saved));
-  }, []);
+  // 🧠 Generar o recuperar session_id persistente por navegador
+  const [sessionId] = useState(() => {
+    let id = sessionStorage.getItem("veraSessionId");
+    if (!id) {
+      const generateUUID = () =>
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : "xxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === "x" ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            });
+      id = generateUUID();
+      sessionStorage.setItem("veraSessionId", id);
+    }
+    return id;
+  });
 
-  useEffect(() => {
-    localStorage.setItem("veraChatHistory", JSON.stringify(messages));
-  }, [messages]);
+// 🧠 Cargar historial real desde el backend (solo 5 últimos)
+useEffect(() => {
+  axios
+    .get("/api/ai/chat/history", {
+      headers: { "X-Session-ID": sessionId },
+    })
+    .then((res) => {
+      const serverMessages = res.data?.messages || [];
+      if (serverMessages.length > 0) {
+        setMessages([
+          {
+            from: "ai",
+            text: "🧠 Historial cargado desde el Observatorio IA (últimos mensajes).",
+          },
+          ...serverMessages,
+        ]);
+      }
+    })
+    .catch((err) => {
+      console.error("❌ Error cargando historial del chat:", err);
+      setMessages([
+        {
+          from: "ai",
+          text: "👋 Hola, soy **VERA**, tu analista del Observatorio de Empleabilidad ISIL. ¿Qué información deseas analizar hoy?",
+        },
+      ]);
+    });
+}, [sessionId]);
+
 
   // =====================================================
   // 🚀 Enviar mensaje o ejecutar entrenamiento seleccionado
@@ -61,53 +101,76 @@ export default function AiChat() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
-    setTypingText("");
-    setSuggestions([]);
-    setShowSuggestions(false);
+    setTypingText("Pensando...");
 
     try {
       const payload = trainingId
         ? { training_id: trainingId }
         : { message: textToSend };
 
-      console.log("📤 Enviando payload al backend:", payload);
+      const res = await axios.post("/api/ai/chat", payload, {
+        headers: { "X-Session-ID": sessionId },
+      });
 
-      const res = await axios.post("/api/ai/chat", payload);
       const data = res.data;
 
+      // ✅ Caso 1: entrenamiento detectado
       if (data.topic && data.result) {
-        let explanationText = `📊 **${data.prompt}**\n\n`;
-        explanationText += data.explanation
-          ? `${data.explanation}`
-          : "✅ Consulta procesada correctamente.";
+        // Guardar resultado para contexto
+        sessionStorage.setItem("veraLastResult", JSON.stringify(data.result));
 
-        setMessages((prev) => [...prev, { from: "ai", text: explanationText }]);
+        // Primer mensaje (confirmación de ejecución)
+        setMessages((prev) => [
+          ...prev,
+          { from: "ai", text: `📘 **${data.prompt}**` },
+        ]);
 
-        // Mostrar explicación IA adicional si existe
+        // Segundo mensaje (explicación IA)
         if (data.explanation) {
           setMessages((prev) => [
             ...prev,
-            { from: "ai", text: `💬 **Explicación IA:**\n\n${data.explanation}` },
+            { from: "ai", text: data.explanation },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { from: "ai", text: "✅ Consulta procesada correctamente, pero no se generó explicación adicional." },
           ]);
         }
 
-        // Actualizar dashboard
+        // Actualiza dashboard visual
         updateDashboard(data.result, data.topic, data.component ?? null);
-      } else if (data.message || data.suggestion) {
-        const text = data.message ?? `💡 ${data.suggestion}`;
-        setMessages((prev) => [...prev, { from: "ai", text }]);
+      }
+      // 💬 Caso 2: GPT contextual (sin entrenamiento)
+      else if (data.suggestion) {
+        setMessages((prev) => [
+          ...prev,
+          { from: "ai", text: data.suggestion },
+        ]);
+      }
+      // ⚠️ Caso 3: Mensaje simple o fallback
+      else if (data.message) {
+        setMessages((prev) => [
+          ...prev,
+          { from: "ai", text: data.message },
+        ]);
       } else {
         setMessages((prev) => [
           ...prev,
-          { from: "ai", text: "⚠️ No se encontró un entrenamiento asociado a tu pregunta." },
+          { from: "error", text: "⚠️ No se encontró un entrenamiento asociado a tu pregunta." },
         ]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error al conectar con IA:", error);
-      setMessages((prev) => [
-        ...prev,
-        { from: "ai", text: "⚠️ Error al conectar con el servidor o la IA." },
-      ]);
+      let msg = "⚠️ Error al conectar con el servidor o la IA.";
+      if (error.response?.status === 401)
+        msg = "🔒 Sesión no autorizada. Inicia sesión nuevamente.";
+      if (error.response?.status === 403)
+        msg = "🚫 Acceso prohibido. Verifica permisos o CSRF.";
+      if (error.response?.status === 500)
+        msg = "💥 Error interno en el servidor.";
+
+      setMessages((prev) => [...prev, { from: "error", text: msg }]);
     } finally {
       setLoading(false);
       setTypingText("");
@@ -115,7 +178,7 @@ export default function AiChat() {
   };
 
   // =====================================================
-  // 🧠 Autocompletado: buscar sugerencias en tiempo real
+  // 🧠 Autocompletado: sugerencias en tiempo real
   // =====================================================
   const fetchSuggestions = async (query: string) => {
     try {
@@ -154,38 +217,34 @@ export default function AiChat() {
   // =====================================================
   return (
     <Card className="bg-gray-800 h-full flex flex-col border border-gray-700 rounded-lg shadow-lg">
+      {/* ============================== */}
+      {/* 🧠 HISTORIAL DEL CHAT */}
+      {/* ============================== */}
       <CardContent className="p-4 flex-1 overflow-y-auto space-y-3 relative">
-        {/* Mensajes del chat */}
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`p-3 rounded-lg max-w-[80%] whitespace-pre-wrap prose prose-invert ${
-              m.from === "ai"
-                ? `${colorByTopic["Métricas y monitoreo"] || "bg-blue-600"} text-white self-start`
-                : "bg-gray-600 text-white self-end ml-auto"
+            className={`p-3 rounded-lg max-w-[80%] whitespace-pre-wrap prose prose-invert break-words ${
+              colorByRole[m.from]
             }`}
           >
             <ReactMarkdown>{m.text}</ReactMarkdown>
           </div>
         ))}
 
-        {/* Animación typing */}
+        {/* 💬 Animación "escribiendo" */}
         {(typingText || loading) && (
-          <div className="p-3 rounded-lg max-w-[80%] bg-blue-600 text-white self-start prose prose-invert">
-            {typingText || (
-              <div className="flex space-x-1">
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce" />
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-150" />
-                <span className="w-2 h-2 bg-white rounded-full animate-bounce delay-300" />
-              </div>
-            )}
+          <div className="p-3 rounded-lg max-w-[80%] bg-blue-600 text-white self-start prose prose-invert animate-pulse">
+            {typingText || "Analizando..."}
           </div>
         )}
 
         <div ref={chatEndRef} />
       </CardContent>
 
-      {/* Input + botón */}
+      {/* ============================== */}
+      {/* ⌨️ INPUT Y BOTÓN DE ENVÍO */}
+      {/* ============================== */}
       <div className="relative p-3 border-t border-gray-700 flex flex-col gap-2">
         <div className="relative w-full">
           <input
@@ -198,27 +257,32 @@ export default function AiChat() {
           />
 
           {/* 🔽 Lista de sugerencias (autocompletado) */}
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && (
             <div className="absolute bottom-12 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-h-[220px] overflow-y-auto z-50">
-              {suggestions.map((sug) => (
-                <div
-                  key={sug.id}
-                  onClick={() => {
-                    setInput(sug.prompt);
-                    setShowSuggestions(false);
-                    handleSend(sug.prompt, sug.id); // ✅ envía con ID
-                  }}
-                  className="px-3 py-2 text-sm hover:bg-blue-600 cursor-pointer text-white transition"
-                >
-                  {sug.prompt}
+              {suggestions.length > 0 ? (
+                suggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    onClick={() => {
+                      setInput(sug.prompt);
+                      setShowSuggestions(false);
+                      handleSend(sug.prompt, sug.id);
+                    }}
+                    className="px-3 py-2 text-sm hover:bg-blue-600 cursor-pointer text-white transition"
+                  >
+                    {sug.prompt}
+                    {sug.description && (
+                      <div className="text-gray-400 text-xs">
+                        {sug.description}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400 text-sm p-3">
+                  No hay coincidencias
                 </div>
-              ))}
-            </div>
-          )}
-
-          {showSuggestions && suggestions.length === 0 && (
-            <div className="absolute bottom-12 left-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full text-gray-400 text-sm p-3">
-              No hay coincidencias
+              )}
             </div>
           )}
         </div>
@@ -235,3 +299,5 @@ export default function AiChat() {
     </Card>
   );
 }
+
+export default AiChat;

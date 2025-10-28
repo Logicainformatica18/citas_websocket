@@ -186,4 +186,5 @@ Route::prefix('ai/metrics')->group(function () {
 Route::get('/ai/suggestions', [DashboardAIController::class, 'suggestions']);
 
 Route::post('/ai/chat', [DashboardAIController::class, 'chat']);
+Route::get('/ai/chat/history', [DashboardAIController::class, 'history']);
 });
