@@ -202,24 +202,8 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             <MessageCircle size={24} />
                         </button>
 
-                        {showChat && (
-                            <div className="fixed bottom-20 right-6 bg-[#1f1f1f] border border-gray-700 rounded-lg shadow-xl w-[400px] h-[500px] z-50 flex flex-col">
-                                <div className="flex justify-between items-center p-2 border-b border-gray-700 bg-gray-800 rounded-t-lg">
-                                    <h4 className="text-sm font-semibold text-blue-400">
-                                        💬 Vera IA
-                                    </h4>
-                                    <button
-                                        onClick={() => setShowChat(false)}
-                                        className="text-gray-400 hover:text-white"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-2">
-                                    <AiChat />
-                                </div>
-                            </div>
-                        )}
+                       {showChat && <AiChat />}
+
                     </DashboardProvider>
                 </div>
             </div>
