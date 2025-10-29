@@ -16,5 +16,6 @@ class Language extends Model
     return $this->belongsTo(SemanticContext::class, 'context_id');
 }
 
+
 }
 

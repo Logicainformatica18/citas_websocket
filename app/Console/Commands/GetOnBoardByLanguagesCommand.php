@@ -30,7 +30,14 @@ class GetOnBoardByLanguagesCommand extends Command
     public function handle()
     {
         $pages = (int) $this->option('pages');
-        $languages = Language::pluck('name', 'id');
+  $languages = Language::whereIn('id', function ($q) {
+    $q->select('course_language.language_id')
+        ->from('course_language')
+        ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+})
+->pluck('name', 'id');
+
+
 
         $this->info("🔎 Iniciando scraping de GetOnBoard por lenguaje ({$languages->count()} lenguajes)...");
 
@@ -170,9 +177,9 @@ $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin
             if ($lat && $lng) return [$city, $lat, $lng];
         }
 
-        if (!$country || !isset($this->capitalMap[$country])) {
-            return ['Lima', -12.0464, -77.0428];
-        }
+        // if (!$country || !isset($this->capitalMap[$country])) {
+        //     return ['', -0, -0];
+        // }
 
         $capital = $this->capitalMap[$country];
         return [$capital['city'], $capital['lat'], $capital['lng']];

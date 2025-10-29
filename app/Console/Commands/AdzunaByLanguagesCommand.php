@@ -57,7 +57,14 @@ class AdzunaByLanguagesCommand extends Command
     {
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
-        $languages = Language::pluck('name', 'id');
+       $languages = Language::whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+            ->from('course_language')
+            ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->pluck('name', 'id');
+
+
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');

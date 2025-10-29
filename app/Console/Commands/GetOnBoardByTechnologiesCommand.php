@@ -162,9 +162,7 @@ class GetOnBoardByTechnologiesCommand extends Command
             if ($lat && $lng) return [$city, $lat, $lng];
         }
 
-        if (!$country || !isset($this->capitalMap[$country])) {
-            return ['Lima', -12.0464, -77.0428];
-        }
+
 
         $capital = $this->capitalMap[$country];
         return [$capital['city'], $capital['lat'], $capital['lng']];

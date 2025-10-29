@@ -55,7 +55,14 @@ class ArbeitnowByLanguagesCommand extends Command
 
     public function handle()
     {
-        $languages = Language::pluck('name', 'id');
+       $languages = Language::select('languages.id', 'languages.name', 'languages.search_context')
+    ->whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+            ->from('course_language')
+            ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->get();
+
         $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
 
         foreach ($languages as $languageId => $languageName) {

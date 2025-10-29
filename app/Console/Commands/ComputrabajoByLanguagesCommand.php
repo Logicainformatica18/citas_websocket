@@ -33,7 +33,13 @@ class ComputrabajoByLanguagesCommand extends Command
 
     public function handle()
     {
-       $languages = Language::select('id', 'name', 'search_context')->get();
+     $languages = Language::select('languages.id', 'languages.name', 'languages.search_context')
+    ->whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+            ->from('course_language')
+            ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->get();
 
         $pages = (int) $this->option('pages');
 
