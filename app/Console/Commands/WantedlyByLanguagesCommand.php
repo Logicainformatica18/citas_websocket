@@ -14,42 +14,45 @@ use Carbon\Carbon;
 class WantedlyByLanguagesCommand extends Command
 {
     protected $signature = 'wantedly:languages {--pages=1} {--lang=es}';
-    protected $description = '🇯🇵 Importa ofertas laborales desde Wantedly (Japón/Singapur) por lenguaje, traduciendo al español o inglés, con detección de modalidad estandarizada.';
+    protected $description = '🇯🇵 Importa ofertas desde Wantedly (JP/SG) por lenguaje, con traducción automática, modalidad estandarizada y geolocalización.';
 
     protected $stats = [
-        'api_hits'  => 0,
-        'fallback'  => 0,
-        'mapped'    => 0,
-        'skipped'   => 0,
-        'translated'=> 0,
+        'api_hits'   => 0,
+        'fallback'   => 0,
+        'mapped'     => 0,
+        'skipped'    => 0,
+        'translated' => 0,
     ];
+
+    protected static array $translationCache = []; // ✅ cache temporal
 
     protected $capitalMap = [
         'jp' => ['city' => 'Tokio', 'lat' => 35.6895, 'lng' => 139.6917],
         'sg' => ['city' => 'Singapur', 'lat' => 1.3521, 'lng' => 103.8198],
     ];
-protected function detectCountryFromCity(?string $city): string
-{
-    $city = strtolower(trim($city ?? ''));
 
-    return match (true) {
-        str_contains($city, 'singapore'),
-        str_contains($city, 'singapur') => 'singapur',
+    protected function detectCountryFromCity(?string $city): string
+    {
+        $city = strtolower(trim($city ?? ''));
 
-        str_contains($city, 'tokyo'),
-        str_contains($city, 'osaka'),
-        str_contains($city, 'nagoya'),
-        str_contains($city, 'japan'),
-        str_contains($city, 'japón') => 'japon',
+        return match (true) {
+            str_contains($city, 'singapore'),
+            str_contains($city, 'singapur') => 'sg',
 
-        default => 'jp', // 🇯🇵 valor por defecto si no se reconoce la ciudad
-    };
-}
+            str_contains($city, 'tokyo'),
+            str_contains($city, 'osaka'),
+            str_contains($city, 'nagoya'),
+            str_contains($city, 'japan'),
+            str_contains($city, 'japón') => 'jp',
+
+            default => 'jp',
+        };
+    }
 
     public function handle()
     {
         $pages = (int) $this->option('pages');
-        $targetLang = strtolower($this->option('lang'));
+        $targetLang = strtolower($this->option('lang', 'es'));
 
         $languages = Language::whereIn('languages.id', function ($q) {
             $q->select('course_language.language_id')
@@ -57,7 +60,7 @@ protected function detectCountryFromCity(?string $city): string
                 ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
         })->pluck('name', 'id');
 
-        $this->info("🌏 Iniciando importación desde Wantedly (JP/SG) con traducción a [{$targetLang}] y modalidades estandarizadas...");
+        $this->info("🌏 Importando desde Wantedly (JP/SG) → traduciendo a [{$targetLang}] ...");
 
         foreach ($languages as $languageId => $languageName) {
             $this->warn("\n💡 Procesando lenguaje: {$languageName}");
@@ -71,7 +74,7 @@ protected function detectCountryFromCity(?string $city): string
                 try {
                     $response = Http::timeout(25)->get($url);
                     if ($response->failed()) {
-                        $this->error("❌ Error al consultar API (página {$page})");
+                        $this->error("❌ Error en página {$page}");
                         continue;
                     }
 
@@ -79,23 +82,20 @@ protected function detectCountryFromCity(?string $city): string
                     $totalFound += count($results);
 
                     foreach ($results as $job) {
-                        $title   = $job['title'] ?? 'N/A';
+                        $title = $job['title'] ?? 'N/A';
                         $company = $job['company']['name'] ?? null;
-                        $urlJob  = "https://www.wantedly.com/projects/" . ($job['id'] ?? '');
-                        $desc    = $job['description'] ?? '';
-                     $city = $job['location'] ?? 'Tokyo';
-$countryCode = $this->detectCountryFromCity($city);
-
+                        $desc = $job['description'] ?? '';
+                        $city = $job['location'] ?? 'Tokyo';
+                        $countryCode = $this->detectCountryFromCity($city);
+                        $urlJob = "https://www.wantedly.com/projects/" . ($job['id'] ?? '');
                         $published = isset($job['published_at']) ? Carbon::parse($job['published_at']) : now();
 
-                        // 🧭 Detección de modalidad según reglas estándar
-                        $modality = $this->detectModality($title, $desc, $city);
-
-                        // ⚠️ Evitar duplicados
+                        // Evitar duplicados
                         if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) continue;
 
-                        // 🌍 Coordenadas
+                        $modality = $this->detectModality($title, $desc, $city);
                         [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
+
                         if (!$latitude || !$longitude) {
                             $capital = $this->capitalMap[$countryCode];
                             $city = $capital['city'];
@@ -104,10 +104,11 @@ $countryCode = $this->detectCountryFromCity($city);
                             $this->stats['fallback']++;
                         }
 
-                        // 🌐 Traducción gratuita con LibreTranslate
-        $titleTranslated = $this->translateText($title, 'auto', $targetLang);
-$descTranslated = $this->translateText($desc, 'auto', $targetLang);
+                        // 🌐 Traducción con control de frecuencia
+                        if ($this->stats['translated'] % 5 === 0) usleep(800000);
 
+                        $titleTranslated = $this->translateText($title, 'auto', $targetLang);
+                        $descTranslated = $this->translateText($desc, 'auto', $targetLang);
 
                         JobOffer::create([
                             'title'            => $title,
@@ -137,21 +138,19 @@ $descTranslated = $this->translateText($desc, 'auto', $targetLang);
                         $this->stats['translated']++;
                     }
 
-                    sleep(1.5);
+                    sleep(1);
                 } catch (\Throwable $e) {
                     Log::error("⚠️ Error en {$languageName} (página {$page}): " . $e->getMessage());
                     $this->error("❌ {$languageName}: " . $e->getMessage());
                 }
             }
 
-            // 📊 Registrar métricas diarias
             $today = now()->toDateString();
-            $existsToday = LanguageMetric::whereDate('run_date', $today)
+            if (!LanguageMetric::whereDate('run_date', $today)
                 ->where('language_id', $languageId)
                 ->where('source', 'Wantedly')
-                ->exists();
+                ->exists()) {
 
-            if (!$existsToday) {
                 LanguageMetric::create([
                     'language_id'        => $languageId,
                     'language_name'      => $languageName,
@@ -164,43 +163,29 @@ $descTranslated = $this->translateText($desc, 'auto', $targetLang);
                 ]);
             }
 
-            $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas | Modalidades: " . json_encode($modalities));
+            $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
         }
 
         $this->newLine();
         $this->info("🎯 Proceso completado:");
         $this->line("   🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("   🛰️ Geocodificadas API: {$this->stats['api_hits']}");
-        $this->line("   🏙️ Fallbacks (capital): {$this->stats['fallback']}");
+        $this->line("   🛰️ Geocodificadas: {$this->stats['api_hits']}");
+        $this->line("   🏙️ Fallbacks: {$this->stats['fallback']}");
         $this->line("   💬 Traducciones: {$this->stats['translated']}");
     }
 
-    /**
-     * Detección estandarizada de modalidad
-     */
     protected function detectModality(string $title, string $description, ?string $city = null): string
     {
         $text = strtolower($title . ' ' . $description . ' ' . ($city ?? ''));
-
         return match (true) {
             str_contains($text, '完全リモート'),
             str_contains($text, 'full remote'),
             str_contains($text, 'work from anywhere'),
-            str_contains($text, '完全在宅'),
             str_contains($text, '100% remote'),
             str_contains($text, 'fully remote') => 'fully_remote',
-
             str_contains($text, 'リモート可'),
-            str_contains($text, 'remote possible'),
-            str_contains($text, 'partly remote'),
-            str_contains($text, '一部リモート'),
-            str_contains($text, 'hybrid') => 'hybrid',
-
-            str_contains($text, 'local remote'),
-            str_contains($text, 'within city'),
-            str_contains($text, '地域限定リモート'),
-            str_contains($text, 'remote local') => 'remote_local',
-
+            str_contains($text, 'hybrid'),
+            str_contains($text, 'partly remote') => 'hybrid',
             default => 'no_remote',
         };
     }
@@ -223,7 +208,6 @@ $descTranslated = $this->translateText($desc, 'auto', $targetLang);
                 return [$city, $lat, $lng];
             }
         }
-
         return [$city, null, null];
     }
 
@@ -245,41 +229,70 @@ $descTranslated = $this->translateText($desc, 'auto', $targetLang);
         } catch (\Throwable $th) {
             Log::warning("🌍 Error geocodificando {$city}, {$country}: " . $th->getMessage());
         }
-
         return [null, null];
     }
 
     /**
-     * Traducción automática gratuita (LibreTranslate)
+     * 🌐 Traducción robusta con cache, mirrors y control de rate
      */
-public function translateText(string $text, string $from = 'auto', string $to = 'es'): string
-{
-    if (empty(trim($text))) return '';
+    public function translateText(string $text, string $from = 'auto', string $to = 'es'): string
+    {
+        if (empty(trim($text))) return '';
 
-    $text = mb_substr(strip_tags($text), 0, 2000);
-    $text = str_replace(["\r", "\n", "\t"], ' ', $text);
+        $text = strip_tags($text);
+        $text = preg_replace('/[\x{1F600}-\x{1F64F}]/u', '', $text);
+        $text = str_replace(["\r", "\n", "\t"], ' ', $text);
+        $text = mb_substr($text, 0, 500);
 
-    try {
-        $url = "https://api.mymemory.translated.net/get?q=" . urlencode($text) . "&langpair={$from}|{$to}";
-        $res = Http::timeout(15)->get($url);
+        $key = md5($text . $from . $to);
+        if (isset(self::$translationCache[$key])) return self::$translationCache[$key];
 
-        if ($res->ok()) {
-            $translated = $res->json('responseData.translatedText') ?? '';
-            if (!empty(trim($translated)) && $translated !== $text) {
-                Log::info("✅ Traducción MyMemory correcta");
-                return trim($translated);
+        $mirrors = [
+            'https://api.mymemory.translated.net/get',
+            'https://translate.astian.org/translate',
+            'https://libretranslate.com/translate',
+        ];
+
+        foreach ($mirrors as $endpoint) {
+            try {
+                if (str_contains($endpoint, 'mymemory')) {
+                    $keyParam = env('MYMEMORY_API_KEY');
+                    $url = "{$endpoint}?q=" . urlencode($text) . "&langpair={$from}|{$to}";
+                    if ($keyParam) $url .= "&de={$keyParam}";
+
+                    $res = Http::retry(2, 1000)->timeout(20)->get($url);
+                    if ($res->ok()) {
+                        $translated = html_entity_decode(
+                            $res->json('responseData.translatedText') ?? '',
+                            ENT_QUOTES | ENT_HTML5,
+                            'UTF-8'
+                        );
+                        if (!empty($translated) && strtolower($translated) !== strtolower($text)) {
+                            Log::info("✅ Traducción MyMemory OK");
+                            return self::$translationCache[$key] = trim($translated);
+                        }
+                    }
+                } else {
+                    $res = Http::retry(2, 1000)->timeout(20)->post($endpoint, [
+                        'q' => $text,
+                        'source' => $from,
+                        'target' => $to,
+                        'format' => 'text',
+                    ]);
+                    if ($res->ok() && isset($res->json()['translatedText'])) {
+                        $translated = $res->json()['translatedText'];
+                        if (!empty($translated) && strtolower($translated) !== strtolower($text)) {
+                            Log::info("✅ Traducción LibreTranslate OK");
+                            return self::$translationCache[$key] = trim($translated);
+                        }
+                    }
+                }
+            } catch (\Throwable $th) {
+                Log::warning("⚠️ Error traduciendo con {$endpoint}: " . $th->getMessage());
             }
         }
-    } catch (\Throwable $e) {
-        Log::warning("⚠️ Falla MyMemory: " . $e->getMessage());
+
+        Log::warning("⚠️ No se pudo traducir: devolviendo original");
+        return self::$translationCache[$key] = $text;
     }
-
-    Log::warning("⚠️ No se pudo traducir (devolviendo original)");
-    return $text;
-}
-
-
-
-
-
 }

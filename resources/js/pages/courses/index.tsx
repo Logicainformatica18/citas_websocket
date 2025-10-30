@@ -46,6 +46,39 @@ export default function CoursesIndex() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Course | null>(null);
+const [searchTerm, setSearchTerm] = useState('');
+const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+
+useEffect(() => {
+  if (typingTimeout) clearTimeout(typingTimeout);
+
+  // Espera 600 ms desde la última tecla antes de buscar
+  const timeout = setTimeout(async () => {
+    if (searchTerm.trim() === '') {
+      // Si está vacío, recarga lista inicial
+      fetchPage('/courses');
+      return;
+    }
+
+    try {
+      const res = await axios.get('/courses/search', { params: { name: searchTerm } });
+      const pager = res.data?.courses ?? res.data;
+      setItems(pager?.data ?? []);
+      setPagination({
+        data: pager?.data ?? [],
+        current_page: pager?.current_page ?? 1,
+        last_page: pager?.last_page ?? 1,
+        next_page_url: pager?.next_page_url ?? null,
+        prev_page_url: pager?.prev_page_url ?? null,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }, 600);
+
+  setTypingTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [searchTerm]);
 
   useEffect(() => {
     setItems(initialPagination.data);
@@ -129,6 +162,16 @@ export default function CoursesIndex() {
             </button>
           )}
         </div>
+{/* 🔍 Búsqueda en tiempo real */}
+<div className="mb-6">
+  <input
+    type="text"
+    placeholder="Buscar curso..."
+    className="w-full md:w-1/2 px-3 py-2 border rounded shadow-sm focus:ring focus:ring-blue-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+  />
+</div>
 
         {/* Tabla */}
         <div className="overflow-x-auto">

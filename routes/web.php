@@ -127,6 +127,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/job-offers/import', [JobOfferController::class, 'import'])
         ->name('job-offers.import')
         ->middleware('permission:administrar');
+Route::get('/courses/search', [CourseController::class, 'search'])->name('courses.search');
 
     Route::get('/courses/fetch', [CourseController::class, 'index'])
         ->name('courses.fetch')

@@ -75,6 +75,43 @@ public function listAll()
         $course = Course::with(['languages', 'technologies', 'methodologies'])->findOrFail($id);
         return response()->json(['course' => $course]);
     }
+public function search(Request $request)
+{
+    $query = Course::with(['languages', 'technologies', 'methodologies'])
+        ->when($request->filled('name'), function ($q) use ($request) {
+            $q->where('name', 'like', '%' . $request->name . '%');
+        })
+        ->when($request->filled('language_id'), function ($q) use ($request) {
+            $q->whereHas('languages', function ($sub) use ($request) {
+                $sub->where('languages.id', $request->language_id);
+            });
+        })
+        ->when($request->filled('technology_id'), function ($q) use ($request) {
+            $q->whereHas('technologies', function ($sub) use ($request) {
+                $sub->where('technologies.id', $request->technology_id);
+            });
+        })
+        ->when($request->filled('methodology_id'), function ($q) use ($request) {
+            $q->whereHas('methodologies', function ($sub) use ($request) {
+                $sub->where('methodologies.id', $request->methodology_id);
+            });
+        })
+        ->orderBy('name', 'asc')
+        ->paginate(10);
+
+    // Si se pide JSON (por API/AJAX)
+    if ($request->wantsJson()) {
+        return response()->json([
+            'courses' => $query,
+        ]);
+    }
+
+    // Si se usa con Inertia
+    return Inertia::render('courses/index', [
+        'courses' => $query,
+        'filters' => $request->only(['name', 'language_id', 'technology_id', 'methodology_id']),
+    ]);
+}
 
     public function update(Request $request, $id)
     {

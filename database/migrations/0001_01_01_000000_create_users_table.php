@@ -7,6 +7,21 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+ * ⚙️ NOTA DE COMPATIBILIDAD (MySQL ↔ MariaDB)
+ * ---------------------------------------------------------------
+ * Evitamos usar la collation `utf8mb4_uca1400_ai_ci` porque solo
+ * existe en MySQL 8.0.30+ y NO está soportada en MariaDB 10.x–12.x.
+ *
+ * En su lugar, usamos `utf8mb4_unicode_ci`, que mantiene
+ * compatibilidad total entre ambos motores sin alterar
+ * comparaciones ni ordenamiento de texto en español.
+ *
+ * Si exportas estructuras desde MySQL 8, recuerda reemplazar:
+ *     utf8mb4_uca1400_ai_ci → utf8mb4_unicode_ci
+ * antes de importar en entornos con MariaDB.
+ */
+
+    /**
      * Run the migrations.
      */
     public function up(): void
