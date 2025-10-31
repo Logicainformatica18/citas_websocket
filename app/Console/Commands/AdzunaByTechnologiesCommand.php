@@ -59,7 +59,13 @@ class AdzunaByTechnologiesCommand extends Command
     {
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
-        $technologies = Technology::pluck('name', 'id');
+        $technologies = Technology::whereIn('technologies.id', function ($q) {
+    $q->select('course_technology.technology_id')
+        ->from('course_technology')
+        ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+})
+->pluck('name', 'id');
+
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
