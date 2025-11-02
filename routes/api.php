@@ -24,6 +24,7 @@ use App\Http\Controllers\AI\Metrics\CareerMethodologyAlignmentAIController;
 use App\Http\Controllers\AI\Metrics\MetricsDashboardController;
 use App\Http\Controllers\AI\DashboardAIController;
 use App\Http\Controllers\AIController;
+use App\Http\Controllers\AI\AITrainingController;
 
 
 
@@ -184,7 +185,9 @@ Route::prefix('ai/metrics')->group(function () {
 
 
 Route::get('/ai/suggestions', [DashboardAIController::class, 'suggestions']);
-
+Route::post('/ai/training/start', [AITrainingController::class, 'startTraining']);
+    Route::post('/ai/training/test', [AITrainingController::class, 'testSql']);
+    Route::post('/ai/training/finalize', [AITrainingController::class, 'finalizeTraining']);
 Route::post('/ai/chat', [DashboardAIController::class, 'chat']);
 Route::get('/ai/chat/history', [DashboardAIController::class, 'history']);
 

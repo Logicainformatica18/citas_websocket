@@ -19,7 +19,7 @@ import CareerMethodologyAlignmentCard from "./components/Metrics/CareerMethodolo
 import DynamicAIWidget from "./components/DashboardAI/DynamicAIWidget";
 
 
-import AiChat from "./components/AiChat";
+import AiChatView from "./components/AiChat/AiChatView";
 import MetricsChart from "./components/MetricsChart";
 import { DashboardProvider } from "./DashboardContext";
 import { MessageCircle } from "lucide-react";
@@ -202,7 +202,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             <MessageCircle size={24} />
                         </button>
 
-                       {showChat && <AiChat />}
+                       {showChat && <AiChatView />}
 
                     </DashboardProvider>
                 </div>

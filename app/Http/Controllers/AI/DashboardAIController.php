@@ -47,7 +47,7 @@ class DashboardAIController extends Controller
         // ============================
         $training = null;
 
- 
+
 
 // 🧠 Buscar por ID o texto
 if ($request->has('training_id')) {
@@ -89,6 +89,22 @@ if ($training && !$forceNew && !empty($training->cached_response)) {
         // ============================
         // 3️⃣ Si no hay entrenamiento → GPT contextual
         // ============================
+        // ============================
+// ⚡ 2.5️⃣ Si el modo es "train" → redirigir a entrenamiento SQL
+// ============================
+if ($request->get('mode') === 'train') {
+    Log::info("🎓 [AI TRAINING] Iniciando entrenamiento SQL", ['message' => $userMessage]);
+
+    try {
+        // Internamente llamamos al método del controlador de entrenamiento
+        $controller = app(\App\Http\Controllers\AI\AITrainingController::class);
+        return $controller->startTraining($request);
+    } catch (\Throwable $e) {
+        Log::error("💥 [AI TRAINING] Error al iniciar entrenamiento", ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'No se pudo iniciar entrenamiento.'], 500);
+    }
+}
+
         if (!$training) {
             Log::info("🔎 [IA Chat] No se encontró entrenamiento, modo contextual GPT.");
 
@@ -139,14 +155,19 @@ if ($training && !$forceNew && !empty($training->cached_response)) {
                 }
 
 
-                return response()->json([
-                    'message' => '💬 Respuesta generada por VERA (modo contextual)',
-                    'suggestion' => $aiText,
-                ]);
-            } catch (\Throwable $e) {
-                Log::error("💥 Error en GPT contextual", ['error' => $e->getMessage()]);
-                return response()->json(['message' => '⚠️ Error en modo contextual.'], 500);
-            }
+               return response()->json([
+    'message' => $aiText, // ← la respuesta REAL de GPT
+    'mode'    => 'contextual',
+]);
+
+           } catch (\Throwable $e) {
+    Log::error("💥 Error en GPT contextual", [
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+    ]);
+    return response()->json(['message' => '⚠️ Error en modo contextual.'], 500);
+}
+
         }
 
         // ============================
@@ -155,7 +176,7 @@ if ($training && !$forceNew && !empty($training->cached_response)) {
         Log::info("⚙️ [IA Chat] Ejecutando interpreter", ['interpreter' => $training->interpreter]);
 
         $result = $this->executeInterpreter($training->interpreter);
-       
+
         if (!$result) {
             return response()->json(['message' => '⚠️ No se pudo ejecutar el controlador asociado.'], 500);
         }
