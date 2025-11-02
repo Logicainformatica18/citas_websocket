@@ -27,7 +27,7 @@ function AiChat() {
     const { updateDashboard } = useDashboard();
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
-const [forceNew, setForceNew] = useState(false);
+    const [forceNew, setForceNew] = useState(false);
 
     // 📩 Estado de mensajes
     const [messages, setMessages] = useState<Message[]>([
@@ -49,14 +49,108 @@ const [forceNew, setForceNew] = useState(false);
     });
 
     const chatRef = useRef<HTMLDivElement | null>(null);
-useEffect(() => {
-  const saved = localStorage.getItem("veraForceNew");
-  if (saved) setForceNew(JSON.parse(saved));
-}, []);
 
-useEffect(() => {
-  localStorage.setItem("veraForceNew", JSON.stringify(forceNew));
-}, [forceNew]);
+
+    // === NUEVOS ESTADOS ===
+    const [recording, setRecording] = useState(false);
+    const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const [processingAudio, setProcessingAudio] = useState(false);
+
+    // 🎙️ Iniciar grabación de voz
+    const startRecording = async () => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setMessages((prev) => [
+      ...prev,
+      { from: "error", text: "🎙️ Tu navegador no permite grabar audio." },
+    ]);
+    return;
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mediaRecorder = new MediaRecorder(stream);
+  const chunks: BlobPart[] = [];
+
+  mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+  if (processingAudio) return; // 🛑 Evita duplicados
+  setProcessingAudio(true);
+
+  const blob = new Blob(chunks, { type: "audio/webm" });
+  const formData = new FormData();
+  formData.append("audio", blob, "voz.webm");
+
+  setMessages((prev) => [
+    ...prev,
+    { from: "ai", text: "🎙️ Transcribiendo tu audio..." },
+  ]);
+
+  try {
+    const res = await axios.post("/api/ai/voice/transcribe", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    const text = res.data.text || "";
+    if (text) {
+      handleSend(text);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { from: "error", text: "⚠️ No se detectó voz." },
+      ]);
+    }
+  } catch (err) {
+    setMessages((prev) => [
+      ...prev,
+      { from: "error", text: "💥 Error al transcribir audio." },
+    ]);
+  } finally {
+    setProcessingAudio(false);
+  }
+};
+
+
+  mediaRecorder.start();
+  setRecorder(mediaRecorder);
+  setRecording(true);
+};
+
+
+    // 🛑 Detener grabación
+    const stopRecording = () => {
+        recorder?.stop();
+        setRecording(false);
+    };
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selected = e.target.files?.[0];
+        if (!selected) return;
+        setFile(selected);
+
+        const formData = new FormData();
+        formData.append("file", selected);
+        formData.append("prompt", "Analiza el contenido de este archivo");
+
+        const res = await axios.post("/api/ai/file/analyze", formData);
+        const data = res.data;
+        setMessages((prev) => [
+            ...prev,
+            { from: "user", text: `📎 Archivo enviado: ${selected.name}` },
+            { from: "ai", text: data.analysis },
+        ]);
+    };
+    const speak = async (text: string) => {
+        const res = await axios.post("/api/ai/voice/speak", { text });
+        new Audio(res.data.url).play();
+    };
+
+    useEffect(() => {
+        const saved = localStorage.getItem("veraForceNew");
+        if (saved) setForceNew(JSON.parse(saved));
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem("veraForceNew", JSON.stringify(forceNew));
+    }, [forceNew]);
 
     // 💾 Guardar tamaño cuando cambie
     useEffect(() => {
@@ -173,9 +267,9 @@ useEffect(() => {
         setTypingText("Pensando...");
 
         try {
-           const payload = trainingId
-  ? { training_id: trainingId, force_new: forceNew }
-  : { message: textToSend, force_new: forceNew };
+            const payload = trainingId
+                ? { training_id: trainingId, force_new: forceNew }
+                : { message: textToSend, force_new: forceNew };
 
             const res = await axios.post("/api/ai/chat", payload, { headers: { "X-Session-ID": sessionId } });
             const data = res.data;
@@ -283,6 +377,15 @@ useEffect(() => {
                             >
                                 {m.text}
                             </ReactMarkdown>
+                            {m.from === "ai" && (
+                                <button
+                                    onClick={() => speak(m.text)}
+                                    className="mt-1 text-xs text-blue-300 hover:text-blue-100 transition"
+                                >
+                                    🔊 Escuchar
+                                </button>
+                            )}
+
                         </div>
                     </div>
 
@@ -339,23 +442,28 @@ useEffect(() => {
                         </div>
                     )}
                 </div>
-<div
-  onClick={() => setForceNew(!forceNew)}
-  className={`relative w-10 h-5 rounded-full cursor-pointer transition ${
-    forceNew ? "bg-blue-600" : "bg-gray-500"
-  }`}
->
-  <div
-    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-      forceNew ? "translate-x-5" : "translate-x-0"
-    }`}
+                <div
+                    onClick={() => setForceNew(!forceNew)}
+                    className={`relative w-10 h-5 rounded-full cursor-pointer transition ${forceNew ? "bg-blue-600" : "bg-gray-500"
+                        }`}
+                >
+                    <div
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${forceNew ? "translate-x-5" : "translate-x-0"
+                            }`}
+                    >
+
+
+                    </div>
+                </div>
+                <span className="text-sm text-gray-300 ml-2">🔄 Forzar nueva respuesta</span>
+  {/* 🎙️ Botón de voz */}
+  <button
+    onClick={recording ? stopRecording : startRecording}
+    className={`p-2 rounded ${recording ? "bg-red-600" : "bg-blue-600"} hover:bg-blue-700 text-white`}
+    title={recording ? "Detener grabación" : "Hablar con VERA"}
   >
-
-    
-  </div>
-</div>
-<span className="text-sm text-gray-300 ml-2">🔄 Forzar nueva respuesta</span>
-
+    {recording ? "⏹️" : "🎤"}
+  </button>
 
                 <button
                     onClick={() => handleSend()}
@@ -365,7 +473,7 @@ useEffect(() => {
                     <Send className="w-4 h-4" />
                     Enviar
                 </button>
-                
+
             </div>
 
             {/* 🪟 Handle de redimensionamiento */}

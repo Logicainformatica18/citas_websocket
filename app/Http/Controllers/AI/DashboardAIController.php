@@ -392,4 +392,99 @@ if ($training) {
 
         return response()->json(['suggestions' => $results]);
     }
+    // ==========================================================
+// 🎙️ 1️⃣ Transcribir audio a texto (voz → texto)
+// ==========================================================
+public function transcribe(Request $request)
+{
+    if (!$request->hasFile('audio')) {
+        return response()->json(['error' => 'No se recibió ningún archivo de audio'], 400);
+    }
+
+    $path = $request->file('audio')->getRealPath();
+
+    try {
+        $response = Http::withToken(env('OPENAI_API_KEY'))
+            ->attach('file', fopen($path, 'r'), 'voz.webm')
+            ->post('https://api.openai.com/v1/audio/transcriptions', [
+                'model' => 'gpt-4o-mini-transcribe',
+                'language' => 'es',
+            ]);
+
+        return response()->json([
+            'text' => $response->json('text') ?? 'No se pudo transcribir correctamente.',
+        ]);
+    } catch (\Throwable $e) {
+        Log::error('💥 Error al transcribir audio', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'Error al procesar audio'], 500);
+    }
+}
+// ==========================================================
+// 🗣️ 2️⃣ Generar voz desde texto (texto → voz)
+// ==========================================================
+public function speak(Request $request)
+{
+    $text = $request->input('text', 'Hola Anthony, soy VERA respondiendo con voz.');
+
+    try {
+        $response = Http::withToken(env('OPENAI_API_KEY'))->post(
+            'https://api.openai.com/v1/audio/speech',
+            [
+                'model' => 'gpt-4o-mini-tts',
+                'voice' => 'alloy',
+                'input' => $text,
+            ]
+        );
+
+        $file = 'vera_reply_' . time() . '.mp3';
+        $path = storage_path("app/public/{$file}");
+        file_put_contents($path, $response->body());
+
+        return response()->json(['url' => asset("storage/{$file}")]);
+    } catch (\Throwable $e) {
+        Log::error('💥 Error al generar voz', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'No se pudo generar audio'], 500);
+    }
+}
+// ==========================================================
+// 📎 3️⃣ Analizar archivo (PDF, imagen, etc.) con GPT-4o
+// ==========================================================
+public function analyzeFile(Request $request)
+{
+    if (!$request->hasFile('file')) {
+        return response()->json(['error' => 'No se recibió ningún archivo'], 400);
+    }
+
+    $file = $request->file('file');
+    $path = $file->store('uploads', 'public');
+    $url = asset('storage/' . $path);
+
+    $instruction = $request->input('prompt', 'Analiza este archivo y explica su contenido.');
+
+    try {
+        $response = Http::withToken(env('OPENAI_API_KEY'))->post('https://api.openai.com/v1/responses', [
+            'model' => 'gpt-4o-mini',
+            'input' => [[
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => $instruction],
+                    ['type' => 'input_file', 'file_url' => $url],
+                ],
+            ]],
+        ]);
+
+        $output = $response->json('output.0.content.0.text') ??
+                  $response->json('content.0.text') ??
+                  'No se obtuvo respuesta válida.';
+
+        return response()->json([
+            'analysis' => $output,
+            'file_url' => $url,
+        ]);
+    } catch (\Throwable $e) {
+        Log::error('💥 Error al analizar archivo', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'No se pudo analizar el archivo.'], 500);
+    }
+}
+
 }

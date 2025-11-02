@@ -187,4 +187,10 @@ Route::get('/ai/suggestions', [DashboardAIController::class, 'suggestions']);
 
 Route::post('/ai/chat', [DashboardAIController::class, 'chat']);
 Route::get('/ai/chat/history', [DashboardAIController::class, 'history']);
+
+
+
+    Route::post('ai/voice/transcribe', [DashboardAIController::class, 'transcribe']);
+    Route::post('ai/voice/speak', [DashboardAIController::class, 'speak']);
+    Route::post('ai/file/analyze', [DashboardAIController::class, 'analyzeFile']);
 });
