@@ -198,20 +198,62 @@ try {
     save: false, // 👈 genera pero no guarda aún
   });
 
-  const { message, ai_response, excel_path, voice_url } = finalizeRes.data;
+const { message, ai_response, excel_path, voice_url } = finalizeRes.data;
 
-  setMessages((prev) => [
-    ...prev,
-    { from: "ai", text: message },
-    { from: "ai", text: ai_response },
-    ...(excel_path ? [{ from: "ai", text: `📊 [Descargar resultados en Excel](${excel_path})` }] : []),
-    ...(voice_url ? [{ from: "ai", text: `🔊 [Reproducir explicación en voz](${voice_url})` }] : []),
-    {
-      from: "ai",
-      text: "💾 ¿Deseas guardar este entrenamiento?",
-      saveIntent: { sql_training_id: data.sql_training_id, prompt: textToSend },
-    },
-  ]);
+// 🧠 1️⃣ Mostrar todos los mensajes generados
+const newMessages: Message[] = [
+  { from: "ai", text: message },
+  { from: "ai", text: ai_response },
+  ...(excel_path ? [{ from: "ai", text: `📊 [Descargar resultados en Excel](${excel_path})` }] : []),
+  ...(voice_url ? [{ from: "ai", text: `🔊 [Reproducir explicación en voz](${voice_url})` }] : []),
+  {
+    from: "ai",
+    text: "💾 ¿Deseas guardar este entrenamiento?",
+    saveIntent: { sql_training_id: data.sql_training_id, prompt: textToSend },
+  },
+];
+setMessages((prev) => [...prev, ...newMessages]);
+
+// 🗣️ 2️⃣ Reproducir voz automática (si está activa)
+if (voiceEnabled) {
+  try {
+    // si el backend ya devolvió una voz
+    if (voice_url) {
+      const audio = new Audio(voice_url);
+      audio.crossOrigin = "anonymous";
+      audio.volume = 1.0;
+      audio.play().catch((err) => {
+        console.warn("🔇 Autoplay bloqueado (voz_url):", err.message);
+      });
+    }
+    // si no vino audio, generarlo desde el texto
+    else if (ai_response) {
+      const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
+      const ttsUrl = ttsRes.data?.url;
+      if (ttsUrl) {
+        const audio = new Audio(ttsUrl);
+        audio.crossOrigin = "anonymous";
+        audio.volume = 1.0;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn("🔇 Autoplay bloqueado (train):", err.message);
+            setMessages((prev) => [
+              ...prev,
+              {
+                from: "ai",
+                text: `🔊 [Haz clic aquí para escuchar la explicación](${ttsUrl})`,
+              },
+            ]);
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Error generando voz en entrenamiento:", err);
+  }
+}
+
 } catch (err: any) {
   console.error("💥 Error finalizando entrenamiento:", err);
   const msg =
@@ -235,16 +277,21 @@ try {
       // ===========================================
       // 💬 CHAT NORMAL
       // ===========================================
-      const payload = trainingId
-        ? { training_id: trainingId, force_new: forceNew }
-        : { message: textToSend, force_new: forceNew };
+    // ===========================================
+// 💬 CHAT NORMAL (adaptado con voz automática)
+// ===========================================
+const payload = trainingId
+  ? { training_id: trainingId, force_new: forceNew }
+  : { message: textToSend, force_new: forceNew };
 
-      res = await axios.post("/api/ai/chat", payload, {
-        headers: { "X-Session-ID": sessionId },
-      });
+res = await axios.post("/api/ai/chat", payload, {
+  headers: { "X-Session-ID": sessionId },
+});
 
-      const data = res.data;
-      if (data.topic && data.result) {
+const data = res.data;
+
+// 🧠 Si el backend devuelve datos estructurados (dashboard)
+if (data.topic && data.result) {
   updateDashboard(data.result, data.topic, data.component ?? null);
 
   const newMessages: Message[] = [
@@ -252,7 +299,7 @@ try {
     { from: "ai", text: data.explanation ?? "✅ Consulta procesada correctamente." },
   ];
 
-  // 📊 Si el backend devolvió Excel
+  // 📊 Excel si existe
   if (data.excel_path) {
     newMessages.push({
       from: "ai",
@@ -260,26 +307,99 @@ try {
     });
   }
 
-  // 🔊 Si el backend devolvió audio
+  // 🔊 Si el backend devuelve voz directa
   if (data.voice_url) {
     newMessages.push({
       from: "ai",
       text: `🔊 [Reproducir explicación en voz](${data.voice_url})`,
     });
 
-    // 🗣️ Reproduce automáticamente si está activado
     if (voiceEnabled) {
-      new Audio(data.voice_url).play().catch(() => {});
+      const audio = new Audio(data.voice_url);
+      audio.crossOrigin = "anonymous";
+      audio.volume = 1.0;
+      audio.play().catch(err =>
+        console.warn("🔇 Autoplay bloqueado (voz_url):", err.message)
+      );
     }
   }
 
-  setMessages((prev) => [...prev, ...newMessages]);
-}
-else if (data.message) {
-        setMessages(prev => [...prev, { from: "ai", text: data.message }]);
-      } else {
-        setMessages(prev => [...prev, { from: "error", text: "⚠️ No se encontró un entrenamiento asociado." }]);
+  // 📩 Añadir mensajes al chat
+  setMessages(prev => [...prev, ...newMessages]);
+
+  // 🗣️ Generar TTS si no vino voice_url
+  const textForVoice =
+    data.explanation || data.message || data.prompt || "Respuesta generada correctamente.";
+
+  if (voiceEnabled && textForVoice && !data.voice_url) {
+    try {
+      const ttsRes = await axios.post("/api/ai/voice/speak", { text: textForVoice });
+      const voiceUrl = ttsRes.data?.url;
+      if (voiceUrl) {
+        const audio = new Audio(voiceUrl);
+        audio.crossOrigin = "anonymous";
+        audio.volume = 1.0;
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn("🔇 Autoplay bloqueado (tts):", err.message);
+            setMessages(prev => [
+              ...prev,
+              {
+                from: "ai",
+                text: `🔊 [Haz clic aquí para escuchar la voz](${voiceUrl})`,
+              },
+            ]);
+          });
+        }
       }
+    } catch (err) {
+      console.warn("⚠️ Error generando voz TTS:", err);
+    }
+  }
+}
+// 🧩 Si solo viene texto plano
+else if (data.message) {
+  setMessages(prev => [...prev, { from: "ai", text: data.message }]);
+
+  // 🔊 Generar voz también en respuestas simples
+  if (voiceEnabled && data.message) {
+    try {
+      const ttsRes = await axios.post("/api/ai/voice/speak", { text: data.message });
+      const voiceUrl = ttsRes.data?.url;
+      if (voiceUrl) {
+        const audio = new Audio(voiceUrl);
+        audio.crossOrigin = "anonymous";
+        audio.volume = 1.0;
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn("🔇 Autoplay bloqueado (simple):", err.message);
+            setMessages(prev => [
+              ...prev,
+              {
+                from: "ai",
+                text: `🔊 [Haz clic aquí para escuchar la voz](${voiceUrl})`,
+              },
+            ]);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("⚠️ Error generando voz simple:", err);
+    }
+  }
+}
+// ⚠️ Si no hay respuesta válida
+else {
+  setMessages(prev => [
+    ...prev,
+    { from: "error", text: "⚠️ No se encontró un entrenamiento asociado." },
+  ]);
+}
+
     }
   } catch (e: any) {
     console.error("💥 Error en handleSend:", e);
