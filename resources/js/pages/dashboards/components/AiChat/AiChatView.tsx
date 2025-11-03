@@ -200,6 +200,27 @@ export default function AiChatView() {
         >
           <Volume2 size={14} /> Voz
         </button>
+        {/* 🎧 Controles de reproducción */}
+{logic.voiceEnabled && (
+  <div className="flex items-center gap-2 ml-auto">
+    <button
+      onClick={logic.toggleAudioPlayback}
+      className="flex items-center gap-1 px-2 py-1 rounded bg-[#202123] hover:bg-[#2a2b2f] text-gray-300 transition"
+      title={logic.isAudioPlaying ? "Pausar voz" : "Reanudar voz"}
+    >
+      {logic.isAudioPlaying ? "⏸️ Pausar" : "▶️ Reanudar"}
+    </button>
+
+    <button
+      onClick={logic.stopAudio}
+      className="flex items-center gap-1 px-2 py-1 rounded bg-[#202123] hover:bg-[#2a2b2f] text-gray-300 transition"
+      title="Detener voz"
+    >
+      ⏹️ Detener
+    </button>
+  </div>
+)}
+
       </div>
 
       {/* INPUT */}
