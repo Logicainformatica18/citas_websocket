@@ -331,33 +331,42 @@ if (data.topic && data.result) {
   const textForVoice =
     data.explanation || data.message || data.prompt || "Respuesta generada correctamente.";
 
-  if (voiceEnabled && textForVoice && !data.voice_url) {
-    try {
-      const ttsRes = await axios.post("/api/ai/voice/speak", { text: textForVoice });
-      const voiceUrl = ttsRes.data?.url;
-      if (voiceUrl) {
-        const audio = new Audio(voiceUrl);
-        audio.crossOrigin = "anonymous";
-        audio.volume = 1.0;
-        const playPromise = audio.play();
+  // 🗣️ 2️⃣ Reproducir voz (solo una vez)
+if (voiceEnabled) {
+  try {
+    let audioUrl = voice_url;
 
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.warn("🔇 Autoplay bloqueado (tts):", err.message);
-            setMessages(prev => [
-              ...prev,
-              {
-                from: "ai",
-                text: `🔊 [Haz clic aquí para escuchar la voz](${voiceUrl})`,
-              },
-            ]);
-          });
-        }
-      }
-    } catch (err) {
-      console.warn("⚠️ Error generando voz TTS:", err);
+    // Si backend no devolvió voz, generarla
+    if (!audioUrl && ai_response) {
+      const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
+      audioUrl = ttsRes.data?.url;
     }
+
+    // Reproduce solo una vez
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.crossOrigin = "anonymous";
+      audio.volume = 1.0;
+      const playPromise = audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("🔇 Autoplay bloqueado (voz):", err.message);
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "ai",
+              text: `🔊 [Haz clic aquí para escuchar la explicación](${audioUrl})`,
+            },
+          ]);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Error generando voz en entrenamiento:", err);
   }
+}
+
 }
 // 🧩 Si solo viene texto plano
 else if (data.message) {
@@ -525,11 +534,41 @@ const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
     ]);
 
     // 🔊 Reproduce voz si está activado
-    if (voiceEnabled && voice_url) {
-      new Audio(voice_url).play().catch(() => {});
-    } else if (voiceEnabled && ai_response) {
-      await speak(ai_response);
+   if (voiceEnabled) {
+  try {
+    let audioUrl = voice_url;
+
+    // Si backend no devolvió voz, generarla
+    if (!audioUrl && ai_response) {
+      const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
+      audioUrl = ttsRes.data?.url;
     }
+
+    // Reproduce solo una vez
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.crossOrigin = "anonymous";
+      audio.volume = 1.0;
+      const playPromise = audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn("🔇 Autoplay bloqueado (save):", err.message);
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "ai",
+              text: `🔊 [Haz clic aquí para escuchar la explicación](${audioUrl})`,
+            },
+          ]);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Error reproduciendo voz al guardar:", err);
+  }
+}
+
   } catch (err: any) {
     console.error("💥 Error guardando entrenamiento:", err);
     const msg =

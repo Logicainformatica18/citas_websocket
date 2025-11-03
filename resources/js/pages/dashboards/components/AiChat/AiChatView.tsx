@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -17,85 +17,144 @@ import { useAiChatLogic } from "./useAiChatLogic";
 
 export default function AiChatView() {
   const logic = useAiChatLogic();
+  const [visible, setVisible] = useState(true);
+  const [resizing, setResizing] = useState(false);
+  const resizeRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
+  // 🎨 Colores
   const colorByRole = {
     user: "bg-[#343541] text-white self-end ml-auto",
     ai: "bg-[#444654] text-gray-100 self-start",
     error: "bg-red-700 text-white self-start",
   };
 
+  // 🧱 Redimensionamiento
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: logic.chatSize.width,
+      height: logic.chatSize.height,
+    };
+    setResizing(true);
+  };
+
+  const handleResize = (e: MouseEvent) => {
+    if (!resizing || !resizeRef.current) return;
+    const dx = e.clientX - resizeRef.current.x;
+    const dy = e.clientY - resizeRef.current.y;
+    const newWidth = Math.max(350, resizeRef.current.width + dx);
+    const newHeight = Math.max(420, resizeRef.current.height + dy);
+    logic.setChatSize({ width: newWidth, height: newHeight });
+  };
+
+  const stopResize = () => setResizing(false);
+
+  useEffect(() => {
+    if (resizing) {
+      window.addEventListener("mousemove", handleResize);
+      window.addEventListener("mouseup", stopResize);
+    } else {
+      window.removeEventListener("mousemove", handleResize);
+      window.removeEventListener("mouseup", stopResize);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleResize);
+      window.removeEventListener("mouseup", stopResize);
+    };
+  }, [resizing]);
+
+  // ⚙️ Control externo global (sin eventos duplicados)
+  useEffect(() => {
+    window.vera = {
+      open: () => setVisible(true),
+      close: () => setVisible(false),
+      toggle: () => setVisible((v) => !v),
+      isVisible: () => visible,
+    };
+  }, [visible]);
+
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 shadow-xl border border-[#3f4144] rounded-xl flex flex-col overflow-hidden backdrop-blur-md"
+      className={`fixed bottom-4 right-4 z-50 transition-all duration-300 ease-in-out ${
+        visible ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+      }`}
       style={{
         width: logic.chatSize.width,
         height: logic.chatSize.height,
         backgroundColor: "#202123",
+        border: "1px solid #3f4144",
+        borderRadius: "0.75rem",
+        boxShadow: "0 8px 25px rgba(0,0,0,0.4)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        backdropFilter: "blur(12px)",
       }}
     >
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <div className="flex justify-between items-center px-4 py-2 bg-[#343541] border-b border-[#3f4144]">
-        <div className="flex items-center gap-2 text-gray-200 font-semibold text-sm">
+        <div className="flex items-center gap-2 text-gray-200 font-semibold text-sm cursor-default">
           🤖 VERA <span className="text-xs text-gray-400">| Observatorio ISIL</span>
         </div>
-        <button className="p-1 rounded hover:bg-[#565869] transition text-gray-300 hover:text-white">
+        <button
+          onClick={() => setVisible(false)}
+          className="p-1 rounded hover:bg-[#565869] transition text-gray-300 hover:text-white"
+          title="Cerrar chat"
+        >
           <X size={16} />
         </button>
       </div>
 
-      {/* ================= MENSAJES ================= */}
+      {/* MENSAJES */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-       {logic.messages.map((m, i) => (
-  <div
-    key={i}
-    className={`flex flex-col w-fit max-w-[90%] p-3 rounded-lg shadow-sm whitespace-pre-wrap ${colorByRole[m.from]}`}
-  >
-    <div className="prose prose-invert text-[15px] leading-relaxed">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, rehypeHighlight]}
-        components={{
-          pre: ({ node, ...props }) => (
-            <pre
-              {...props}
-              className="bg-[#2a2b31] p-3 rounded-lg overflow-x-auto"
-            />
-          ),
-          code: ({ inline, children, ...props }) => (
-            <code
-              {...props}
-              className={
-                inline
-                  ? "bg-[#2a2b31] px-1.5 py-0.5 rounded text-[13px]"
-                  : "block text-sm"
-              }
-            >
-              {children}
-            </code>
-          ),
-        }}
-      >
-        {m.text}
-      </ReactMarkdown>
-    </div>
+        {logic.messages.map((m, i) => (
+          <div
+            key={i}
+            className={`flex flex-col w-fit max-w-[90%] p-3 rounded-lg shadow-sm whitespace-pre-wrap ${colorByRole[m.from]}`}
+          >
+            <div className="prose prose-invert text-[15px] leading-relaxed">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                components={{
+                  pre: ({ node, ...props }) => (
+                    <pre {...props} className="bg-[#2a2b31] p-3 rounded-lg overflow-x-auto" />
+                  ),
+                  code: ({ inline, children, ...props }) => (
+                    <code
+                      {...props}
+                      className={
+                        inline
+                          ? "bg-[#2a2b31] px-1.5 py-0.5 rounded text-[13px]"
+                          : "block text-sm"
+                      }
+                    >
+                      {children}
+                    </code>
+                  ),
+                }}
+              >
+                {m.text}
+              </ReactMarkdown>
+            </div>
 
-    {/* 💾 Botón de guardado si el mensaje tiene intención de guardado */}
-    {m.saveIntent && (
-      <button
-        onClick={() =>
-          logic.handleSaveTraining(
-            m.saveIntent.sql_training_id,
-            m.saveIntent.prompt
-          )
-        }
-        className="mt-3 self-start bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm transition"
-      >
-        💾 Guardar entrenamiento
-      </button>
-    )}
-  </div>
-))}
-
+            {m.saveIntent && (
+              <button
+                onClick={() =>
+                  logic.handleSaveTraining(
+                    m.saveIntent.sql_training_id,
+                    m.saveIntent.prompt
+                  )
+                }
+                className="mt-3 self-start bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm transition"
+              >
+                💾 Guardar entrenamiento
+              </button>
+            )}
+          </div>
+        ))}
 
         {logic.typingText && (
           <div className="flex items-center gap-2 text-gray-400 text-sm animate-pulse">
@@ -106,9 +165,8 @@ export default function AiChatView() {
         <div ref={logic.chatEndRef} />
       </div>
 
-      {/* ================= TOOLBAR ================= */}
+      {/* TOOLBAR */}
       <div className="px-4 py-2 border-t border-[#3f4144] bg-[#343541] flex flex-wrap items-center gap-3 text-sm text-gray-300">
-        {/* Modo */}
         <div className="flex items-center gap-2">
           <Database size={16} className="text-blue-400" />
           <select
@@ -121,7 +179,6 @@ export default function AiChatView() {
           </select>
         </div>
 
-        {/* Forzar nueva */}
         <button
           onClick={() => logic.setForceNew(!logic.forceNew)}
           className={`flex items-center gap-1 px-2 py-1 rounded transition ${
@@ -133,7 +190,6 @@ export default function AiChatView() {
           <RefreshCw size={14} /> Forzar nueva
         </button>
 
-        {/* Voz */}
         <button
           onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
           className={`flex items-center gap-1 px-2 py-1 rounded transition ${
@@ -146,9 +202,8 @@ export default function AiChatView() {
         </button>
       </div>
 
-      {/* ================= INPUT BAR ================= */}
+      {/* INPUT */}
       <div className="relative p-3 bg-[#40414f] border-t border-[#3f4144] flex items-center gap-2">
-        {/* Archivo */}
         <label className="cursor-pointer p-2 bg-[#565869] hover:bg-[#6b6d7b] rounded transition flex items-center">
           <Paperclip size={16} className="text-gray-200" />
           <input
@@ -160,39 +215,6 @@ export default function AiChatView() {
           />
         </label>
 
-        {/* 🔍 Autocompletado tipo ChatGPT */}
-        {logic.showSuggestions && logic.suggestions.length > 0 && (
-          <ul
-            className="
-              absolute bottom-14 left-3 w-[calc(100%-1.5rem)]
-              bg-[#2d2d2d] border border-gray-700
-              rounded-lg shadow-lg z-50
-              max-h-56 overflow-y-auto
-              backdrop-blur-md
-            "
-          >
-            {logic.suggestions.map((s) => (
-              <li
-                key={s.id}
-                onClick={() => logic.handleSuggestionClick(s)} // ✅ usa la función dedicada
-                title={s.description ?? s.prompt}
-                className="
-                  px-3 py-2 text-sm text-gray-200 cursor-pointer select-none
-                  hover:bg-blue-600 hover:text-white transition-colors
-                "
-              >
-                💡 <span className="font-medium">{s.prompt}</span>
-                {s.description && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    {s.description}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Input principal */}
         <input
           value={logic.input}
           onChange={(e) => logic.handleInputChange(e.target.value)}
@@ -205,7 +227,6 @@ export default function AiChatView() {
           }
         />
 
-        {/* Micrófono */}
         <button
           onClick={logic.recording ? logic.stopRecording : logic.startRecording}
           className={`p-2 rounded transition ${
@@ -217,7 +238,6 @@ export default function AiChatView() {
           {logic.recording ? <Square size={16} /> : <Mic size={16} />}
         </button>
 
-        {/* Enviar */}
         <button
           onClick={() => logic.handleSend()}
           disabled={logic.loading}
@@ -226,6 +246,12 @@ export default function AiChatView() {
           <Send size={16} />
         </button>
       </div>
+
+      {/* 🟦 Esquina de redimensionamiento */}
+      <div
+        onMouseDown={startResize}
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-transparent"
+      />
     </div>
   );
 }
