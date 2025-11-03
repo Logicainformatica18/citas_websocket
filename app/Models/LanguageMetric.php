@@ -11,6 +11,7 @@ class LanguageMetric extends Model
 
     protected $fillable = [
         'language_id',
+          'language_name', // ✅ AGREGA ESTO
         'jobs_found_count',
         'jobs_new_count',
         'countries_breakdown',

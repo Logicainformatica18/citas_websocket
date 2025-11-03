@@ -73,17 +73,20 @@ if ($training && !$forceNew && !empty($training->cached_response)) {
         'topic' => $training->topic
     ]);
 
-    // Si guardaste JSON con result y explanation juntos
     $cached = json_decode($training->cached_response, true);
 
     return response()->json([
-        'topic'       => $training->topic,
-        'prompt'      => $training->prompt,
-        'component'   => $training->component ?? null,
-        'result'      => $cached['result'] ?? $cached,
-        'explanation' => $cached['explanation'] ?? '💾 Respuesta recuperada del cache local (sin consumo de tokens).',
+        'topic'        => $training->topic,
+        'prompt'       => $training->prompt,
+        'component'    => $training->component ?? null,
+        'result'       => $cached['result'] ?? null,
+        'explanation'  => $cached['explanation'] ?? '💾 Respuesta recuperada del cache local.',
+        'excel_path'   => $cached['excel'] ?? null,
+        'voice_url'    => $cached['voice'] ?? null,
+        'message'      => '🧠 Entrenamiento cargado desde cache local.',
     ]);
 }
+
 
 
         // ============================
@@ -397,22 +400,33 @@ if ($training) {
     /**
      * 💡 Autocompletado de sugerencias
      */
-    public function suggestions(Request $request)
-    {
-        $query = mb_strtolower($request->get('q', ''));
+public function suggestions(Request $request)
+{
+    $query = trim(mb_strtolower($request->get('q', '')));
+    if (strlen($query) < 2) return response()->json(['suggestions' => []]);
 
-        $results = DB::table('aitrainings')
-            ->where('is_active', 1)
-            ->where('topic', 'Métricas y monitoreo')
-            ->when($query, function ($q) use ($query) {
-                $q->whereRaw('LOWER(prompt) LIKE ?', ['%' . $query . '%']);
-            })
-            ->select('id', 'prompt', 'description', 'component', 'interpreter')
-            ->limit(6)
-            ->get();
+    $normalized = strtr($query, [
+        'á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n'
+    ]);
 
-        return response()->json(['suggestions' => $results]);
-    }
+    $results = DB::table('aitrainings')
+        ->where('is_active', 1)
+        ->where('is_trained', 1)
+        ->where('training_stage', 'final')
+        ->where(function ($q) use ($normalized) {
+            $q->whereRaw("LOWER(REPLACE(prompt,'í','i')) LIKE ?", ["%{$normalized}%"])
+              ->orWhereRaw("LOWER(REPLACE(description,'í','i')) LIKE ?", ["%{$normalized}%"])
+              ->orWhereRaw("LOWER(REPLACE(topic,'í','i')) LIKE ?", ["%{$normalized}%"]);
+        })
+        ->select('id', 'prompt', 'description', 'topic', 'component', 'interpreter')
+        ->orderByDesc('updated_at')
+        ->limit(8)
+        ->get();
+
+    return response()->json(['suggestions' => $results]);
+}
+
+
     // ==========================================================
 // 🎙️ 1️⃣ Transcribir audio a texto (voz → texto)
 // ==========================================================
