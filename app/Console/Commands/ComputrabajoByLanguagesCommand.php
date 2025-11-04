@@ -11,9 +11,10 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
-
+use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 class ComputrabajoByLanguagesCommand extends Command
 {
+      use JobFilterTrait; // 👈 usa el trait aquí
     protected $signature = 'computrabajo:languages {--pages=3}';
     protected $description = '🌎 Scrapea Computrabajo por cada lenguaje (ej: programador-python) y guarda métricas con geolocalización.';
 
@@ -90,6 +91,11 @@ class ComputrabajoByLanguagesCommand extends Command
                         $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
+                                         // 🚫 Nuevo filtro
+                                if (!$this->isTechRelated($title)) {
+                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    return;
+                                }
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;

@@ -10,9 +10,11 @@ use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use Carbon\Carbon;
+use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 
 class ComputrabajoByMethodologiesCommand extends Command
 {
+     use JobFilterTrait; // 👈 usa el trait aquí
     protected $signature = 'computrabajo:methodologies {--pages=3}';
     protected $description = '🧩 Scrapea Computrabajo por cada metodología (ej: scrum, agile, kanban) y guarda métricas.';
 
@@ -78,6 +80,11 @@ $slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $met
                         $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $methodName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
+                                       // 🚫 Nuevo filtro
+                                if (!$this->isTechRelated($title)) {
+                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    return;
+                                }
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;

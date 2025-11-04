@@ -11,9 +11,10 @@ use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
 use App\Models\City;
-
+use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 class ComputrabajoByTechnologiesCommand extends Command
 {
+     use JobFilterTrait; // 👈 usa el trait aquí
     protected $signature = 'computrabajo:technologies {--country=} {--pages=3}';
     protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
@@ -92,6 +93,11 @@ class ComputrabajoByTechnologiesCommand extends Command
                         $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $techName, $code) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
+                                    // 🚫 Nuevo filtro
+                                if (!$this->isTechRelated($title)) {
+                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    return;
+                                }
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
