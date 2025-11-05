@@ -25,6 +25,11 @@ use App\Http\Controllers\AI\Metrics\MetricsDashboardController;
 use App\Http\Controllers\AI\DashboardAIController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\AI\AITrainingController;
+use App\Http\Controllers\AI\DashboardWidgetController;
+use App\Http\Controllers\AI\DashboardSectionController;
+
+use Illuminate\Support\Facades\DB;
+
 
 
 
@@ -196,4 +201,27 @@ Route::get('/ai/chat/history', [DashboardAIController::class, 'history']);
     Route::post('ai/voice/transcribe', [DashboardAIController::class, 'transcribe']);
     Route::post('ai/voice/speak', [DashboardAIController::class, 'speak']);
     Route::post('ai/file/analyze', [DashboardAIController::class, 'analyzeFile']);
+
+
+  Route::get('/chart-types', function () {
+    return DB::table('chart_types')
+        ->select('id', 'name', 'slug')
+        ->orderBy('id')
+        ->get();
+});
+Route::post('/ai/dashboard-widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
+ Route::get('/ai/dashboard-widgets', [DashboardWidgetController::class, 'index']);
+ Route::put('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'update']);
+Route::delete('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'destroy']);
+Route::post('/ai/dashboard-widgets/reorder', [DashboardWidgetController::class, 'reorder']);
+Route::post('/ai/dashboard-widgets', [DashboardWidgetController::class, 'store']);
+Route::post('/ai/dashboard-widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
+
+
+Route::prefix('ai/dashboard-sections')->group(function () {
+    Route::get('/{dashboard}', [DashboardSectionController::class, 'index']);
+    Route::post('/', [DashboardSectionController::class, 'store']);
+    Route::post('/{id}/update', [DashboardSectionController::class, 'update']);
+    Route::delete('/{id}', [DashboardSectionController::class, 'destroy']);
+});
 });

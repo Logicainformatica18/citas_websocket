@@ -309,7 +309,7 @@ Tienes acceso al siguiente esquema y relaciones entre tablas:
 - Si el usuario pide por país o región, agrega `WHERE country = '...'`.
 - Si el usuario pide el top global, omite el filtro de país.
 - Si menciona “por carrera” o “por curso”, usa `career_course` y `courses` para vincular las métricas.
-- Siempre usa alias claros:  
+- Siempre usa alias claros:
   `t` para tecnologías, `l` para lenguajes, `m` para metodologías, `tm`/`lm`/`mm` para métricas.
 - Asegúrate de que todos los campos no agregados estén en el `GROUP BY` (para evitar errores `ONLY_FULL_GROUP_BY`).
 
@@ -520,62 +520,57 @@ PROMPT;
     /**
      * 🎓 3️⃣ Finaliza el entrenamiento (GPT explica y guarda en aitrainings)
      */
-    public function finalizeTraining(Request $request)
-    {
-        $request->validate([
-            'sql_training_id' => 'required|integer',
-            'prompt' => 'required|string',
-            'voice_enabled' => 'nullable|boolean',
-            'save' => 'nullable|boolean',
-           'limit' => 'nullable|integer|min:1|max:1000',
+  public function finalizeTraining(Request $request)
+{
+    $request->validate([
+        'sql_training_id' => 'required|integer|exists:sqltrainings,id',
+        'prompt' => 'required|string',
+        'voice_enabled' => 'nullable|boolean',
+        'save' => 'nullable|boolean',
+        'limit' => 'nullable|integer|min:1|max:1000',
+    ]);
 
-        ]);
+    $sqlTraining = DB::table('sqltrainings')->where('id', $request->sql_training_id)->first();
 
-        $sqlTraining = DB::table('sqltrainings')->where('id', $request->sql_training_id)->first();
-        if (!$sqlTraining || $sqlTraining->test_status !== 'ok') {
-            return response()->json(['error' => 'SQL no validada o inexistente.'], 400);
+    if (!$sqlTraining || $sqlTraining->test_status !== 'ok') {
+        return response()->json(['error' => 'SQL no validada o inexistente.'], 400);
+    }
+
+    $prompt = $request->input('prompt');
+    $voiceEnabled = filter_var($request->input('voice_enabled', false), FILTER_VALIDATE_BOOLEAN);
+    $saveTraining = filter_var($request->input('save', false), FILTER_VALIDATE_BOOLEAN);
+    $limit = $request->input('limit');
+
+    try {
+        // ============================================================
+        // 📊 1️⃣ Recuperar los datos previos (última ejecución)
+        // ============================================================
+        $preview = json_decode($sqlTraining->last_test_output ?? '[]', true);
+        if (empty($preview)) {
+            return response()->json(['error' => 'No hay datos previos para analizar.'], 400);
         }
 
-        $prompt = $request->input('prompt');
-        $voiceEnabled = filter_var($request->input('voice_enabled', false), FILTER_VALIDATE_BOOLEAN);
-        $saveTraining = filter_var($request->input('save', false), FILTER_VALIDATE_BOOLEAN);
-       
-$limit = $request->input('limit'); // sin valor por defecto
+        if ($limit !== null) {
+            $preview = array_slice($preview, 0, (int) $limit);
+        }
 
+        // ============================================================
+        // 💾 2️⃣ Exportar resultados a Excel (.xlsx)
+        // ============================================================
+        $filename = "observatorio_result_" . now()->format('Ymd_His') . ".xlsx";
+        $relativePath = "sql_results/{$filename}";
 
-        try {
-            // ============================================================
-            // 📊 1️⃣ Recuperar los datos previos (última ejecución)
-            // ============================================================
-            $preview = json_decode($sqlTraining->last_test_output ?? '[]', true);
-            if (empty($preview)) {
-                return response()->json(['error' => 'No hay datos previos para analizar.'], 400);
-            }
-  
-          // 🔹 Si se envía un límite, aplicar; si no, exportar todos los resultados
- 
-if ($limit !== null) {
-    $preview = array_slice($preview, 0, (int) $limit);
-}
+        Excel::store(new ArrayExport($preview, [
+            'title' => 'Resultados del Observatorio ISIL',
+            'created_at' => now()->format('d/m/Y H:i'),
+        ]), $relativePath, 'public');
 
+        $excelPath = asset("storage/{$relativePath}");
 
-            // ============================================================
-            // 💾 2️⃣ Exportar a Excel (.xlsx)
-            // ============================================================
-            $filename = "observatorio_result_" . now()->format('Ymd_His') . ".xlsx";
-            $relativePath = "sql_results/{$filename}";
-
-            Excel::store(new ArrayExport($preview, [
-                'title' => 'Resultados del Observatorio ISIL',
-                'created_at' => now()->format('d/m/Y H:i'),
-            ]), $relativePath, 'public');
-
-            $excelPath = asset("storage/{$relativePath}");
-
-            // ============================================================
-            // 🧠 3️⃣ Explicación contextual (no SQL)
-            // ============================================================
-            $contextPrompt = "
+        // ============================================================
+        // 🧠 3️⃣ Generar explicación con OpenAI
+        // ============================================================
+        $contextPrompt = "
 Eres **VERA**, la analista de datos institucional del Observatorio Tecnológico ISIL**.
 
 Debes analizar los siguientes datos en JSON y explicar qué revelan, en el contexto de empleabilidad tecnológica y demanda laboral.
@@ -587,95 +582,109 @@ Instrucciones:
 - No hables de SQL ni de consultas.
 - Describe los patrones, tendencias o jerarquías.
 - Si detectas rankings, explica por qué esos elementos son los más importantes.
-
 ";
 
-            $res = Http::withToken(env('OPENAI_API_KEY'))->post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'model' => 'gpt-4o-mini',
-                    'messages' => [
-                        ['role' => 'system', 'content' => $contextPrompt],
-                        ['role' => 'user', 'content' => "Prompt original: {$prompt}"],
-                    ],
-                    'temperature' => 0.45,
-                    'max_tokens' => 300,
-                ]
-            );
+        $res = Http::withToken(env('OPENAI_API_KEY'))->post(
+            'https://api.openai.com/v1/chat/completions',
+            [
+                'model' => 'gpt-4o-mini',
+                'messages' => [
+                    ['role' => 'system', 'content' => $contextPrompt],
+                    ['role' => 'user', 'content' => "Prompt original: {$prompt}"],
+                ],
+                'temperature' => 0.45,
+                'max_tokens' => 300,
+            ]
+        );
 
-            if (!$res->ok()) {
-                Log::error('💥 Error HTTP OpenAI (finalize)', [
-                    'status' => $res->status(),
-                    'body' => $res->body(),
-                ]);
-                return response()->json(['error' => 'Error al conectar con OpenAI'], 500);
-            }
-
-            $aiResponse = trim($res->json('choices.0.message.content') ?? 'No se pudo generar explicación contextual.');
-
-            // ============================================================
-            // 🔊 4️⃣ Generar voz si está activado
-            // ============================================================
-            $voiceUrl = null;
-            if ($voiceEnabled && !empty($aiResponse)) {
-                try {
-                    $voiceRes = Http::post(route('api.ai.voice.speak'), ['text' => $aiResponse]);
-                    if ($voiceRes->ok() && isset($voiceRes->json()['url'])) {
-                        $voiceUrl = $voiceRes->json()['url'];
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('⚠️ Error generando voz para análisis', ['error' => $e->getMessage()]);
-                }
-            }
-
-            // ============================================================
-            // 💽 5️⃣ Guardar si el usuario confirma
-            // ============================================================
-            $trainingId = null;
-            if ($saveTraining) {
-                $trainingId = DB::table('aitrainings')->insertGetId([
-                    'topic' => 'Análisis Observatorio',
-                    'prompt' => $prompt,
-                    'interpreter' => 'AITrainingController@finalizeTraining',
-                    'component' => 'vera-training',
-                    'description' => 'Análisis contextual de resultados del Observatorio ISIL.',
-                    'explanation_prompt' => $contextPrompt,
-                    'cached_response' => json_encode([
-                        'result' => $preview,
-                        'explanation' => $aiResponse,
-                        'excel' => $excelPath,
-                        'voice' => $voiceUrl,
-                    ], JSON_UNESCAPED_UNICODE),
-                    'sql_training_id' => $sqlTraining->id,
-                    'is_trained' => 1,
-                    'training_stage' => 'final',
-                    'last_trained_at' => now(),
-                    'is_active' => 1,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            // ============================================================
-            // ✅ 6️⃣ Respuesta al frontend
-            // ============================================================
-            return response()->json([
-                'training_id' => $trainingId,
-                'ai_response' => $aiResponse,
-                'excel_path' => $excelPath,
-                'voice_url' => $voiceUrl,
-                'message' => $saveTraining
-                    ? '🎓 Análisis guardado correctamente.'
-                    : '💡 Análisis generado correctamente.',
+        if (!$res->ok()) {
+            Log::error('💥 Error HTTP OpenAI (finalize)', [
+                'status' => $res->status(),
+                'body' => $res->body(),
             ]);
-        } catch (\Throwable $e) {
-            Log::error('💥 Error finalizando análisis observatorio', ['error' => $e->getMessage()]);
-            return response()->json([
-                'error' => 'Error al finalizar análisis observatorio.',
-                'details' => $e->getMessage(),
-            ], 500);
+            return response()->json(['error' => 'Error al conectar con OpenAI'], 500);
         }
+
+        $aiResponse = trim($res->json('choices.0.message.content') ?? 'No se pudo generar explicación contextual.');
+
+        // ============================================================
+        // 🔊 4️⃣ Generar voz si está activado
+        // ============================================================
+        $voiceUrl = null;
+        if ($voiceEnabled && !empty($aiResponse)) {
+            try {
+                $voiceRes = Http::post(route('api.ai.voice.speak'), ['text' => $aiResponse]);
+                if ($voiceRes->ok() && isset($voiceRes->json()['url'])) {
+                    $voiceUrl = $voiceRes->json()['url'];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('⚠️ Error generando voz para análisis', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // ============================================================
+        // 💽 5️⃣ Guardar entrenamiento si el usuario confirma
+        // ============================================================
+        $trainingId = null;
+
+        if ($saveTraining) {
+            // 🧩 Insertar entrenamiento
+            $trainingId = DB::table('aitrainings')->insertGetId([
+                'topic' => 'Análisis Observatorio',
+                'prompt' => $prompt,
+                'interpreter' => 'AITrainingController@finalizeTraining',
+                'component' => 'vera-training',
+                'description' => 'Análisis contextual de resultados del Observatorio ISIL.',
+                'explanation_prompt' => $contextPrompt,
+                'cached_response' => json_encode([
+                    'result' => $preview,
+                    'explanation' => $aiResponse,
+                    'excel' => $excelPath,
+                    'voice' => $voiceUrl,
+                ], JSON_UNESCAPED_UNICODE),
+                'sql_training_id' => $sqlTraining->id, // 🔗 vínculo directo a sqltrainings
+                'is_trained' => 1,
+                'training_stage' => 'final',
+                'last_trained_at' => now(),
+                'is_active' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 🧠 Vincular SQL con el entrenamiento creado
+            DB::table('aitrainings')
+                ->where('id', $trainingId)
+                ->update(['sql_training_id' => $sqlTraining->id]);
+
+            Log::info('✅ Entrenamiento vinculado correctamente', [
+                'ai_training_id' => $trainingId,
+                'sql_training_id' => $sqlTraining->id
+            ]);
+        }
+
+        // ============================================================
+        // ✅ 6️⃣ Respuesta final al frontend
+        // ============================================================
+        return response()->json([
+            'training_id' => $trainingId,
+            'sql_training_id' => $sqlTraining->id,
+            'ai_response' => $aiResponse,
+            'excel_path' => $excelPath,
+            'voice_url' => $voiceUrl,
+            'message' => $saveTraining
+                ? '🎓 Entrenamiento y análisis guardados correctamente.'
+                : '💡 Análisis generado correctamente (sin guardar).',
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('💥 Error finalizando análisis observatorio', ['error' => $e->getMessage()]);
+        return response()->json([
+            'error' => 'Error al finalizar análisis observatorio.',
+            'details' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
 
 

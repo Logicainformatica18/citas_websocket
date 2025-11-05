@@ -26,6 +26,10 @@ import { MessageCircle } from "lucide-react";
 import ProfileBlock from "./components/StackOverFlow/Profileblock";
 import BackgroundParticles from "../../components/BackgroundParticles"; // 👈 Fondo animado
 import MetricCard from "./components/Metrics/MetricCard";
+import DashboardAIWidgets from "./DashboardAIWidgets";
+
+
+
 
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -62,7 +66,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
             {/* 🌌 Contenedor principal con fondo animado */}
             <div className="relative min-h-[calc(100vh-64px)] bg-gray-900 text-white overflow-hidden">
                 {/* 🔹 Fondo dinámico de partículas */}
-                <BackgroundParticles />
+                {/* <BackgroundParticles /> */}
 
 
 
@@ -73,6 +77,15 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                 <div className="relative p-4 overflow-y-auto space-y-4 z-10">
                     <DashboardProvider>
   <DynamicAIWidget />
+  {/* 📊 Gráficos IA generados por VERA */}
+<div className="mt-8 border-t border-gray-700 pt-6 pb-10">
+  <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">
+    🤖 DASHBOARD GENERADO POR VERA
+  </h2>
+  <DashboardAIWidgets />
+</div>
+
+
 {/* <div className="grid grid-cols-3 gap-3">
   <MetricCard metric="global-alignment" />
   <MetricCard metric="ai-integration" />
@@ -138,7 +151,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                         </div>
 
                         {/* 🔹 AI, Alignment, WorkMode */}
-                        <div className="grid grid-cols-3 gap-3">
+                        {/* <div className="grid grid-cols-3 gap-3">
                             <ExpandableCard
                                 isExpanded={expandedCard === 4}
                                 onToggleExpand={() => handleExpand(4)}
@@ -157,10 +170,10 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             >
                                 <WorkModeChart initialData={initialData?.workmode} />
                             </ExpandableCard>
-                        </div>
+                        </div> */}
 
                         {/* 🔹 Último bloque */}
-                        <div className="grid grid-cols-3 gap-3">
+                        {/* <div className="grid grid-cols-3 gap-3">
                             <ExpandableCard
                                 isExpanded={expandedCard === 7}
                                 onToggleExpand={() => handleExpand(7)}
@@ -191,7 +204,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                             >
                                 <EmploymentRequestChart />
                             </ExpandableCard>
-                        </div>
+                        </div> */}
 
                         {/* 🧠 Chat flotante */}
                         <button

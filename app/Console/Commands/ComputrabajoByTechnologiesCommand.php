@@ -19,15 +19,15 @@ class ComputrabajoByTechnologiesCommand extends Command
     protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
     protected $countryMap = [
-        'pe' => 'Peru',
-        'bo' => 'Bolivia',
-        'ar' => 'Argentina',
-        'uy' => 'Uruguay',
-        'mx' => 'Mexico',
-        'co' => 'Colombia',
-        'ec' => 'Ecuador',
-        've' => 'Venezuela',
-        'cl' => 'Chile',
+    //    'pe' => 'Peru',
+        // 'bo' => 'Bolivia',
+        // 'ar' => 'Argentina',
+        // 'uy' => 'Uruguay',
+        // 'mx' => 'Mexico',
+        // 'co' => 'Colombia',
+        // 'ec' => 'Ecuador',
+        // 've' => 'Venezuela',
+          'cl' => 'Chile',
     ];
 
     const DEFAULT_LAT = -12.046374;
@@ -50,7 +50,12 @@ class ComputrabajoByTechnologiesCommand extends Command
         }
 
         // 🔹 Cargar tecnologías
-        $technologies = Technology::pluck('name', 'id');
+        $technologies = Technology::whereIn('technologies.id', function ($q) {
+    $q->select('course_technology.technology_id')
+        ->from('course_technology')
+        ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+})
+->pluck('name', 'id');
         $this->info("🌎 Scrapeando " . count($technologies) . " tecnologías para: " . implode(', ', $activeCountries));
 
         // 🔹 Recorrido principal

@@ -7,7 +7,25 @@ import { v4 as uuidv4 } from "uuid"; // ✅ más seguro y compatible
 export type Message = {
   from: "user" | "ai" | "error";
   text: string;
+
+  // 🔹 Opcional: botones de guardar entrenamiento
+  saveIntent?: {
+    sql_training_id: number;
+    prompt: string;
+  };
+
+  // 🔹 Opcional: selector de gráfico (usado tras ejecutar una consulta)
+  chartSelector?: {
+    training_id: number;
+    chartTypes: string[];
+  };
+
+  // 🔹 Opcional: botones de tipo de gráfico (tras guardar entrenamiento)
+  showChartOption?: {
+    training_id: number;
+  };
 };
+
 
 export type Suggestion = {
   id: number;
@@ -210,13 +228,47 @@ const newMessages: Message[] = [
   { from: "ai", text: ai_response },
   ...(excel_path ? [{ from: "ai", text: `📊 [Descargar resultados en Excel](${excel_path})` }] : []),
   ...(voice_url ? [{ from: "ai", text: `🔊 [Reproducir explicación en voz](${voice_url})` }] : []),
-  {
-    from: "ai",
-    text: "💾 ¿Deseas guardar este entrenamiento?",
-    saveIntent: { sql_training_id: data.sql_training_id, prompt: textToSend },
+{
+  from: "ai",
+  text: "💾 ¿Deseas guardar este entrenamiento?",
+  saveIntent: {
+    sql_training_id: finalizeRes.data.sql_training_id ?? data.sql_training_id ?? 0,
+    prompt: textToSend,
   },
+},
+
 ];
 setMessages((prev) => [...prev, ...newMessages]);
+
+
+
+// 🎨 Nuevo paso: ofrecer tipos de gráfico al usuario
+if (excel_path) {
+  try {
+    const chartTypesRes = await axios.get("/api/chart-types");
+    const chartTypes = chartTypesRes.data;
+
+    // Envía un mensaje especial con el selector de gráficos
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "ai",
+        text: "📊 ¿Cómo deseas visualizar los datos de la consulta?",
+        chartSelector: {
+          training_id: finalizeRes.data.training_id ?? data.sql_training_id,
+          chartTypes,
+        },
+      },
+    ]);
+
+  } catch (err) {
+    console.warn("⚠️ No se pudieron cargar los tipos de gráfico:", err);
+  }
+}
+
+
+
+
 
 // 🗣️ 2️⃣ Reproducir voz automática (si está activa)
 if (voiceEnabled) {
@@ -469,50 +521,39 @@ const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
       save: true,
     });
 
-    const { message, ai_response, excel_path, voice_url } = res.data;
+    const { training_id, ai_response, excel_path, voice_url } = res.data;
 
-    // ✅ Agrega nuevamente los elementos de Excel y voz si existen
-    setMessages((prev) => [
-      ...prev,
-      { from: "ai", text: message },
-      ...(excel_path
-        ? [
-            {
-              from: "ai",
-              text: `📊 [Descargar resultados en Excel](${excel_path})`,
-            },
-          ]
-        : []),
-      ...(voice_url
-        ? [
-            {
-              from: "ai",
-              text: `🔊 [Reproducir explicación en voz](${voice_url})`,
-            },
-          ]
-        : []),
-    ]);
-
-    // 🔊 Reproduce voz si está activado
-   if (voiceEnabled) {
-  try {
-    let audioUrl = voice_url;
-
-    // Si backend no devolvió voz, generarla
-    if (!audioUrl && ai_response) {
-      const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
-      audioUrl = ttsRes.data?.url;
+    // ✅ Guarda el ID del entrenamiento para permitir generar gráfico
+    if (training_id) {
+      localStorage.setItem("veraLastTrainingId", training_id.toString());
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "ai",
+          text: "💾 Entrenamiento guardado correctamente. Ahora puedes generar un gráfico con estos datos.",
+          showChartOption: { training_id },
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { from: "ai", text: "💾 Entrenamiento guardado correctamente." },
+      ]);
     }
 
-    // Reproduce solo una vez
-   if (audioUrl) {
-  playAudio(audioUrl);
-}
-
-  } catch (err) {
-    console.warn("⚠️ Error reproduciendo voz al guardar:", err);
-  }
-}
+    // 🔊 Reproduce voz una sola vez (sin duplicar mensajes)
+    if (voiceEnabled && (voice_url || ai_response)) {
+      try {
+        let audioUrl = voice_url;
+        if (!audioUrl && ai_response) {
+          const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
+          audioUrl = ttsRes.data?.url;
+        }
+        if (audioUrl) playAudio(audioUrl);
+      } catch (err) {
+        console.warn("⚠️ Error reproduciendo voz al guardar:", err);
+      }
+    }
 
   } catch (err: any) {
     console.error("💥 Error guardando entrenamiento:", err);
@@ -523,6 +564,35 @@ const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
     setMessages((prev) => [...prev, { from: "error", text: msg }]);
   }
 };
+
+const handleGenerateChart = async (trainingId: number, chartType: string) => {
+  try {
+    setMessages(prev => [
+      ...prev,
+      { from: "ai", text: "📊 Generando gráfico con los datos del entrenamiento..." },
+    ]);
+
+    const res = await axios.post("/api/ai/dashboard-widgets/from-training", {
+      training_id: trainingId,
+      chart_type: chartType,
+    });
+
+    const { message, widget_id } = res.data;
+
+    setMessages(prev => [
+      ...prev,
+      { from: "ai", text: `${message} (Widget ID: ${widget_id})` },
+    ]);
+  } catch (err: any) {
+    console.error("💥 Error generando gráfico:", err);
+    const msg =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      "💥 Error al generar gráfico.";
+    setMessages(prev => [...prev, { from: "error", text: msg }]);
+  }
+};
+
 // 🎧 Reproduce un audio y detiene el anterior si existe
 const playAudio = (url: string) => {
   try {
@@ -609,6 +679,7 @@ return {
   toggleAudioPlayback,
   stopAudio,
   isAudioPlaying,
+  handleGenerateChart,
 };
 
 }

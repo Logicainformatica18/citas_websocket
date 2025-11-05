@@ -37,7 +37,11 @@ class ArbeitnowByMethodologiesCommand extends Command
 
     public function handle()
     {
-        $methodologies = Methodology::pluck('name', 'id');
+            $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
+            $q->select('course_methodology.methodology_id')
+                ->from('course_methodology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+        })->pluck('name', 'id');
         $this->info("🌐 Iniciando scraping de Arbeitnow por metodología ({$methodologies->count()} metodologías)...");
 
         foreach ($methodologies as $methodologyId => $methodologyName) {

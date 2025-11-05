@@ -14,6 +14,7 @@ import {
   Database,
 } from "lucide-react";
 import { useAiChatLogic } from "./useAiChatLogic";
+import ChartSelector from "./ChartSelector";
 
 export default function AiChatView() {
   const logic = useAiChatLogic();
@@ -109,52 +110,83 @@ export default function AiChatView() {
 
       {/* MENSAJES */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {logic.messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex flex-col w-fit max-w-[90%] p-3 rounded-lg shadow-sm whitespace-pre-wrap ${colorByRole[m.from]}`}
-          >
-            <div className="prose prose-invert text-[15px] leading-relaxed">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                components={{
-                  pre: ({ node, ...props }) => (
-                    <pre {...props} className="bg-[#2a2b31] p-3 rounded-lg overflow-x-auto" />
-                  ),
-                  code: ({ inline, children, ...props }) => (
-                    <code
-                      {...props}
-                      className={
-                        inline
-                          ? "bg-[#2a2b31] px-1.5 py-0.5 rounded text-[13px]"
-                          : "block text-sm"
-                      }
-                    >
-                      {children}
-                    </code>
-                  ),
-                }}
-              >
-                {m.text}
-              </ReactMarkdown>
-            </div>
+ {logic.messages.map((m, i) => (
+  <div
+    key={i}
+    className={`flex flex-col w-fit max-w-[90%] p-3 rounded-lg shadow-sm whitespace-pre-wrap ${colorByRole[m.from]}`}
+  >
+    {/* 🔹 Render normal del texto */}
+    <div className="prose prose-invert text-[15px] leading-relaxed">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, rehypeHighlight]}
+        components={{
+          pre: ({ node, ...props }) => (
+            <pre {...props} className="bg-[#2a2b31] p-3 rounded-lg overflow-x-auto" />
+          ),
+          code: ({ inline, children, ...props }) => (
+            <code
+              {...props}
+              className={
+                inline
+                  ? "bg-[#2a2b31] px-1.5 py-0.5 rounded text-[13px]"
+                  : "block text-sm"
+              }
+            >
+              {children}
+            </code>
+          ),
+        }}
+      >
+        {m.text}
+      </ReactMarkdown>
+    </div>
 
-            {m.saveIntent && (
-              <button
-                onClick={() =>
-                  logic.handleSaveTraining(
-                    m.saveIntent.sql_training_id,
-                    m.saveIntent.prompt
-                  )
-                }
-                className="mt-3 self-start bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm transition"
-              >
-                💾 Guardar entrenamiento
-              </button>
-            )}
-          </div>
+    {/* 🧩 Selector de gráfico antiguo (de prueba) */}
+    {m.chartSelector && (
+      <div className="mt-3">
+        <ChartSelector
+          trainingId={m.chartSelector.training_id}
+          chartTypes={m.chartSelector.chartTypes}
+        />
+      </div>
+    )}
+
+    {/* 💾 Botón de guardar entrenamiento */}
+    {m.saveIntent && (
+      <button
+        onClick={() =>
+          logic.handleSaveTraining(
+            m.saveIntent.sql_training_id,
+            m.saveIntent.prompt
+          )
+        }
+        className="mt-3 self-start bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm transition"
+      >
+        💾 Guardar entrenamiento
+      </button>
+    )}
+
+    {/* 📊 Nuevo bloque: botones de tipo de gráfico */}
+    {m.showChartOption && (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {["bar", "line", "pie", "radar"].map((type) => (
+          <button
+            key={type}
+            onClick={() =>
+              logic.handleGenerateChart(m.showChartOption.training_id, type)
+            }
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm transition"
+          >
+            {type.toUpperCase()}
+          </button>
         ))}
+      </div>
+    )}
+  </div>
+))}
+
+
 
         {logic.typingText && (
           <div className="flex items-center gap-2 text-gray-400 text-sm animate-pulse">
