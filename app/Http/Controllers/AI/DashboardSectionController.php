@@ -33,16 +33,30 @@ class DashboardSectionController extends Controller
             'position' => 'nullable|integer',
             'width' => 'nullable|integer',
             'height' => 'nullable|integer',
+            'colors' => 'nullable|array', // 👈 ahora acepta colores personalizados
         ]);
 
+        // 🎨 Colores por defecto si no se envían
+        $defaultColors = [
+            'bg' => '#0f172a',     // Fondo oscuro
+            'text' => '#60a5fa',   // Azul claro
+            'border' => '#1e293b', // Borde gris azulado
+        ];
+
         $section = DashboardSection::create([
-            ...$validated,
+            'dashboard_id' => $validated['dashboard_id'],
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
             'position' => $validated['position'] ?? 0,
             'width' => $validated['width'] ?? 12,
             'height' => $validated['height'] ?? 1,
+            'colors' => json_encode($validated['colors'] ?? $defaultColors, JSON_UNESCAPED_UNICODE),
         ]);
 
-        Log::info('🧱 Nueva sección creada', ['section_id' => $section->id]);
+        Log::info('🧱 Nueva sección creada', [
+            'section_id' => $section->id,
+            'colors' => $section->colors
+        ]);
 
         return response()->json([
             'message' => '✅ Sección creada correctamente.',
@@ -51,15 +65,31 @@ class DashboardSectionController extends Controller
     }
 
     /**
-     * ✏️ Actualizar una sección existente
+     * ✏️ Actualizar una sección existente (incluye colores)
      */
     public function update(Request $request, $id)
     {
         $section = DashboardSection::findOrFail($id);
 
-        $section->update($request->only([
-            'title', 'description', 'position', 'width', 'height'
-        ]));
+        $validated = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'position' => 'nullable|integer',
+            'width' => 'nullable|integer',
+            'height' => 'nullable|integer',
+            'colors' => 'nullable|array', // 👈 puede venir desde el front
+        ]);
+
+        if (isset($validated['colors'])) {
+            $validated['colors'] = json_encode($validated['colors'], JSON_UNESCAPED_UNICODE);
+        }
+
+        $section->update($validated);
+
+        Log::info('🎨 Sección actualizada', [
+            'section_id' => $section->id,
+            'updated_fields' => $validated,
+        ]);
 
         return response()->json([
             'message' => '🧩 Sección actualizada correctamente.',
@@ -68,17 +98,15 @@ class DashboardSectionController extends Controller
     }
 
     /**
-     * 🗑️ Eliminar una sección
+     * 🗑️ Eliminar una sección (conservando widgets)
      */
-  public function destroy($id)
-{
-    $section = DashboardSection::findOrFail($id);
+    public function destroy($id)
+    {
+        $section = DashboardSection::findOrFail($id);
+        $section->delete();
 
-    $section->delete();
-
-    return response()->json([
-        'message' => '🗑️ Sección eliminada correctamente (widgets conservados).'
-    ]);
-}
-
+        return response()->json([
+            'message' => '🗑️ Sección eliminada correctamente (widgets conservados).'
+        ]);
+    }
 }

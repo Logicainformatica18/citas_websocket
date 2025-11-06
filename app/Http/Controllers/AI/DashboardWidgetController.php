@@ -98,10 +98,34 @@ public function storeFromTraining(Request $request)
         // ============================================================
         try {
             $rows = DB::select($query);
-            Log::info('✅ SQL ejecutada correctamente', [
-                'sql_training_id' => $sqlTraining->id,
-                'row_count' => count($rows),
-            ]);
+            // ============================================================
+// 🧹 4.1️⃣ Sanear los datos antes de guardar
+// ============================================================
+$cleanRows = collect($rows)->map(function ($row) {
+    $sanitized = [];
+    foreach ($row as $key => $value) {
+        // ✅ Si es numérico en string, lo convierte a float
+        if (is_numeric($value)) {
+            $sanitized[$key] = (float) $value;
+        }
+        // ✅ Si es nulo, lo reemplaza por 0 o cadena vacía
+        elseif (is_null($value)) {
+            $sanitized[$key] = 0;
+        }
+        // ✅ Si es booleano, lo convierte explícitamente
+        elseif (is_bool($value)) {
+            $sanitized[$key] = $value ? 1 : 0;
+        }
+        // ✅ Si es texto, limpia espacios y caracteres invisibles
+        elseif (is_string($value)) {
+            $sanitized[$key] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $value));
+        } else {
+            $sanitized[$key] = $value;
+        }
+    }
+    return $sanitized;
+})->values()->toArray();
+
         } catch (\Throwable $e) {
             Log::error('💥 Error ejecutando SQL', [
                 'error' => $e->getMessage(),
@@ -124,7 +148,7 @@ public function storeFromTraining(Request $request)
                 'type' => 'sql',
                 'sql_training_id' => $training->sql_training_id,
                 'sql_query' => $query,
-                'rows' => $rows,
+              'rows' => $cleanRows, // 👈 usa los datos saneados
             ], JSON_UNESCAPED_UNICODE),
             'colors' => json_encode([
                 'primary' => '#1E88E5',

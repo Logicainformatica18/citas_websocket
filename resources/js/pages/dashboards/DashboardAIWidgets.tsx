@@ -24,6 +24,8 @@ const [sections, setSections] = useState<any[]>([]);
 
 const gridRef = useRef<HTMLDivElement>(null);
 const [gridWidth, setGridWidth] = useState(1200);
+
+
 // 🔁 Detectar automáticamente el ancho del contenedor
 useEffect(() => {
   const handleResize = () => {

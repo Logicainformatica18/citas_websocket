@@ -249,17 +249,17 @@ if (excel_path) {
     const chartTypes = chartTypesRes.data;
 
     // Envía un mensaje especial con el selector de gráficos
-    setMessages((prev) => [
-      ...prev,
-      {
-        from: "ai",
-        text: "📊 ¿Cómo deseas visualizar los datos de la consulta?",
-        chartSelector: {
-          training_id: finalizeRes.data.training_id ?? data.sql_training_id,
-          chartTypes,
-        },
-      },
-    ]);
+    // setMessages((prev) => [
+    //   ...prev,
+    //   {
+    //     from: "ai",
+    //     text: "📊 ¿Cómo deseas visualizar los datos de la consulta?",
+    //     chartSelector: {
+    //       training_id: finalizeRes.data.training_id ?? data.sql_training_id,
+    //       chartTypes,
+    //     },
+    //   },
+    // ]);
 
   } catch (err) {
     console.warn("⚠️ No se pudieron cargar los tipos de gráfico:", err);
