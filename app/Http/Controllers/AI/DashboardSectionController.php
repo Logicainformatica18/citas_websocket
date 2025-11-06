@@ -70,11 +70,15 @@ class DashboardSectionController extends Controller
     /**
      * 🗑️ Eliminar una sección
      */
-    public function destroy($id)
-    {
-        $section = DashboardSection::findOrFail($id);
-        $section->delete();
+  public function destroy($id)
+{
+    $section = DashboardSection::findOrFail($id);
 
-        return response()->json(['message' => '🗑️ Sección eliminada correctamente.']);
-    }
+    $section->delete();
+
+    return response()->json([
+        'message' => '🗑️ Sección eliminada correctamente (widgets conservados).'
+    ]);
+}
+
 }

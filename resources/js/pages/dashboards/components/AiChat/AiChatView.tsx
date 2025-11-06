@@ -207,7 +207,7 @@ export default function AiChatView() {
             className="bg-[#202123] text-gray-200 text-sm px-2 py-1 rounded border border-[#3f4144] focus:ring-1 focus:ring-blue-500"
           >
             <option value="chat">💬 Conversar</option>
-            <option value="train">🎓 Entrenamiento SQL</option>
+            <option value="train">🎓 Entrenamiento de Datos</option>
           </select>
         </div>
 

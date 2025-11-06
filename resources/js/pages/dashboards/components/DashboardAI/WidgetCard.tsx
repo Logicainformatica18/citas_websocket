@@ -14,7 +14,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import ColorControl from "./ColorControl";
-import { FileSpreadsheet, FileDown } from "lucide-react";
+import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
 
 // 🧩 Librerías para exportación
 import * as XLSX from "xlsx";
@@ -22,10 +22,33 @@ import { saveAs } from "file-saver";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { deleteWidget } from "./useDashboardAPI";
+import Swal from "sweetalert2";
 
 
-export default function WidgetCard({ widget, onColorChange }) {
+export default function WidgetCard({ widget, onColorChange, onDelete }) {
     const [color, setColor] = useState(widget.colors?.primary || "#1E88E5");
+const handleDelete = async () => {
+  const result = await Swal.fire({
+    title: "¿Eliminar tarjeta?",
+    text: "Esta acción no se puede deshacer.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Sí, eliminar",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#e53935",
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deleteWidget(widget.id);
+    Swal.fire("Eliminada", "La tarjeta fue eliminada correctamente", "success");
+    if (onDelete) onDelete(widget.id);
+  } catch (err) {
+    Swal.fire("Error", "No se pudo eliminar la tarjeta", "error");
+  }
+};
 
     useEffect(() => {
         if (widget.colors?.primary && widget.colors.primary !== color) {
@@ -159,24 +182,33 @@ export default function WidgetCard({ widget, onColorChange }) {
                 <ColorControl widget={widget} onChangeColor={handleColorChange} />
             </div>
 
-            {/* 📦 Botones de exportación */}
-            <div className="absolute top-3 right-3 flex gap-2 z-10">
-                <button
-                    onClick={exportToExcel}
-                    className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md"
-                    title="Exportar a Excel"
-                >
-                    <FileSpreadsheet size={16} />
-                </button>
+          <div className="absolute top-3 right-3 flex gap-2 z-10">
+  <button
+    onClick={exportToExcel}
+    className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md"
+    title="Exportar a Excel"
+  >
+    <FileSpreadsheet size={16} />
+  </button>
 
-                <button
-                    onClick={exportToPDF}
-                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md"
-                    title="Exportar a PDF"
-                >
-                    <FileDown size={16} />
-                </button>
-            </div>
+  <button
+    onClick={exportToPDF}
+    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md"
+    title="Exportar a PDF"
+  >
+    <FileDown size={16} />
+  </button>
+
+<button
+  onClick={handleDelete}
+  className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-md"
+  title="Eliminar tarjeta"
+>
+  <Trash2 size={16} />
+</button>
+
+</div>
+
             <div
                 className="absolute bottom-2 left-2 cursor-move opacity-50 hover:opacity-100 drag-handle"
                 title="Mover widget"

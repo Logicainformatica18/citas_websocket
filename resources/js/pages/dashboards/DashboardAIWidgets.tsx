@@ -5,7 +5,12 @@ import "react-resizable/css/styles.css";
 import { fetchWidgets, reorderWidgets } from "./components/DashboardAI/useDashboardAPI";
 import WidgetCard from "./components/DashboardAI/WidgetCard";
 import axios from "axios";
+import { Edit3, Trash2 } from "lucide-react";
+import { updateSection, deleteSection } from "./components/DashboardAI/useDashboardAPI";
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 
+const MySwal = withReactContent(Swal);
 /**
  * 🧠 DashboardAIWidgets
  * - Carga los widgets del backend.
@@ -31,6 +36,9 @@ useEffect(() => {
   window.addEventListener("resize", handleResize);
   return () => window.removeEventListener("resize", handleResize);
 }, []);
+const handleDeleteWidget = (id) => {
+  setWidgets((prev) => prev.filter((w) => w.id !== id));
+};
 
 // ============================================================
 // 📐 Calcula la siguiente posición Y libre en el grid
@@ -178,10 +186,22 @@ const handleLayoutChange = async (newLayout: any[]) => {
 
 
 const handleAddSection = async () => {
-  const title = prompt("Título del bloque:");
+  const { value: title } = await MySwal.fire({
+    title: "Nueva Sección",
+    input: "text",
+    inputLabel: "Título del bloque:",
+    inputPlaceholder: "Ej. Tecnologías más demandadas",
+    showCancelButton: true,
+    confirmButtonText: "Crear",
+    cancelButtonText: "Cancelar",
+    inputValidator: (value) => {
+      if (!value) return "Debes ingresar un título";
+    },
+  });
+
   if (!title) return;
 
-  const nextY = getNextAvailableY([...sections, ...widgets]); // ✅ ahora considera ambos
+  const nextY = getNextAvailableY([...sections, ...widgets]);
 
   try {
     await axios.post("/api/ai/dashboard-sections", {
@@ -194,10 +214,14 @@ const handleAddSection = async () => {
 
     const res = await axios.get("/api/ai/dashboard-sections/1");
     setSections(res.data.sections);
+
+    MySwal.fire("✅ Sección creada", "Tu nueva sección fue agregada correctamente.", "success");
   } catch (e) {
     console.error("❌ Error creando sección:", e);
+    MySwal.fire("Error", "No se pudo crear la sección.", "error");
   }
 };
+
 
 
   // ============================================================
@@ -232,22 +256,109 @@ const handleAddSection = async () => {
     {[...sections, ...widgets].map((item) => {
       const isSection = item.title && item.position !== undefined;
 
-      if (isSection) {
-        return (
-          <div
-            key={`section-${item.id}`}
-            data-grid={layout.find((l) => l.i === `section-${item.id}`)}
-            className="bg-gray-900 border border-gray-700 rounded-lg p-6 flex flex-col justify-center items-center text-center w-full shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            <h2 className="text-2xl font-bold text-blue-400 tracking-wide">
-              {item.title}
-            </h2>
-            {item.description && (
-              <p className="text-gray-400 text-sm mt-1">{item.description}</p>
-            )}
-          </div>
+     if (isSection) {
+    return (
+      <div
+        key={`section-${item.id}`}
+        data-grid={layout.find((l) => l.i === `section-${item.id}`)}
+        className="bg-gray-900 border border-gray-700 rounded-lg p-6 flex flex-col justify-center items-center text-center w-full shadow-md hover:shadow-lg transition-all duration-200"
+      >
+        <h2 className="text-2xl font-bold text-blue-400 tracking-wide">
+          {item.title}
+        </h2>
+        {item.description && (
+          <p className="text-gray-400 text-sm mt-1">{item.description}</p>
+        )}
+<div className="absolute top-3 right-3 flex gap-2 z-10">
+  {/* ✏️ Editar título */}
+  <button
+    onClick={async () => {
+      const { value: newTitle } = await MySwal.fire({
+        title: "Editar título de la sección",
+        input: "text",
+        inputValue: item.title,
+        showCancelButton: true,
+        confirmButtonText: "Guardar",
+        cancelButtonText: "Cancelar",
+        inputValidator: (value) => {
+          if (!value) return "El título no puede estar vacío";
+        },
+      });
+
+      if (!newTitle) return;
+      try {
+        await updateSection(item.id, { title: newTitle });
+        setSections((prev) =>
+          prev.map((s) => (s.id === item.id ? { ...s, title: newTitle } : s))
         );
+        MySwal.fire("✅ Actualizado", "El título de la sección se cambió correctamente.", "success");
+      } catch (e) {
+        MySwal.fire("Error", "No se pudo actualizar la sección.", "error");
       }
+    }}
+    className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+    title="Editar título"
+  >
+    <Edit3 size={16} />
+  </button>
+
+  {/* 🗑️ Eliminar sección */}
+  <button
+    onClick={async () => {
+      const result = await MySwal.fire({
+        title: "¿Eliminar esta sección?",
+        text: "Esta acción no se puede deshacer.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        await deleteSection(item.id);
+        setSections((prev) => prev.filter((s) => s.id !== item.id));
+        MySwal.fire("Eliminada", "La sección fue eliminada correctamente.", "success");
+      } catch (e) {
+        MySwal.fire("Error", "No se pudo eliminar la sección.", "error");
+      }
+    }}
+    className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-md"
+    title="Eliminar sección"
+  >
+    <Trash2 size={16} />
+  </button>
+</div>
+
+
+        {/* 👇 Agregamos el área de arrastre */}
+        <div
+          className="absolute bottom-2 left-2 cursor-move opacity-50 hover:opacity-100 drag-handle"
+          title="Mover sección"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="currentColor"
+            viewBox="0 0 16 16"
+          >
+            <circle cx="3" cy="3" r="1.5" />
+            <circle cx="8" cy="3" r="1.5" />
+            <circle cx="13" cy="3" r="1.5" />
+            <circle cx="3" cy="8" r="1.5" />
+            <circle cx="8" cy="8" r="1.5" />
+            <circle cx="13" cy="8" r="1.5" />
+            <circle cx="3" cy="13" r="1.5" />
+            <circle cx="8" cy="13" r="1.5" />
+            <circle cx="13" cy="13" r="1.5" />
+          </svg>
+        </div>
+
+      </div>
+    );
+  }
 
       return (
         <div
@@ -255,7 +366,8 @@ const handleAddSection = async () => {
           data-grid={layout.find((l) => l.i === String(item.id))}
           className="shadow-lg hover:shadow-xl transition-all duration-200"
         >
-          <WidgetCard widget={item} />
+        <WidgetCard widget={item} onDelete={handleDeleteWidget} />
+
         </div>
       );
     })}
