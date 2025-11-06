@@ -210,3 +210,8 @@
   color: #9ca3af; /* gris claro */
   font-size: 14px;
 }
+@layer base {
+  * {
+    color: rgb(var(--tw-prose-body) / 1);
+  }
+}

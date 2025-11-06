@@ -226,6 +226,7 @@ const handleAddSection = async () => {
   verticalCompact={false}
   isBounded={true}   // evita que se salga del borde
   margin={[10, 15]} // margen entre ítems
+  draggableHandle=".drag-handle"  // 👈 solo se arrastra desde este selector
 >
 
     {[...sections, ...widgets].map((item) => {
