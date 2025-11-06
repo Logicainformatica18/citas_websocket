@@ -223,18 +223,30 @@ public function update(Request $request, $id)
     $data = $request->validate([
         'title' => 'nullable|string',
         'chart_type' => 'nullable|string',
-        'colors' => 'nullable|array',
-        'colors.primary' => 'nullable|string',
-        'colors.secondary' => 'nullable|string',
+        'colors' => 'nullable',
         'position_x' => 'nullable|integer',
         'position_y' => 'nullable|integer',
         'width' => 'nullable|integer',
         'height' => 'nullable|integer',
     ]);
 
-    // 🔹 Codificar JSON si viene como array
+    // 🧩 Mezclar colores nuevos con existentes
     if (isset($data['colors'])) {
-        $data['colors'] = json_encode($data['colors'], JSON_UNESCAPED_UNICODE);
+        $existingColors = json_decode($widget->colors, true) ?? [
+            'bg' => '#1e293b',
+            'text' => '#e2e8f0',
+            'border' => '#334155',
+            'primary' => '#1E88E5',
+        ];
+
+        $newColors = is_string($data['colors'])
+            ? json_decode($data['colors'], true)
+            : $data['colors'];
+
+        // 🔄 Fusión de ambas configuraciones
+        $mergedColors = array_merge($existingColors, $newColors ?? []);
+
+        $data['colors'] = json_encode($mergedColors, JSON_UNESCAPED_UNICODE);
     }
 
     $data['updated_at'] = now();
@@ -243,6 +255,7 @@ public function update(Request $request, $id)
 
     return response()->json(['message' => '✅ Widget actualizado correctamente']);
 }
+
 
 public function destroy($id)
 {
@@ -306,6 +319,7 @@ public function updateColor(Request $request, $id)
     try {
         $validated = $request->validate([
             'color' => 'required|string|max:20',
+            'field' => 'nullable|string|in:primary,bg,text,border', // 👈 ahora puedes actualizar cualquiera
         ]);
 
         $widget = DB::table('dashboard_widgets')->find($id);
@@ -314,25 +328,26 @@ public function updateColor(Request $request, $id)
             return response()->json(['error' => 'Widget no encontrado.'], 404);
         }
 
-        // ✅ Decodificar los colores actuales
-        $colors = json_decode($widget->colors, true) ?? [
+        $existingColors = json_decode($widget->colors, true) ?? [
+            'bg' => '#1e293b',
+            'text' => '#e2e8f0',
+            'border' => '#334155',
             'primary' => '#1E88E5',
-            'secondary' => '#90CAF9',
         ];
 
-        // ✅ Actualizar solo el color primario
-        $colors['primary'] = $validated['color'];
+        $field = $validated['field'] ?? 'primary'; // por defecto cambia el color principal
+        $existingColors[$field] = $validated['color'];
 
         DB::table('dashboard_widgets')
             ->where('id', $id)
             ->update([
-                'colors' => json_encode($colors, JSON_UNESCAPED_UNICODE),
+                'colors' => json_encode($existingColors, JSON_UNESCAPED_UNICODE),
                 'updated_at' => now(),
             ]);
 
         return response()->json([
-            'message' => '🎨 Color actualizado correctamente.',
-            'colors' => $colors,
+            'message' => "🎨 Color de '{$field}' actualizado correctamente.",
+            'colors' => $existingColors,
         ]);
     } catch (\Throwable $e) {
         Log::error('💥 Error actualizando color de widget', [
@@ -342,6 +357,7 @@ public function updateColor(Request $request, $id)
         return response()->json(['error' => 'Error al actualizar color.'], 500);
     }
 }
+
 
 
 }

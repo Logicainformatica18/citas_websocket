@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     BarChart,
     Bar,
@@ -12,7 +12,9 @@ import {
     Tooltip,
     Legend,
     ResponsiveContainer,
+    Cell, // 👈 importante para los colores aleatorios
 } from "recharts";
+
 import ColorControl from "./ColorControl";
 import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
 import { updateWidget } from "./useDashboardAPI"; // 👈 ya tienes este método
@@ -79,8 +81,17 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
         }
     }, [widget.colors]);
 
-
-
+const [menuOpen, setMenuOpen] = useState(false);
+const menuRef = useRef(null);
+useEffect(() => {
+  const handleClickOutside = (e) => {
+    if (menuRef.current && !menuRef.current.contains(e.target)) {
+      setMenuOpen(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
     const data = widget.data_source?.rows || [];
 
     const handleColorChange = async (newColor) => {
@@ -90,7 +101,8 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
         if (onColorChange) onColorChange(widget.id, newColor);
 
         try {
-            await updateWidget(widget.id, { colors: newColors });
+          await updateWidget(widget.id, { colors: JSON.stringify(newColors) });
+
             console.log("✅ Colores actualizados en backend:", newColors);
         } catch (err) {
             console.warn("⚠️ Error guardando color:", err);
@@ -234,56 +246,81 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                     </ResponsiveContainer>
                 )}
 
-
-             {widget.chart_type === "pie" && (
+{widget.chart_type === "pie" && (
   <ResponsiveContainer width="100%" height="100%">
-    <PieChart>
+    <PieChart
+      margin={{
+        top: 10,
+        right: 60,
+        left: 10,
+        bottom: 10,
+      }}
+    >
       <Pie
         data={data}
         dataKey={dataKey}
         nameKey="name"
-        cx="50%"
+        cx="35%" // gráfico desplazado a la izquierda
         cy="50%"
-        outerRadius={100}
-        fill={colors.primary}
-        label={({ name, value, percent }) =>
-          `${name}: ${(percent * 100).toFixed(1)}%`
-        }
+        outerRadius="80%"
+        innerRadius="50%"
         labelLine={false}
+        label={({ percent }) => `${(percent * 100).toFixed(1)}%`} // solo porcentaje
       >
-        {/* 🟦 Colores automáticos si quieres diferenciarlos */}
-        {data.map((entry, index) => (
-          <cell
-            key={`cell-${index}`}
-            fill={colors.primary}
-            stroke={colors.border}
-          />
-        ))}
+        {data.map((entry, index) => {
+          const hue = (index * 36) % 360;
+          return (
+            <Cell
+              key={`cell-${index}`}
+              fill={`hsl(${hue}, 70%, 55%)`}
+              stroke={colors.bg}
+            />
+          );
+        })}
       </Pie>
 
-      {/* 🧩 Tooltip mejorado con valores reales */}
+      {/* Tooltip refinado con mismo color del texto */}
       <Tooltip
-        formatter={(value, name, props) => [
-          `${value} ofertas (${((value / data.reduce((a, b) => a + b[dataKey], 0)) * 100).toFixed(1)}%)`,
+        formatter={(value, name) => [
+          `${Number(value).toLocaleString()} ofertas (${(
+            (value / data.reduce((a, b) => a + b[dataKey], 0)) * 100
+          ).toFixed(1)}%)`,
           name,
         ]}
         contentStyle={{
           backgroundColor: colors.bg,
-          color: colors.text,
+          color: colors.text, // 👈 usa el mismo color del título
           border: `1px solid ${colors.border}`,
+          borderRadius: "8px",
+          fontSize: "13px",
+        }}
+        itemStyle={{
+          color: colors.text, // 👈 asegura que el texto del tooltip sea legible
+        }}
+        labelStyle={{
+          color: colors.text, // 👈 el label principal también
         }}
       />
 
+      {/* Leyenda con scroll */}
       <Legend
+        layout="vertical"
+        align="right"
+        verticalAlign="middle"
         wrapperStyle={{
+          paddingLeft: "10px",
+          width: "120px",
+          overflowY: "auto",
+          maxHeight: "240px",
           color: colors.text,
-          fontSize: 13,
-          marginTop: 8,
+          fontSize: "13px",
         }}
       />
     </PieChart>
   </ResponsiveContainer>
 )}
+
+
 
 
             </div>
@@ -293,141 +330,124 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                 <ColorControl widget={widget} onChangeColor={handleColorChange} />
             </div> */}
 
-            <div className="absolute bottom-3 right-5">
-                <button
-                    onClick={exportToExcel}
-                    className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md"
-                    title="Exportar a Excel"
-                >
-                    <FileSpreadsheet size={16} />
-                </button>
+          {/* ⚙️ Menú compacto con clic */}
+{/* ⚙️ Menú con icono (arriba a la derecha) */}
+<div className="absolute top-3 right-3" ref={menuRef}>
+  <button
+    onClick={() => setMenuOpen(!menuOpen)}
+    className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-md transition"
+    title="Opciones del widget"
+  >
+    ⚙️
+  </button>
 
-                <button
-                    onClick={exportToPDF}
-                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md"
-                    title="Exportar a PDF"
-                >
-                    <FileDown size={16} />
-                </button>
+  {menuOpen && (
+    <div className="absolute right-0 mt-2 bg-gray-800 border border-gray-700 rounded-md shadow-lg w-48 animate-fadeIn z-20">
+      <button
+        onClick={() => {
+          exportToExcel();
+          setMenuOpen(false);
+        }}
+        className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-green-400 text-sm"
+      >
+        📊 Exportar Excel
+      </button>
 
-                <button
-                    onClick={handleDelete}
-                    className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-md"
-                    title="Eliminar tarjeta"
-                >
-                    <Trash2 size={16} />
-                </button>
-                <button
-                    onClick={() => {
-                        Swal.fire({
-                            title: "🎨 Personalizar colores",
-                            html: `
-        <label>Fondo: <input type="color" id="bgColor" value="${colors.bg}" /></label><br/>
-        <label>Texto: <input type="color" id="textColor" value="${colors.text}" /></label><br/>
-        <label>Borde: <input type="color" id="borderColor" value="${colors.border}" /></label><br/>
-        <label>Gráfico: <input type="color" id="primaryColor" value="${colors.primary}" /></label>
-      `,
-                            focusConfirm: false,
-                            showCancelButton: true,
-                            confirmButtonText: "Guardar",
-                            preConfirm: () => ({
-                                bg: document.getElementById("bgColor").value,
-                                text: document.getElementById("textColor").value,
-                                border: document.getElementById("borderColor").value,
-                                primary: document.getElementById("primaryColor").value,
-                            }),
-                        }).then(async (result) => {
-                            if (result.isConfirmed) {
-                                const newColors = result.value;
-                                setColors(newColors);
-                                await updateWidget(widget.id, { colors: newColors });
-                                Swal.fire("✅ Guardado", "Colores actualizados correctamente.", "success");
-                            }
-                        });
-                    }}
-                    className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                    title="Editar colores"
-                >
-                    🎨
-                </button>
-<button
-  onClick={() => {
-    Swal.fire({
-      title: '❤️ Cambiar tipo de gráfico',
-      html: `
-        <div style="
-          display:flex;
-          flex-direction:column;
-          align-items:flex-start;
-          gap:10px;
-          margin-top:15px;
-          max-width:360px;
-          width:100%;
-          overflow:hidden;
-        ">
-          <label for="chartType" style="font-weight:600;color:#cbd5e1;font-size:14px;">
-            Tipo de gráfico:
-          </label>
-          <select id="chartType"
-            class="swal2-select"
-            style="
-              width:100%;
-              max-width:340px;
-              padding:10px 12px;
-              border-radius:8px;
-              border:1px solid #475569;
-              background-color:#0f172a;
-              color:#f1f5f9;
-              font-size:15px;
-              outline:none;
-              transition:border 0.2s ease;
-              box-sizing:border-box;
-            "
-            onfocus="this.style.border='1px solid #3b82f6'"
-            onblur="this.style.border='1px solid #475569'"
-          >
-            <option value="bar" ${widget.chart_type === "bar" ? "selected" : ""}>📊 Barras</option>
-            <option value="line" ${widget.chart_type === "line" ? "selected" : ""}>📈 Líneas</option>
-            <option value="pie" ${widget.chart_type === "pie" ? "selected" : ""}>🥧 Circular</option>
-          </select>
-        </div>
-      `,
-      background: "#0f172a",
-      color: "#f1f5f9",
-      width: 420, // 👈 evita que SweetAlert calcule overflow
-      showCancelButton: true,
-      confirmButtonText: "Guardar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#475569",
-      focusConfirm: false,
-      customClass: {
-        popup: "rounded-2xl shadow-2xl",
-      },
-      preConfirm: () => document.getElementById("chartType").value,
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        const newType = result.value;
-        try {
-          await updateWidget(widget.id, { chart_type: newType });
-          widget.chart_type = newType;
-          Swal.fire("✅ Actualizado", "El tipo de gráfico ha sido cambiado.", "success");
-        } catch (err) {
-          Swal.fire("❌ Error", "No se pudo actualizar el tipo de gráfico.", "error");
-        }
-      }
-    });
-  }}
-  className="p-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md"
-  title="Cambiar tipo de gráfico"
->
-  📊
-</button>
+      <button
+        onClick={() => {
+          exportToPDF();
+          setMenuOpen(false);
+        }}
+        className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-red-400 text-sm"
+      >
+        📄 Exportar PDF
+      </button>
 
+      <button
+        onClick={() => {
+          handleDelete();
+          setMenuOpen(false);
+        }}
+        className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-gray-300 text-sm"
+      >
+        🗑️ Eliminar
+      </button>
 
+      <button
+        onClick={async () => {
+          setMenuOpen(false);
+          Swal.fire({
+            title: "🎨 Personalizar colores",
+            html: `
+              <label>Fondo: <input type="color" id="bgColor" value="${colors.bg}" /></label><br/>
+              <label>Texto: <input type="color" id="textColor" value="${colors.text}" /></label><br/>
+              <label>Borde: <input type="color" id="borderColor" value="${colors.border}" /></label><br/>
+              <label>Gráfico: <input type="color" id="primaryColor" value="${colors.primary}" /></label>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: "Guardar",
+            preConfirm: () => ({
+              bg: document.getElementById("bgColor").value,
+              text: document.getElementById("textColor").value,
+              border: document.getElementById("borderColor").value,
+              primary: document.getElementById("primaryColor").value,
+            }),
+          }).then(async (result) => {
+            if (result.isConfirmed) {
+              const newColors = result.value;
+              setColors(newColors);
+              await updateWidget(widget.id, { colors: newColors });
+              Swal.fire("✅ Guardado", "Colores actualizados correctamente.", "success");
+            }
+          });
+        }}
+        className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-blue-400 text-sm"
+      >
+        🎨 Editar colores
+      </button>
 
+      <button
+        onClick={() => {
+          setMenuOpen(false);
+          Swal.fire({
+            title: "📊 Cambiar tipo de gráfico",
+            html: `
+              <select id="chartType" class="swal2-select" style="width:100%;background-color:#0f172a;color:#f1f5f9;border-radius:8px;border:1px solid #475569;padding:10px;">
+                <option value="bar" ${widget.chart_type === "bar" ? "selected" : ""}>Barras</option>
+                <option value="line" ${widget.chart_type === "line" ? "selected" : ""}>Líneas</option>
+                <option value="pie" ${widget.chart_type === "pie" ? "selected" : ""}>Circular</option>
+              </select>
+            `,
+            background: "#0f172a",
+            color: "#f1f5f9",
+            showCancelButton: true,
+            confirmButtonText: "Guardar",
+            cancelButtonText: "Cancelar",
+            confirmButtonColor: "#2563eb",
+            cancelButtonColor: "#475569",
+            preConfirm: () => document.getElementById("chartType").value,
+          }).then(async (result) => {
+            if (result.isConfirmed) {
+              const newType = result.value;
+              try {
+                await updateWidget(widget.id, { chart_type: newType });
+                widget.chart_type = newType;
+                Swal.fire("✅ Actualizado", "El tipo de gráfico ha sido cambiado.", "success");
+              } catch (err) {
+                Swal.fire("❌ Error", "No se pudo actualizar el tipo de gráfico.", "error");
+              }
+            }
+          });
+        }}
+        className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-purple-400 text-sm"
+      >
+        🔁 Cambiar tipo
+      </button>
+    </div>
+  )}
+</div>
 
-            </div>
 
             <div
                 className="absolute bottom-2 left-2 cursor-move opacity-50 hover:opacity-100 drag-handle"
