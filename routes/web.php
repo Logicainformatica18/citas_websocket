@@ -23,7 +23,7 @@ use App\Http\Controllers\JobOfferImportController;
 use App\Http\Controllers\Ocr\DniOcrController;
 use App\Http\Controllers\Auth\Saml2LoginController;
 use App\Http\Controllers\AI\AITrainingController;
-
+use App\Http\Controllers\LanguageController;
 use Laravel\Socialite\Facades\Socialite;
 
 
@@ -211,6 +211,14 @@ Route::get('/courses/search', [CourseController::class, 'search'])->name('course
         Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
         Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
     });
+
+    Route::prefix('languages')->group(function () {
+    Route::get('/', [LanguageController::class, 'index'])->name('languages.index');
+    Route::get('/fetch', [LanguageController::class, 'fetchPaginated'])->name('languages.fetch');
+    Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
+    Route::put('/{id}', [LanguageController::class, 'update'])->name('languages.update');
+    Route::delete('/{id}', [LanguageController::class, 'destroy'])->name('languages.destroy');
+});
 
     Route::apiResource('career-courses', CareerCourseController::class)->only(['index', 'update', 'destroy']);
     Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
