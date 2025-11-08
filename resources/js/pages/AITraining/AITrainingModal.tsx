@@ -97,23 +97,31 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg w-[650px] p-6 shadow-lg border border-gray-300 dark:border-gray-700 relative animate-fade-in">
-        {/* Botón cerrar */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 dark:text-gray-300 hover:text-red-500"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div
+      className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-300 dark:border-gray-700
+                   w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in"
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {editItem ? "✏️ Editar Entrenamiento IA" : "🧠 Nuevo Entrenamiento IA"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-red-500 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        {/* Título */}
-        <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">
-          {editItem ? "✏️ Editar Entrenamiento IA" : "🧠 Nuevo Entrenamiento IA"}
-        </h2>
-
-        {/* Formulario */}
-        <div className="space-y-3">
+        {/* Scrollable content */}
+        <div className="overflow-y-auto px-6 py-4 space-y-4">
           {/* Tema */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -124,7 +132,7 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               value={form.topic}
               onChange={handleChange}
               placeholder="Ejemplo: Tendencias tecnológicas"
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
@@ -137,10 +145,10 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               name="prompt"
               value={form.prompt}
               onChange={handleChange}
-              rows={2}
+              rows={3}
               placeholder="Instrucción o pregunta que entrenará la IA..."
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
-            ></textarea>
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
           </div>
 
           {/* Intérprete */}
@@ -153,7 +161,7 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               value={form.interpreter}
               onChange={handleChange}
               placeholder="Ejemplo: aiTrainerController@analyzeTrends"
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -167,7 +175,7 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               value={form.component ?? ""}
               onChange={handleChange}
               placeholder="Ejemplo: TrendChart, SkillRadar"
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -182,8 +190,8 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               onChange={handleChange}
               rows={2}
               placeholder="Breve descripción del entrenamiento..."
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
-            ></textarea>
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
           </div>
 
           {/* Prompt de explicación */}
@@ -197,8 +205,8 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               onChange={handleChange}
               rows={2}
               placeholder="Prompt para que la IA explique los resultados o tendencias..."
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
-            ></textarea>
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
           </div>
 
           {/* Tags */}
@@ -211,12 +219,12 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
               value={form.tags?.join(", ") ?? ""}
               onChange={handleTagsChange}
               placeholder="ia, entrenamiento, tendencias"
-              className="w-full px-3 py-2 mt-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+              className="w-full px-3 py-2 mt-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
           {/* Checkboxes */}
-          <div className="flex items-center gap-6 mt-3">
+          <div className="flex flex-wrap items-center gap-6 mt-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -239,18 +247,18 @@ export default function AITrainingModal({ open, onClose, onSaved, editItem }: Pr
           </div>
         </div>
 
-        {/* Botones */}
-        <div className="flex justify-end gap-2 mt-6">
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded transition"
+            className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-md transition"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition disabled:opacity-50"
           >
             {saving ? "Guardando..." : "Guardar"}
           </button>

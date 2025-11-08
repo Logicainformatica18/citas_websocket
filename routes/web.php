@@ -253,9 +253,6 @@ Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->gr
 
 
 
-
-
-
 });
 
 

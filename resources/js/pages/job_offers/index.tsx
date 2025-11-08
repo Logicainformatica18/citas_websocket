@@ -3,10 +3,9 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Briefcase } from 'lucide-react';
 import JobOfferModal from './JobOfferModal';
 import JobOfferCsvModal from './JobOfferCsvModal';
-
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Ofertas de Empleo', href: '/job-offers' },
@@ -14,17 +13,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 // Helper para formatear fechas
 function formatDate(dateString?: string | null): string {
-  if (!dateString) return "-";
+  if (!dateString) return '-';
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("es-PE", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('es-PE', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     });
   } catch {
-    return "-";
+    return '-';
   }
 }
 
@@ -32,8 +31,8 @@ type JobOffer = {
   id: number;
   title: string;
   company?: string | null;
-  country?: string | null;   // ✅ nuevo
-  city?: string | null;      // ✅ nuevo
+  country?: string | null;
+  city?: string | null;
   modality?: string | null;
   salary_min?: number | null;
   salary_max?: number | null;
@@ -43,7 +42,6 @@ type JobOffer = {
   published_at?: string | null;
   created_at?: string;
 };
-
 
 type Pagination<T> = {
   data: T[];
@@ -60,6 +58,7 @@ export default function JobOffersIndex() {
   const [pagination, setPagination] = useState<Pagination<JobOffer>>(initialPagination);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showCsvModal, setShowCsvModal] = useState(false);
 
   useEffect(() => {
     setItems(initialPagination.data);
@@ -68,7 +67,7 @@ export default function JobOffersIndex() {
 
   const normalizePagePayload = (payload: any): Pagination<JobOffer> => {
     const pager = payload?.offers ?? payload ?? {};
-    const data: JobOffer[] = Array.isArray(pager) ? pager : (pager?.data ?? []);
+    const data: JobOffer[] = Array.isArray(pager) ? pager : pager?.data ?? [];
     return {
       data,
       current_page: pager?.current_page ?? 1,
@@ -115,69 +114,74 @@ export default function JobOffersIndex() {
       alert('No se pudo eliminar en lote.');
     }
   };
-const [showCsvModal, setShowCsvModal] = useState(false);
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8 text-white">
-        <h1 className="text-2xl font-bold mb-6">Ofertas de Empleo</h1>
+      <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+          <h1 className="text-3xl font-semibold flex items-center gap-2">
+            <Briefcase className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            Ofertas de Empleo
+          </h1>
 
-       <div className="flex items-center gap-2 mb-4">
-  <button
-    onClick={() => setShowModal(true)}
-    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
-  >
-    <Plus className="w-4 h-4" /> Importar
-  </button>
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={removeBulk}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition"
+              >
+                Eliminar Seleccionadas ({selectedIds.length})
+              </button>
+            )}
+            <button
+              onClick={() => setShowCsvModal(true)}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-md flex items-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4" /> Importar CSV
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-md flex items-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4" /> Importar Automático
+            </button>
+          </div>
+        </div>
 
-  <button
-    onClick={() => setShowCsvModal(true)} // 👈 nuevo
-    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 inline-flex items-center gap-2"
-  >
-    <Plus className="w-4 h-4" /> Importar desde CSV
-  </button>
-
-  {selectedIds.length > 0 && (
-    <button
-      onClick={removeBulk}
-      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-    >
-      Eliminar Seleccionados
-    </button>
-  )}
-</div>
-
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-collapse">
-            <thead className="bg-slate-700 text-slate-200 uppercase text-sm">
+        {/* Tabla */}
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm">
+          <table className="min-w-full table-auto text-sm">
+            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 uppercase text-xs">
               <tr>
-                <th className="px-4 py-2">
+                <th className="px-4 py-2 text-center">
                   <input
                     type="checkbox"
-                    checked={items.length > 0 && items.every(i => selectedIds.includes(i.id))}
+                    checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
                     onChange={(e) =>
                       setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
                     }
                   />
                 </th>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Título</th>
-                <th className="px-4 py-2">Empresa</th>
-          <th className="px-4 py-2">País</th>
-<th className="px-4 py-2">Ciudad</th>
-
-                <th className="px-4 py-2">Modalidad</th>
-                <th className="px-4 py-2">Salario</th>
-                <th className="px-4 py-2">Fuente</th>
-                <th className="px-4 py-2">Publicado</th>
-                <th className="px-4 py-2">Registrado en</th>
+                <th className="px-4 py-2 text-left">Acciones</th>
+                <th className="px-4 py-2 text-left">Título</th>
+                <th className="px-4 py-2 text-left">Empresa</th>
+                <th className="px-4 py-2 text-left">País</th>
+                <th className="px-4 py-2 text-left">Ciudad</th>
+                <th className="px-4 py-2 text-left">Modalidad</th>
+                <th className="px-4 py-2 text-left">Salario</th>
+                <th className="px-4 py-2 text-left">Fuente</th>
+                <th className="px-4 py-2 text-left">Publicado</th>
+                <th className="px-4 py-2 text-left">Registrado</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-700/40">
-                  <td className="px-4 py-2">
+                <tr
+                  key={item.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  <td className="px-4 py-2 text-center">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(item.id)}
@@ -193,18 +197,18 @@ const [showCsvModal, setShowCsvModal] = useState(false);
                   <td className="px-4 py-2 whitespace-nowrap">
                     <button
                       onClick={() => removeOne(item.id, item.title)}
-                      className="text-red-400 hover:text-red-600 inline-flex items-center gap-1"
+                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 inline-flex items-center gap-1 text-sm font-medium"
                     >
                       <Trash2 className="w-4 h-4" /> Eliminar
                     </button>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 font-medium">
                     {item.url ? (
                       <a
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         {item.title}
                       </a>
@@ -212,18 +216,17 @@ const [showCsvModal, setShowCsvModal] = useState(false);
                       item.title
                     )}
                   </td>
-                  <td className="px-4 py-2">{item.company ?? "-"}</td>
-             <td className="px-4 py-2">{item.country ?? "-"}</td>
-<td className="px-4 py-2">{item.city ?? "-"}</td>
-
-                  <td className="px-4 py-2">{item.modality ?? "-"}</td>
+                  <td className="px-4 py-2">{item.company ?? '-'}</td>
+                  <td className="px-4 py-2">{item.country ?? '-'}</td>
+                  <td className="px-4 py-2">{item.city ?? '-'}</td>
+                  <td className="px-4 py-2">{item.modality ?? '-'}</td>
                   <td className="px-4 py-2">
                     {item.salary_min
-                      ? `${item.salary_min} - ${item.salary_max} ${item.currency}`
-                      : "N/A"}
+                      ? `${item.salary_min} - ${item.salary_max} ${item.currency ?? ''}`
+                      : 'N/A'}
                   </td>
                   <td className="px-4 py-2">
-                    <span className="px-2 py-1 text-xs rounded-full bg-slate-600 text-slate-100">
+                    <span className="px-2 py-1 text-xs rounded-full bg-slate-600 dark:bg-slate-700 text-slate-100">
                       {item.source}
                     </span>
                   </td>
@@ -234,8 +237,8 @@ const [showCsvModal, setShowCsvModal] = useState(false);
 
               {items.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-slate-400" colSpan={10}>
-                    No hay ofertas para mostrar.
+                  <td colSpan={11} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    No hay ofertas registradas.
                   </td>
                 </tr>
               )}
@@ -243,44 +246,43 @@ const [showCsvModal, setShowCsvModal] = useState(false);
           </table>
         </div>
 
-      {/* Paginación */}
-<div className="flex justify-center mt-6 gap-1">
-  {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-    .filter((page) => {
-      // Mostrar primeras 2, últimas 2, y 2 alrededor de la actual
-      return (
-        page <= 2 ||
-        page >= pagination.last_page - 1 ||
-        (page >= pagination.current_page - 2 && page <= pagination.current_page + 2)
-      );
-    })
-    .map((page, idx, arr) => {
-      const prev = arr[idx - 1];
-      const isGap = prev && page - prev > 1;
+        {/* Paginación */}
+        {pagination.last_page > 1 && (
+          <div className="flex justify-center mt-6 gap-1">
+            {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
+              .filter(
+                (page) =>
+                  page <= 2 ||
+                  page >= pagination.last_page - 1 ||
+                  (page >= pagination.current_page - 2 &&
+                    page <= pagination.current_page + 2)
+              )
+              .map((page, idx, arr) => {
+                const prev = arr[idx - 1];
+                const isGap = prev && page - prev > 1;
 
-      return (
-        <span key={page} className="flex">
-          {isGap && (
-            <span className="px-2 py-1 text-slate-400">…</span>
-          )}
-          <button
-            onClick={() => fetchPage(`/job-offers/fetch?page=${page}`)}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${
-              pagination.current_page === page
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-            disabled={pagination.current_page === page}
-          >
-            {page}
-          </button>
-        </span>
-      );
-    })}
-</div>
-
+                return (
+                  <span key={page} className="flex">
+                    {isGap && <span className="px-2 py-1 text-gray-400">…</span>}
+                    <button
+                      onClick={() => fetchPage(`/job-offers/fetch?page=${page}`)}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+                        pagination.current_page === page
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                      disabled={pagination.current_page === page}
+                    >
+                      {page}
+                    </button>
+                  </span>
+                );
+              })}
+          </div>
+        )}
       </div>
 
+      {/* Modales */}
       {showModal && (
         <JobOfferModal
           open={showModal}
@@ -288,14 +290,14 @@ const [showCsvModal, setShowCsvModal] = useState(false);
           onImported={() => fetchPage('/job-offers/fetch')}
         />
       )}
-      {showCsvModal && (
-  <JobOfferCsvModal
-    open={showCsvModal}
-    onClose={() => setShowCsvModal(false)}
-    onImported={() => fetchPage('/job-offers/fetch')}
-  />
-)}
 
+      {showCsvModal && (
+        <JobOfferCsvModal
+          open={showCsvModal}
+          onClose={() => setShowCsvModal(false)}
+          onImported={() => fetchPage('/job-offers/fetch')}
+        />
+      )}
     </AppLayout>
   );
 }

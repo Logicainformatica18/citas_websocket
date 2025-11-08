@@ -14,45 +14,53 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ArrayExport;
+use Carbon\Carbon;
 class AITrainingController extends Controller
 {
     /**
      * 📋 Listado de entrenamientos IA
      */
-    public function index(Request $request)
-    {
-        $search = $request->get('search');
-        $topic = $request->get('topic');
+public function index(Request $request)
+{
+    $search = $request->get('search');
+    $topic = $request->get('topic');
 
-        $trainings = AITraining::query()
-            ->when(
-                $search,
-                fn($q) =>
-                $q->where('prompt', 'like', "%$search%")
-                    ->orWhere('description', 'like', "%$search%")
-                    ->orWhere('interpreter', 'like', "%$search%")
-            )
-            ->when($topic, fn($q) => $q->where('topic', $topic))
-            ->orderBy('topic')
-            ->orderByDesc('id')
-            ->paginate(10);
+    $trainings = AITraining::query()
+        ->when($search, fn($q) =>
+            $q->where(function ($query) use ($search) {
+                $query->where('prompt', 'like', "%$search%")
+                      ->orWhere('description', 'like', "%$search%")
+                      ->orWhere('interpreter', 'like', "%$search%");
+            })
+        )
+        ->when($topic, fn($q) => $q->where('topic', $topic))
+        ->orderBy('topic')
+        ->orderByDesc('id')
+        ->paginate(10);
 
-        $topics = AITraining::select('topic')->distinct()->pluck('topic');
+    $topics = AITraining::select('topic')->distinct()->pluck('topic');
 
-        // 🔹 JSON para peticiones AJAX
-        if ($request->wantsJson()) {
-            return response()->json([
-                'trainings' => $trainings,
-                'topics' => $topics
-            ]);
-        }
+    // 🔹 Siempre limpia las fechas antes de responder
+    $trainings->getCollection()->transform(function ($item) {
+        $item->created_at = $item->created_at
+            ? Carbon::parse($item->created_at)->format('d/m/Y H:i')
+            : null;
+        return $item;
+    });
 
-        // 🔹 Render para Inertia (primera carga)
-        return Inertia::render('AITraining/AITrainingsIndex', [
+    // 🔹 Devuelve para Inertia o Axios indistintamente
+    if ($request->wantsJson()) {
+        return response()->json([
             'trainings' => $trainings,
             'topics' => $topics
         ]);
     }
+
+    return Inertia::render('AITraining/AITrainingsIndex', [
+        'trainings' => $trainings,
+        'topics' => $topics
+    ]);
+}
 
     /**
      * 🧩 Crear un nuevo entrenamiento IA

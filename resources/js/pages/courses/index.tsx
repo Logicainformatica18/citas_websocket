@@ -3,12 +3,10 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Paintbrush, Trash2 } from 'lucide-react';
+import { Paintbrush, Trash2, Search, BookOpen } from 'lucide-react';
 import CourseModal from './modal';
 
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Cursos', href: '/courses' },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Cursos', href: '/courses' }];
 
 type SimpleItem = { id: number; name: string };
 
@@ -46,39 +44,37 @@ export default function CoursesIndex() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Course | null>(null);
-const [searchTerm, setSearchTerm] = useState('');
-const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
 
-useEffect(() => {
-  if (typingTimeout) clearTimeout(typingTimeout);
+  // 🔍 Búsqueda en tiempo real con delay
+  useEffect(() => {
+    if (typingTimeout) clearTimeout(typingTimeout);
 
-  // Espera 600 ms desde la última tecla antes de buscar
-  const timeout = setTimeout(async () => {
-    if (searchTerm.trim() === '') {
-      // Si está vacío, recarga lista inicial
-      fetchPage('/courses');
-      return;
-    }
+    const timeout = setTimeout(async () => {
+      if (searchTerm.trim() === '') {
+        fetchPage('/courses');
+        return;
+      }
 
-    try {
-      const res = await axios.get('/courses/search', { params: { name: searchTerm } });
-      const pager = res.data?.courses ?? res.data;
-      setItems(pager?.data ?? []);
-      setPagination({
-        data: pager?.data ?? [],
-        current_page: pager?.current_page ?? 1,
-        last_page: pager?.last_page ?? 1,
-        next_page_url: pager?.next_page_url ?? null,
-        prev_page_url: pager?.prev_page_url ?? null,
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  }, 600);
+      try {
+        const res = await axios.get('/courses/search', { params: { name: searchTerm } });
+        const pager = res.data?.courses ?? res.data;
+        setItems(pager?.data ?? []);
+        setPagination({
+          data: pager?.data ?? [],
+          current_page: pager?.current_page ?? 1,
+          last_page: pager?.last_page ?? 1,
+          next_page_url: pager?.next_page_url ?? null,
+          prev_page_url: pager?.prev_page_url ?? null,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }, 600);
 
-  setTypingTimeout(timeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [searchTerm]);
+    setTypingTimeout(timeout);
+  }, [searchTerm]);
 
   useEffect(() => {
     setItems(initialPagination.data);
@@ -98,7 +94,7 @@ useEffect(() => {
         prev_page_url: pager?.prev_page_url ?? null,
       });
       setSelectedIds([]);
-    } catch (e) {
+    } catch {
       alert('No se pudo cargar la página.');
     }
   };
@@ -138,73 +134,78 @@ useEffect(() => {
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6">Gestión de Cursos</h1>
+      <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+          <h1 className="text-3xl font-semibold flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            Gestión de Cursos
+          </h1>
 
-        {/* Botones */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => {
-              setEditItem(null);
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-          >
-            Mantenimiento Cursos ISIL
-          </button>
-
-          {selectedIds.length > 0 && (
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={removeBulk}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition"
+              >
+                Eliminar Seleccionados ({selectedIds.length})
+              </button>
+            )}
             <button
-              onClick={removeBulk}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+              onClick={() => {
+                setEditItem(null);
+                setShowModal(true);
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-md shadow-md flex items-center gap-2 transition"
             >
-              Eliminar Seleccionados
+              Mantenimiento Cursos ISIL
             </button>
-          )}
+          </div>
         </div>
-{/* 🔍 Búsqueda en tiempo real */}
-<div className="mb-6">
-  <input
-    type="text"
-    placeholder="Buscar curso..."
-    className="w-full md:w-1/2 px-3 py-2 border rounded shadow-sm focus:ring focus:ring-blue-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-  />
-</div>
+
+        {/* Buscador */}
+        <div className="relative mb-6 w-full md:w-1/2">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <input
+            type="text"
+            placeholder="Buscar curso..."
+            className="w-full pl-9 pr-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
         {/* Tabla */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-            <thead className="bg-gray-100 dark:bg-gray-800 text-left text-gray-700 dark:text-gray-300">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm">
+          <table className="min-w-full table-auto text-sm">
+            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 uppercase text-xs">
               <tr>
-                <th className="px-4 py-2">
+                <th className="px-4 py-2 text-center">
                   <input
                     type="checkbox"
                     checked={
-                      items.length > 0 &&
-                      items.every((i) => selectedIds.includes(i.id))
+                      items.length > 0 && items.every((i) => selectedIds.includes(i.id))
                     }
                     onChange={(e) =>
                       setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
                     }
                   />
                 </th>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">ID</th>
-                <th className="px-4 py-2">Nombre</th>
+                <th className="px-4 py-2 text-left">Acciones</th>
+                <th className="px-4 py-2 text-left">ID</th>
+                <th className="px-4 py-2 text-left">Nombre</th>
                 <th className="px-4 py-2">Lenguajes</th>
                 <th className="px-4 py-2">Tecnologías</th>
                 <th className="px-4 py-2">Metodologías</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
               {items.map((item) => (
                 <tr
                   key={item.id}
-                  className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 align-top"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 text-center">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(item.id)}
@@ -217,16 +218,16 @@ useEffect(() => {
                       }
                     />
                   </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap flex gap-2">
                     <button
                       onClick={() => fetchItem(item.id)}
-                      className="text-blue-500 hover:text-blue-400 inline-flex items-center gap-1 text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 inline-flex items-center gap-1 text-sm font-medium"
                     >
                       <Paintbrush className="w-4 h-4" /> Editar
                     </button>
                     <button
                       onClick={() => removeOne(item.id, item.name)}
-                      className="ml-2 text-red-500 hover:text-red-400 inline-flex items-center gap-1 text-sm"
+                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 inline-flex items-center gap-1 text-sm font-medium"
                     >
                       <Trash2 className="w-4 h-4" /> Eliminar
                     </button>
@@ -239,7 +240,7 @@ useEffect(() => {
                         {item.languages.map((l) => (
                           <span
                             key={l.id}
-                            className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded text-xs"
+                            className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 rounded text-xs"
                           >
                             {l.name}
                           </span>
@@ -255,7 +256,7 @@ useEffect(() => {
                         {item.technologies.map((t) => (
                           <span
                             key={t.id}
-                            className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded text-xs"
+                            className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 rounded text-xs"
                           >
                             {t.name}
                           </span>
@@ -271,7 +272,7 @@ useEffect(() => {
                         {item.methodologies.map((m) => (
                           <span
                             key={m.id}
-                            className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded text-xs"
+                            className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 rounded text-xs"
                           >
                             {m.name}
                           </span>
@@ -285,7 +286,10 @@ useEffect(() => {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
+                  >
                     No hay cursos para mostrar.
                   </td>
                 </tr>
@@ -296,17 +300,17 @@ useEffect(() => {
 
         {/* Paginación */}
         {pagination.last_page > 1 && (
-          <div className="flex justify-center mt-6 gap-2">
+          <div className="flex justify-center mt-6 gap-1">
             {[...Array(pagination.last_page)].map((_, index) => {
               const page = index + 1;
               return (
                 <button
                   key={page}
                   onClick={() => fetchPage(`/courses/fetch?page=${page}`)}
-                  className={`px-3 py-1 rounded text-sm font-medium transition ${
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition ${
                     pagination.current_page === page
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                   }`}
                   disabled={pagination.current_page === page}
                 >
@@ -318,6 +322,7 @@ useEffect(() => {
         )}
       </div>
 
+      {/* Modal de mantenimiento */}
       {showModal && (
         <CourseModal
           open={showModal}

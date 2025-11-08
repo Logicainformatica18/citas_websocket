@@ -1,6 +1,7 @@
 import { Dialog } from '@headlessui/react';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { X, BookOpen } from 'lucide-react';
 
 type SimpleItem = { id: number; name: string };
 
@@ -31,16 +32,11 @@ export default function CourseModal({
   technologies,
   methodologies,
 }: Props) {
-  const [form, setForm] = useState<{
-    name: string;
-    languageIds: number[];
-    technologyIds: number[];
-    methodologyIds: number[];
-  }>({
+  const [form, setForm] = useState({
     name: '',
-    languageIds: [],
-    technologyIds: [],
-    methodologyIds: [],
+    languageIds: [] as number[],
+    technologyIds: [] as number[],
+    methodologyIds: [] as number[],
   });
 
   const [loading, setLoading] = useState(false);
@@ -98,43 +94,48 @@ export default function CourseModal({
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      className="fixed inset-0 z-50 overflow-y-auto"
-    >
-      <div className="flex items-center justify-center min-h-screen p-4">
-        {/* Overlay */}
-        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+    <Dialog open={open} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm" aria-hidden="true" />
 
-        {/* Contenido del modal */}
-        <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 z-10">
-          <Dialog.Title className="text-xl font-bold text-gray-900 mb-6">
-            {itemToEdit ? 'Editar Curso' : 'Nuevo Curso'}
-          </Dialog.Title>
+      {/* Modal container */}
+      <div className="relative bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <Dialog.Title className="text-lg font-semibold">
+              {itemToEdit ? 'Editar Curso' : 'Nuevo Curso'}
+            </Dialog.Title>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
+        {/* Contenido con scroll */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {/* Nombre */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Nombre del Curso
-            </label>
+          <div>
+            <label className="block text-sm font-medium mb-1">Nombre del Curso *</label>
             <input
               type="text"
               value={form.name}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               disabled={loading}
             />
           </div>
 
           {/* Lenguajes */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Lenguajes
-            </label>
+          <div>
+            <label className="block text-sm font-medium mb-2">Lenguajes</label>
             <div className="flex flex-wrap gap-2">
               {languages.map((l) => (
                 <button
@@ -146,10 +147,10 @@ export default function CourseModal({
                       languageIds: toggleArrayValue(prev.languageIds, l.id),
                     }))
                   }
-                  className={`px-3 py-1 rounded-lg text-sm border transition ${
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${
                     form.languageIds.includes(l.id)
                       ? 'bg-green-600 text-white border-green-700 shadow'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                   disabled={loading}
                 >
@@ -160,10 +161,8 @@ export default function CourseModal({
           </div>
 
           {/* Tecnologías */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Tecnologías
-            </label>
+          <div>
+            <label className="block text-sm font-medium mb-2">Tecnologías</label>
             <div className="flex flex-wrap gap-2">
               {technologies.map((t) => (
                 <button
@@ -175,10 +174,10 @@ export default function CourseModal({
                       technologyIds: toggleArrayValue(prev.technologyIds, t.id),
                     }))
                   }
-                  className={`px-3 py-1 rounded-lg text-sm border transition ${
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${
                     form.technologyIds.includes(t.id)
                       ? 'bg-blue-600 text-white border-blue-700 shadow'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                   disabled={loading}
                 >
@@ -189,10 +188,8 @@ export default function CourseModal({
           </div>
 
           {/* Metodologías */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Metodologías
-            </label>
+          <div>
+            <label className="block text-sm font-medium mb-2">Metodologías</label>
             <div className="flex flex-wrap gap-2">
               {methodologies.map((m) => (
                 <button
@@ -204,10 +201,10 @@ export default function CourseModal({
                       methodologyIds: toggleArrayValue(prev.methodologyIds, m.id),
                     }))
                   }
-                  className={`px-3 py-1 rounded-lg text-sm border transition ${
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${
                     form.methodologyIds.includes(m.id)
                       ? 'bg-purple-600 text-white border-purple-700 shadow'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                   disabled={loading}
                 >
@@ -216,24 +213,24 @@ export default function CourseModal({
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Acciones */}
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition"
-              disabled={loading}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow transition"
-              disabled={loading}
-            >
-              {loading ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
+        {/* Footer fijo */}
+        <div className="sticky bottom-0 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-3 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition"
+            disabled={loading}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium shadow disabled:opacity-60 transition"
+            disabled={loading}
+          >
+            {loading ? 'Guardando...' : 'Guardar'}
+          </button>
         </div>
       </div>
     </Dialog>

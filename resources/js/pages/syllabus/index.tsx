@@ -3,17 +3,12 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, FileText } from 'lucide-react';
 import SyllabusModal from './SyllabusModal';
 
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Sílabos', href: '/syllabus' },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Sílabos', href: '/syllabus' }];
 
-type Tecnologia = {
-  nombre: string;
-  tipo?: string | null;
-};
+type Tecnologia = { nombre: string; tipo?: string | null };
 
 type Upload = {
   id: number;
@@ -39,7 +34,6 @@ type Pagination<T> = {
 
 export default function SyllabusIndex() {
   const { uploads: initialPagination } = usePage<{ uploads: Pagination<Upload> }>().props;
-
   const [items, setItems] = useState<Upload[]>([]);
   const [pagination, setPagination] = useState<Pagination<Upload>>(initialPagination);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -91,34 +85,30 @@ export default function SyllabusIndex() {
     }
   };
 
-// 🔽 Combobox que muestra tecnologías agrupadas por tipo
-const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
-  if (!tecnologias || tecnologias.length === 0) {
-    return <span className="text-gray-400">-</span>;
-  }
+  // 🔽 Render de tecnologías agrupadas
+  const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
+    if (!tecnologias || tecnologias.length === 0)
+      return <span className="text-gray-500 dark:text-gray-400">-</span>;
 
-  // Normalizar las tecnologías
-  const normalizadas = tecnologias.map((t) =>
-    typeof t === 'string'
-      ? { nombre: t, tipo: 'Sin categoría' }
-      : { nombre: t.nombre, tipo: t.tipo ?? 'Sin categoría' }
-  );
+    const normalizadas = tecnologias.map((t) =>
+      typeof t === 'string'
+        ? { nombre: t, tipo: 'Sin categoría' }
+        : { nombre: t.nombre, tipo: t.tipo ?? 'Sin categoría' }
+    );
 
-  // Agrupar por tipo
-  const agrupadas = normalizadas.reduce((acc: Record<string, Tecnologia[]>, t) => {
-    if (!acc[t.tipo!]) acc[t.tipo!] = [];
-    acc[t.tipo!].push(t);
-    return acc;
-  }, {});
+    const agrupadas = normalizadas.reduce((acc: Record<string, Tecnologia[]>, t) => {
+      if (!acc[t.tipo!]) acc[t.tipo!] = [];
+      acc[t.tipo!].push(t);
+      return acc;
+    }, {});
 
-  return (
-    <div className="relative inline-block w-full">
+    return (
       <select
-        className="bg-gray-800 border border-gray-700 text-sm rounded px-2 py-1 w-full text-gray-200 focus:outline-none focus:ring focus:ring-blue-600"
+        className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm rounded-md px-2 py-1 w-full text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
         defaultValue={normalizadas[0]?.nombre}
       >
         {Object.entries(agrupadas).map(([tipo, lista]) => (
-          <optgroup key={tipo} label={tipo} className="bg-gray-900 text-gray-100">
+          <optgroup key={tipo} label={tipo}>
             {lista.map((t, idx) => (
               <option key={`${tipo}-${t.nombre}-${idx}`} value={t.nombre}>
                 {t.nombre}
@@ -127,40 +117,44 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
           </optgroup>
         ))}
       </select>
-    </div>
-  );
-};
-
+    );
+  };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8 text-white">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Gestión de Sílabos</h1>
+      <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+          <h1 className="text-3xl font-semibold flex items-center gap-2">
+            <FileText className="text-blue-600 dark:text-blue-400 w-6 h-6" />
+            Gestión de Sílabos
+          </h1>
           <button
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center gap-2"
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-md shadow-md flex items-center gap-2 transition"
           >
             <Plus className="w-4 h-4" /> Subir Sílabos
           </button>
         </div>
 
+        {/* Botón eliminar múltiple */}
         {selectedIds.length > 0 && (
           <div className="mb-4">
             <button
               onClick={removeBulk}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition"
             >
-              Eliminar Seleccionados
+              Eliminar Seleccionados ({selectedIds.length})
             </button>
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border border-gray-700 rounded bg-gray-900 text-gray-200">
-            <thead className="bg-gray-800 text-left text-gray-300">
+        {/* Tabla */}
+        <div className="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-800">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm uppercase">
               <tr>
-                <th className="px-4 py-2">
+                <th className="px-4 py-2 text-center">
                   <input
                     type="checkbox"
                     checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
@@ -179,10 +173,13 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
                 <th className="px-4 py-2">Metodologías</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
               {items.map((item) => (
-                <tr key={item.id} className="border-t border-gray-700 hover:bg-gray-800">
-                  <td className="px-4 py-2">
+                <tr
+                  key={item.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                >
+                  <td className="px-4 py-2 text-center">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(item.id)}
@@ -198,7 +195,7 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
                   <td className="px-4 py-2 whitespace-nowrap">
                     <button
                       onClick={() => removeOne(item.id, item.filename)}
-                      className="text-red-400 hover:text-red-300 inline-flex items-center gap-1 text-sm"
+                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 inline-flex items-center gap-1 text-sm font-medium"
                     >
                       <Trash2 className="w-4 h-4" /> Eliminar
                     </button>
@@ -208,7 +205,7 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
                       href={`/${item.path}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 underline text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
                     >
                       Ver PDF
                     </a>
@@ -216,14 +213,14 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
                   <td className="px-4 py-2">{item.filename}</td>
                   <td className="px-4 py-2">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
                         item.status === 'pending'
-                          ? 'bg-yellow-900 text-yellow-200'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                           : item.status === 'processing'
-                          ? 'bg-blue-900 text-blue-200'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
                           : item.status === 'processed'
-                          ? 'bg-green-900 text-green-200'
-                          : 'bg-red-900 text-red-200'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
                       }`}
                     >
                       {item.status}
@@ -238,7 +235,7 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
 
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                     No hay sílabos para mostrar.
                   </td>
                 </tr>
@@ -247,7 +244,7 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
           </table>
         </div>
 
-        {/* 🔹 Paginación */}
+        {/* 🔹 Paginación intacta */}
         {pagination.last_page > 1 && (
           <div className="flex justify-center mt-6 gap-2">
             {(() => {
@@ -269,17 +266,17 @@ const renderTecnologias = (tecnologias?: (string | Tecnologia)[]) => {
 
               return pages.map((p, idx) =>
                 p === '...' ? (
-                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">
+                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 dark:text-gray-400">
                     …
                   </span>
                 ) : (
                   <button
                     key={`page-${p}-${idx}`}
                     onClick={() => fetchPage(`/syllabus/fetch?page=${p}`)}
-                    className={`px-3 py-1 rounded text-sm font-medium transition ${
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition ${
                       pagination.current_page === p
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                     }`}
                     disabled={pagination.current_page === p}
                   >
