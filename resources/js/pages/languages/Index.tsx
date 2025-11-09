@@ -4,12 +4,10 @@ import { usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Search, Edit } from "lucide-react";
 import LanguageModal from "./LanguageModal";
 
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: "Lenguajes", href: "/languages" },
-];
+const breadcrumbs: BreadcrumbItem[] = [{ title: "Lenguajes", href: "/languages" }];
 
 // Helper para formatear fechas
 function formatDate(dateString?: string | null): string {
@@ -27,6 +25,7 @@ function formatDate(dateString?: string | null): string {
 type Language = {
   id: number;
   name: string;
+  context_id?: number | null;
   created_at?: string;
 };
 
@@ -39,16 +38,31 @@ type Pagination<T> = {
 };
 
 export default function LanguagesIndex() {
-  const { languages: initialPagination } = usePage<{ languages: Pagination<Language> }>().props;
+  const { languages: initialPagination, contexts } = usePage<{
+    languages: Pagination<Language>;
+    contexts: { id: number; role_name: string; search_context: string }[];
+  }>().props;
 
   const [items, setItems] = useState<Language[]>([]);
   const [pagination, setPagination] = useState<Pagination<Language>>(initialPagination);
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Language | null>(null);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setItems(initialPagination.data);
     setPagination(initialPagination);
   }, [initialPagination]);
+
+  // 🔁 Debounce de búsqueda
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      if (search !== "") fetchPage(`/languages/fetch?search=${encodeURIComponent(search)}`);
+      else fetchPage("/languages/fetch");
+    }, 500);
+    return () => clearTimeout(delay);
+  }, [search]);
 
   const normalizePagePayload = (payload: any): Pagination<Language> => {
     const pager = payload?.languages ?? payload ?? {};
@@ -64,12 +78,15 @@ export default function LanguagesIndex() {
 
   const fetchPage = async (url: string) => {
     try {
+      setLoading(true);
       const res = await axios.get(url);
       const norm = normalizePagePayload(res?.data ?? null);
       setItems(norm.data);
       setPagination(norm);
     } catch (e) {
       Swal.fire("Error", "No se pudo cargar la página.", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,6 +113,16 @@ export default function LanguagesIndex() {
     }
   };
 
+  const openEdit = (lang: Language) => {
+    setEditing(lang);
+    setShowModal(true);
+  };
+
+  const handleModalClose = () => {
+    setEditing(null);
+    setShowModal(false);
+  };
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8">
@@ -103,56 +130,88 @@ export default function LanguagesIndex() {
           Lenguajes
         </h1>
 
-        <div className="flex items-center gap-2 mb-4">
+        {/* 🔍 Barra de acciones */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar lenguaje..."
+              className="pl-9 pr-3 py-2 w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditing(null);
+              setShowModal(true);
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Nuevo Lenguaje
           </button>
         </div>
 
+        {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto border-collapse">
             <thead className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 uppercase text-sm">
               <tr>
                 <th className="px-4 py-2">Acciones</th>
                 <th className="px-4 py-2">Nombre</th>
+                <th className="px-4 py-2">Contexto</th>
                 <th className="px-4 py-2">Creado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                >
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <button
-                      onClick={() => removeOne(item.id, item.name)}
-                      className="text-red-500 hover:text-red-700 inline-flex items-center gap-1"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-                  </td>
-                  <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
-                    {item.name}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
-                    {formatDate(item.created_at)}
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-6 text-slate-500">
+                    Cargando...
                   </td>
                 </tr>
-              ))}
-
-              {items.length === 0 && (
+              ) : items.length === 0 ? (
                 <tr>
-                  <td
-                    className="px-4 py-6 text-center text-slate-500 dark:text-slate-400"
-                    colSpan={3}
-                  >
+                  <td colSpan={4} className="text-center py-6 text-slate-500">
                     No hay lenguajes registrados.
                   </td>
                 </tr>
+              ) : (
+                items.map((item) => {
+                  const ctx = contexts.find((c) => c.id === item.context_id);
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      <td className="px-4 py-2 whitespace-nowrap flex gap-2">
+                        <button
+                          onClick={() => openEdit(item)}
+                          className="text-blue-500 hover:text-blue-700 inline-flex items-center gap-1"
+                        >
+                          <Edit className="w-4 h-4" /> Editar
+                        </button>
+                        <button
+                          onClick={() => removeOne(item.id, item.name)}
+                          className="text-red-500 hover:text-red-700 inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" /> Eliminar
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
+                        {item.name}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                        {ctx ? `${ctx.role_name} (${ctx.search_context})` : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
+                        {formatDate(item.created_at)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -173,11 +232,11 @@ export default function LanguagesIndex() {
               const isGap = prev && page - prev > 1;
               return (
                 <span key={page} className="flex">
-                  {isGap && (
-                    <span className="px-2 py-1 text-slate-400">…</span>
-                  )}
+                  {isGap && <span className="px-2 py-1 text-slate-400">…</span>}
                   <button
-                    onClick={() => fetchPage(`/languages/fetch?page=${page}`)}
+                    onClick={() =>
+                      fetchPage(`/languages/fetch?page=${page}&search=${encodeURIComponent(search)}`)
+                    }
                     className={`px-3 py-1 rounded text-sm font-medium transition ${
                       pagination.current_page === page
                         ? "bg-blue-600 text-white"
@@ -196,8 +255,10 @@ export default function LanguagesIndex() {
       {showModal && (
         <LanguageModal
           open={showModal}
-          onClose={() => setShowModal(false)}
+          onClose={handleModalClose}
           onCreated={() => fetchPage("/languages/fetch")}
+          editing={editing}
+          contexts={contexts} // 👈 Contextos disponibles
         />
       )}
     </AppLayout>

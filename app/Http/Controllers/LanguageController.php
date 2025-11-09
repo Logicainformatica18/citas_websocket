@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Language;
+use App\Models\SemanticContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,34 +14,63 @@ class LanguageController extends Controller
     /**
      * 📄 Listado general (Inertia)
      */
-    public function index()
+    public function index(Request $request)
     {
-        $languages = Language::orderBy('id', 'desc')->paginate(10);
+        $search = $request->get('search');
+
+        $languages = Language::query()
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('search_context', 'like', "%{$search}%");
+            })
+            ->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        // 🔹 Listado de contextos semánticos
+        $contexts = SemanticContext::select('id', 'role_name', 'search_context')
+            ->orderBy('role_name')
+            ->get();
 
         return Inertia::render('languages/Index', [
             'languages' => $languages->through(fn ($l) => [
-                'id'         => $l->id,
-                'name'       => $l->name,
-                'slug'       => $l->slug,
-                'context_id' => $l->context_id,
-                'created_at' => optional($l->created_at)->format('Y-m-d'),
+                'id'             => $l->id,
+                'name'           => $l->name,
+                'slug'           => $l->slug,
+                'search_context' => $l->search_context,
+                'context_id'     => $l->context_id,
+                'created_at'     => optional($l->created_at)->format('Y-m-d'),
             ]),
+            'contexts' => $contexts, // 👈 Enviado a Inertia
+            'filters' => [
+                'search' => $search,
+            ],
         ]);
     }
 
     /**
      * 📄 API JSON (para DataTables o AJAX)
      */
-    public function fetchPaginated()
+    public function fetchPaginated(Request $request)
     {
-        $languages = Language::orderBy('id', 'desc')->paginate(10);
+        $search = $request->get('search');
+
+        $languages = Language::query()
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('search_context', 'like', "%{$search}%");
+            })
+            ->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
         $formatted = $languages->through(fn ($l) => [
-            'id'         => $l->id,
-            'name'       => $l->name,
-            'slug'       => $l->slug,
-            'context_id' => $l->context_id,
-            'created_at' => optional($l->created_at)->format('Y-m-d'),
+            'id'             => $l->id,
+            'name'           => $l->name,
+            'slug'           => $l->slug,
+            'search_context' => $l->search_context,
+            'context_id'     => $l->context_id,
+            'created_at'     => optional($l->created_at)->format('Y-m-d'),
         ]);
 
         return response()->json($formatted);
@@ -52,8 +82,9 @@ class LanguageController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'context_id' => 'nullable|integer|exists:semantic_contexts,id',
+            'name'           => 'required|string|max:255',
+            'search_context' => 'nullable|string|max:255',
+            'context_id'     => 'nullable|integer|exists:semantic_contexts,id',
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -73,8 +104,9 @@ class LanguageController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'context_id' => 'nullable|integer|exists:semantic_contexts,id',
+            'name'           => 'required|string|max:255',
+            'search_context' => 'nullable|string|max:255',
+            'context_id'     => 'nullable|integer|exists:semantic_contexts,id',
         ]);
 
         return DB::transaction(function () use ($validated, $id) {

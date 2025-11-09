@@ -70,11 +70,39 @@ public function listAll()
         return response()->json(['message' => '✅ Curso creado', 'course' => $course->load(['languages', 'technologies', 'methodologies'])]);
     }
 
-    public function show($id)
-    {
-        $course = Course::with(['languages', 'technologies', 'methodologies'])->findOrFail($id);
-        return response()->json(['course' => $course]);
-    }
+public function show($id)
+{
+    $course = Course::with(['languages', 'technologies', 'methodologies'])->findOrFail($id);
+
+    // 🧠 IDs asociados
+    $selectedLangs = $course->languages->pluck('id')->toArray();
+    $selectedTechs = $course->technologies->pluck('id')->toArray();
+    $selectedMeths = $course->methodologies->pluck('id')->toArray();
+
+    // 🧩 Lenguajes: los del curso primero
+    $languages = Language::all()
+        ->sortByDesc(fn($lang) => in_array($lang->id, $selectedLangs))
+        ->values();
+
+    // 🧩 Tecnologías: las del curso primero
+    $technologies = Technology::all()
+        ->sortByDesc(fn($tech) => in_array($tech->id, $selectedTechs))
+        ->values();
+
+    // 🧩 Metodologías: las del curso primero
+    $methodologies = Methodology::all()
+        ->sortByDesc(fn($meth) => in_array($meth->id, $selectedMeths))
+        ->values();
+
+    return response()->json([
+        'course' => $course,
+        'languages' => $languages,
+        'technologies' => $technologies,
+        'methodologies' => $methodologies,
+    ]);
+}
+
+
 public function search(Request $request)
 {
     $query = Course::with(['languages', 'technologies', 'methodologies'])
