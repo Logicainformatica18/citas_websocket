@@ -25,7 +25,8 @@ use App\Http\Controllers\Auth\Saml2LoginController;
 use App\Http\Controllers\AI\AITrainingController;
 use App\Http\Controllers\LanguageController;
 use Laravel\Socialite\Facades\Socialite;
-
+use App\Http\Controllers\TechnologyController;
+use App\Http\Controllers\MethodologyController;
 
 
 Route::prefix('auth/saml2')->group(function () {
@@ -218,6 +219,22 @@ Route::get('/courses/search', [CourseController::class, 'search'])->name('course
     Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
     Route::put('/{id}', [LanguageController::class, 'update'])->name('languages.update');
     Route::delete('/{id}', [LanguageController::class, 'destroy'])->name('languages.destroy');
+});
+Route::prefix('technologies')->group(function () {
+    Route::get('/', [TechnologyController::class, 'index'])->name('technologies.index');
+    Route::get('/fetch', [TechnologyController::class, 'fetchPaginated'])->name('technologies.fetch');
+    Route::post('/', [TechnologyController::class, 'store'])->name('technologies.store');
+    Route::put('/{id}', [TechnologyController::class, 'update'])->name('technologies.update');
+    Route::delete('/{id}', [TechnologyController::class, 'destroy'])->name('technologies.destroy');
+});
+
+
+Route::prefix('methodologies')->group(function () {
+    Route::get('/', [MethodologyController::class, 'index'])->name('methodologies.index');
+    Route::get('/fetch', [MethodologyController::class, 'fetchPaginated'])->name('methodologies.fetch');
+    Route::post('/', [MethodologyController::class, 'store'])->name('methodologies.store');
+    Route::put('/{id}', [MethodologyController::class, 'update'])->name('methodologies.update');
+    Route::delete('/{id}', [MethodologyController::class, 'destroy'])->name('methodologies.destroy');
 });
 
     Route::apiResource('career-courses', CareerCourseController::class)->only(['index', 'update', 'destroy']);

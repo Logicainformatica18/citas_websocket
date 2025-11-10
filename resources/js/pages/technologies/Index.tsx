@@ -5,9 +5,9 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { Trash2, Plus, Search, Edit } from "lucide-react";
-import LanguageModal from "./LanguageModal";
+import TechnologyModal from "./TechnologyModal";
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: "Lenguajes", href: "/languages" }];
+const breadcrumbs: BreadcrumbItem[] = [{ title: "Tecnologías", href: "/technologies" }];
 
 // Helper para formatear fechas
 function formatDate(dateString?: string | null): string {
@@ -22,7 +22,7 @@ function formatDate(dateString?: string | null): string {
       });
 }
 
-type Language = {
+type Technology = {
   id: number;
   name: string;
   context_id?: number | null;
@@ -37,37 +37,40 @@ type Pagination<T> = {
   prev_page_url?: string | null;
 };
 
-export default function LanguagesIndex() {
-  const { languages: initialPagination, contexts } = usePage<{
-    languages: Pagination<Language>;
+export default function TechnologiesIndex() {
+  const { technologies: initialPagination, contexts } = usePage<{
+    technologies: Pagination<Technology>;
     contexts: { id: number; role_name: string; search_context: string }[];
   }>().props;
 
-  const [items, setItems] = useState<Language[]>([]);
-  const [pagination, setPagination] = useState<Pagination<Language>>(initialPagination);
+  const [items, setItems] = useState<Technology[]>([]);
+  const [pagination, setPagination] = useState<Pagination<Technology>>(initialPagination);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Language | null>(null);
+  const [editing, setEditing] = useState<Technology | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setItems(initialPagination.data);
     setPagination(initialPagination);
+    setMounted(true); // para evitar fetch inicial duplicado
   }, [initialPagination]);
 
-  // 🔁 Debounce de búsqueda
- useEffect(() => {
-  if (search.trim() === "") return; // 🚫 no llames al iniciar
-  const delay = setTimeout(() => {
-    fetchPage(`/languages/fetch?search=${encodeURIComponent(search)}`);
-  }, 500);
-  return () => clearTimeout(delay);
-}, [search]);
+  // 🔁 Debounce de búsqueda — sin parpadeo al entrar
+  useEffect(() => {
+    if (!mounted) return; // evita el primer fetch duplicado
+    if (search.trim() === "") return; // solo busca si hay texto
 
+    const delay = setTimeout(() => {
+      fetchPage(`/technologies/fetch?search=${encodeURIComponent(search)}`);
+    }, 500);
+    return () => clearTimeout(delay);
+  }, [search, mounted]);
 
-  const normalizePagePayload = (payload: any): Pagination<Language> => {
-    const pager = payload?.languages ?? payload ?? {};
-    const data: Language[] = Array.isArray(pager) ? pager : pager?.data ?? [];
+  const normalizePagePayload = (payload: any): Pagination<Technology> => {
+    const pager = payload?.technologies ?? payload ?? {};
+    const data: Technology[] = Array.isArray(pager) ? pager : pager?.data ?? [];
     return {
       data,
       current_page: pager?.current_page ?? 1,
@@ -84,7 +87,7 @@ export default function LanguagesIndex() {
       const norm = normalizePagePayload(res?.data ?? null);
       setItems(norm.data);
       setPagination(norm);
-    } catch (e) {
+    } catch {
       Swal.fire("Error", "No se pudo cargar la página.", "error");
     } finally {
       setLoading(false);
@@ -106,16 +109,16 @@ export default function LanguagesIndex() {
     if (!confirm.isConfirmed) return;
 
     try {
-      await axios.delete(`/languages/${id}`);
+      await axios.delete(`/technologies/${id}`);
       setItems((prev) => prev.filter((i) => i.id !== id));
-      Swal.fire("Eliminado", "Lenguaje eliminado correctamente.", "success");
-    } catch (e) {
-      Swal.fire("Error", "No se pudo eliminar el lenguaje.", "error");
+      Swal.fire("Eliminado", "Tecnología eliminada correctamente.", "success");
+    } catch {
+      Swal.fire("Error", "No se pudo eliminar la tecnología.", "error");
     }
   };
 
-  const openEdit = (lang: Language) => {
-    setEditing(lang);
+  const openEdit = (tech: Technology) => {
+    setEditing(tech);
     setShowModal(true);
   };
 
@@ -128,7 +131,7 @@ export default function LanguagesIndex() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-          Lenguajes
+          Tecnologías
         </h1>
 
         {/* 🔍 Barra de acciones */}
@@ -139,7 +142,7 @@ export default function LanguagesIndex() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar lenguaje..."
+              placeholder="Buscar tecnología..."
               className="pl-9 pr-3 py-2 w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -151,7 +154,7 @@ export default function LanguagesIndex() {
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Nuevo Lenguaje
+            <Plus className="w-4 h-4" /> Nueva Tecnología
           </button>
         </div>
 
@@ -176,7 +179,7 @@ export default function LanguagesIndex() {
               ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center py-6 text-slate-500">
-                    No hay lenguajes registrados.
+                    No hay tecnologías registradas.
                   </td>
                 </tr>
               ) : (
@@ -236,7 +239,9 @@ export default function LanguagesIndex() {
                   {isGap && <span className="px-2 py-1 text-slate-400">…</span>}
                   <button
                     onClick={() =>
-                      fetchPage(`/languages/fetch?page=${page}&search=${encodeURIComponent(search)}`)
+                      fetchPage(
+                        `/technologies/fetch?page=${page}&search=${encodeURIComponent(search)}`
+                      )
                     }
                     className={`px-3 py-1 rounded text-sm font-medium transition ${
                       pagination.current_page === page
@@ -254,12 +259,12 @@ export default function LanguagesIndex() {
       </div>
 
       {showModal && (
-        <LanguageModal
+        <TechnologyModal
           open={showModal}
           onClose={handleModalClose}
-          onCreated={() => fetchPage("/languages/fetch")}
+          onCreated={() => fetchPage("/technologies/fetch")}
           editing={editing}
-          contexts={contexts} // 👈 Contextos disponibles
+          contexts={contexts}
         />
       )}
     </AppLayout>

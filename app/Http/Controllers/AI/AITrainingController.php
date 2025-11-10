@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ArrayExport;
 use Carbon\Carbon;
+use App\Helpers\DataSanitizer;
 class AITrainingController extends Controller
 {
     /**
@@ -528,7 +529,7 @@ PROMPT;
     /**
      * 🎓 3️⃣ Finaliza el entrenamiento (GPT explica y guarda en aitrainings)
      */
-  public function finalizeTraining(Request $request)
+public function finalizeTraining(Request $request)
 {
     $request->validate([
         'sql_training_id' => 'required|integer|exists:sqltrainings,id',
@@ -551,15 +552,43 @@ PROMPT;
 
     try {
         // ============================================================
-        // 📊 1️⃣ Recuperar los datos previos (última ejecución)
+        // 📊 1️⃣ Ejecutar SQL real en lugar de usar last_test_output
         // ============================================================
-        $preview = json_decode($sqlTraining->last_test_output ?? '[]', true);
-        if (empty($preview)) {
-            return response()->json(['error' => 'No hay datos previos para analizar.'], 400);
-        }
+    $rawSql = trim((string) $sqlTraining->sql_validated ?? '');
+
+if ($rawSql === '' || !str_starts_with(strtoupper($rawSql), 'SELECT')) {
+    return response()->json(['error' => 'El SQL del entrenamiento está vacío o no es una SELECT.'], 400);
+}
+
+
+
+  if (preg_match('/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|EXEC|CREATE|REPLACE|MERGE)\b/i', $rawSql)) {
+    return response()->json(['error' => '❌ Se detectó una operación SQL no permitida.'], 400);
+}
+
+
+
+ $rawSql = (string) ($sqlTraining->sql_validated ?? '');
+$rawSql = trim(str_replace(["\n", "\r"], ' ', $rawSql));
+
+if (!is_string($rawSql) || $rawSql === '') {
+    return response()->json(['error' => 'SQL inválido o vacío.'], 400);
+}
+
+// Ejecutar directamente sin DB::raw()
+$results = DataSanitizer::cleanCollection(collect(DB::select($rawSql)), [
+    'company' => fn($v) => $v && $v !== '0' ? trim($v) : 'Sin nombre',
+])->toArray();
+
+
+
+if (empty($results) || collect($results)->isEmpty()) {
+    return response()->json(['error' => 'La consulta no devolvió resultados válidos.'], 400);
+}
+
 
         if ($limit !== null) {
-            $preview = array_slice($preview, 0, (int) $limit);
+            $results = array_slice($results, 0, (int) $limit);
         }
 
         // ============================================================
@@ -568,7 +597,7 @@ PROMPT;
         $filename = "observatorio_result_" . now()->format('Ymd_His') . ".xlsx";
         $relativePath = "sql_results/{$filename}";
 
-        Excel::store(new ArrayExport($preview, [
+        Excel::store(new ArrayExport($results, [
             'title' => 'Resultados del Observatorio ISIL',
             'created_at' => now()->format('d/m/Y H:i'),
         ]), $relativePath, 'public');
@@ -576,7 +605,7 @@ PROMPT;
         $excelPath = asset("storage/{$relativePath}");
 
         // ============================================================
-        // 🧠 3️⃣ Generar explicación con OpenAI
+        // 🧠 3️⃣ Generar explicación con OpenAI (IA dinámica)
         // ============================================================
         $contextPrompt = "
 Eres **VERA**, la analista de datos institucional del Observatorio Tecnológico ISIL**.
@@ -584,7 +613,7 @@ Eres **VERA**, la analista de datos institucional del Observatorio Tecnológico 
 Debes analizar los siguientes datos en JSON y explicar qué revelan, en el contexto de empleabilidad tecnológica y demanda laboral.
 
 JSON de entrada:
-" . json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "
+" . json_encode($results, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "
 
 Instrucciones:
 - No hables de SQL ni de consultas.
@@ -597,8 +626,9 @@ Instrucciones:
             [
                 'model' => 'gpt-4o-mini',
                 'messages' => [
-                    ['role' => 'system', 'content' => $contextPrompt],
-                    ['role' => 'user', 'content' => "Prompt original: {$prompt}"],
+                    ['role' => 'system', 'content' => 'Eres VERA, analista institucional del Observatorio ISIL.'],
+                    ['role' => 'user', 'content' => $contextPrompt],
+                    ['role' => 'user', 'content' => "Prompt original del usuario: {$prompt}"],
                 ],
                 'temperature' => 0.45,
                 'max_tokens' => 300,
@@ -631,26 +661,23 @@ Instrucciones:
         }
 
         // ============================================================
-        // 💽 5️⃣ Guardar entrenamiento si el usuario confirma
+        // 💽 5️⃣ Guardar entrenamiento (solo contexto, no JSON)
         // ============================================================
         $trainingId = null;
-
         if ($saveTraining) {
-            // 🧩 Insertar entrenamiento
             $trainingId = DB::table('aitrainings')->insertGetId([
                 'topic' => 'Análisis Observatorio',
                 'prompt' => $prompt,
                 'interpreter' => 'AITrainingController@finalizeTraining',
                 'component' => 'vera-training',
-                'description' => 'Análisis contextual de resultados del Observatorio ISIL.',
+                'description' => 'Análisis dinámico de resultados del Observatorio ISIL.',
                 'explanation_prompt' => $contextPrompt,
                 'cached_response' => json_encode([
-                    'result' => $preview,
                     'explanation' => $aiResponse,
                     'excel' => $excelPath,
                     'voice' => $voiceUrl,
                 ], JSON_UNESCAPED_UNICODE),
-                'sql_training_id' => $sqlTraining->id, // 🔗 vínculo directo a sqltrainings
+                'sql_training_id' => $sqlTraining->id,
                 'is_trained' => 1,
                 'training_stage' => 'final',
                 'last_trained_at' => now(),
@@ -658,11 +685,6 @@ Instrucciones:
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-
-            // 🧠 Vincular SQL con el entrenamiento creado
-            DB::table('aitrainings')
-                ->where('id', $trainingId)
-                ->update(['sql_training_id' => $sqlTraining->id]);
 
             Log::info('✅ Entrenamiento vinculado correctamente', [
                 'ai_training_id' => $trainingId,
@@ -692,6 +714,7 @@ Instrucciones:
         ], 500);
     }
 }
+
 
 
 

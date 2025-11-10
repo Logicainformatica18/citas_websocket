@@ -90,9 +90,67 @@ useEffect(() => {
     }
   };
   document.addEventListener("mousedown", handleClickOutside);
+  console.log(normalizedData.map(d => d.name));
+
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
-    const data = widget.data_source?.rows || [];
+    // 🔹 Datos crudos
+const rawData = widget.data_source?.rows || [];
+
+// 🧠 Normalización flexible y autodetección de claves
+const { normalizedData, categoryKey, numericKeys } = React.useMemo(() => {
+  if (!Array.isArray(rawData) || rawData.length === 0)
+    return { normalizedData: [], categoryKey: "name", numericKeys: [] };
+
+  const allKeys = Object.keys(rawData[0]);
+
+  // ✅ Detectar categoría probable (la que mejor sirve como eje X)
+  const possibleNameKeys = [
+    "name", "modality", "language", "technology", "methodology",
+    "career_name", "category", "country", "region", "city", "company", "workload"
+  ];
+
+  const categoryKey =
+    allKeys.find((k) => possibleNameKeys.includes(k)) ||
+    allKeys.find((k) => typeof rawData[0][k] === "string") ||
+    "name";
+
+  // ✅ Detectar columnas numéricas válidas (salarios, conteos, etc.)
+  const numericKeys = allKeys.filter(
+    (k) =>
+      typeof rawData[0][k] === "number" ||
+      k.toLowerCase().includes("total") ||
+      k.toLowerCase().includes("count") ||
+      k.toLowerCase().includes("salary") ||
+      k.toLowerCase().includes("min") ||
+      k.toLowerCase().includes("max")
+  );
+
+  // ✅ Normalizar datos para que todos los gráficos puedan usar "value"
+const normalizedData = rawData.map((row) => {
+  const base = {};
+
+  // ✅ Mantén el campo real detectado como categoría
+  base[categoryKey] =
+    row[categoryKey] && row[categoryKey].toString().trim() !== ""
+      ? row[categoryKey]
+      : "Sin nombre";
+
+  // ✅ Agrega todas las métricas numéricas
+  numericKeys.forEach((k) => {
+    base[k] = Number(row[k]) || 0;
+  });
+
+  // ✅ Si no hay ninguna métrica, agrega un valor por defecto
+  if (numericKeys.length === 0) base["value"] = 1;
+
+  return base;
+});
+
+
+  return { normalizedData, categoryKey, numericKeys };
+}, [rawData]);
+
 
     const handleColorChange = async (newColor) => {
         const newColors = { ...colors, primary: newColor };
@@ -112,16 +170,19 @@ useEffect(() => {
 
     // ============================================================
     // 📤 Funciones de exportación
-    // ============================================================
-    const exportToExcel = () => {
-        if (!data.length) return alert("No hay datos para exportar");
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Datos");
-        const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const blob = new Blob([buffer], { type: "application/octet-stream" });
-        saveAs(blob, `${widget.title || "widget"}.xlsx`);
-    };
+ const exportToExcel = () => {
+  const rows = widget.data_source?.rows || [];
+  if (!rows.length) return alert("No hay datos para exportar");
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Datos");
+
+  const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buffer], { type: "application/octet-stream" });
+  saveAs(blob, `${widget.title || "widget"}.xlsx`);
+};
+
 
 
     const exportToPDF = () => {
@@ -187,136 +248,177 @@ useEffect(() => {
             </h3>
 
             <div className="h-[260px]">
-                {widget.chart_type === "bar" && (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                            <XAxis dataKey="name" stroke={colors.text} tick={{ fill: colors.text }} />
-                            <YAxis stroke={colors.text} tick={{ fill: colors.text }} />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: colors.bg,
-                                    border: `1px solid ${colors.border}`,
-                                }}
-                                labelStyle={{ color: colors.text }}
-                                itemStyle={{ color: colors.text }} // 👈 texto dentro del tooltip
-                            />
-                            <Legend
-                                wrapperStyle={{ color: colors.text }}
-                                iconSize={12}
-                                formatter={(value) => (
-                                    <span style={{ color: colors.text }}>{value}</span>
-                                )}
-                            />
-                            <Bar dataKey={dataKey} fill={colors.primary} />
-                        </BarChart>
+{widget.chart_type === "bar" && (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    {(() => {
+      // 🔍 DEPURACIÓN: imprime toda la info antes del render
+      console.log("🟦 [BAR DEBUG] Datos normalizados:", normalizedData);
+      console.log("🟩 [BAR DEBUG] categoryKey:", categoryKey);
+      console.log("🟨 [BAR DEBUG] numericKeys:", numericKeys);
+      console.log(
+        "🟪 [BAR DEBUG] Nombres detectados:",
+        normalizedData.map((d) => d[categoryKey])
+      );
+      return null;
+    })()}
 
-                    </ResponsiveContainer>
-                )}
+    <ResponsiveContainer width="100%" height={320}>
+      <BarChart
+        data={normalizedData}
+        margin={{ top: 10, right: 10, left: 10, bottom: 100 }} // 👈 espacio extra para etiquetas
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+
+        <XAxis
+          dataKey={categoryKey}
+          stroke={colors.text}
+          tick={{
+            fill: colors.text,
+            fontSize: 11,
+            dy: 10, // 👈 pequeño margen para separar el texto
+          }}
+          interval={0} // 👈 muestra todos los labels sin saltar
+          angle={-45} // 👈 inclina etiquetas
+          textAnchor="end"
+          height={80}
+        />
+
+        <YAxis
+          stroke={colors.text}
+          tick={{ fill: colors.text, fontSize: 11 }}
+        />
+
+        <Tooltip
+          contentStyle={{
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+          }}
+          labelStyle={{ color: colors.text }}
+          itemStyle={{ color: colors.text }}
+        />
+
+        <Bar
+          dataKey={numericKeys[0] || "value"}
+          isAnimationActive={true}
+          onClick={(data, index) => {
+            console.log("🧩 Click en barra:", {
+              index,
+              label: data[categoryKey],
+              value: data[numericKeys[0] || "value"],
+            });
+          }}
+        >
+          {normalizedData.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={`hsl(${(index * 25) % 360}, 70%, 55%)`}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+
+    {/* ✅ Leyenda manual igual que el pie chart */}
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "8px 12px",
+        paddingTop: "8px",
+        maxHeight: "80px",
+        overflowY: "auto",
+      }}
+    >
+      {normalizedData.length > 0 ? (
+        normalizedData.slice(0, 20).map((entry, index) => (
+          <div
+            key={index}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              fontSize: "12px",
+              color: colors.text,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "10px",
+                height: "10px",
+                backgroundColor: `hsl(${(index * 25) % 360}, 70%, 55%)`,
+                marginRight: "5px",
+                borderRadius: "2px",
+              }}
+            />
+            {entry[categoryKey]}
+          </div>
+        ))
+      ) : (
+        <span style={{ color: colors.text, opacity: 0.5 }}>Sin datos</span>
+      )}
+    </div>
+  </div>
+)}
+
+
+
+
+
 
 
                 {widget.chart_type === "line" && (
                     <ResponsiveContainer width="100%" height="100%">
-                     <LineChart data={data}>
+                     <LineChart data={normalizedData}>
   <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-  <XAxis dataKey="name" stroke={colors.text} tick={{ fill: colors.text }} />
+  <XAxis dataKey={categoryKey} stroke={colors.text} tick={{ fill: colors.text }} />
   <YAxis stroke={colors.text} tick={{ fill: colors.text }} />
-  <Tooltip
-    contentStyle={{
-      backgroundColor: colors.bg,
-      border: `1px solid ${colors.border}`,
-    }}
-    labelStyle={{ color: colors.text }}
-    itemStyle={{ color: colors.text }}
-  />
-  <Legend
-    wrapperStyle={{ color: colors.text }}
-    formatter={(value) => (
-      <span style={{ color: colors.text }}>{value}</span>
-    )}
-  />
-  <Line
-    type="monotone"
-    dataKey={dataKey}
-    stroke={colors.primary}
-    strokeWidth={2}
-  />
+  <Tooltip contentStyle={{ backgroundColor: colors.bg }} />
+  <Legend wrapperStyle={{ color: colors.text }} />
+  {numericKeys.map((key, i) => (
+    <Line
+      key={key}
+      type="monotone"
+      dataKey={key}
+      stroke={`hsl(${(i * 50) % 360}, 70%, 55%)`}
+      strokeWidth={2}
+    />
+  ))}
 </LineChart>
+
 
                     </ResponsiveContainer>
                 )}
 
 {widget.chart_type === "pie" && (
   <ResponsiveContainer width="100%" height="100%">
-    <PieChart
-      margin={{
-        top: 10,
-        right: 60,
-        left: 10,
-        bottom: 10,
-      }}
-    >
-      <Pie
-        data={data}
-        dataKey={dataKey}
-        nameKey="name"
-        cx="35%" // gráfico desplazado a la izquierda
-        cy="50%"
-        outerRadius="80%"
-        innerRadius="50%"
-        labelLine={false}
-        label={({ percent }) => `${(percent * 100).toFixed(1)}%`} // solo porcentaje
-      >
-        {data.map((entry, index) => {
-          const hue = (index * 36) % 360;
-          return (
-            <Cell
-              key={`cell-${index}`}
-              fill={`hsl(${hue}, 70%, 55%)`}
-              stroke={colors.bg}
-            />
-          );
-        })}
-      </Pie>
+   <PieChart>
+  <Pie
+    data={normalizedData}
+    dataKey={numericKeys[0] || "value"}
+    nameKey={categoryKey}
+    cx="35%"
+    cy="50%"
+    outerRadius="80%"
+    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+  >
+    {normalizedData.map((entry, index) => (
+      <Cell key={index} fill={`hsl(${(index * 45) % 360}, 70%, 55%)`} />
+    ))}
+  </Pie>
+  <Tooltip />
+  <Legend layout="vertical" align="right" verticalAlign="middle" />
+</PieChart>
 
-      {/* Tooltip refinado con mismo color del texto */}
-      <Tooltip
-        formatter={(value, name) => [
-          `${Number(value).toLocaleString()} ofertas (${(
-            (value / data.reduce((a, b) => a + b[dataKey], 0)) * 100
-          ).toFixed(1)}%)`,
-          name,
-        ]}
-        contentStyle={{
-          backgroundColor: colors.bg,
-          color: colors.text, // 👈 usa el mismo color del título
-          border: `1px solid ${colors.border}`,
-          borderRadius: "8px",
-          fontSize: "13px",
-        }}
-        itemStyle={{
-          color: colors.text, // 👈 asegura que el texto del tooltip sea legible
-        }}
-        labelStyle={{
-          color: colors.text, // 👈 el label principal también
-        }}
-      />
-
-      {/* Leyenda con scroll */}
-      <Legend
-        layout="vertical"
-        align="right"
-        verticalAlign="middle"
-        wrapperStyle={{
-          paddingLeft: "10px",
-          width: "120px",
-          overflowY: "auto",
-          maxHeight: "240px",
-          color: colors.text,
-          fontSize: "13px",
-        }}
-      />
-    </PieChart>
   </ResponsiveContainer>
 )}
 
