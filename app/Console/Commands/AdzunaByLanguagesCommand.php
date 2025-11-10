@@ -102,11 +102,47 @@ class AdzunaByLanguagesCommand extends Command
                         // 🧭 Detección de modalidad
                         $modality = $this->detectModality($loc, $desc);
 
-                        $area    = $job['location']['area'] ?? [];
-                        $countryCode = strtolower($country);
-                        $city    = $area[1] ?? null;
+                      $area = $job['location']['area'] ?? [];
 
-                        [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
+// 🏙️ City y país real desde Adzuna
+$city = $area[1] ?? ($area[0] ?? null);
+
+// 🇩🇪 Detectar país real (último valor del array)
+$countryName = $area[0] ?? null;
+
+// 🇪🇸 Si el país es código corto (DE, FR, ES...), mapeamos a nombre en español
+$isoToName = [
+    'DE' => 'Alemania',
+    'FR' => 'Francia',
+    'ES' => 'España',
+    'IT' => 'Italia',
+    'GB' => 'Reino Unido',
+    'US' => 'Estados Unidos',
+    'CA' => 'Canadá',
+    'BR' => 'Brasil',
+    'MX' => 'México',
+    'IN' => 'India',
+    'SG' => 'Singapur',
+    'NL' => 'Países Bajos',
+    'PL' => 'Polonia',
+    'BE' => 'Bélgica',
+    'CH' => 'Suiza',
+    'ZA' => 'Sudáfrica',
+    'NZ' => 'Nueva Zelanda',
+    'AU' => 'Australia',
+    'PT' => 'Portugal'
+];
+
+
+// Normaliza
+$countryCode = strtoupper($countryName ?? $country);
+$countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $countryCode));
+
+// 🧭 Coordenadas
+[$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, strtolower($countryCode));
+
+
+
 
                         // ⚠️ Si no hay coordenadas, usar capital o descartar
                         if (!$latitude || !$longitude) {
@@ -129,25 +165,33 @@ class AdzunaByLanguagesCommand extends Command
                             continue;
                         }
 
-                        JobOffer::create([
-                            'title'        => $title,
-                            'company'      => $company,
-                            'country'      => strtoupper($countryCode),
-                            'city'         => $city,
-                            'latitude'     => $latitude,
-                            'longitude'    => $longitude,
-                            'modality'     => $modality,
-                            'salary_min'   => $job['salary_min'] ?? null,
-                            'salary_max'   => $job['salary_max'] ?? null,
-                            'currency'     => $job['salary_currency'] ?? 'USD',
-                            'source'       => 'Adzuna',
-                            'external_id'  => $job['id'] ?? null,
-                            'url'          => $urlJob,
-                            'search_query' => $languageName,
-                            'published_at' => isset($job['created']) ? Carbon::parse($job['created']) : now(),
-                            'created_at'   => now(),
-                            'updated_at'   => now(),
-                        ]);
+                       JobOffer::create([
+    'title'             => $title,
+    'company'           => $company,
+'country' => $countryFull,
+
+    'city'              => $city,
+    'latitude'          => $latitude,
+    'longitude'         => $longitude,
+    'modality'          => $modality,
+    'salary_min'        => $job['salary_min'] ?? null,
+    'salary_max'        => $job['salary_max'] ?? null,
+    'currency'          => $job['salary_currency'] ?? 'USD',
+    'compensation_type' => $job['contract_time'] ?? $job['contract_type'] ?? null,
+    'experience_level'  => $this->extractExperience($job['description'] ?? ''),
+    'education_level'   => $this->extractEducation($job['description'] ?? ''),
+    'certifications'    => $this->extractCertifications($job['description'] ?? ''),
+    'skills'            => $this->extractSkills($job['description'] ?? ''),
+    'requirements'      => strip_tags($job['description'] ?? null),
+    'source'            => 'Adzuna',
+    'external_id'       => $job['id'] ?? null,
+    'url'               => $urlJob,
+    'search_query'      => $languageName,
+    'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
+    'created_at'        => now(),
+    'updated_at'        => now(),
+]);
+
 
                         $totalNew++;
                         $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
@@ -253,4 +297,57 @@ class AdzunaByLanguagesCommand extends Command
 
         return [null, null];
     }
+        // 🧩 Extrae nivel de experiencia del texto
+    protected function extractExperience(string $text): ?string
+    {
+        $t = strtolower($text);
+
+        return match (true) {
+            str_contains($t, 'senior') || str_contains($t, 'sr.') => 'senior',
+            str_contains($t, 'mid-level') || str_contains($t, 'semi senior') => 'mid',
+            str_contains($t, 'junior') || str_contains($t, 'jr.') => 'junior',
+            default => null,
+        };
+    }
+
+    // 🎓 Detecta nivel educativo
+    protected function extractEducation(string $text): ?string
+    {
+        $t = strtolower($text);
+
+        return match (true) {
+            str_contains($t, 'bachelor') || str_contains($t, 'licenciatura') => 'bachelor',
+            str_contains($t, 'master') || str_contains($t, 'maestría') => 'master',
+            str_contains($t, 'phd') || str_contains($t, 'doctorado') => 'phd',
+            str_contains($t, 'technical') || str_contains($t, 'tecnico') => 'technical',
+            default => null,
+        };
+    }
+
+    // 🏅 Busca certificaciones comunes
+    protected function extractCertifications(string $text): ?string
+    {
+        $t = strtolower($text);
+        $found = [];
+
+        foreach (['aws', 'azure', 'google cloud', 'scrum', 'pmp', 'cisco', 'ccna', 'itil'] as $cert) {
+            if (str_contains($t, $cert)) $found[] = strtoupper($cert);
+        }
+
+        return !empty($found) ? implode(', ', $found) : null;
+    }
+
+    // 🧩 Extrae habilidades técnicas
+    protected function extractSkills(string $text): ?string
+    {
+        $t = strtolower($text);
+        $skills = [];
+
+        foreach (['python', 'java', 'php', 'laravel', 'react', 'vue', 'sql', 'docker', 'aws', 'git', 'node'] as $skill) {
+            if (str_contains($t, $skill)) $skills[] = strtoupper($skill);
+        }
+
+        return !empty($skills) ? implode(', ', $skills) : null;
+    }
+
 }

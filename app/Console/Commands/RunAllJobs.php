@@ -61,13 +61,13 @@ class RunAllJobs extends Command
 
 
 //  'adzuna:languages --country=us --pages=1',
-'adzuna:languages --country=ca --pages=1',
-'adzuna:languages --country=mx --pages=1',
-'adzuna:languages --country=br --pages=1',
+// 'adzuna:languages --country=ca --pages=1',
+// 'adzuna:languages --country=mx --pages=1',
+// 'adzuna:languages --country=br --pages=1',
 
-'adzuna:languages --country=es --pages=1',
-'adzuna:languages --country=fr --pages=1',
-'adzuna:languages --country=de --pages=1',
+// 'adzuna:languages --country=es --pages=1',
+// 'adzuna:languages --country=fr --pages=1',
+// 'adzuna:languages --country=de --pages=1',
 'adzuna:languages --country=it --pages=1',
 'adzuna:languages --country=gb --pages=1',
 'adzuna:languages --country=nl --pages=1',
