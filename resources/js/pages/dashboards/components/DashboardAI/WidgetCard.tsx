@@ -99,18 +99,20 @@ useEffect(() => {
 
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
-    // 🔹 Datos crudos
-const rawData = rows;
+// 🔹 Aseguramos que siempre haya un array nuevo
+const rawData = Array.isArray(rows) ? [...rows] : [];
 
 
-// 🧠 Normalización flexible y autodetección de claves
 const { normalizedData, categoryKey, numericKeys } = React.useMemo(() => {
-  if (!Array.isArray(rawData) || rawData.length === 0)
+  // 🧩 1️⃣ Validación de datos reales
+  if (!Array.isArray(rawData) || rawData.length === 0 || !rawData[0])
     return { normalizedData: [], categoryKey: "name", numericKeys: [] };
 
-  const allKeys = Object.keys(rawData[0]);
+  const allKeys = Object.keys(rawData[0] || {});
+  if (allKeys.length === 0)
+    return { normalizedData: [], categoryKey: "name", numericKeys: [] };
 
-  // ✅ Detectar categoría probable (la que mejor sirve como eje X)
+  // 🧩 2️⃣ Detección de categoría
   const possibleNameKeys = [
     "name", "modality", "language", "technology", "methodology",
     "career_name", "category", "country", "region", "city", "company", "workload"
@@ -119,43 +121,62 @@ const { normalizedData, categoryKey, numericKeys } = React.useMemo(() => {
   const categoryKey =
     allKeys.find((k) => possibleNameKeys.includes(k)) ||
     allKeys.find((k) => typeof rawData[0][k] === "string") ||
-    "name";
+    allKeys[0];
 
-  // ✅ Detectar columnas numéricas válidas (salarios, conteos, etc.)
-  const numericKeys = allKeys.filter(
-    (k) =>
-      typeof rawData[0][k] === "number" ||
-      k.toLowerCase().includes("total") ||
-      k.toLowerCase().includes("count") ||
-      k.toLowerCase().includes("salary") ||
-      k.toLowerCase().includes("min") ||
-      k.toLowerCase().includes("max")
+  // 🧩 3️⃣ Detección numérica (tolerante)
+const numericKeys = allKeys.filter((k) => {
+  // ❌ No incluir la categoría detectada
+  if (k === categoryKey) return false;
+
+  const val = rawData[0][k];
+  const num = parseFloat(val);
+
+  return (
+    (typeof val === "number" && !isNaN(val)) ||
+    (!isNaN(num) && isFinite(num)) ||
+    k.toLowerCase().includes("total") ||
+    k.toLowerCase().includes("count") ||
+    k.toLowerCase().includes("salary") ||
+    k.toLowerCase().includes("min") ||
+    k.toLowerCase().includes("max")
   );
-
-  // ✅ Normalizar datos para que todos los gráficos puedan usar "value"
-const normalizedData = rawData.map((row) => {
-  const base = {};
-
-  // ✅ Mantén el campo real detectado como categoría
-  base[categoryKey] =
-    row[categoryKey] && row[categoryKey].toString().trim() !== ""
-      ? row[categoryKey]
-      : "Sin nombre";
-
-  // ✅ Agrega todas las métricas numéricas
-  numericKeys.forEach((k) => {
-    base[k] = Number(row[k]) || 0;
-  });
-
-  // ✅ Si no hay ninguna métrica, agrega un valor por defecto
-  if (numericKeys.length === 0) base["value"] = 1;
-
-  return base;
 });
 
 
+  // 🧩 4️⃣ Normalización robusta
+  const normalizedData = rawData.map((row) => {
+    const obj = {};
+    obj[categoryKey] = row[categoryKey]?.toString().trim() || "Sin nombre";
+
+    numericKeys.forEach((k) => {
+      const val = row[k];
+      const num = parseFloat(val);
+      obj[k] = !isNaN(num) && isFinite(num) ? num : 0;
+    });
+
+    return obj;
+  });
+
+  console.log("🧩 Normalización:", {
+    categoryKey,
+    numericKeys,
+    muestra: normalizedData[0],
+  });
+
   return { normalizedData, categoryKey, numericKeys };
-}, [rawData]);
+}, [JSON.stringify(rawData)]);
+
+
+// 🧩 Log seguro (ya después del cálculo)
+useEffect(() => {
+  console.table(rawData.slice(0, 3));
+  console.log("🧩 Normalización:", {
+    categoryKey,
+    numericKeys,
+    muestra: normalizedData[0],
+  });
+}, [categoryKey, numericKeys, normalizedData]);
+
 
 
     const handleColorChange = async (newColor) => {
@@ -267,7 +288,7 @@ const exportToPDF = () => {
                 {widget.title || "Sin título"}
             </h3>
 
-            <div className="h-[260px]">
+            <div className="h-[360px]">
 {widget.chart_type === "bar" && (
   <div
     style={{
@@ -275,77 +296,49 @@ const exportToPDF = () => {
       height: "100%",
       display: "flex",
       flexDirection: "column",
+      justifyContent: "space-between",
     }}
   >
-    {(() => {
-      // 🔍 DEPURACIÓN: imprime toda la info antes del render
-      console.log("🟦 [BAR DEBUG] Datos normalizados:", normalizedData);
-      console.log("🟩 [BAR DEBUG] categoryKey:", categoryKey);
-      console.log("🟨 [BAR DEBUG] numericKeys:", numericKeys);
-      console.log(
-        "🟪 [BAR DEBUG] Nombres detectados:",
-        normalizedData.map((d) => d[categoryKey])
-      );
-      return null;
-    })()}
-
-    <ResponsiveContainer width="100%" height={320}>
-      <BarChart
-        data={normalizedData}
-        margin={{ top: 10, right: 10, left: 10, bottom: 100 }} // 👈 espacio extra para etiquetas
-      >
-        <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-
-        <XAxis
-          dataKey={categoryKey}
-          stroke={colors.text}
-          tick={{
-            fill: colors.text,
-            fontSize: 11,
-            dy: 10, // 👈 pequeño margen para separar el texto
-          }}
-          interval={0} // 👈 muestra todos los labels sin saltar
-          angle={-45} // 👈 inclina etiquetas
-          textAnchor="end"
-          height={80}
-        />
-
-        <YAxis
-          stroke={colors.text}
-          tick={{ fill: colors.text, fontSize: 11 }}
-        />
-
-        <Tooltip
-          contentStyle={{
-            backgroundColor: colors.bg,
-            border: `1px solid ${colors.border}`,
-          }}
-          labelStyle={{ color: colors.text }}
-          itemStyle={{ color: colors.text }}
-        />
-
-        <Bar
-          dataKey={numericKeys[0] || "value"}
-          isAnimationActive={true}
-          onClick={(data, index) => {
-            console.log("🧩 Click en barra:", {
-              index,
-              label: data[categoryKey],
-              value: data[numericKeys[0] || "value"],
-            });
-          }}
+    {/* 🧩 Gráfico principal */}
+    <div style={{ flex: 1, minHeight: "240px" }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={normalizedData}
+          margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
         >
-          {normalizedData.map((entry, index) => (
-            <Cell
-              key={`cell-${index}`}
-              fill={`hsl(${(index * 25) % 360}, 70%, 55%)`}
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
 
-    {/* ✅ Leyenda manual igual que el pie chart */}
+          <XAxis
+            dataKey={categoryKey}
+            stroke={colors.text}
+            tick={false}     // sin texto en eje X
+            axisLine={false} // sin línea base
+          />
+          <YAxis
+            stroke={colors.text}
+            tick={{ fill: colors.text, fontSize: 11 }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: colors.bg,
+              border: `1px solid ${colors.border}`,
+            }}
+            labelStyle={{ color: colors.text }}
+            itemStyle={{ color: colors.text }}
+          />
+          <Bar dataKey={numericKeys[0] || "value"} isAnimationActive={true}>
+            {normalizedData.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={`hsl(${(index * 25) % 360}, 70%, 55%)`}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+
+    {/* 🎨 Leyenda debajo del gráfico */}
     <div
       style={{
         display: "flex",
@@ -353,8 +346,8 @@ const exportToPDF = () => {
         justifyContent: "center",
         alignItems: "center",
         gap: "8px 12px",
-        paddingTop: "8px",
-        maxHeight: "80px",
+        paddingTop: "10px",
+        maxHeight: "90px",
         overflowY: "auto",
       }}
     >
@@ -421,26 +414,39 @@ const exportToPDF = () => {
 
 {widget.chart_type === "pie" && (
   <ResponsiveContainer width="100%" height="100%">
-   <PieChart>
-  <Pie
-    data={normalizedData}
-    dataKey={numericKeys[0] || "value"}
-    nameKey={categoryKey}
-    cx="35%"
-    cy="50%"
-    outerRadius="80%"
-    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-  >
-    {normalizedData.map((entry, index) => (
-      <Cell key={index} fill={`hsl(${(index * 45) % 360}, 70%, 55%)`} />
-    ))}
-  </Pie>
-  <Tooltip />
-  <Legend layout="vertical" align="right" verticalAlign="middle" />
-</PieChart>
+    <PieChart>
+      <Pie
+        data={normalizedData}
+        dataKey={numericKeys[0] || "value"}
+        nameKey={categoryKey}
+        cx="35%"
+        cy="50%"
+        outerRadius="80%"
+        // 👇 Label solo con porcentaje
+        label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
+      >
+        {normalizedData.map((entry, index) => (
+          <Cell key={index} fill={`hsl(${(index * 45) % 360}, 70%, 55%)`} />
+        ))}
+      </Pie>
 
+      <Tooltip
+        formatter={(value: number, name: string, props: any) => {
+          const total = normalizedData.reduce(
+            (sum, item) => sum + item[numericKeys[0] || "value"],
+            0
+          );
+          const percent = ((value / total) * 100).toFixed(1) + "%";
+          return [`${value} (${percent})`, name];
+        }}
+      />
+
+      <Legend layout="vertical" align="right" verticalAlign="middle" />
+    </PieChart>
   </ResponsiveContainer>
 )}
+
+
 
 
 
@@ -602,6 +608,21 @@ const exportToPDF = () => {
                     <circle cx="13" cy="13" r="1.5" />
                 </svg>
             </div>
+{/* 🖱️ Esquina inferior derecha para redimensionar */}
+{/* 🖱️ Decorativo, sin bloquear el handle del grid */}
+<div
+  style={{
+    position: "absolute",
+    bottom: "6px",
+    right: "6px",
+    width: "18px",
+    height: "18px",
+    background: "rgba(255,255,255,0.15)",
+    borderRadius: "4px",
+    pointerEvents: "none", // 👈 clave: no bloquea el handle real
+  }}
+/>
+
 
         </div>
     );
