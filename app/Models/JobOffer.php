@@ -68,4 +68,10 @@ class JobOffer extends Model
         if (empty($this->certifications)) return [];
         return array_map('trim', explode(',', $this->certifications));
     }
+    public function languages()
+{
+    return $this->belongsToMany(Language::class, 'language_job')
+                ->withTimestamps();
+}
+
 }

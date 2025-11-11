@@ -165,11 +165,10 @@ $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $c
                             continue;
                         }
 
-                       JobOffer::create([
+                      $offer = JobOffer::create([
     'title'             => $title,
     'company'           => $company,
-'country' => $countryFull,
-
+    'country'           => $countryFull,
     'city'              => $city,
     'latitude'          => $latitude,
     'longitude'         => $longitude,
@@ -191,6 +190,10 @@ $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $c
     'created_at'        => now(),
     'updated_at'        => now(),
 ]);
+
+// 🧩 Asocia el lenguaje con la oferta
+$offer->languages()->syncWithoutDetaching([$languageId]);
+
 
 
                         $totalNew++;

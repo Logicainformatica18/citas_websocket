@@ -17,4 +17,10 @@ class Language extends Model
     {
         return $this->belongsTo(SemanticContext::class, 'context_id');
     }
+    public function jobOffers()
+{
+    return $this->belongsToMany(JobOffer::class, 'language_job')
+                ->withTimestamps();
+}
+
 }
