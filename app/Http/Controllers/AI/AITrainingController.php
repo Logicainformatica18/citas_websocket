@@ -277,13 +277,26 @@ job_offers.country → cities.country
             // ============================================================
             // 🧠 3️⃣ Añadir contexto del historial reciente
             // ============================================================
-            $historyExamples = DB::table('sqltrainings')
-                ->where('test_status', 'ok')
-                ->orderByDesc('id')
-                ->limit(5)
-                ->get(['query_text', 'sql_validated'])
-                ->map(fn($h, $i) => "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$h->sql_validated}\n")
-                ->implode("\n");
+            // $historyExamples = DB::table('sqltrainings')
+            //     ->where('test_status', 'ok')
+            //     ->orderByDesc('id')
+            //     ->limit(5)
+            //     ->get(['query_text', 'sql_validated'])
+            //     ->map(fn($h, $i) => "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$h->sql_validated}\n")
+            //     ->implode("\n");
+          $historyExamples = DB::table('sqltrainings')
+    ->where('test_status', 'ok')
+    ->whereNotNull('sql_validated')
+    ->orderByDesc('id')
+    ->limit(5)
+    ->get(['query_text', 'sql_validated'])
+    ->map(function ($h, $i) {
+        $cleanSql = preg_replace('/\b[a-z_]*\.id,?\s*/i', '', $h->sql_validated);
+        return "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$cleanSql}\n";
+    })
+    ->implode("\n");
+
+
 
             // ============================================================
             // 🧠 4️⃣ Prompt del modelo IA
@@ -322,17 +335,29 @@ Tienes acceso al siguiente esquema y relaciones entre tablas:
   `t` para tecnologías, `l` para lenguajes, `m` para metodologías, `tm`/`lm`/`mm` para métricas.
 - Asegúrate de que todos los campos no agregados estén en el `GROUP BY` (para evitar errores `ONLY_FULL_GROUP_BY`).
 
+⚙️ **Reglas analíticas adicionales:**
+- Si el usuario pide 'que enseñan X' o 'donde se enseña X', devuelve además de los nombres un indicador cuantitativo:
+  - COUNT(DISTINCT courses.id) como número de cursos que enseñan X.
+  - SUM(jobs_found_count) y AVG(jobs_found_count) si hay métricas laborales asociadas.
+- Siempre incluye al menos una métrica de cantidad o promedio además de los identificadores.
+
+⚙️ **Reglas de presentación de resultados:**
+- No incluyas campos de identificadores técnicos (como `id`, `career_id`, `course_id`, etc.) en el SELECT final, a menos que sean esenciales para el análisis.
+- Prioriza nombres descriptivos (`name`, `career_name`, `language_name`, etc.) y métricas agregadas (COUNT, SUM, AVG).
+- Los campos `id` pueden usarse internamente en `GROUP BY` o `JOIN`, pero no deben mostrarse en la salida final.
+
 Ejemplos previos:
 {$historyExamples}
 
 PROMPT;
 
+\Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
+    'user_prompt' => $prompt,
+    'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
+    'examples_text' => mb_substr($historyExamples, 0, 2000), // ejemplos de SQL previos
+    'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
+]);
 
-            \Log::info('🧠 [VERA] Generando SQL entrenamiento', [
-                'prompt' => $prompt,
-                'schema_length' => strlen($schemaText),
-                'examples' => strlen($historyExamples),
-            ]);
 
             // ============================================================
             // 🤖 5️⃣ Llamada a OpenAI
