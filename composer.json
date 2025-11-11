@@ -26,6 +26,7 @@
         "league/flysystem-google-cloud-storage": "^3.30",
         "maatwebsite/excel": "^3.1",
         "openai-php/laravel": "^0.16.0",
+        "phpmyadmin/sql-parser": "^6.0",
         "pusher/pusher-php-server": "^7.2",
         "socialiteproviders/saml2": "^4.7",
         "spatie/laravel-permission": "^6.17",

@@ -17,7 +17,9 @@ import {
 
 import ColorControl from "./ColorControl";
 import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
-import { updateWidget } from "./useDashboardAPI"; // 👈 ya tienes este método
+import { updateWidget,segmentWidget } from "./useDashboardAPI"; // 👈 ya tienes este método
+
+
 // 🧩 Librerías para exportación
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -37,6 +39,9 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
     };
     const [title, setTitle] = useState(widget.title || "Sin título");
     const [dataKey, setDataKey] = useState("total_jobs_found");
+const [rows, setRows] = useState(widget.data_source?.rows || []);
+const [loadingSegment, setLoadingSegment] = useState(false);
+
 
     const [colors, setColors] = useState({
         ...defaultColors,
@@ -95,7 +100,8 @@ useEffect(() => {
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
     // 🔹 Datos crudos
-const rawData = widget.data_source?.rows || [];
+const rawData = rows;
+
 
 // 🧠 Normalización flexible y autodetección de claves
 const { normalizedData, categoryKey, numericKeys } = React.useMemo(() => {
@@ -166,12 +172,38 @@ const normalizedData = rawData.map((row) => {
             console.warn("⚠️ Error guardando color:", err);
         }
     };
+const handleSegment = async () => {
+  setLoadingSegment(true);
+
+  // 👇 Por ahora puedes probar con filtros fijos (luego serán dinámicos)
+  const filters = {
+    modality: ["Remote", "Hybrid"],
+    experience_level: ["Junior", "Mid"],
+    currency: ["USD"],
+    country: "Peru",
+  };
+
+  try {
+    const res = await segmentWidget(widget.id, filters);
+    if (res.rows && res.rows.length > 0) {
+      setRows(res.rows);
+      Swal.fire("✅ Datos actualizados", "La segmentación se aplicó correctamente.", "success");
+    } else {
+      Swal.fire("⚠️ Sin resultados", "No se encontraron datos con esos filtros.", "warning");
+    }
+    console.log("🧩 SQL Final:", res.sql_final);
+  } catch (err) {
+    console.error("💥 Error segmentando widget:", err);
+    Swal.fire("❌ Error", "No se pudo aplicar la segmentación.", "error");
+  } finally {
+    setLoadingSegment(false);
+  }
+};
 
 
     // ============================================================
     // 📤 Funciones de exportación
- const exportToExcel = () => {
-  const rows = widget.data_source?.rows || [];
+const exportToExcel = () => {
   if (!rows.length) return alert("No hay datos para exportar");
 
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -183,46 +215,34 @@ const normalizedData = rawData.map((row) => {
   saveAs(blob, `${widget.title || "widget"}.xlsx`);
 };
 
+const exportToPDF = () => {
+  if (!rows.length) {
+    alert("No hay datos para exportar.");
+    return;
+  }
 
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  pdf.setFontSize(16);
+  pdf.text(widget.title || "Datos del Widget", pageWidth / 2, 20, { align: "center" });
 
-    const exportToPDF = () => {
-        const rows = widget.data_source?.rows || [];
-        if (!rows.length) {
-            alert("No hay datos para exportar.");
-            return;
-        }
+  const firstRow = rows[0];
+  const columns = Object.keys(firstRow);
+  const data = rows.map((r) => columns.map((c) => r[c] ?? ""));
 
-        // Crear PDF
-        const pdf = new jsPDF("p", "mm", "a4");
-        const pageWidth = pdf.internal.pageSize.getWidth();
+  autoTable(pdf, {
+    startY: 30,
+    head: [columns],
+    body: data,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [30, 136, 229], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    margin: { left: 10, right: 10 },
+  });
 
-        // Título
-        pdf.setFontSize(16);
-        pdf.text(widget.title || "Datos del Widget", pageWidth / 2, 20, { align: "center" });
+  pdf.save(`${widget.title || "widget"}.pdf`);
+};
 
-        // Preparar columnas y filas
-        const firstRow = rows[0];
-        const columns = Object.keys(firstRow);
-        const data = rows.map((r) => columns.map((c) => r[c] ?? ""));
-
-        // 👇 Usa la función importada directamente
-        autoTable(pdf, {
-            startY: 30,
-            head: [columns],
-            body: data,
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: {
-                fillColor: [30, 136, 229],
-                textColor: 255,
-                fontStyle: "bold",
-            },
-            alternateRowStyles: { fillColor: [240, 240, 240] },
-            margin: { left: 10, right: 10 },
-        });
-
-        // Guardar
-        pdf.save(`${widget.title || "widget"}.pdf`);
-    };
 
 
 
@@ -464,6 +484,15 @@ const normalizedData = rawData.map((row) => {
       >
         📄 Exportar PDF
       </button>
+<button
+  onClick={async () => {
+    setMenuOpen(false);
+    await handleSegment();
+  }}
+  className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-cyan-400 text-sm"
+>
+  🧠 Segmentar datos
+</button>
 
       <button
         onClick={() => {

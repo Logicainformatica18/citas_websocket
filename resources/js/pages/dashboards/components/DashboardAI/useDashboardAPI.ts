@@ -45,3 +45,7 @@ export async function updateSection(id: number, data: any) {
 export async function deleteSection(id: number) {
   return axios.delete(`/api/ai/dashboard-sections/${id}`);
 }
+export async function segmentWidget(widgetId: number, filters: Record<string, any>) {
+  const res = await axios.post(`/api/ai/dashboard-widgets/${widgetId}/segment`, { filters });
+  return res.data;
+}

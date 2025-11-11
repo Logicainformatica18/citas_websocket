@@ -360,4 +360,5 @@ public function updateColor(Request $request, $id)
 
 
 
+
 }

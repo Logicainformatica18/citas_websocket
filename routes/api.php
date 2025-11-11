@@ -27,6 +27,8 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\AI\AITrainingController;
 use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\AI\DashboardSectionController;
+use App\Http\Controllers\SegmentAnalyzerController;
+
 
 use Illuminate\Support\Facades\DB;
 
@@ -214,9 +216,8 @@ Route::post('/ai/dashboard-widgets/from-training', [DashboardWidgetController::c
  Route::put('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'update']);
 Route::delete('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'destroy']);
 Route::post('/ai/dashboard-widgets/reorder', [DashboardWidgetController::class, 'reorder']);
-Route::post('/ai/dashboard-widgets', [DashboardWidgetController::class, 'store']);
 Route::post('/ai/dashboard-widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
-
+Route::post('/{id}/segment', [DashboardWidgetController::class, 'segmentData']); // 🧠 segmentación
 
 Route::prefix('ai/dashboard-sections')->group(function () {
     Route::get('/{dashboard}', [DashboardSectionController::class, 'index']);
@@ -224,4 +225,16 @@ Route::prefix('ai/dashboard-sections')->group(function () {
     Route::post('/{id}/update', [DashboardSectionController::class, 'update']);
     Route::delete('/{id}', [DashboardSectionController::class, 'destroy']);
 });
+
+
+
+
+
+
 });
+
+Route::post('/ai/dashboard-widgets/{id}/segment', [SegmentAnalyzerController::class, 'segmentData']);
+
+Route::post('/ai/dashboard-widgets', [DashboardWidgetController::class, 'store']);
+Route::get('/segment/analyze/{id}', [SegmentAnalyzerController::class, 'analyze']);
+Route::post('/segment/execute/{id}', [SegmentAnalyzerController::class, 'execute']);
