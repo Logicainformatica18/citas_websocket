@@ -10,11 +10,13 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\CountryNormalizer;
+use App\Helpers\RegionHelper;
 
 class WantedlyByLanguagesCommand extends Command
 {
     protected $signature = 'wantedly:languages {--pages=1} {--lang=es}';
-    protected $description = '🇯🇵 Importa ofertas desde Wantedly (JP/SG) por lenguaje, con traducción automática, modalidad estandarizada y geolocalización.';
+    protected $description = '🇯🇵 Importa ofertas desde Wantedly (JP/SG) por lenguaje, con traducción, modalidad, país, región y geolocalización limpia.';
 
     protected $stats = [
         'api_hits'   => 0,
@@ -24,30 +26,12 @@ class WantedlyByLanguagesCommand extends Command
         'translated' => 0,
     ];
 
-    protected static array $translationCache = []; // ✅ cache temporal
+    protected static array $translationCache = [];
 
     protected $capitalMap = [
         'jp' => ['city' => 'Tokio', 'lat' => 35.6895, 'lng' => 139.6917],
         'sg' => ['city' => 'Singapur', 'lat' => 1.3521, 'lng' => 103.8198],
     ];
-
-    protected function detectCountryFromCity(?string $city): string
-    {
-        $city = strtolower(trim($city ?? ''));
-
-        return match (true) {
-            str_contains($city, 'singapore'),
-            str_contains($city, 'singapur') => 'sg',
-
-            str_contains($city, 'tokyo'),
-            str_contains($city, 'osaka'),
-            str_contains($city, 'nagoya'),
-            str_contains($city, 'japan'),
-            str_contains($city, 'japón') => 'jp',
-
-            default => 'jp',
-        };
-    }
 
     public function handle()
     {
@@ -65,7 +49,7 @@ class WantedlyByLanguagesCommand extends Command
         foreach ($languages as $languageId => $languageName) {
             $this->warn("\n💡 Procesando lenguaje: {$languageName}");
             $totalFound = $totalNew = 0;
-            $countries = ['JP' => 0];
+            $countries = [];
             $modalities = [];
 
             for ($page = 1; $page <= $pages; $page++) {
@@ -82,46 +66,64 @@ class WantedlyByLanguagesCommand extends Command
                     $totalFound += count($results);
 
                     foreach ($results as $job) {
+                        $externalId = $job['id'] ?? null;
+                        if ($externalId && JobOffer::where('source', 'Wantedly')->where('external_id', $externalId)->exists()) {
+                            continue;
+                        }
+
                         $title = $job['title'] ?? 'N/A';
                         $company = $job['company']['name'] ?? null;
                         $desc = $job['description'] ?? '';
                         $city = $job['location'] ?? 'Tokyo';
-                        $countryCode = $this->detectCountryFromCity($city);
                         $urlJob = "https://www.wantedly.com/projects/" . ($job['id'] ?? '');
                         $published = isset($job['published_at']) ? Carbon::parse($job['published_at']) : now();
 
-                        // Evitar duplicados
-                        if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) continue;
+                        // 🗺️ Normalización país/región
+                        $countryRaw = $this->detectCountryFromCity($city);
+                        $country = CountryNormalizer::normalize($countryRaw);
+                        $region = RegionHelper::fromCountry($country) ?? 'ASIA';
 
+                        // 🧭 Modalidad
                         $modality = $this->detectModality($title, $desc, $city);
-                        [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
+
+                        // 🗺️ Coordenadas
+                        [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryRaw);
 
                         if (!$latitude || !$longitude) {
-                            $capital = $this->capitalMap[$countryCode];
-                            $city = $capital['city'];
-                            $latitude = $capital['lat'];
-                            $longitude = $capital['lng'];
-                            $this->stats['fallback']++;
+                            $capital = $this->capitalMap[$countryRaw] ?? null;
+                            if ($capital) {
+                                $city = $capital['city'];
+                                $latitude = $capital['lat'];
+                                $longitude = $capital['lng'];
+                                $this->stats['fallback']++;
+                            }
                         }
 
-                        // 🌐 Traducción con control de frecuencia
-                        if ($this->stats['translated'] % 5 === 0) usleep(800000);
+                        // ❌ No asignar lat/lng si es remoto
+                        if ($modality === 'fully_remote') {
+                            $latitude = null;
+                            $longitude = null;
+                        }
 
+                        // 🌐 Traducción (con rate control)
+                        if ($this->stats['translated'] % 5 === 0) usleep(800000);
                         $titleTranslated = $this->translateText($title, 'auto', $targetLang);
                         $descTranslated = $this->translateText($desc, 'auto', $targetLang);
 
+                        // 💾 Guardar oferta
                         JobOffer::create([
                             'title'            => $title,
                             'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
                             'title_en'         => $targetLang === 'en' ? $titleTranslated : null,
                             'company'          => $company,
-                            'country'          => strtoupper($countryCode),
+                            'country'          => $country,
+                            'region'           => $region,
                             'city'             => $city,
                             'latitude'         => $latitude,
                             'longitude'        => $longitude,
                             'modality'         => $modality,
                             'source'           => 'Wantedly',
-                            'external_id'      => $job['id'] ?? null,
+                            'external_id'      => $externalId,
                             'url'              => $urlJob,
                             'search_query'     => $languageName,
                             'description'      => $desc,
@@ -133,7 +135,7 @@ class WantedlyByLanguagesCommand extends Command
                         ]);
 
                         $totalNew++;
-                        $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
+                        $countries[$country] = ($countries[$country] ?? 0) + 1;
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                         $this->stats['translated']++;
                     }
@@ -145,23 +147,22 @@ class WantedlyByLanguagesCommand extends Command
                 }
             }
 
-            $today = now()->toDateString();
-            if (!LanguageMetric::whereDate('run_date', $today)
-                ->where('language_id', $languageId)
-                ->where('source', 'Wantedly')
-                ->exists()) {
-
-                LanguageMetric::create([
-                    'language_id'        => $languageId,
+            // 📊 Guardar métricas
+            LanguageMetric::updateOrCreate(
+                [
+                    'language_id' => $languageId,
+                    'run_date'    => Carbon::today(),
+                    'source'      => 'Wantedly',
+                ],
+                [
                     'language_name'      => $languageName,
                     'jobs_found_count'   => $totalFound,
                     'jobs_new_count'     => $totalNew,
                     'countries_breakdown'=> $countries,
                     'modality_breakdown' => $modalities,
-                    'run_date'           => Carbon::today(),
-                    'source'             => 'Wantedly',
-                ]);
-            }
+                    'updated_at'         => now(),
+                ]
+            );
 
             $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
         }
@@ -172,6 +173,18 @@ class WantedlyByLanguagesCommand extends Command
         $this->line("   🛰️ Geocodificadas: {$this->stats['api_hits']}");
         $this->line("   🏙️ Fallbacks: {$this->stats['fallback']}");
         $this->line("   💬 Traducciones: {$this->stats['translated']}");
+    }
+
+    protected function detectCountryFromCity(?string $city): string
+    {
+        $city = strtolower(trim($city ?? ''));
+        return match (true) {
+            str_contains($city, 'singapore'), str_contains($city, 'singapur') => 'sg',
+            str_contains($city, 'tokyo'), str_contains($city, 'osaka'),
+            str_contains($city, 'nagoya'), str_contains($city, 'japan'),
+            str_contains($city, 'japón') => 'jp',
+            default => 'jp',
+        };
     }
 
     protected function detectModality(string $title, string $description, ?string $city = null): string
@@ -232,9 +245,6 @@ class WantedlyByLanguagesCommand extends Command
         return [null, null];
     }
 
-    /**
-     * 🌐 Traducción robusta con cache, mirrors y control de rate
-     */
     public function translateText(string $text, string $from = 'auto', string $to = 'es'): string
     {
         if (empty(trim($text))) return '';
@@ -259,7 +269,6 @@ class WantedlyByLanguagesCommand extends Command
                     $keyParam = env('MYMEMORY_API_KEY');
                     $url = "{$endpoint}?q=" . urlencode($text) . "&langpair={$from}|{$to}";
                     if ($keyParam) $url .= "&de={$keyParam}";
-
                     $res = Http::retry(2, 1000)->timeout(20)->get($url);
                     if ($res->ok()) {
                         $translated = html_entity_decode(
@@ -268,7 +277,6 @@ class WantedlyByLanguagesCommand extends Command
                             'UTF-8'
                         );
                         if (!empty($translated) && strtolower($translated) !== strtolower($text)) {
-                            Log::info("✅ Traducción MyMemory OK");
                             return self::$translationCache[$key] = trim($translated);
                         }
                     }
@@ -282,7 +290,6 @@ class WantedlyByLanguagesCommand extends Command
                     if ($res->ok() && isset($res->json()['translatedText'])) {
                         $translated = $res->json()['translatedText'];
                         if (!empty($translated) && strtolower($translated) !== strtolower($text)) {
-                            Log::info("✅ Traducción LibreTranslate OK");
                             return self::$translationCache[$key] = trim($translated);
                         }
                     }
@@ -292,7 +299,6 @@ class WantedlyByLanguagesCommand extends Command
             }
         }
 
-        Log::warning("⚠️ No se pudo traducir: devolviendo original");
         return self::$translationCache[$key] = $text;
     }
 }

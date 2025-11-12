@@ -10,6 +10,8 @@ use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
+use App\Helpers\CountryNormalizer;
 
 class JobicyByMethodologiesCommand extends Command
 {
@@ -38,6 +40,7 @@ class JobicyByMethodologiesCommand extends Command
 
     public function handle()
     {
+        // 🔹 Solo metodologías asociadas a carreras ISIL
         $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
             $q->select('course_methodology.methodology_id')
                 ->from('course_methodology')
@@ -50,6 +53,7 @@ class JobicyByMethodologiesCommand extends Command
             $this->warn("\n💡 Procesando metodología: {$methName}");
 
             try {
+                // 🌐 Consulta Jobicy global
                 $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
                 if ($response->failed()) {
                     $this->error("❌ Error al consultar Jobicy API para {$methName}");
@@ -62,10 +66,9 @@ class JobicyByMethodologiesCommand extends Command
                         strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
                         strtolower($methName)
                     ))
-                    ->values()
-                    ->toArray();
+                    ->values();
 
-                $totalFound = count($results);
+                $totalFound = $results->count();
                 $totalNew = 0;
                 $countries = [];
                 $modalities = [];
@@ -76,123 +79,101 @@ class JobicyByMethodologiesCommand extends Command
                         continue;
                     }
 
-                    // ==============================
-                    // 🌍 Normalización del país
-                    // ==============================
-                    $mapCountry = [
-                        'us' => 'United States', 'usa' => 'United States', 'united states' => 'United States',
-                        'ca' => 'Canada', 'canada' => 'Canada',
-                        'uk' => 'United Kingdom', 'gb' => 'United Kingdom', 'united kingdom' => 'United Kingdom',
-                        'sp' => 'Spain', 'es' => 'Spain', 'spain' => 'Spain',
-                        'mx' => 'Mexico', 'me' => 'Mexico', 'mexico' => 'Mexico',
-                        'br' => 'Brazil', 'brazil' => 'Brazil',
-                        'fr' => 'France', 'france' => 'France',
-                        'de' => 'Germany', 'germany' => 'Germany',
-                        'it' => 'Italy', 'italy' => 'Italy',
-                        'co' => 'Colombia', 'colombia' => 'Colombia',
-                        'ar' => 'Argentina', 'argentina' => 'Argentina',
-                        'pe' => 'Peru', 'peru' => 'Peru',
-                        'cl' => 'Chile', 'chile' => 'Chile',
-                        'eu' => 'Europe', 'europe' => 'Europe',
-                        'ww' => 'Worldwide', 'worldwide' => 'Worldwide', 'global' => 'Worldwide'
-                    ];
+                    // 🌍 Normalización de país
+                    $countryRaw = $job['jobGeo'] ?? null;
+                    $country = CountryNormalizer::normalize($countryRaw);
 
-                    $countryRaw = strtolower(trim($job['jobGeo'] ?? ''));
-                    $countryName = $mapCountry[$countryRaw] ?? null;
-
-                    // 🧹 Descartar si no hay país
-                    if (empty($countryName)) {
+                    if ($country === 'Desconocido' || !$country) {
                         $this->stats['skipped']++;
                         Log::info("⏭️ Omitido: {$job['jobTitle']} (sin país detectado)");
                         continue;
                     }
 
-                    // ==============================
                     // 🧭 Geolocalización
-                    // ==============================
-                    $city = $this->capitalMap[strtolower(substr($countryRaw, 0, 2))]['city'] ?? 'Remote';
-                    [$city, $lat, $lng] = $this->getCoordsFromCountry($city, substr($countryRaw, 0, 2));
+                    $code = strtolower(substr($countryRaw ?? '', 0, 2));
+                    $city = $this->capitalMap[$code]['city'] ?? 'Remote';
+                    [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
 
-                    // ==============================
-                    // 💼 Otros datos
-                    // ==============================
+                    // 💼 Datos principales
                     $title   = $job['jobTitle'] ?? 'N/A';
                     $company = $job['companyName'] ?? null;
                     $urlJob  = $job['url'] ?? null;
-                    $desc    = strtolower($job['jobDescription'] ?? '');
+                    $desc    = strip_tags($job['jobDescription'] ?? '');
                     $modality = $this->detectModality(
                         $desc,
                         is_array($job['jobType']) ? implode(' ', $job['jobType']) : ($job['jobType'] ?? '')
                     );
 
-                    // ==============================
-                    // 💾 Guardar oferta
-                    // ==============================
-                    JobOffer::create([
-                        'title'        => $title,
-                        'company'      => $company,
-                        'country'      => $countryName,
-                        'city'         => $city,
-                        'latitude'     => $lat,
-                        'longitude'    => $lng,
-                        'modality'     => $modality,
-                        'salary_min'   => null,
-                        'salary_max'   => null,
-                        'currency'     => 'USD',
-                        'source'       => 'Jobicy',
-                        'external_id'  => $externalId,
-                        'url'          => $urlJob,
-                        'search_query' => $methName,
-                        'published_at' => isset($job['pubDate']) ? Carbon::parse($job['pubDate']) : now(),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
+                    // 💰 Salarios
+                    $salaryMin = $job['annualSalaryMin'] ?? null;
+                    $salaryMax = $job['annualSalaryMax'] ?? null;
+                    $currency  = $job['salaryCurrency'] ?? 'USD';
+
+                    // 📄 Crear oferta laboral
+                    $offer = JobOffer::create([
+                        'title'             => $title,
+                        'company'           => $company,
+                        'country'           => $country,
+                        'region'            => RegionHelper::fromCountry($country),
+                        'city'              => $city,
+                        'latitude'          => $lat,
+                        'longitude'         => $lng,
+                        'modality'          => $modality,
+                        'salary_min'        => $salaryMin,
+                        'salary_max'        => $salaryMax,
+                        'currency'          => $currency,
+                        'source'            => 'Jobicy',
+                        'external_id'       => $externalId,
+                        'url'               => $urlJob,
+                        'search_query'      => $methName,
+                        'published_at'      => isset($job['pubDate']) ? Carbon::parse($job['pubDate']) : now(),
+                        'created_at'        => now(),
+                        'updated_at'        => now(),
                     ]);
 
-                    // 📊 Acumular métricas
+                    // 🔗 Relación metodología ↔ oferta
+                    $offer->methodologies()->syncWithoutDetaching([$methId]);
+
                     $totalNew++;
-                    $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
+                    $countries[$country] = ($countries[$country] ?? 0) + 1;
                     $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+
+                    $this->line("✅ {$title} ({$country}) 💰{$salaryMin}-{$salaryMax} {$currency}");
                 }
 
-                // ==============================
-                // 📈 Guardar métricas diarias
-                // ==============================
+                // 📈 Guardar métricas
                 if ($totalNew > 0) {
-                    $today = now()->toDateString();
-                    $existsToday = MethodologyMetric::whereDate('run_date', $today)
-                        ->where('methodology_id', $methId)
-                        ->where('source', 'Jobicy')
-                        ->exists();
-
-                    if (!$existsToday) {
-                        MethodologyMetric::create([
-                            'methodology_id'       => $methId,
+                    MethodologyMetric::updateOrCreate(
+                        [
+                            'methodology_id' => $methId,
+                            'run_date'       => Carbon::today(),
+                            'source'         => 'Jobicy',
+                        ],
+                        [
                             'methodology_name'     => $methName,
                             'jobs_found_count'     => $totalFound,
                             'jobs_new_count'       => $totalNew,
                             'countries_breakdown'  => $countries,
                             'modality_breakdown'   => $modalities,
-                            'run_date'             => Carbon::today(),
-                            'source'               => 'Jobicy',
-                        ]);
-                    }
+                            'updated_at'           => now(),
+                        ]
+                    );
                 }
 
-                $this->info("✅ {$methName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas | ⏭️ Omitidas: {$this->stats['skipped']}");
+                $this->info("📊 {$methName}: {$totalNew} nuevas | 🌍 {$totalFound} totales | ⏭️ Omitidas: {$this->stats['skipped']}");
 
             } catch (\Throwable $e) {
                 Log::error("⚠️ Error en {$methName}: " . $e->getMessage());
                 $this->error("❌ {$methName}: " . $e->getMessage());
             }
 
-            sleep(1.5);
+            usleep(random_int(600000, 1200000)); // delay anti-baneo
         }
 
-        $this->newLine();
-        $this->info("🎯 Proceso completado Jobicy");
-        $this->line("   ⏭️ Ofertas omitidas sin país: {$this->stats['skipped']}");
+        $this->info("\n🎯 Proceso completado Jobicy. ⏭️ Omitidas sin país: {$this->stats['skipped']}");
     }
 
+    // 🧠 Detección de modalidad
     protected function detectModality(string $desc, string $type): string
     {
         $text = strtolower($desc . ' ' . $type);
@@ -214,9 +195,9 @@ class JobicyByMethodologiesCommand extends Command
         };
     }
 
+    // 🌍 Coordenadas por país o capital
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)
     {
-        // 🔍 Intentar buscar ciudad en la base de datos
         if ($city && strtolower($city) !== 'remote') {
             $foundCity = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
                 ->when($countryCode, fn($q) => $q->whereRaw('LOWER(iso2) = ?', [strtolower($countryCode)]))
@@ -228,14 +209,12 @@ class JobicyByMethodologiesCommand extends Command
             }
         }
 
-        // 🌍 Fallback: capital por país
         if ($countryCode && isset($this->capitalMap[$countryCode])) {
             $capital = $this->capitalMap[$countryCode];
             $this->stats['fallback']++;
             return [$capital['city'], $capital['lat'], $capital['lng']];
         }
 
-        // ⏭️ Último recurso
         $this->stats['skipped']++;
         return [$city ?? 'Remote', null, null];
     }

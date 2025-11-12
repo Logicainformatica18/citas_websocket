@@ -10,6 +10,7 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
 
 class AdzunaByLanguagesCommand extends Command
 {
@@ -170,6 +171,7 @@ $totalNew++; // opcional, si quieres contar asociaciones nuevas en language_job 
 continue;
 
 }
+$region = RegionHelper::fromCountry($countryFull);
 
 // 💾 Si no existe, crear nueva oferta
 $offer = JobOffer::create([
@@ -196,6 +198,8 @@ $offer = JobOffer::create([
     'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
     'created_at'        => now(),
     'updated_at'        => now(),
+    'region' => $region,
+
 ]);
 
 // 🔗 Asociar el lenguaje a la nueva oferta

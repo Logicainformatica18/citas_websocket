@@ -10,7 +10,7 @@ use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
-
+use App\Helpers\RegionHelper;
 class AdzunaByTechnologiesCommand extends Command
 {
     protected $signature = 'adzuna:technologies {--country=us} {--pages=1}';
@@ -64,6 +64,8 @@ class AdzunaByTechnologiesCommand extends Command
         ->from('course_technology')
         ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
 })
+->where('id', '>=', 824)  // 🔹 Continúa desde el ID 748
+->orderBy('id')            // (opcional pero recomendado para consistencia)
 ->pluck('name', 'id');
 
 
@@ -145,7 +147,7 @@ if ($existing) {
     $totalDuplicates++;
     continue;
 }
-
+$region = RegionHelper::fromCountry($countryFull);
 // 💾 Si no existe, crear nueva oferta
 $offer = JobOffer::create([
     'title'             => $title,
@@ -171,6 +173,7 @@ $offer = JobOffer::create([
     'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
     'created_at'        => now(),
     'updated_at'        => now(),
+    'region' => $region,
 ]);
 
 // 🔗 Asociar tecnología a la nueva oferta

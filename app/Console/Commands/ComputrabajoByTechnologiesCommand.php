@@ -12,6 +12,8 @@ use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
 use App\Models\City;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
+use App\Helpers\RegionHelper;
+
 class ComputrabajoByTechnologiesCommand extends Command
 {
      use JobFilterTrait; // 👈 usa el trait aquí
@@ -95,7 +97,7 @@ class ComputrabajoByTechnologiesCommand extends Command
                             continue;
                         }
 //WEB API
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $techName, $code) {
+                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $techName, $code,$techId) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
                                     // 🚫 Nuevo filtro
@@ -118,28 +120,56 @@ class ComputrabajoByTechnologiesCommand extends Command
                                 $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                                $exists = JobOffer::where('source', 'Computrabajo')
-                                    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
-                                    ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
-                                    ->where('country', $countryName)
-                                    ->where('search_query', $techName)
-                                    ->exists();
+                            $existingOffer = JobOffer::where('source', 'Computrabajo')
+    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
+    ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
+    ->where('country', $countryName)
+    ->where('search_query', $techName)
+    ->first();
 
-                                if ($exists) return;
+if ($existingOffer) {
+    // 🔗 Solo vincula tecnología sin tocar la oferta
+    $existingOffer->technologies()->syncWithoutDetaching([$techId]);
+    return;
+}
 
-                                JobOffer::create([
-                                    'title'        => $title,
-                                    'company'      => $company,
-                                    'country'      => $countryName,
-                                    'city'         => $city,
-                                    'latitude'     => $lat,
-                                    'longitude'    => $lng,
-                                    'modality'     => $modality,
-                                    'source'       => 'Computrabajo',
-                                    'search_query' => $techName,
-                                    'url'          => $urlJob,
-                                    'published_at' => now(),
-                                ]);
+// 🌎 Normaliza nombre de país
+$countryName = match (strtolower($countryName)) {
+    'peru' => 'Perú',
+    'mexico' => 'México',
+    'colombia' => 'Colombia',
+    'argentina' => 'Argentina',
+    'uruguay' => 'Uruguay',
+    'ecuador' => 'Ecuador',
+    'venezuela' => 'Venezuela',
+    'bolivia' => 'Bolivia',
+    'chile' => 'Chile',
+    default => ucfirst($countryName),
+};
+
+// 💾 Crea nueva oferta con región y estado
+$offer = JobOffer::create([
+    'title'        => $title,
+    'company'      => $company,
+    'country'      => $countryName,
+    'region'       => RegionHelper::fromCountry($countryName),
+    'state_code'   => strtoupper($code),
+    'city'         => $city,
+    'latitude'     => $lat,
+    'longitude'    => $lng,
+    'modality'     => $modality,
+    'source'       => 'Computrabajo',
+    'search_query' => $techName,
+    'url'          => $urlJob,
+    'published_at' => now(),
+    'created_at'   => now(),
+    'updated_at'   => now(),
+]);
+
+// 🔗 Vincula tecnología ↔ oferta
+$offer->technologies()->syncWithoutDetaching([$techId]);
+
+
 
                                 $totalNew++;
                                 $this->line("✅ {$title} ({$countryName} - {$city})");

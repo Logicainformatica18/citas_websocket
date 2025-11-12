@@ -12,6 +12,8 @@ use App\Models\LanguageMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
+use App\Helpers\RegionHelper;
+
 class ComputrabajoByLanguagesCommand extends Command
 {
       use JobFilterTrait; // 👈 usa el trait aquí
@@ -159,13 +161,25 @@ if ($existingOffer) {
     $existingOffer->languages()->syncWithoutDetaching([$langId]);
     return;
 }
+$country = match (strtolower($country)) {
+    'peru' => 'Perú',
+    'mexico' => 'México',
+    'colombia' => 'Colombia',
+    'argentina' => 'Argentina',
+    'uruguay' => 'Uruguay',
+    'ecuador' => 'Ecuador',
+    'venezuela' => 'Venezuela',
+    'bolivia' => 'Bolivia',
+    default => ucfirst($country),
+};
 
 $offer = JobOffer::create([
     'title'        => $title,
     'company'      => $company,
     'country'      => $country,
-    'region'       => strtolower($code), // 'pe', 'co', 'mx', etc.
-    'state_code'   => strtoupper($code), // 'PE', 'CO', etc.
+'region' => RegionHelper::fromCountry($country),
+'state_code' => strtoupper($code),
+
     'city'         => $city,
     'latitude'     => $lat,
     'longitude'    => $lng,

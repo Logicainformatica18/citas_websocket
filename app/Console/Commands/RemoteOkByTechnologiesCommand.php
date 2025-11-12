@@ -9,16 +9,29 @@ use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
+use App\Helpers\CountryNormalizer;
 
 class RemoteOkByTechnologiesCommand extends Command
 {
     protected $signature = 'remoteok:technologies';
-    protected $description = '🧩 Registra empleos 100% remotos desde RemoteOK, agrupados por tecnología.';
+    protected $description = '🧩 Importa empleos 100% remotos desde RemoteOK, clasificando país y región por tecnología.';
+
+    protected $stats = [
+        'found'   => 0,
+        'new'     => 0,
+        'skipped' => 0,
+    ];
 
     public function handle()
     {
-        $technologies = Technology::pluck('name', 'id');
-        $this->info("🚀 Iniciando scraping de RemoteOK (solo empleos con ubicación remota real, por tecnología)...");
+        $technologies = Technology::whereIn('technologies.id', function ($q) {
+            $q->select('course_technology.technology_id')
+                ->from('course_technology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+        })->pluck('name', 'id');
+
+        $this->info("🚀 Iniciando importación desde RemoteOK (solo empleos 100% remotos) para {$technologies->count()} tecnologías...");
 
         foreach ($technologies as $techId => $techName) {
             $this->warn("\n💡 Procesando tecnología: {$techName}");
@@ -27,7 +40,7 @@ class RemoteOkByTechnologiesCommand extends Command
             $totalNew = 0;
 
             try {
-                // 📡 Llamada a la API principal de RemoteOK
+                // 📡 Llamada a la API principal
                 $response = Http::timeout(25)->get('https://remoteok.com/api');
                 if ($response->failed()) {
                     $this->warn("❌ Falló la API para {$techName}");
@@ -35,96 +48,125 @@ class RemoteOkByTechnologiesCommand extends Command
                 }
 
                 $jobs = collect($response->json())
-                    ->skip(1) // Ignora el aviso legal
+                    ->skip(1) // Ignorar aviso legal
                     ->filter(fn($j) => isset($j['position']));
 
                 foreach ($jobs as $job) {
-                    $title = $job['position'] ?? 'N/A';
-                    $company = $job['company'] ?? null;
-                    $urlJob = $job['url'] ?? null;
-                    $externalId = $job['id'] ?? null;
-                    $tags = $job['tags'] ?? [];
-                    $location = $job['location'] ?? null;
+                    $title       = $job['position'] ?? 'N/A';
+                    $company     = $job['company'] ?? null;
+                    $urlJob      = $job['url'] ?? null;
+                    $externalId  = $job['id'] ?? null;
+                    $tags        = $job['tags'] ?? [];
+                    $locationRaw = trim($job['location'] ?? '');
 
-                    // 🧠 Validar que esté relacionado con la tecnología
+                    // 🧠 Validar relación con la tecnología
                     $text = strtolower($title . ' ' . implode(' ', $tags));
                     if (!str_contains($text, strtolower($techName))) {
                         continue;
                     }
 
-                    // ⚙️ Validar que el empleo sea realmente remoto
-                    if (empty($location) ||
-                        (!str_contains(strtolower($location), 'remote')
-                         && !str_contains(strtolower($location), 'anywhere'))) {
+                    // ⚙️ Verificar modalidad remota
+                    $isRemote = str_contains(strtolower($locationRaw), 'remote')
+                        || str_contains(strtolower($locationRaw), 'anywhere')
+                        || str_contains(strtolower($locationRaw), 'worldwide')
+                        || str_contains(strtolower($locationRaw), 'global');
+
+                    if (!$isRemote) {
                         continue; // ❌ ignorar empleos no remotos
                     }
 
                     $totalFound++;
 
-                    // 🔍 Evitar duplicados (por external_id)
+                    // 🔍 Evitar duplicados
                     if ($externalId && JobOffer::where('source', 'RemoteOK')
                         ->where('external_id', $externalId)
                         ->exists()) {
                         continue;
                     }
 
+                    // ==========================
+                    // 🧹 Limpieza avanzada de ubicación
+                    // ==========================
+                    $location = strtolower($locationRaw);
+                    $country  = 'Remote';
+                    $region   = 'REMOTE';
+
+                    if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $location, $m)) {
+                        // Ej: "Remote - us", "Remote/greece"
+                        $country = CountryNormalizer::normalize(trim($m[1]));
+                    } elseif (preg_match('/(.+)\s*(or|,)?\s*remote$/i', $location, $m)) {
+                        // Ej: "Los angeles or remote"
+                        $country = CountryNormalizer::normalize(trim($m[1]));
+                    } elseif (preg_match('/remote\s+(europe|asia|latam|africa|north america)/i', $location, $m)) {
+                        // Ej: "Remote europe, remote asia"
+                        $country = ucfirst($m[1]);
+                    } elseif (preg_match('/mundial|global/i', $location)) {
+                        // Ej: "Mundial" o "Global remote"
+                        $country = 'Remote';
+                    }
+
+                    // 🌎 Determinar región
+                    $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
+
+                    // ==========================
                     // 💾 Insertar oferta remota
+                    // ==========================
                     JobOffer::create([
-                        'title' => $title,
-                        'company' => $company,
-                        'country' => 'Remote',
-                        'city' => null,
-                        'modality' => 'remote',
-                        'latitude' => null,
-                        'longitude' => null,
-                        'source' => 'RemoteOK',
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $country,
+                        'region'       => $region,
+                        'city'         => null,
+                        'latitude'     => null,
+                        'longitude'    => null,
+                        'modality'     => 'remote',
+                        'source'       => 'RemoteOK',
                         'search_query' => $techName,
-                        'external_id' => $externalId,
-                        'url' => $urlJob,
+                        'external_id'  => $externalId,
+                        'url'          => $urlJob,
                         'published_at' => isset($job['date'])
                             ? Carbon::parse($job['date'])
                             : now(),
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
                     ]);
 
                     $totalNew++;
                 }
 
-                // 🧾 Guardar métricas del día
+                // ==========================
+                // 📊 Guardar métricas
+                // ==========================
                 if ($totalFound > 0) {
-                    $today = now()->toDateString();
-
-                    $existsToday = TechnologyMetric::whereDate('run_date', $today)
-                        ->where('technology_id', $techId)
-                        ->where('source', 'RemoteOK')
-                        ->exists();
-
-                    if (!$existsToday) {
-                        TechnologyMetric::create([
+                    TechnologyMetric::updateOrCreate(
+                        [
                             'technology_id' => $techId,
-                            'technology_name' => $techName,
-                            'jobs_found_count' => $totalFound,
-                            'jobs_new_count' => $totalNew,
-                            'countries_breakdown' => ['remote' => $totalFound],
-                            'modality_breakdown' => ['remote' => $totalFound],
-                            'run_date' => now(),
-                            'source' => 'RemoteOK',
-                        ]);
-                    }
+                            'run_date'      => Carbon::today(),
+                            'source'        => 'RemoteOK',
+                        ],
+                        [
+                            'technology_name'      => $techName,
+                            'jobs_found_count'     => $totalFound,
+                            'jobs_new_count'       => $totalNew,
+                            'countries_breakdown'  => ['remote' => $totalFound],
+                            'modality_breakdown'   => ['remote' => $totalFound],
+                            'updated_at'           => now(),
+                        ]
+                    );
 
-                    $this->info("✅ {$techName}: {$totalNew} nuevas / {$totalFound} remotas encontradas");
+                    $this->info("✅ {$techName}: {$totalNew} nuevas / {$totalFound} remotas detectadas");
                 } else {
                     $this->warn("⚠️ No se encontraron empleos remotos válidos para {$techName}");
                 }
 
-                sleep(1.5);
+                sleep(1.2);
 
             } catch (\Throwable $th) {
                 Log::error("⚠️ Error procesando {$techName}: " . $th->getMessage());
+                $this->error("❌ {$techName}: " . $th->getMessage());
             }
         }
 
-        $this->info("\n🎯 Finalizado: métricas guardadas solo con empleos 100 % remotos.");
+        $this->info("\n🎯 Finalizado: métricas guardadas solo con empleos 100% remotos y países limpios.");
     }
 }

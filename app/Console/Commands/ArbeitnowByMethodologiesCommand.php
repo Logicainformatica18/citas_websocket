@@ -10,6 +10,8 @@ use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
+
 
 class ArbeitnowByMethodologiesCommand extends Command
 {
@@ -154,7 +156,18 @@ if ($existingOffer) {
     $existingOffer->methodologies()->syncWithoutDetaching([$methodologyId]);
     continue; // ❌ No crear una nueva
 }
-
+$region = RegionHelper::fromCountry($country);
+$country = match (strtolower($country)) {
+    'peru' => 'Perú',
+    'mexico' => 'México',
+    'colombia' => 'Colombia',
+    'argentina' => 'Argentina',
+    'uruguay' => 'Uruguay',
+    'ecuador' => 'Ecuador',
+    'venezuela' => 'Venezuela',
+    'bolivia' => 'Bolivia',
+    default => ucfirst($country),
+};
 
                 // 💾 Guardar
                 $offer = JobOffer::create([
@@ -172,9 +185,14 @@ if ($existingOffer) {
                     'salary_min'   => null,
                     'salary_max'   => null,
                     'search_query' => $methodologyName,
-                    'published_at' => isset($job['date']) ? Carbon::parse($job['date']) : now(),
+                  'published_at' => isset($job['created_at'])
+    ? Carbon::createFromTimestamp($job['created_at'])
+    : now(),
+
                     'created_at'   => now(),
                     'updated_at'   => now(),
+                    'region' => $region,
+
                 ]);
 
                 // 🔗 Relación metodología ↔ oferta

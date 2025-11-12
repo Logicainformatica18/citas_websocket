@@ -10,6 +10,8 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
+
 
 class ArbeitnowByLanguagesCommand extends Command
 {
@@ -168,6 +170,9 @@ if ($existingOffer) {
     continue; // ❌ No crear una nueva
 }
 
+$region = RegionHelper::fromCountry($country);
+
+
     $offer = JobOffer::create([
         'title'             => $title,
         'company'           => $company,
@@ -193,6 +198,8 @@ if ($existingOffer) {
             : now(),
         'created_at'        => now(),
         'updated_at'        => now(),
+        'region' => $region,
+
     ]);
 
     // 🔗 Asociar pivot lenguaje ↔ oferta

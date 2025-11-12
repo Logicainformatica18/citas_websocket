@@ -10,6 +10,8 @@ use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
+use App\Helpers\RegionHelper;
+
 
 class ArbeitnowByTechnologiesCommand extends Command
 {
@@ -36,7 +38,14 @@ class ArbeitnowByTechnologiesCommand extends Command
 
   public function handle()
 {
-    $technologies = Technology::pluck('name', 'id');
+  $technologies = Technology::select('technologies.id', 'technologies.name')
+    ->whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+            ->from('course_technology')
+            ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+    })
+    ->pluck('name', 'id');
+
     $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
 
     foreach ($technologies as $techId => $techName) {
@@ -112,6 +121,7 @@ class ArbeitnowByTechnologiesCommand extends Command
                     $existingOffer->technologies()->syncWithoutDetaching([$techId]);
                     continue;
                 }
+$region = RegionHelper::fromCountry($country);
 
                 // 💾 Crear nueva oferta si no existe
                 $offer = JobOffer::create([
@@ -129,9 +139,13 @@ class ArbeitnowByTechnologiesCommand extends Command
                     'salary_min'   => null,
                     'salary_max'   => null,
                     'search_query' => $techName,
-                    'published_at' => isset($job['date']) ? Carbon::parse($job['date']) : now(),
+                        'published_at' => isset($job['created_at'])
+    ? Carbon::createFromTimestamp($job['created_at'])
+    : now(),
                     'created_at'   => now(),
                     'updated_at'   => now(),
+                    'region' => $region,
+
                 ]);
 
                 // 🔗 Asociar tecnología ↔ oferta

@@ -11,6 +11,8 @@ use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
+use App\Helpers\RegionHelper;
+
 
 class ComputrabajoByMethodologiesCommand extends Command
 {
@@ -77,7 +79,7 @@ $slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $met
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $methodName, $code) {
+                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $methodName, $code,$methodId) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
                                        // 🚫 Nuevo filtro
@@ -101,31 +103,51 @@ $slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $met
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                                // Evitar duplicados
-                                $exists = JobOffer::where('source', 'Computrabajo')
-                                    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
-                                    ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
-                                    ->where('country', $country)
-                                    ->where('search_query', $methodName)
-                                    ->exists();
+                              $existingOffer = JobOffer::where('source', 'Computrabajo')
+    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
+    ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
+    ->where('country', $country)
+    ->where('search_query', $methodName)
+    ->first();
 
-                                if ($exists) return;
+if ($existingOffer) {
+    // Solo vincula la metodología sin alterar los datos existentes
+    $existingOffer->methodologies()->syncWithoutDetaching([$methodId]);
+    return;
+}
 
-                                JobOffer::create([
-                                    'title' => $title,
-                                    'company' => $company,
-                                    'country' => $country,
-                                    'city' => $city,
-                                    'latitude' => $lat,
-                                    'longitude' => $lng,
-                                    'modality' => $modality,
-                                    'source' => 'Computrabajo',
-                                    'search_query' => $methodName,
-                                    'published_at' => $published,
-                                    'url' => $urlJob,
-                                    'created_at' => now(),
-                                    'updated_at' => now(),
-                                ]);
+$country = match (strtolower($country)) {
+    'peru' => 'Perú',
+    'mexico' => 'México',
+    'colombia' => 'Colombia',
+    'argentina' => 'Argentina',
+    'uruguay' => 'Uruguay',
+    'ecuador' => 'Ecuador',
+    'venezuela' => 'Venezuela',
+    'bolivia' => 'Bolivia',
+    default => ucfirst($country),
+};
+
+                           $offer = JobOffer::create([
+    'title'        => $title,
+    'company'      => $company,
+    'country'      => $country,
+    'region'       => RegionHelper::fromCountry($country),
+    'state_code'   => strtoupper($code),
+    'city'         => $city,
+    'latitude'     => $lat,
+    'longitude'    => $lng,
+    'modality'     => $modality,
+    'source'       => 'Computrabajo',
+    'search_query' => $methodName,
+    'url'          => $urlJob,
+    'published_at' => $published,
+    'created_at'   => now(),
+    'updated_at'   => now(),
+]);
+
+$offer->methodologies()->syncWithoutDetaching([$methodId]);
+
 
                                 $totalNew++;
                                 $this->line("✅ {$title} ({$country} - {$city})");
@@ -135,7 +157,7 @@ $slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $met
                             }
                         });
 
-                        usleep(random_int(500000, 1500000)); // delay
+                   usleep(random_int(500000, 1500000)); // 0.5 a 1.5 seg
                     } catch (\Throwable $th) {
                         $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
                     }

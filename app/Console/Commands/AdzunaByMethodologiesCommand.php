@@ -10,7 +10,7 @@ use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
-
+use App\Helpers\RegionHelper;
 class AdzunaByMethodologiesCommand extends Command
 {
     protected $signature = 'adzuna:methodologies {--country=us} {--pages=1}';
@@ -157,7 +157,7 @@ if ($existing) {
     $totalDuplicates++;
     continue;
 }
-
+$region = RegionHelper::fromCountry($countryFull);
 // 💾 Si no existe, crear nueva oferta
 $offer = JobOffer::create([
     'title'             => $title,
@@ -183,6 +183,7 @@ $offer = JobOffer::create([
     'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
     'created_at'        => now(),
     'updated_at'        => now(),
+    'region' => $region,
 ]);
 
 // 🔗 Asociar metodología a la nueva oferta
