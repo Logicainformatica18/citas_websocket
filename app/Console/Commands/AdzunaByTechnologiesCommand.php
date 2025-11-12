@@ -103,55 +103,80 @@ class AdzunaByTechnologiesCommand extends Command
                         // 🧭 Modalidad
                         $modality = $this->detectModality($loc, $desc);
 
-                        $area    = $job['location']['area'] ?? [];
-                        $countryCode = strtolower($country);
-                        $city    = $area[1] ?? null;
+                    $area = $job['location']['area'] ?? [];
+$city = $area[1] ?? ($area[0] ?? null);
+$countryName = $area[0] ?? null;
 
-                        [$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, $countryCode);
+$isoToName = [
+    'DE' => 'Alemania', 'FR' => 'Francia', 'ES' => 'España', 'IT' => 'Italia',
+    'GB' => 'Reino Unido', 'US' => 'Estados Unidos', 'CA' => 'Canadá', 'BR' => 'Brasil',
+    'MX' => 'México', 'IN' => 'India', 'SG' => 'Singapur', 'NL' => 'Países Bajos',
+    'PL' => 'Polonia', 'BE' => 'Bélgica', 'CH' => 'Suiza', 'ZA' => 'Sudáfrica',
+    'NZ' => 'Nueva Zelanda', 'AU' => 'Australia', 'PT' => 'Portugal'
+];
 
-                        // ⚠️ Sin coordenadas: intentar capital o descartar
-                        if (!$latitude || !$longitude) {
-                            if (isset($this->capitalMap[$countryCode])) {
-                                $capital = $this->capitalMap[$countryCode];
-                                $city = $capital['city'];
-                                $latitude = $capital['lat'];
-                                $longitude = $capital['lng'];
-                                $countryName = $capital['country'];
-                                $this->stats['fallback']++;
-                            } else {
-                                $this->stats['skipped']++;
-                                $totalUnmapped++;
-                                continue;
-                            }
-                        } else {
-                            $countryName = strtoupper($countryCode);
-                        }
+$countryCode = strtoupper($countryName ?? $country);
+$countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $countryCode));
 
-                        // Evitar duplicados
-                        if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) {
-                            $totalDuplicates++;
-                            continue;
-                        }
+[$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, strtolower($countryCode));
 
-                        JobOffer::create([
-                            'title'        => $title,
-                            'company'      => $company,
-                            'country'      => $countryName ?? strtoupper($countryCode),
-                            'city'         => $city,
-                            'latitude'     => $latitude,
-                            'longitude'    => $longitude,
-                            'modality'     => $modality,
-                            'salary_min'   => $job['salary_min'] ?? null,
-                            'salary_max'   => $job['salary_max'] ?? null,
-                            'currency'     => $job['salary_currency'] ?? 'USD',
-                            'source'       => 'Adzuna',
-                            'external_id'  => $job['id'] ?? null,
-                            'url'          => $urlJob,
-                            'search_query' => $techName,
-                            'published_at' => isset($job['created']) ? Carbon::parse($job['created']) : now(),
-                            'created_at'   => now(),
-                            'updated_at'   => now(),
-                        ]);
+if (!$latitude || !$longitude) {
+    if (isset($this->capitalMap[strtolower($countryCode)])) {
+        $capital = $this->capitalMap[strtolower($countryCode)];
+        $city = $capital['city'];
+        $latitude = $capital['lat'];
+        $longitude = $capital['lng'];
+        $this->stats['fallback']++;
+    } else {
+        $this->stats['skipped']++;
+        $totalUnmapped++;
+        continue;
+    }
+}
+
+
+
+                  // 🔍 Buscar si ya existe la oferta por external_id
+$existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
+
+if ($existing) {
+    // ✅ Si ya existe, solo asociar la tecnología sin duplicar
+    $existing->technologies()->syncWithoutDetaching([$techId]);
+    $totalDuplicates++;
+    continue;
+}
+
+// 💾 Si no existe, crear nueva oferta
+$offer = JobOffer::create([
+    'title'             => $title,
+    'company'           => $company,
+    'country'           => $countryFull,
+    'city'              => $city,
+    'latitude'          => $latitude,
+    'longitude'         => $longitude,
+    'modality'          => $modality,
+    'salary_min'        => $job['salary_min'] ?? null,
+    'salary_max'        => $job['salary_max'] ?? null,
+    'currency'          => $job['salary_currency'] ?? 'USD',
+    'compensation_type' => $job['contract_time'] ?? $job['contract_type'] ?? null,
+    'experience_level'  => $this->extractExperience($job['description'] ?? ''),
+    'education_level'   => $this->extractEducation($job['description'] ?? ''),
+    'certifications'    => $this->extractCertifications($job['description'] ?? ''),
+    'skills'            => $this->extractSkills($job['description'] ?? ''),
+    'requirements'      => strip_tags($job['description'] ?? null),
+    'source'            => 'Adzuna',
+    'external_id'       => $job['id'] ?? null,
+    'url'               => $urlJob,
+    'search_query'      => $techName,
+    'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
+    'created_at'        => now(),
+    'updated_at'        => now(),
+]);
+
+// 🔗 Asociar tecnología a la nueva oferta
+$offer->technologies()->syncWithoutDetaching([$techId]);
+
+
 
                         $totalNew++;
                         $countries[$countryName ?? 'Unknown'] = ($countries[$countryName ?? 'Unknown'] ?? 0) + 1;
@@ -257,4 +282,55 @@ class AdzunaByTechnologiesCommand extends Command
 
         return [null, null];
     }
+    // 🧩 Extrae nivel de experiencia
+protected function extractExperience(string $text): ?string
+{
+    $t = strtolower($text);
+    return match (true) {
+        str_contains($t, 'senior') || str_contains($t, 'sr.') => 'senior',
+        str_contains($t, 'mid-level') || str_contains($t, 'semi senior') => 'mid',
+        str_contains($t, 'junior') || str_contains($t, 'jr.') => 'junior',
+        default => null,
+    };
+}
+
+// 🎓 Detecta nivel educativo
+protected function extractEducation(string $text): ?string
+{
+    $t = strtolower($text);
+    return match (true) {
+        str_contains($t, 'bachelor') || str_contains($t, 'licenciatura') => 'bachelor',
+        str_contains($t, 'master') || str_contains($t, 'maestría') => 'master',
+        str_contains($t, 'phd') || str_contains($t, 'doctorado') => 'phd',
+        str_contains($t, 'technical') || str_contains($t, 'tecnico') => 'technical',
+        default => null,
+    };
+}
+
+// 🏅 Busca certificaciones comunes
+protected function extractCertifications(string $text): ?string
+{
+    $t = strtolower($text);
+    $found = [];
+
+    foreach (['aws', 'azure', 'google cloud', 'scrum', 'pmp', 'cisco', 'ccna', 'itil'] as $cert) {
+        if (str_contains($t, $cert)) $found[] = strtoupper($cert);
+    }
+
+    return !empty($found) ? implode(', ', $found) : null;
+}
+
+// 🧩 Extrae habilidades técnicas
+protected function extractSkills(string $text): ?string
+{
+    $t = strtolower($text);
+    $skills = [];
+
+    foreach (['python', 'java', 'php', 'laravel', 'react', 'vue', 'sql', 'docker', 'aws', 'git', 'node'] as $skill) {
+        if (str_contains($t, $skill)) $skills[] = strtoupper($skill);
+    }
+
+    return !empty($skills) ? implode(', ', $skills) : null;
+}
+
 }

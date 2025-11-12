@@ -34,132 +34,142 @@ class ArbeitnowByTechnologiesCommand extends Command
         'remote' => ['city' => 'Remoto', 'lat' => 0.0000, 'lng' => 0.0000, 'country' => 'Remote'],
     ];
 
-    public function handle()
-    {
-        $technologies = Technology::pluck('name', 'id');
-        $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
+  public function handle()
+{
+    $technologies = Technology::pluck('name', 'id');
+    $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
 
-        foreach ($technologies as $techId => $techName) {
-            $this->warn("\n💡 Procesando tecnología: {$techName}");
+    foreach ($technologies as $techId => $techName) {
+        $this->warn("\n💡 Procesando tecnología: {$techName}");
 
-            $totalFound = 0;
-            $totalNew = 0;
-            $countries = [];
-            $modalities = [];
+        $totalFound = 0;
+        $totalNew = 0;
+        $countries = [];
+        $modalities = [];
 
-            try {
-                $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
-                    'search' => $techName,
-                ]);
+        try {
+            $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
+                'search' => $techName,
+            ]);
 
-                if ($response->failed()) {
-                    $this->error("❌ Falló la API para {$techName}");
+            if ($response->failed()) {
+                $this->error("❌ Falló la API para {$techName}");
+                continue;
+            }
+
+            $jobs = $response->json()['data'] ?? $response->json() ?? [];
+            $totalFound = count($jobs);
+
+            foreach ($jobs as $job) {
+                $title = $job['title'] ?? 'N/A';
+                $company = $job['company_name'] ?? null;
+                $location = trim($job['location'] ?? '');
+                $isRemote = $job['remote'] ?? false;
+                $urlJob = $job['url'] ?? null;
+
+                // 🌍 Detección de país y coordenadas
+                $countryCode = $this->detectCountryCode($location, $isRemote);
+                [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
+
+                if (!$lat || !$lng) {
+                    if (isset($this->capitalMap[$countryCode])) {
+                        $capital = $this->capitalMap[$countryCode];
+                        $city = $capital['city'];
+                        $lat = $capital['lat'];
+                        $lng = $capital['lng'];
+                        $country = $capital['country'];
+                        $this->stats['fallback']++;
+                    } else {
+                        continue;
+                    }
+                }
+
+                $modality = $this->extractModality($location, $isRemote);
+                $countries[$country ?? 'Unknown'] = ($countries[$country ?? 'Unknown'] ?? 0) + 1;
+                $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+
+                $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
+
+                // 🧩 Validar duplicados o asociar tecnología existente
+                $existingOffer = JobOffer::where('source', 'Arbeitnow')
+                    ->where(function ($q) use ($externalId, $title, $company, $country, $techName, $urlJob) {
+                        $q->where('external_id', $externalId)
+                          ->orWhere(function ($q2) use ($title, $company, $country, $techName, $urlJob) {
+                              $q2->where('title', $title)
+                                 ->where('company', $company)
+                                 ->where('country', $country ?? 'Unknown')
+                                 ->where('search_query', $techName)
+                                 ->where(function ($q3) use ($urlJob) {
+                                     $q3->where('url', $urlJob)
+                                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+                                 });
+                          });
+                    })
+                    ->first();
+
+                if ($existingOffer) {
+                    // 🧩 Asociar la tecnología si no está vinculada
+                    $existingOffer->technologies()->syncWithoutDetaching([$techId]);
                     continue;
                 }
 
-                $jobs = $response->json()['data'] ?? $response->json() ?? [];
-                $totalFound = count($jobs);
+                // 💾 Crear nueva oferta si no existe
+                $offer = JobOffer::create([
+                    'title'        => $title,
+                    'company'      => $company,
+                    'country'      => $country ?? 'Unknown',
+                    'city'         => $city,
+                    'latitude'     => $lat,
+                    'longitude'    => $lng,
+                    'modality'     => $modality,
+                    'source'       => 'Arbeitnow',
+                    'external_id'  => $externalId,
+                    'url'          => $urlJob,
+                    'currency'     => 'EUR',
+                    'salary_min'   => null,
+                    'salary_max'   => null,
+                    'search_query' => $techName,
+                    'published_at' => isset($job['date']) ? Carbon::parse($job['date']) : now(),
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]);
 
-                foreach ($jobs as $job) {
-                    $title = $job['title'] ?? 'N/A';
-                    $company = $job['company_name'] ?? null;
-                    $location = trim($job['location'] ?? '');
-                    $isRemote = $job['remote'] ?? false;
-                    $urlJob = $job['url'] ?? null;
-
-                    $countryCode = $this->detectCountryCode($location, $isRemote);
-                    [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
-
-                    if (!$lat || !$lng) {
-                        if (isset($this->capitalMap[$countryCode])) {
-                            $capital = $this->capitalMap[$countryCode];
-                            $city = $capital['city'];
-                            $lat = $capital['lat'];
-                            $lng = $capital['lng'];
-                            $country = $capital['country'];
-                            $this->stats['fallback']++;
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    $modality = $this->extractModality($location, $isRemote);
-                    $countries[$country ?? 'Unknown'] = ($countries[$country ?? 'Unknown'] ?? 0) + 1;
-                    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-
-                    $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
-
-                    $exists = JobOffer::where('source', 'Arbeitnow')
-                        ->where(function ($q) use ($externalId, $title, $company, $country, $techName, $urlJob) {
-                            $q->where('external_id', $externalId)
-                              ->orWhere(function ($q2) use ($title, $company, $country, $techName, $urlJob) {
-                                  $q2->where('title', $title)
-                                     ->where('company', $company)
-                                     ->where('country', $country ?? 'Unknown')
-                                     ->where('search_query', $techName)
-                                     ->where(function ($q3) use ($urlJob) {
-                                         $q3->where('url', $urlJob)
-                                            ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-                                     });
-                              });
-                        })
-                        ->exists();
-
-                    if ($exists) continue;
-
-                    JobOffer::create([
-                        'title'        => $title,
-                        'company'      => $company,
-                        'country'      => $country ?? 'Unknown',
-                        'city'         => $city,
-                        'latitude'     => $lat,
-                        'longitude'    => $lng,
-                        'modality'     => $modality,
-                        'source'       => 'Arbeitnow',
-                        'external_id'  => $externalId,
-                        'url'          => $urlJob,
-                        'currency'     => 'EUR',
-                        'salary_min'   => null,
-                        'salary_max'   => null,
-                        'search_query' => $techName,
-                        'published_at' => isset($job['date']) ? Carbon::parse($job['date']) : now(),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
-                    ]);
-
-                    $totalNew++;
-                }
-
-                // 📊 Evita duplicar métricas diarias
-                $today = now()->toDateString();
-                $existsToday = TechnologyMetric::whereDate('run_date', $today)
-                    ->where('technology_id', $techId)
-                    ->where('source', 'Arbeitnow')
-                    ->exists();
-
-                if (!$existsToday) {
-                    TechnologyMetric::create([
-                        'technology_id' => $techId,
-                        'technology_name' => $techName,
-                        'jobs_found_count' => $totalFound,
-                        'jobs_new_count' => $totalNew,
-                        'countries_breakdown' => $countries,
-                        'modality_breakdown' => $modalities,
-                        'run_date' => Carbon::today(),
-                        'source' => 'Arbeitnow',
-                    ]);
-                }
-
-                $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-            } catch (\Throwable $th) {
-                Log::error("⚠️ Error en {$techName}: " . $th->getMessage());
+                // 🔗 Asociar tecnología ↔ oferta
+                $offer->technologies()->syncWithoutDetaching([$techId]);
+                $totalNew++;
             }
 
-            sleep(1.5);
+            // 📊 Registrar métricas si aún no existen hoy
+            $today = now()->toDateString();
+            $existsToday = TechnologyMetric::whereDate('run_date', $today)
+                ->where('technology_id', $techId)
+                ->where('source', 'Arbeitnow')
+                ->exists();
+
+            if (!$existsToday) {
+                TechnologyMetric::create([
+                    'technology_id'      => $techId,
+                    'technology_name'    => $techName,
+                    'jobs_found_count'   => $totalFound,
+                    'jobs_new_count'     => $totalNew,
+                    'countries_breakdown'=> $countries,
+                    'modality_breakdown' => $modalities,
+                    'run_date'           => Carbon::today(),
+                    'source'             => 'Arbeitnow',
+                ]);
+            }
+
+            $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+        } catch (\Throwable $th) {
+            Log::error("⚠️ Error en {$techName}: " . $th->getMessage());
         }
 
-        $this->info("\n🎯 Proceso completado: métricas registradas en `technology_metrics`.");
+        sleep(1.5);
     }
+
+    $this->info("\n🎯 Proceso completado: métricas registradas en `technology_metrics`.");
+}
+
 
     // 🔍 Detección del país por texto
     protected function detectCountryCode($location, $isRemote)

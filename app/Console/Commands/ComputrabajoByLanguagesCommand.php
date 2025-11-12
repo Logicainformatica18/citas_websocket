@@ -28,19 +28,35 @@ class ComputrabajoByLanguagesCommand extends Command
         'ec' => 'Ecuador',
         've' => 'Venezuela',
     ];
+protected $currencyMap = [
+    'pe' => 'PEN',
+    'bo' => 'BOB',
+    'ar' => 'ARS',
+    'uy' => 'UYU',
+    'mx' => 'MXN',
+    'co' => 'COP',
+    'ec' => 'USD',
+    've' => 'VES',
+];
 
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
     public function handle()
     {
-     $languages = Language::select('languages.id', 'languages.name', 'languages.search_context')
+   $languages = Language::select(
+        'languages.id',
+        'languages.name',
+        'semantic_contexts.search_context'
+    )
+    ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
     ->whereIn('languages.id', function ($q) {
         $q->select('course_language.language_id')
-            ->from('course_language')
-            ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+          ->from('course_language')
+          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
     })
     ->get();
+
 
         $pages = (int) $this->option('pages');
 
@@ -88,7 +104,7 @@ class ComputrabajoByLanguagesCommand extends Command
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code) {
+                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code,$langId) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
                                          // 🚫 Nuevo filtro
@@ -108,33 +124,66 @@ class ComputrabajoByLanguagesCommand extends Command
                                 $modality = $this->mapModality($title . ' ' . $city);
                                 $published = now();
 
+// 💰 Extraer texto de salario (si existe)
+$salaryText = null;
+$offer->filter('p.fc_aux')->each(function ($node) use (&$salaryText) {
+    $text = trim($node->text());
+    if (preg_match('/(\$|S\/|US\$)/', $text)) {
+        $salaryText = $text;
+    }
+});
+
+// 🧮 Parsear monto y moneda según código del país
+[$salaryMin, $salaryMax, $currency] = $this->parseSalary($salaryText, $code);
+
+
+
                                 $totalFound++;
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                                $exists = JobOffer::where('source', 'Computrabajo')
-                                    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
-                                    ->whereRaw('LOWER(IFNULL(company,"")) = ?', [strtolower($company ?? '')])
-                                    ->where('country', $country)
-                                    ->exists();
+                              $existingOffer = JobOffer::where('source', 'Computrabajo')
+    ->where(function ($q) use ($title, $company, $country, $langName, $urlJob) {
+        $q->whereRaw('LOWER(title) = ?', [strtolower($title)])
+          ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
+          ->where('country', $country)
+          ->where('search_query', $langName)
+          ->where(function ($q2) use ($urlJob) {
+              $q2->where('url', $urlJob)
+                 ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
+          });
+    })
+    ->first();
 
-                                if ($exists) return;
+if ($existingOffer) {
+    $existingOffer->languages()->syncWithoutDetaching([$langId]);
+    return;
+}
 
-                                JobOffer::create([
-                                    'title' => $title,
-                                    'company' => $company,
-                                    'country' => $country,
-                                    'city' => $city,
-                                    'latitude' => $lat,
-                                    'longitude' => $lng,
-                                    'modality' => $modality,
-                                    'source' => 'Computrabajo',
-                                    'search_query' => $langName,
-                                    'published_at' => $published,
-                                    'url' => $urlJob,
-                                    'created_at' => now(),
-                                    'updated_at' => now(),
-                                ]);
+$offer = JobOffer::create([
+    'title'        => $title,
+    'company'      => $company,
+    'country'      => $country,
+    'region'       => strtolower($code), // 'pe', 'co', 'mx', etc.
+    'state_code'   => strtoupper($code), // 'PE', 'CO', etc.
+    'city'         => $city,
+    'latitude'     => $lat,
+    'longitude'    => $lng,
+    'modality'     => $modality,
+    'source'       => 'Computrabajo',
+    'search_query' => $langName,
+    'url'          => $urlJob,
+    'salary_min'   => $salaryMin,
+    'salary_max'   => $salaryMax,
+    'currency'     => $currency,
+    'published_at' => $published,
+    'created_at'   => now(),
+    'updated_at'   => now(),
+]);
+
+
+$offer->languages()->syncWithoutDetaching([$langId]);
+
 
                                 $totalNew++;
                                 $this->line("✅ {$title} ({$country} - {$city})");
@@ -268,4 +317,29 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
 
         return [self::DEFAULT_LAT, self::DEFAULT_LNG];
     }
+    protected function parseSalary(?string $text, ?string $countryCode): array
+{
+    if (!$text) return [null, null, $this->currencyMap[$countryCode] ?? null];
+
+    $currency = match (true) {
+        str_contains($text, 'US$') => 'USD',
+        str_contains($text, 'S/')  => 'PEN',
+        str_contains($text, '$')   => $this->currencyMap[$countryCode] ?? 'USD',
+        default                    => $this->currencyMap[$countryCode] ?? null,
+    };
+
+    preg_match_all('/[\d.,]+/', $text, $matches);
+    if (empty($matches[0])) return [null, null, $currency];
+
+    $values = array_map(
+        fn($v) => floatval(str_replace(',', '', preg_replace('/[^\d,\.]/', '', $v))),
+        $matches[0]
+    );
+
+    $min = $values[0] ?? null;
+    $max = $values[1] ?? $min;
+
+    return [$min, $max, $currency];
+}
+
 }

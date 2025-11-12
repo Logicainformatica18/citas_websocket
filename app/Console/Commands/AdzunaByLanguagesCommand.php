@@ -159,13 +159,20 @@ $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $c
                             }
                         }
 
-                        // Evitar duplicados
-                        if (!empty($job['id']) && JobOffer::where('external_id', $job['id'])->exists()) {
-                            $totalDuplicates++;
-                            continue;
-                        }
+                      // 🔍 Buscar si ya existe la oferta por external_id
+$existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
 
-                      $offer = JobOffer::create([
+if ($existing) {
+    // ✅ Si ya existe, solo asociar el lenguaje en el pivot sin duplicar
+    $existing->languages()->syncWithoutDetaching([$languageId]);
+$totalDuplicates++;
+$totalNew++; // opcional, si quieres contar asociaciones nuevas en language_job como “nuevas”
+continue;
+
+}
+
+// 💾 Si no existe, crear nueva oferta
+$offer = JobOffer::create([
     'title'             => $title,
     'company'           => $company,
     'country'           => $countryFull,
@@ -191,8 +198,9 @@ $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $c
     'updated_at'        => now(),
 ]);
 
-// 🧩 Asocia el lenguaje con la oferta
+// 🔗 Asociar el lenguaje a la nueva oferta
 $offer->languages()->syncWithoutDetaching([$languageId]);
+
 
 
 

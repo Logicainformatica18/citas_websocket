@@ -73,5 +73,23 @@ class JobOffer extends Model
     return $this->belongsToMany(Language::class, 'language_job')
                 ->withTimestamps();
 }
+    /**
+     * 🔹 Relación con tecnologías
+     */
+    public function technologies()
+    {
+        return $this->belongsToMany(Technology::class, 'technology_job')
+                    ->withTimestamps();
+    }
+
+    /**
+     * 🔹 Relación con metodologías
+     */
+    public function methodologies()
+    {
+        return $this->belongsToMany(Methodology::class, 'methodology_job')
+                    ->withTimestamps();
+    }
+
 
 }
