@@ -28,6 +28,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { deleteWidget } from "./useDashboardAPI";
 import Swal from "sweetalert2";
+import ChartFilter from "./ChartFilter";
 
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
@@ -166,6 +167,26 @@ const numericKeys = allKeys.filter((k) => {
   return { normalizedData, categoryKey, numericKeys };
 }, [JSON.stringify(rawData)]);
 
+// 🎛️ Filtro dinámico de categorías
+const categoryLabels = normalizedData.map(d => d[categoryKey]);
+
+const [activeLabels, setActiveLabels] = useState(categoryLabels);
+
+useEffect(() => {
+  setActiveLabels(categoryLabels);
+}, [JSON.stringify(categoryLabels)]);
+
+const toggleLabel = (label) => {
+  setActiveLabels(prev =>
+    prev.includes(label)
+      ? prev.filter((l) => l !== label)
+      : [...prev, label]
+  );
+};
+
+const filteredData = normalizedData.filter(d =>
+  activeLabels.includes(d[categoryKey])
+);
 
 // 🧩 Log seguro (ya después del cálculo)
 useEffect(() => {
@@ -299,11 +320,14 @@ const exportToPDF = () => {
       justifyContent: "space-between",
     }}
   >
+ 
+
     {/* 🧩 Gráfico principal */}
     <div style={{ flex: 1, minHeight: "240px" }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={normalizedData}
+         data={filteredData}
+
           margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
@@ -339,47 +363,60 @@ const exportToPDF = () => {
     </div>
 
     {/* 🎨 Leyenda debajo del gráfico */}
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: "8px 12px",
-        paddingTop: "10px",
-        maxHeight: "90px",
-        overflowY: "auto",
-      }}
-    >
-      {normalizedData.length > 0 ? (
-        normalizedData.slice(0, 20).map((entry, index) => (
-          <div
-            key={index}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              fontSize: "12px",
-              color: colors.text,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                width: "10px",
-                height: "10px",
-                backgroundColor: `hsl(${(index * 25) % 360}, 70%, 55%)`,
-                marginRight: "5px",
-                borderRadius: "2px",
-              }}
-            />
-            {entry[categoryKey]}
-          </div>
-        ))
-      ) : (
-        <span style={{ color: colors.text, opacity: 0.5 }}>Sin datos</span>
-      )}
-    </div>
+   <div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px 18px",
+    paddingTop: "10px",
+    maxHeight: "110px",
+    overflowY: "auto",
+  }}
+>
+  {normalizedData.map((entry, index) => {
+    const label = entry[categoryKey];
+    const color = `hsl(${(index * 25) % 360}, 70%, 55%)`;
+
+    return (
+      <label
+        key={label}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          fontSize: "13px",
+          color: colors.text,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {/* Checkbox */}
+        <input
+          type="checkbox"
+          checked={activeLabels.includes(label)}
+          onChange={() => toggleLabel(label)}
+          style={{ marginRight: "6px" }}
+        />
+
+        {/* Color cuadrado */}
+        <span
+          style={{
+            display: "inline-block",
+            width: "12px",
+            height: "12px",
+            backgroundColor: color,
+            marginRight: "6px",
+            borderRadius: "3px",
+          }}
+        />
+
+        {label}
+      </label>
+    );
+  })}
+</div>
+
   </div>
 )}
 
@@ -391,7 +428,7 @@ const exportToPDF = () => {
 
                 {widget.chart_type === "line" && (
                     <ResponsiveContainer width="100%" height="100%">
-                     <LineChart data={normalizedData}>
+                     <LineChart data={filteredData}>
   <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
   <XAxis dataKey={categoryKey} stroke={colors.text} tick={{ fill: colors.text }} />
   <YAxis stroke={colors.text} tick={{ fill: colors.text }} />
@@ -416,7 +453,8 @@ const exportToPDF = () => {
   <ResponsiveContainer width="100%" height="100%">
     <PieChart>
       <Pie
-        data={normalizedData}
+       data={filteredData}
+
         dataKey={numericKeys[0] || "value"}
         nameKey={categoryKey}
         cx="35%"
@@ -425,7 +463,7 @@ const exportToPDF = () => {
         // 👇 Label solo con porcentaje
         label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
       >
-        {normalizedData.map((entry, index) => (
+        {filteredData.map((entry, index) => (
           <Cell key={index} fill={`hsl(${(index * 45) % 360}, 70%, 55%)`} />
         ))}
       </Pie>

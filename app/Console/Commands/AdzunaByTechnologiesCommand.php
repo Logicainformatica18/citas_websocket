@@ -64,7 +64,6 @@ class AdzunaByTechnologiesCommand extends Command
         ->from('course_technology')
         ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
 })
-->where('id', '>=', 824)  // 🔹 Continúa desde el ID 748
 ->orderBy('id')            // (opcional pero recomendado para consistencia)
 ->pluck('name', 'id');
 

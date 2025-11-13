@@ -41,13 +41,36 @@ public function index(Request $request)
 
     $topics = AITraining::select('topic')->distinct()->pluck('topic');
 
-    // 🔹 Siempre limpia las fechas antes de responder
-    $trainings->getCollection()->transform(function ($item) {
-        $item->created_at = $item->created_at
-            ? Carbon::parse($item->created_at)->format('d/m/Y H:i')
-            : null;
+  $trainings->getCollection()->transform(function ($item) {
+
+    $raw = $item->created_at;
+
+    if (!$raw) {
+        $item->created_at = null;
         return $item;
-    });
+    }
+
+    // Intentar formato estándar de BD
+    try {
+        return tap($item, function ($i) use ($raw) {
+            $i->created_at = Carbon::parse($raw)->format('d/m/Y H:i');
+        });
+    } catch (\Exception $e) {}
+
+    // Intentar formato latino
+    try {
+        return tap($item, function ($i) use ($raw) {
+            $dt = Carbon::createFromFormat('d/m/Y H:i', $raw);
+            $i->created_at = $dt->format('d/m/Y H:i');
+        });
+    } catch (\Exception $e) {}
+
+    // Último recurso: dejarlo tal cual
+    $item->created_at = $raw;
+    return $item;
+});
+
+
 
     // 🔹 Devuelve para Inertia o Axios indistintamente
     if ($request->wantsJson()) {

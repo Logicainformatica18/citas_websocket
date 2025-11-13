@@ -57,8 +57,8 @@ return [
     'sp_entityid'    => env('SAML_SP_ENTITYID'),
     'sp_sls'         => env('APP_URL').'/auth/saml2/logout',
 ],
-'coresignal' => [
-    'api_key' => env('CORESIGNAL_API_KEY'),
+'jooble' => [
+    'key' => env('JOOBLE_API_KEY'),
 ],
 
 ];
