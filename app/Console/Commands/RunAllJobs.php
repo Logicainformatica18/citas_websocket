@@ -81,6 +81,19 @@ class RunAllJobs extends Command
 
 'adzuna:languages --country=au --pages=1',
 'adzuna:languages --country=nz --pages=1',
+
+
+'jooble:languages --country="United States" --pages=10',
+'jooble:languages --country="India" --pages=10',
+'jooble:languages --country="United Kingdom" --pages=10',
+'jooble:languages --country="Germany" --pages=10',
+'jooble:languages --country="Spain" --pages=10',
+'jooble:languages --country="Canada" --pages=10',
+'jooble:languages --country="Italy" --pages=10',
+'jooble:languages --country="Mexico" --pages=10',
+
+
+
 ];
 
         $total = count($commands);
