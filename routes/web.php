@@ -267,6 +267,7 @@ Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->gr
 
 
 
+Route::patch('/technologies/{id}/toggle', [TechnologyController::class, 'toggle']);
 
 
 

@@ -41,7 +41,14 @@ class RegionHelper
     // 🌐 REMOTO / OTROS
     'REMOTE' => [
         'Remote','Remoto','Desconocido','Anywhere','Global','Worldwide','Home Office'
-    ]
+    ],
+    // 🌏 ASIA
+'ASIA' => [
+    'India','China','Japón','Japan','Singapore','Singapur','Filipinas','Philippines',
+    'Corea del Sur','South Korea','Vietnam','Tailandia','Thailand','Indonesia','Malaysia','Malasia',
+    'Emiratos Árabes Unidos','United Arab Emirates','UAE'
+],
+
     ];
 
     /**

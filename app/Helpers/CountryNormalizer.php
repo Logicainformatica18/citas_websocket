@@ -54,6 +54,7 @@ class CountryNormalizer
             'in' => 'India', 'india' => 'India',
             'cn' => 'China', 'china' => 'China',
             'jp' => 'Japón', 'japan' => 'Japón',
+
             'kr' => 'Corea del Sur', 'south korea' => 'Corea del Sur',
             'sg' => 'Singapur', 'singapore' => 'Singapur',
             'hk' => 'Hong Kong', 'hong kong' => 'Hong Kong',

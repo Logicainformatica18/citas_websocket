@@ -98,7 +98,8 @@ class WantedlyByMethodologiesCommand extends Command
                         //   PAÍS
                         // ----------------------------------------
                         $countryIso = $this->detectCountryFromCity($cityRaw);
-                        $country    = CountryNormalizer::normalize($countryIso);
+                        $country = CountryNormalizer::normalize($this->detectCountryFromCity($cityRaw));
+
                         $region     = RegionHelper::fromCountry($country);
 
                         // ----------------------------------------

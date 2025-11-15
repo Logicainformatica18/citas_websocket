@@ -38,9 +38,9 @@ class RunAllJobs extends Command
 
 
 //  'adzuna:technologies --country=us --pages=1',
-    // 'adzuna:technologies --country=ca --pages=1',
-    // 'adzuna:technologies --country=mx --pages=1',
-    // 'adzuna:technologies --country=br --pages=1',
+//     'adzuna:technologies --country=ca --pages=1',
+//     'adzuna:technologies --country=mx --pages=1',
+//     'adzuna:technologies --country=br --pages=1',
 
 //     'adzuna:technologies --country=es --pages=1',
 //     'adzuna:technologies --country=fr --pages=1',
@@ -74,26 +74,41 @@ class RunAllJobs extends Command
 // 'adzuna:languages --country=ch --pages=1',
 // 'adzuna:languages --country=pl --pages=1',
 
-'adzuna:languages --country=in --pages=1',
-'adzuna:languages --country=sg --pages=1',
+// 'adzuna:languages --country=in --pages=1',
+// 'adzuna:languages --country=sg --pages=1',
 
-'adzuna:languages --country=za --pages=1',
+// 'adzuna:languages --country=za --pages=1',
 
-'adzuna:languages --country=au --pages=1',
-'adzuna:languages --country=nz --pages=1',
-
-
-'jooble:languages --country="United States" --pages=10',
-'jooble:languages --country="India" --pages=10',
-'jooble:languages --country="United Kingdom" --pages=10',
-'jooble:languages --country="Germany" --pages=10',
-'jooble:languages --country="Spain" --pages=10',
-'jooble:languages --country="Canada" --pages=10',
-'jooble:languages --country="Italy" --pages=10',
-'jooble:languages --country="Mexico" --pages=10',
+// 'adzuna:languages --country=au --pages=1',
+// 'adzuna:languages --country=nz --pages=1',
 
 
+//'jooble:languages --country="United States" --pages=10',
+// 'jooble:languages --country="India" --pages=10',
+// 'jooble:languages --country="United Kingdom" --pages=10',
+// 'jooble:languages --country="Germany" --pages=10',
+// 'jooble:languages --country="Spain" --pages=10',
+// 'jooble:languages --country="Canada" --pages=10',
+// 'jooble:languages --country="Italy" --pages=10',
+// 'jooble:languages --country="Mexico" --pages=10',
 
+// 'jooble:methodologies --country="United States" --pages=10',
+// 'jooble:methodologies --country="India" --pages=10',
+// 'jooble:methodologies --country="United Kingdom" --pages=10',
+// 'jooble:methodologies --country="Germany" --pages=10',
+// 'jooble:methodologies --country="Spain" --pages=10',
+// 'jooble:methodologies --country="Canada" --pages=10',
+'jooble:methodologies --country="Italy" --pages=10',
+'jooble:methodologies --country="Mexico" --pages=10',
+
+'jooble:technologies --country="United States" --pages=10',
+'jooble:technologies --country="India" --pages=10',
+'jooble:technologies --country="United Kingdom" --pages=10',
+'jooble:technologies --country="Germany" --pages=10',
+'jooble:technologies --country="Spain" --pages=10',
+'jooble:technologies --country="Canada" --pages=10',
+'jooble:technologies --country="Italy" --pages=10',
+'jooble:technologies --country="Mexico" --pages=10',
 ];
 
         $total = count($commands);

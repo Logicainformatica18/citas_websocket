@@ -98,7 +98,8 @@ class WantedlyByLanguagesCommand extends Command
                         //     NORMALIZACIÓN PAÍS
                         // ---------------------------
                         $countryIso = strtoupper($this->detectCountryFromCity($cityRaw)); // JP | SG
-                        $country    = CountryNormalizer::normalize($countryIso);
+                     $country = CountryNormalizer::normalize($this->detectCountryFromCity($cityRaw));
+
                         $region     = RegionHelper::fromCountry($country);
 
                         // ---------------------------

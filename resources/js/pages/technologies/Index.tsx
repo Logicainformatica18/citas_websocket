@@ -27,6 +27,7 @@ type Technology = {
   name: string;
   context_id?: number | null;
   created_at?: string;
+    enabled: boolean;   // 👈 AGREGADO
 };
 
 type Pagination<T> = {
@@ -36,6 +37,7 @@ type Pagination<T> = {
   next_page_url?: string | null;
   prev_page_url?: string | null;
 };
+
 
 export default function TechnologiesIndex() {
   const { technologies: initialPagination, contexts } = usePage<{
@@ -50,7 +52,20 @@ export default function TechnologiesIndex() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+const toggleEnabled = async (tech: Technology) => {
+  try {
+    const res = await axios.patch(`/technologies/${tech.id}/toggle`);
+    const updated = res.data.enabled;
 
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === tech.id ? { ...i, enabled: updated } : i
+      )
+    );
+  } catch (e) {
+    Swal.fire("Error", "No se pudo cambiar el estado.", "error");
+  }
+};
   useEffect(() => {
     setItems(initialPagination.data);
     setPagination(initialPagination);
@@ -161,14 +176,17 @@ export default function TechnologiesIndex() {
         {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto border-collapse">
-            <thead className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 uppercase text-sm">
-              <tr>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Nombre</th>
-                <th className="px-4 py-2">Contexto</th>
-                <th className="px-4 py-2">Creado</th>
-              </tr>
-            </thead>
+          <thead className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 uppercase text-sm">
+  <tr>
+    <th className="px-4 py-2">Acciones</th>
+    <th className="px-4 py-2">Nombre</th>
+    <th className="px-4 py-2">Contexto</th>
+  <th className="px-4 py-2">Activo</th>
+
+    <th className="px-4 py-2">Creado</th>
+  </tr>
+</thead>
+
             <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
               {loading ? (
                 <tr>
@@ -210,6 +228,36 @@ export default function TechnologiesIndex() {
                       <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
                         {ctx ? `${ctx.role_name} (${ctx.search_context})` : "-"}
                       </td>
+                    <td className="px-4 py-2">
+  <label className="relative inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      checked={item.enabled}
+      onChange={() => toggleEnabled(item)}
+      className="sr-only peer"
+    />
+    <div
+      className="
+        w-11 h-6
+        bg-slate-300 peer-focus:outline-none rounded-full peer
+        peer-checked:bg-green-600
+        dark:bg-slate-700 dark:peer-checked:bg-green-500
+        transition-colors
+      "
+    ></div>
+    <div
+      className="
+        absolute left-0.5 top-0.5
+        w-5 h-5
+        bg-white rounded-full shadow
+        peer-checked:translate-x-5
+        transition-transform
+      "
+    ></div>
+  </label>
+</td>
+
+
                       <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
                         {formatDate(item.created_at)}
                       </td>

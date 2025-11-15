@@ -43,6 +43,7 @@ class TechnologyController extends Controller
                 'context'     => optional($t->context)->role_name,
                 'category_id' => $t->category_id,
                 'context_id'  => $t->context_id,
+                'enabled'     => $t->enabled,         // 👈 AGREGADO
                 'created_at'  => optional($t->created_at)->format('Y-m-d'),
             ]),
             'categories' => $categories,
@@ -77,6 +78,7 @@ class TechnologyController extends Controller
             'context'     => optional($t->context)->role_name,
             'category_id' => $t->category_id,
             'context_id'  => $t->context_id,
+            'enabled'     => $t->enabled,            // 👈 AGREGADO
             'created_at'  => optional($t->created_at)->format('Y-m-d'),
         ]);
 
@@ -92,6 +94,7 @@ class TechnologyController extends Controller
             'name'        => 'required|string|max:255',
             'category_id' => 'nullable|integer|exists:technology_categories,id',
             'context_id'  => 'nullable|integer|exists:semantic_contexts,id',
+            'enabled'     => 'nullable|boolean',     // 👈 AGREGADO
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -114,6 +117,7 @@ class TechnologyController extends Controller
             'name'        => 'required|string|max:255',
             'category_id' => 'nullable|integer|exists:technology_categories,id',
             'context_id'  => 'nullable|integer|exists:semantic_contexts,id',
+            'enabled'     => 'nullable|boolean',      // 👈 AGREGADO
         ]);
 
         return DB::transaction(function () use ($validated, $id) {
@@ -128,6 +132,17 @@ class TechnologyController extends Controller
             ]);
         });
     }
+public function toggle($id)
+{
+    $tech = Technology::findOrFail($id);
+    $tech->enabled = !$tech->enabled;
+    $tech->save();
+
+    return response()->json([
+        'message' => 'Estado actualizado',
+        'enabled' => $tech->enabled,
+    ]);
+}
 
     /**
      * 🗑️ Eliminar tecnología
