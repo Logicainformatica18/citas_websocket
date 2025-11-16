@@ -268,8 +268,12 @@ Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->gr
 
 
 Route::patch('/technologies/{id}/toggle', [TechnologyController::class, 'toggle']);
+Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController::class, 'toggle'])
+    ->name('languages.toggle');
 
-
+// 🚦 Activar / desactivar (switch)
+    Route::patch('methodologies/{id}/toggle', [MethodologyController::class, 'toggle'])->name('methodologies.toggle');
+ 
 
 });
 

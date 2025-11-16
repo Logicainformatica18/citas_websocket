@@ -26,6 +26,7 @@ type Language = {
   id: number;
   name: string;
   context_id?: number | null;
+  enabled: number;   // 👈 nuevo
   created_at?: string;
 };
 
@@ -123,6 +124,23 @@ export default function LanguagesIndex() {
     setEditing(null);
     setShowModal(false);
   };
+const toggleEnabled = async (lang: Language) => {
+  try {
+    const newValue = lang.enabled === 1 ? 0 : 1;
+
+    await axios.patch(`/languages/${lang.id}/toggle`, {
+      enabled: newValue,
+    });
+
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === lang.id ? { ...i, enabled: newValue } : i
+      )
+    );
+  } catch (e) {
+    Swal.fire("Error", "No se pudo actualizar el estado.", "error");
+  }
+};
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -163,6 +181,8 @@ export default function LanguagesIndex() {
                 <th className="px-4 py-2">Acciones</th>
                 <th className="px-4 py-2">Nombre</th>
                 <th className="px-4 py-2">Contexto</th>
+                <th className="px-4 py-2">Activado</th>
+
                 <th className="px-4 py-2">Creado</th>
               </tr>
             </thead>
@@ -205,7 +225,27 @@ export default function LanguagesIndex() {
                         {item.name}
                       </td>
                       <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        {ctx ? `${ctx.role_name} (${ctx.search_context})` : "-"}
+                        {ctx ? `${ctx.search_context} ` : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                  <label className="inline-flex items-center cursor-pointer">
+  <input
+    type="checkbox"
+    checked={item.enabled === 1}
+    onChange={() => toggleEnabled(item)}
+    className="sr-only peer"
+  />
+
+  <div className="relative w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-green-500 transition">
+    <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-5"></span>
+  </div>
+
+  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+    {item.enabled ? "Activo" : "Inactivo"}
+  </span>
+</label>
+
+
                       </td>
                       <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
                         {formatDate(item.created_at)}

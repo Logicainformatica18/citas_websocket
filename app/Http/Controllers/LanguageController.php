@@ -20,57 +20,50 @@ class LanguageController extends Controller
 
         $languages = Language::query()
             ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('search_context', 'like', "%{$search}%");
+                $query->where('name', 'like', "%{$search}%");
             })
             ->orderBy('id', 'desc')
             ->paginate(10)
             ->withQueryString();
 
-        // 🔹 Listado de contextos semánticos
-        $contexts = SemanticContext::select('id', 'role_name', 'search_context')
-            ->orderBy('role_name')
+        // Listado de contextos
+        $contexts = SemanticContext::select('id',  'search_context')
             ->get();
 
         return Inertia::render('languages/Index', [
             'languages' => $languages->through(fn ($l) => [
-                'id'             => $l->id,
-                'name'           => $l->name,
-                'slug'           => $l->slug,
-                'search_context' => $l->search_context,
-                'context_id'     => $l->context_id,
-                'created_at'     => optional($l->created_at)->format('Y-m-d'),
+                'id'         => $l->id,
+                'name'       => $l->name,
+                'slug'       => $l->slug,
+                'context_id' => $l->context_id,
+                'enabled'    => $l->enabled,
+                'created_at' => optional($l->created_at)->format('Y-m-d'),
             ]),
-            'contexts' => $contexts, // 👈 Enviado a Inertia
-            'filters' => [
-                'search' => $search,
-            ],
+            'contexts' => $contexts,
+            'filters' => ['search' => $search],
         ]);
     }
 
     /**
-     * 📄 API JSON (para DataTables o AJAX)
+     * 📄 API JSON
      */
     public function fetchPaginated(Request $request)
     {
         $search = $request->get('search');
 
         $languages = Language::query()
-            ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('search_context', 'like', "%{$search}%");
-            })
+            ->when($search, fn($q) => $q->where('name', 'like', "%{$search}%"))
             ->orderBy('id', 'desc')
             ->paginate(10)
             ->withQueryString();
 
         $formatted = $languages->through(fn ($l) => [
-            'id'             => $l->id,
-            'name'           => $l->name,
-            'slug'           => $l->slug,
-            'search_context' => $l->search_context,
-            'context_id'     => $l->context_id,
-            'created_at'     => optional($l->created_at)->format('Y-m-d'),
+            'id'         => $l->id,
+            'name'       => $l->name,
+            'slug'       => $l->slug,
+            'context_id' => $l->context_id,
+            'enabled'    => $l->enabled,
+            'created_at' => optional($l->created_at)->format('Y-m-d'),
         ]);
 
         return response()->json($formatted);
@@ -82,13 +75,14 @@ class LanguageController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'search_context' => 'nullable|string|max:255',
-            'context_id'     => 'nullable|integer|exists:semantic_contexts,id',
+            'name'       => 'required|string|max:255',
+            'context_id' => 'nullable|integer|exists:semantic_contexts,id',
         ]);
 
         return DB::transaction(function () use ($validated) {
             $validated['slug'] = Str::slug($validated['name']);
+            $validated['enabled'] = 1;
+
             $language = Language::create($validated);
 
             return response()->json([
@@ -104,16 +98,18 @@ class LanguageController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'search_context' => 'nullable|string|max:255',
-            'context_id'     => 'nullable|integer|exists:semantic_contexts,id',
+            'name'       => 'required|string|max:255',
+            'context_id' => 'nullable|integer|exists:semantic_contexts,id',
         ]);
 
         return DB::transaction(function () use ($validated, $id) {
             $language = Language::findOrFail($id);
-            $language->update(array_merge($validated, [
-                'slug' => Str::slug($validated['name']),
-            ]));
+
+            $language->update([
+                'name'       => $validated['name'],
+                'slug'       => Str::slug($validated['name']),
+                'context_id' => $validated['context_id'] ?? null,
+            ]);
 
             return response()->json([
                 'message'  => '✅ Lenguaje actualizado correctamente.',
@@ -133,5 +129,17 @@ class LanguageController extends Controller
 
             return response()->json(['message' => '🗑️ Lenguaje eliminado correctamente.']);
         });
+    }
+
+    /**
+     * 🔄 Activar / desactivar
+     */
+    public function toggle($id, Request $request)
+    {
+        $lang = Language::findOrFail($id);
+        $lang->enabled = $request->enabled;
+        $lang->save();
+
+        return response()->json(['success' => true]);
     }
 }

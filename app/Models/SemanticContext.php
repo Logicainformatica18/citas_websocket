@@ -13,8 +13,8 @@ class SemanticContext extends Model
 
     protected $fillable = [
         'search_context',
-        'role_name',
-        'keyword_pattern',
+
+
         'description',
     ];
 

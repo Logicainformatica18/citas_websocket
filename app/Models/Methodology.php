@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Methodology extends Model
 {
-      protected $fillable = ['name'];
+    protected $fillable = ['name', 'slug', 'context_id', 'enabled'];
+
      public function courses()
     {
         return $this->belongsToMany(Course::class);
@@ -15,7 +16,9 @@ class Methodology extends Model
 {
     return $this->hasMany(MethodologyMetric::class);
 }
-public function context() {
+
+public function context()
+{
     return $this->belongsTo(SemanticContext::class, 'context_id');
 }
 

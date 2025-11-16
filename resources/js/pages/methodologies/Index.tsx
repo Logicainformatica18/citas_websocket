@@ -13,6 +13,7 @@ type Methodology = {
   id: number;
   name: string;
   context_id?: number | null;
+  enabled: boolean;
   created_at?: string;
 };
 
@@ -20,14 +21,12 @@ type Pagination<T> = {
   data: T[];
   current_page: number;
   last_page: number;
-  next_page_url?: string | null;
-  prev_page_url?: string | null;
 };
 
 export default function MethodologiesIndex() {
   const { methodologies: initialPagination, contexts } = usePage<{
     methodologies: Pagination<Methodology>;
-    contexts: { id: number; role_name: string; search_context: string }[];
+    contexts: { id: number; search_context: string }[];
   }>().props;
 
   const [items, setItems] = useState<Methodology[]>([]);
@@ -52,6 +51,7 @@ export default function MethodologiesIndex() {
     const delay = setTimeout(() => {
       fetchPage(`/methodologies/fetch?search=${encodeURIComponent(search)}`);
     }, 500);
+
     return () => clearTimeout(delay);
   }, [search, mounted]);
 
@@ -59,7 +59,7 @@ export default function MethodologiesIndex() {
     try {
       setLoading(true);
       const res = await axios.get(url);
-      const data = res.data.methodologies;
+      const data = res.data;
       setItems(data.data);
       setPagination(data);
     } catch {
@@ -69,6 +69,24 @@ export default function MethodologiesIndex() {
     }
   };
 
+  /** 🚦 Cambiar estado enabled */
+  const toggleEnabled = async (id: number, current: boolean) => {
+    try {
+      await axios.patch(`/methodologies/${id}/toggle`, {
+        enabled: !current,
+      });
+
+      setItems((prev) =>
+        prev.map((m) =>
+          m.id === id ? { ...m, enabled: !current } : m
+        )
+      );
+    } catch {
+      Swal.fire("Error", "No se pudo cambiar el estado.", "error");
+    }
+  };
+
+  /** 🗑️ Eliminar */
   const removeOne = async (id: number, name: string) => {
     const confirm = await Swal.fire({
       title: `¿Eliminar "${name}"?`,
@@ -141,25 +159,27 @@ export default function MethodologiesIndex() {
                 <th className="px-4 py-2">Acciones</th>
                 <th className="px-4 py-2">Nombre</th>
                 <th className="px-4 py-2">Contexto</th>
+                <th className="px-4 py-2">Activo</th>
                 <th className="px-4 py-2">Creado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-6 text-slate-500">
+                  <td colSpan={5} className="text-center py-6 text-slate-500">
                     Cargando...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-6 text-slate-500">
+                  <td colSpan={5} className="text-center py-6 text-slate-500">
                     No hay metodologías registradas.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => {
                   const ctx = contexts.find((c) => c.id === item.context_id);
+
                   return (
                     <tr
                       key={item.id}
@@ -179,12 +199,39 @@ export default function MethodologiesIndex() {
                           <Trash2 className="w-4 h-4" /> Eliminar
                         </button>
                       </td>
+
                       <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
                         {item.name}
                       </td>
+
                       <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        {ctx ? `${ctx.role_name} (${ctx.search_context})` : "-"}
+                        {ctx ? ctx.search_context : "-"}
                       </td>
+
+                      {/* 🔥 SWITCH ACTIVAR/DESACTIVAR */}
+                      <td className="px-4 py-2 text-center">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={item.enabled}
+                            onChange={() => toggleEnabled(item.id, item.enabled)}
+                          />
+                          <div className="
+                            w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full 
+                            peer dark:bg-gray-700 peer-checked:bg-blue-600
+                            relative transition
+                          ">
+                            <span
+                              className="
+                                absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full 
+                                transition-all peer-checked:translate-x-5 shadow
+                              "
+                            ></span>
+                          </div>
+                        </label>
+                      </td>
+
                       <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
                         {new Date(item.created_at || "").toLocaleDateString("es-PE")}
                       </td>
@@ -195,54 +242,43 @@ export default function MethodologiesIndex() {
             </tbody>
           </table>
         </div>
-      </div>
-        {/* Paginación */}
+
+        {/* PAGINACIÓN */}
         {pagination.last_page > 1 && (
           <div className="flex justify-center mt-6 gap-1">
             {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-              .filter(
-                (page) =>
-                  page <= 2 ||
-                  page >= pagination.last_page - 1 ||
-                  (page >= pagination.current_page - 2 &&
-                    page <= pagination.current_page + 2)
-              )
-              .map((page, idx, arr) => {
-                const prev = arr[idx - 1];
-                const isGap = prev && page - prev > 1;
-                return (
-                  <span key={page} className="flex">
-                    {isGap && <span className="px-2 py-1 text-slate-400">…</span>}
-                    <button
-                      onClick={() =>
-                        fetchPage(
-                          `/methodologies/fetch?page=${page}&search=${encodeURIComponent(search)}`
-                        )
-                      }
-                      className={`px-3 py-1 rounded text-sm font-medium transition ${
-                        pagination.current_page === page
-                          ? "bg-blue-600 text-white"
-                          : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
-                      }`}
-                      disabled={pagination.current_page === page}
-                    >
-                      {page}
-                    </button>
-                  </span>
-                );
-              })}
+              .map((page) => (
+                <button
+                  key={page}
+                  onClick={() =>
+                    fetchPage(
+                      `/methodologies/fetch?page=${page}&search=${encodeURIComponent(search)}`
+                    )
+                  }
+                  className={`px-3 py-1 rounded text-sm font-medium transition ${
+                    pagination.current_page === page
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
+                  }`}
+                  disabled={pagination.current_page === page}
+                >
+                  {page}
+                </button>
+              ))}
           </div>
         )}
 
-      {showModal && (
-        <MethodologyModal
-          open={showModal}
-          onClose={handleModalClose}
-          onCreated={() => fetchPage("/methodologies/fetch")}
-          editing={editing}
-          contexts={contexts}
-        />
-      )}
+        {/* MODAL */}
+        {showModal && (
+          <MethodologyModal
+            open={showModal}
+            onClose={handleModalClose}
+            onCreated={() => fetchPage("/methodologies/fetch")}
+            editing={editing}
+            contexts={contexts}
+          />
+        )}
+      </div>
     </AppLayout>
   );
 }
