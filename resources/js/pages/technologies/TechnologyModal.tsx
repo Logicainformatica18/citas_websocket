@@ -6,13 +6,18 @@ import { X } from "lucide-react";
 type Technology = {
   id?: number;
   name: string;
+  category_id?: number | null;
   context_id?: number | null;
+};
+
+type Category = {
+  id: number;
+  name: string;
 };
 
 type Context = {
   id: number;
-  role_name: string;
-  search_context: string;
+  search_context: string; // 🔥 role_name eliminado
 };
 
 type Props = {
@@ -20,6 +25,7 @@ type Props = {
   onClose: () => void;
   onCreated: () => void;
   editing?: Technology | null;
+  categories: Category[];
   contexts: Context[];
 };
 
@@ -28,24 +34,48 @@ export default function TechnologyModal({
   onClose,
   onCreated,
   editing,
+  categories,
   contexts,
 }: Props) {
-  const [form, setForm] = useState<Technology>({ name: "", context_id: null });
+  const [form, setForm] = useState<Technology>({
+    name: "",
+    category_id: null,
+    context_id: null,
+  });
+
   const [loading, setLoading] = useState(false);
 
-  // Si estamos editando, precargamos los valores
+  // Prellenar si editamos
   useEffect(() => {
-    if (editing) setForm(editing);
-    else setForm({ name: "", context_id: null });
+    if (editing) {
+      setForm({
+        id: editing.id,
+        name: editing.name,
+        category_id: editing.category_id ?? null,
+        context_id: editing.context_id ?? null,
+      });
+    } else {
+      setForm({
+        name: "",
+        category_id: null,
+        context_id: null,
+      });
+    }
   }, [editing]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+
     setForm((prev) => ({
       ...prev,
-      [name]: name === "context_id" ? (value ? Number(value) : null) : value,
+      [name]:
+        name === "category_id" || name === "context_id"
+          ? value
+            ? Number(value)
+            : null
+          : value,
     }));
   };
 
@@ -58,15 +88,17 @@ export default function TechnologyModal({
     }
 
     setLoading(true);
+
     try {
       if (editing) {
-        // ✏️ Actualización
+        // Actualizar
         await axios.put(`/technologies/${editing.id}`, form);
+
         Swal.fire({
-          title: "Tecnología actualizada",
+          title: "Actualizado",
           text: "La tecnología se modificó correctamente.",
           icon: "success",
-          timer: 2000,
+          timer: 1800,
           showConfirmButton: false,
           background: document.documentElement.classList.contains("dark")
             ? "#1e293b"
@@ -76,13 +108,14 @@ export default function TechnologyModal({
             : "#000",
         });
       } else {
-        // 🆕 Creación
-        await axios.post("/technologies", form);
+        // Crear
+        await axios.post(`/technologies`, form);
+
         Swal.fire({
-          title: "Tecnología creada",
+          title: "Creado",
           text: "La nueva tecnología se registró correctamente.",
           icon: "success",
-          timer: 2000,
+          timer: 1800,
           showConfirmButton: false,
           background: document.documentElement.classList.contains("dark")
             ? "#1e293b"
@@ -95,9 +128,8 @@ export default function TechnologyModal({
 
       onCreated();
       onClose();
-      setForm({ name: "", context_id: null });
-    } catch (err) {
-      console.error("Error al guardar tecnología", err);
+    } catch (error) {
+      console.error(error);
       Swal.fire("Error", "No se pudo guardar la tecnología.", "error");
     } finally {
       setLoading(false);
@@ -109,6 +141,7 @@ export default function TechnologyModal({
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-slate-800 dark:text-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+        {/* ❌ Botón cerrar */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
@@ -129,10 +162,28 @@ export default function TechnologyModal({
               name="name"
               value={form.name}
               onChange={handleChange}
-              placeholder="Ej: React, Laravel, Docker"
-              required
-              className="w-full p-2 rounded bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: React, Laravel, Docker..."
+              className="w-full p-2 rounded bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Categoría */}
+          <div>
+            <label className="block text-sm mb-1">Categoría</label>
+            <select
+              name="category_id"
+              value={form.category_id ?? ""}
+              onChange={handleChange}
+              className="w-full p-2 rounded bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Sin categoría</option>
+
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Contexto */}
@@ -142,18 +193,19 @@ export default function TechnologyModal({
               name="context_id"
               value={form.context_id ?? ""}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 rounded bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Sin contexto</option>
+
               {contexts.map((ctx) => (
                 <option key={ctx.id} value={ctx.id}>
-                  {ctx.role_name} ({ctx.search_context})
+                  {ctx.search_context}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Botones */}
+          {/* BOTONES */}
           <div className="flex justify-end gap-2 mt-6">
             <button
               type="button"
@@ -162,6 +214,7 @@ export default function TechnologyModal({
             >
               Cancelar
             </button>
+
             <button
               type="submit"
               disabled={loading}

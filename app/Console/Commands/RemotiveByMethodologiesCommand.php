@@ -5,18 +5,18 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Language;
+use App\Models\Methodology;
 use App\Models\JobOffer;
-use App\Models\LanguageMetric;
+use App\Models\MethodologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
 
-class RemotiveByLanguagesCommand extends Command
+class RemotiveByMethodologiesCommand extends Command
 {
-    protected $signature = 'remotive:languages';
-    protected $description = 'Importa ofertas desde Remotive por lenguajes con geolocalización estricta.';
+    protected $signature = 'remotive:methodologies';
+    protected $description = 'Importa ofertas desde Remotive por metodologías con geolocalización estricta.';
 
     protected $stats = [
         'api_hits'  => 0,
@@ -26,25 +26,25 @@ class RemotiveByLanguagesCommand extends Command
 
     public function handle()
     {
-        // solo lenguajes usados en carreras ISIL
-        $languages = Language::whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-                ->from('course_language')
-                ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+        // SOLO metodologías usadas en carreras ISIL
+        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
+            $q->select('course_methodology.methodology_id')
+                ->from('course_methodology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
         })->pluck('name', 'id');
 
-        $this->info("🌎 Importando desde Remotive para {$languages->count()} lenguajes…");
+        $this->info("🌎 Importando desde Remotive para {$methodologies->count()} metodologías…");
 
-        foreach ($languages as $languageId => $languageName) {
+        foreach ($methodologies as $methodologyId => $methodologyName) {
 
-            $this->warn("\n🔎 Procesando: {$languageName}");
+            $this->warn("\n🔎 Procesando: {$methodologyName}");
 
             $totalFound = $totalNew = $totalDuplicates = 0;
 
             try {
                 $response = Http::timeout(20)
                     ->get("https://remotive.com/api/remote-jobs", [
-                        'search' => $languageName
+                        'search' => $methodologyName
                     ]);
 
                 if ($response->failed()) {
@@ -61,7 +61,7 @@ class RemotiveByLanguagesCommand extends Command
                     $title      = $job['title'] ?? 'N/A';
                     $company    = $job['company_name'] ?? null;
                     $urlJob     = $job['url'] ?? null;
-                    $desc       = strtolower($job['description'] ?? '');
+                    $desc       = strtolower(strip_tags($job['description'] ?? ''));
 
                     // -----------------------
                     // MODALIDAD
@@ -70,11 +70,12 @@ class RemotiveByLanguagesCommand extends Command
                     $isRemote = ($modality === 'remote');
 
                     // -----------------------
-                    // UBICACIÓN REMOTIVE
+                    // LOCATION
                     // -----------------------
-                    $locationStr = $job['candidate_required_location'] ?? 'Unknown';
-                    [$rawCity, $rawCountryRaw] = $this->extractLocation($locationStr);
+                    $location = $job['candidate_required_location'] ?? 'Unknown';
+                    [$rawCity, $rawCountryRaw] = $this->extractLocation($location);
 
+                    // normalizar país
                     $country = RemotiveCountry::normalize($rawCountryRaw);
 
                     // -----------------------
@@ -100,18 +101,18 @@ class RemotiveByLanguagesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->languages()->syncWithoutDetaching([$languageId]);
+                        $existing->methodologies()->syncWithoutDetaching([$methodologyId]);
                         $totalDuplicates++;
                         continue;
                     }
 
                     // -----------------------
-                    // REGIÓN
+                    // REGION
                     // -----------------------
                     $region = RegionMapper::resolve($country);
 
                     // -----------------------
-                    // INSERT JOB
+                    // CREAR JOB
                     // -----------------------
                     $offer = JobOffer::create([
                         'title'             => $title,
@@ -127,24 +128,24 @@ class RemotiveByLanguagesCommand extends Command
                         'education_level'   => $this->extractEducation($desc),
                         'certifications'    => $this->extractCertifications($desc),
                         'skills'            => $this->extractSkills($desc),
-                        'requirements'      => strip_tags($desc),
+                        'requirements'      => $desc,
                         'source'            => 'Remotive',
                         'external_id'       => $externalId,
                         'url'               => $urlJob,
-                        'search_query'      => $languageName,
-                        'published_at'      => isset($job['publication_date'])
+                        'search_query'      => $methodologyName,
+                          'published_at'      => isset($job['publication_date'])
                                 ? Carbon::parse($job['publication_date'])
                                 : now(),
                         'region'            => $region,
                     ]);
 
-                    $offer->languages()->syncWithoutDetaching([$languageId]);
+                    $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
 
                     $totalNew++;
                 }
 
             } catch (\Throwable $e) {
-                Log::error("❌ Error Remotive {$languageName}: " . $e->getMessage());
+                Log::error("❌ Error Remotive {$methodologyName}: ".$e->getMessage());
             }
 
             // -----------------------
@@ -152,22 +153,22 @@ class RemotiveByLanguagesCommand extends Command
             // -----------------------
             $today = now()->toDateString();
 
-            if (!LanguageMetric::where('language_id', $languageId)
+            if (!MethodologyMetric::where('methodology_id', $methodologyId)
                     ->whereDate('run_date', $today)
                     ->where('source', 'Remotive')
                     ->exists())
             {
-                LanguageMetric::create([
-                    'language_id'       => $languageId,
-                    'language_name'     => $languageName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'source'            => 'Remotive',
-                    'run_date'          => $today,
+                MethodologyMetric::create([
+                    'methodology_id'     => $methodologyId,
+                    'methodology_name'   => $methodologyName,
+                    'jobs_found_count'   => $totalFound,
+                    'jobs_new_count'     => $totalNew,
+                    'run_date'           => $today,
+                    'source'             => 'Remotive',
                 ]);
             }
 
-            $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} encontradas");
+            $this->info("✅ {$methodologyName}: {$totalNew} nuevas / {$totalFound} encontradas");
         }
 
         $this->line("\n🎯 COMPLETADO");
@@ -177,9 +178,9 @@ class RemotiveByLanguagesCommand extends Command
     }
 
 
-    // -----------------------------------------------------
+    // ---------------------------------------------------------
     // HELPERS
-    // -----------------------------------------------------
+    // ---------------------------------------------------------
 
     protected function extractLocation(string $txt): array
     {
@@ -198,7 +199,6 @@ class RemotiveByLanguagesCommand extends Command
             return [null, null, null];
         }
 
-        // 1) Buscar en cities DB
         $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
             ->first();
 
@@ -207,7 +207,6 @@ class RemotiveByLanguagesCommand extends Command
             return [$found->city, $found->lat, $found->lng];
         }
 
-        // 2) Nominatim
         try {
             $res = Http::withHeaders(['User-Agent' => 'Observatorio/1.0'])
                 ->timeout(10)
@@ -227,7 +226,6 @@ class RemotiveByLanguagesCommand extends Command
         return [null, null, null];
     }
 
-
     protected function detectModality(array $job): string
     {
         $cat   = strtolower($job['job_type'] ?? '');
@@ -238,11 +236,9 @@ class RemotiveByLanguagesCommand extends Command
             str_contains($cat, 'remote'),
             str_contains($title, 'remote'),
             str_contains($desc, 'remote') => 'remote',
-
             default => 'no_remote',
         };
     }
-
 
     protected function extractMinSalary(string $salary): ?float
     {
@@ -256,43 +252,42 @@ class RemotiveByLanguagesCommand extends Command
         return $m[1][1] ?? ($m[1][0] ?? null);
     }
 
-
-    protected function extractExperience(string $text): ?string
+    protected function extractExperience(string $txt): ?string
     {
         return match (true) {
-            str_contains($text, 'senior') => 'senior',
-            str_contains($text, 'mid')    => 'mid',
-            str_contains($text, 'junior') => 'junior',
+            str_contains($txt, 'senior') => 'senior',
+            str_contains($txt, 'mid')    => 'mid',
+            str_contains($txt, 'junior') => 'junior',
             default => null,
         };
     }
 
-    protected function extractEducation(string $text): ?string
+    protected function extractEducation(string $txt): ?string
     {
         return match (true) {
-            str_contains($text, 'bachelor')  => 'bachelor',
-            str_contains($text, 'master')    => 'master',
-            str_contains($text, 'phd')       => 'phd',
-            str_contains($text, 'technical') => 'technical',
+            str_contains($txt, 'bachelor')  => 'bachelor',
+            str_contains($txt, 'master')    => 'master',
+            str_contains($txt, 'phd')       => 'phd',
+            str_contains($txt, 'technical') => 'technical',
             default => null,
         };
     }
 
-    protected function extractCertifications(string $text): ?string
+    protected function extractCertifications(string $txt): ?string
     {
         $certs = [];
         foreach (['aws','azure','google cloud','scrum','pmp','cisco','ccna','itil'] as $c) {
-            if (str_contains($text, $c)) $certs[] = strtoupper($c);
+            if (str_contains($txt, $c)) $certs[] = strtoupper($c);
         }
         return $certs ? implode(', ', $certs) : null;
     }
 
-    protected function extractSkills(string $text): ?string
+    protected function extractSkills(string $txt): ?string
     {
-        $out = [];
-        foreach (['python','java','php','laravel','react','vue','sql','docker','aws','git','node'] as $s) {
-            if (str_contains($text, $s)) $out[] = strtoupper($s);
+        $skills = [];
+        foreach (['agile','scrum','kanban','jira','confluence','lean','devops','github','git'] as $k) {
+            if (str_contains($txt, $k)) $skills[] = strtoupper($k);
         }
-        return $out ? implode(', ', $out) : null;
+        return $skills ? implode(', ', $skills) : null;
     }
 }

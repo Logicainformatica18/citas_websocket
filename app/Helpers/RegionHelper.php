@@ -101,4 +101,29 @@ class RegionHelper
 
         return null;
     }
+    public static function fallbackCapital(string $iso2): array
+{
+    $iso2 = strtoupper($iso2);
+
+    $capitals = [
+        'US' => ['city' => 'Washington D.C.', 'lat' => 38.8951, 'lng' => -77.0364, 'country' => 'Estados Unidos'],
+        'GB' => ['city' => 'Londres', 'lat' => 51.5074, 'lng' => -0.1278, 'country' => 'Reino Unido'],
+        'CA' => ['city' => 'Ottawa', 'lat' => 45.4215, 'lng' => -75.6997, 'country' => 'Canadá'],
+        'MX' => ['city' => 'Ciudad de México', 'lat' => 19.4326, 'lng' => -99.1332, 'country' => 'México'],
+        'BR' => ['city' => 'Brasilia', 'lat' => -15.7939, 'lng' => -47.8828, 'country' => 'Brasil'],
+        'ES' => ['city' => 'Madrid', 'lat' => 40.4168, 'lng' => -3.7038, 'country' => 'España'],
+        'FR' => ['city' => 'París', 'lat' => 48.8566, 'lng' => 2.3522, 'country' => 'Francia'],
+        'DE' => ['city' => 'Berlín', 'lat' => 52.5200, 'lng' => 13.4050, 'country' => 'Alemania'],
+        'IT' => ['city' => 'Roma', 'lat' => 41.9028, 'lng' => 12.4964, 'country' => 'Italia'],
+        'IN' => ['city' => 'Nueva Delhi', 'lat' => 28.6139, 'lng' => 77.2090, 'country' => 'India'],
+        'SG' => ['city' => 'Singapur', 'lat' => 1.3521, 'lng' => 103.8198, 'country' => 'Singapur'],
+        'AU' => ['city' => 'Sídney', 'lat' => -33.8688, 'lng' => 151.2093, 'country' => 'Australia'],
+        'NZ' => ['city' => 'Wellington', 'lat' => -41.2865, 'lng' => 174.7762, 'country' => 'Nueva Zelanda'],
+
+        'UNK' => ['city' => 'Unknown', 'lat' => 0, 'lng' => 0, 'country' => 'Desconocido'],
+    ];
+
+    return $capitals[$iso2] ?? $capitals['UNK'];
+}
+
 }

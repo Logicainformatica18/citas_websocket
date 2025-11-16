@@ -142,6 +142,13 @@ class RunAllJobs extends Command
 'greenhouse:languages --company=asana',
 'greenhouse:languages --company=grammarly',
 'greenhouse:languages --company=openai',
+
+'reed:languages',
+'reed:methodologies',
+'reed:technologies',
+'usajobs:languages',
+'usajobs:methodologies',
+'usajobs:technologies'
 ];
 
         $total = count($commands);

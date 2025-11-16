@@ -13,59 +13,59 @@ use Inertia\Inertia;
 class TechnologyController extends Controller
 {
     /**
-     * 📄 Listado general (Inertia)
+     * 📄 Listado principal (Inertia)
      */
     public function index(Request $request)
     {
         $search = $request->get('search');
 
         $technologies = Technology::query()
-            ->with(['category:id,name', 'context:id,role_name'])
-            ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
-            })
+            ->with(['category:id,name', 'context:id,search_context'])
+            ->when($search, fn ($q) =>
+                $q->where('name', 'like', "%{$search}%")
+            )
             ->orderBy('id', 'desc')
             ->paginate(10)
             ->withQueryString();
 
-        // 🔹 Listado de categorías y contextos
-        $categories = TechnologyCategory::select('id', 'name')->orderBy('name')->get();
-        $contexts   = SemanticContext::select('id', 'role_name', 'search_context')
-            ->orderBy('role_name')
+        // 🔹 Listado de categorías (para combos)
+        $categories = TechnologyCategory::select('id', 'name')
+            ->orderBy('name')
             ->get();
+
+        // 🔹 Contextos (opcional)
+        $contexts = SemanticContext::select('id', 'search_context')->get();
 
         return Inertia::render('technologies/Index', [
             'technologies' => $technologies->through(fn ($t) => [
                 'id'          => $t->id,
                 'name'        => $t->name,
-                'slug'        => $t->slug ?? Str::slug($t->name),
-                'category'    => optional($t->category)->name,
-                'context'     => optional($t->context)->role_name,
+                'slug'        => $t->slug,
+                'category'    => $t->category?->name,
                 'category_id' => $t->category_id,
+                'context'     => $t->context?->search_context,
                 'context_id'  => $t->context_id,
-                'enabled'     => $t->enabled,         // 👈 AGREGADO
+                'enabled'     => $t->enabled,
                 'created_at'  => optional($t->created_at)->format('Y-m-d'),
             ]),
             'categories' => $categories,
             'contexts'   => $contexts,
-            'filters' => [
-                'search' => $search,
-            ],
+            'filters' => ['search' => $search],
         ]);
     }
 
     /**
-     * 📄 API JSON (para DataTables o AJAX)
+     * 📄 API JSON (AJAX)
      */
     public function fetchPaginated(Request $request)
     {
         $search = $request->get('search');
 
         $technologies = Technology::query()
-            ->with(['category:id,name', 'context:id,role_name'])
-            ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
-            })
+            ->with(['category:id,name', 'context:id,search_context'])
+            ->when($search, fn ($q) =>
+                $q->where('name', 'like', "%{$search}%")
+            )
             ->orderBy('id', 'desc')
             ->paginate(10)
             ->withQueryString();
@@ -73,12 +73,12 @@ class TechnologyController extends Controller
         $formatted = $technologies->through(fn ($t) => [
             'id'          => $t->id,
             'name'        => $t->name,
-            'slug'        => $t->slug ?? Str::slug($t->name),
-            'category'    => optional($t->category)->name,
-            'context'     => optional($t->context)->role_name,
+            'slug'        => $t->slug,
+            'category'    => $t->category?->name,
             'category_id' => $t->category_id,
+            'context'     => $t->context?->search_context,
             'context_id'  => $t->context_id,
-            'enabled'     => $t->enabled,            // 👈 AGREGADO
+            'enabled'     => $t->enabled,
             'created_at'  => optional($t->created_at)->format('Y-m-d'),
         ]);
 
@@ -94,15 +94,17 @@ class TechnologyController extends Controller
             'name'        => 'required|string|max:255',
             'category_id' => 'nullable|integer|exists:technology_categories,id',
             'context_id'  => 'nullable|integer|exists:semantic_contexts,id',
-            'enabled'     => 'nullable|boolean',     // 👈 AGREGADO
+            'enabled'     => 'nullable|boolean',
         ]);
 
         return DB::transaction(function () use ($validated) {
             $validated['slug'] = Str::slug($validated['name']);
+            $validated['enabled'] = $validated['enabled'] ?? 1;
+
             $technology = Technology::create($validated);
 
             return response()->json([
-                'message'    => '✅ Tecnología creada correctamente.',
+                'message'    => 'Tecnología creada correctamente.',
                 'technology' => $technology,
             ], 201);
         });
@@ -117,35 +119,44 @@ class TechnologyController extends Controller
             'name'        => 'required|string|max:255',
             'category_id' => 'nullable|integer|exists:technology_categories,id',
             'context_id'  => 'nullable|integer|exists:semantic_contexts,id',
-            'enabled'     => 'nullable|boolean',      // 👈 AGREGADO
+            'enabled'     => 'nullable|boolean',
         ]);
 
         return DB::transaction(function () use ($validated, $id) {
             $technology = Technology::findOrFail($id);
-            $technology->update(array_merge($validated, [
-                'slug' => Str::slug($validated['name']),
-            ]));
+
+            $technology->update([
+                'name'        => $validated['name'],
+                'slug'        => Str::slug($validated['name']),
+                'category_id' => $validated['category_id'] ?? null,
+                'context_id'  => $validated['context_id'] ?? null,
+                'enabled'     => $validated['enabled'] ?? $technology->enabled,
+            ]);
 
             return response()->json([
-                'message'    => '✅ Tecnología actualizada correctamente.',
+                'message'    => 'Tecnología actualizada correctamente.',
                 'technology' => $technology,
             ]);
         });
     }
-public function toggle($id)
-{
-    $tech = Technology::findOrFail($id);
-    $tech->enabled = !$tech->enabled;
-    $tech->save();
-
-    return response()->json([
-        'message' => 'Estado actualizado',
-        'enabled' => $tech->enabled,
-    ]);
-}
 
     /**
-     * 🗑️ Eliminar tecnología
+     * 🚦 Activar / Desactivar
+     */
+    public function toggle($id)
+    {
+        $tech = Technology::findOrFail($id);
+        $tech->enabled = !$tech->enabled;
+        $tech->save();
+
+        return response()->json([
+            'message' => 'Estado actualizado',
+            'enabled' => $tech->enabled,
+        ]);
+    }
+
+    /**
+     * 🗑️ Eliminar
      */
     public function destroy($id)
     {
@@ -153,7 +164,9 @@ public function toggle($id)
             $technology = Technology::findOrFail($id);
             $technology->delete();
 
-            return response()->json(['message' => '🗑️ Tecnología eliminada correctamente.']);
+            return response()->json([
+                'message' => 'Tecnología eliminada correctamente.',
+            ]);
         });
     }
 }
