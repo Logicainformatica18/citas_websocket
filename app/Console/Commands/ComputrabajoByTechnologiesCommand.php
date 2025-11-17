@@ -21,14 +21,14 @@ class ComputrabajoByTechnologiesCommand extends Command
     protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
     protected $countryMap = [
-    //    'pe' => 'Peru',
-        // 'bo' => 'Bolivia',
-        // 'ar' => 'Argentina',
-        // 'uy' => 'Uruguay',
-        // 'mx' => 'Mexico',
-        // 'co' => 'Colombia',
-        // 'ec' => 'Ecuador',
-        // 've' => 'Venezuela',
+       'pe' => 'Peru',
+        'bo' => 'Bolivia',
+        'ar' => 'Argentina',
+        'uy' => 'Uruguay',
+        'mx' => 'Mexico',
+        'co' => 'Colombia',
+        'ec' => 'Ecuador',
+        've' => 'Venezuela',
           'cl' => 'Chile',
     ];
 

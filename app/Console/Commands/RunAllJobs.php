@@ -23,7 +23,7 @@ class RunAllJobs extends Command
 //     'getonboard:technologies',
 
 
-//  'computrabajo:technologies --country=pe --pages=1',
+ 'computrabajo:technologies --country=pe --pages=1',
 //     'computrabajo:technologies --country=bo --pages=1',
 // 'computrabajo:technologies --country=ar --pages=1',
 // 'computrabajo:technologies --country=uy --pages=1',
@@ -33,8 +33,8 @@ class RunAllJobs extends Command
 // 'computrabajo:technologies --country=ve --pages=1',
 // 'computrabajo:technologies --country=cl --pages=1',
 
-// 'computrabajo:languages --pages=1',
-// 'computrabajo:methodologies --pages=1',
+'computrabajo:languages --pages=1',
+'computrabajo:methodologies --pages=1',
 
 
 //  'adzuna:technologies --country=us --pages=1',
@@ -110,45 +110,45 @@ class RunAllJobs extends Command
 // 'jooble:technologies --country="Italy" --pages=10',
 // 'jooble:technologies --country="Mexico" --pages=10',
 
-'greenhouse:languages --company=cloudflare',
-'greenhouse:languages --company=stripe',
-'greenhouse:languages --company=discord',
-'greenhouse:languages --company=gitlab',
-'greenhouse:languages --company=dropbox',
-'greenhouse:languages --company=airbnb',
-'greenhouse:languages --company=datadog',
-'greenhouse:languages --company=notion',
-'greenhouse:languages --company=shopify',
-'greenhouse:languages --company=brex',
-'greenhouse:languages --company=zoom',
-'greenhouse:languages --company=hubspot',
-'greenhouse:languages --company=duolingo',
-'greenhouse:languages --company=figma',
-'greenhouse:languages --company=reddit',
+// 'greenhouse:languages --company=cloudflare',
+// 'greenhouse:languages --company=stripe',
+// 'greenhouse:languages --company=discord',
+// 'greenhouse:languages --company=gitlab',
+// 'greenhouse:languages --company=dropbox',
+// 'greenhouse:languages --company=airbnb',
+// 'greenhouse:languages --company=datadog',
+// 'greenhouse:languages --company=notion',
+// 'greenhouse:languages --company=shopify',
+// 'greenhouse:languages --company=brex',
+// 'greenhouse:languages --company=zoom',
+// 'greenhouse:languages --company=hubspot',
+// 'greenhouse:languages --company=duolingo',
+// 'greenhouse:languages --company=figma',
+// 'greenhouse:languages --company=reddit',
 
-// 🌱 Startups tech
-'greenhouse:languages --company=rippling',
-'greenhouse:languages --company=deel',
-'greenhouse:languages --company=ramp',
-'greenhouse:languages --company=mercury',
-'greenhouse:languages --company=wise',
-'greenhouse:languages --company=bolt',
-'greenhouse:languages --company=sentry',
-'greenhouse:languages --company=zapier',
-'greenhouse:languages --company=benchling',
-'greenhouse:languages --company=anduril',
+// // 🌱 Startups tech
+// 'greenhouse:languages --company=rippling',
+// 'greenhouse:languages --company=deel',
+// 'greenhouse:languages --company=ramp',
+// 'greenhouse:languages --company=mercury',
+// 'greenhouse:languages --company=wise',
+// 'greenhouse:languages --company=bolt',
+// 'greenhouse:languages --company=sentry',
+// 'greenhouse:languages --company=zapier',
+// 'greenhouse:languages --company=benchling',
+// 'greenhouse:languages --company=anduril',
 
-// 🌱 Extra (si quieres más variedad)
-'greenhouse:languages --company=asana',
-'greenhouse:languages --company=grammarly',
-'greenhouse:languages --company=openai',
+// // 🌱 Extra (si quieres más variedad)
+// 'greenhouse:languages --company=asana',
+// 'greenhouse:languages --company=grammarly',
+// 'greenhouse:languages --company=openai',
 
-'reed:languages',
-'reed:methodologies',
-'reed:technologies',
-'usajobs:languages',
-'usajobs:methodologies',
-'usajobs:technologies'
+// 'reed:languages',
+// 'reed:methodologies',
+// 'reed:technologies',
+// 'usajobs:languages',
+// 'usajobs:methodologies',
+// 'usajobs:technologies'
 ];
 
         $total = count($commands);
