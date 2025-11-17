@@ -24,7 +24,65 @@ const [sections, setSections] = useState<any[]>([]);
 
 const gridRef = useRef<HTMLDivElement>(null);
 const [gridWidth, setGridWidth] = useState(1200);
+const [updatingAll, setUpdatingAll] = useState(false);
 
+const handleUpdateAllWidgets = async () => {
+  try {
+    setUpdatingAll(true);
+
+    // 🟣 Mostrar SweetAlert de progreso
+    MySwal.fire({
+      title: "Actualizando Dashboard",
+      html: "Ejecutando consultas SQL...<br><b>No cierres esta ventana</b>",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        MySwal.showLoading();
+      },
+    });
+
+    // 🚀 Llamar al backend
+    const res = await axios.post("/api/sqltrainings/dashboard/execute", {
+      dashboard_id: 1, // <-- cambiar si usas varios dashboards
+    });
+
+    // 🟢 Éxito
+    MySwal.fire({
+      icon: "success",
+      title: "Dashboard Actualizado",
+      text: `Se actualizaron ${res.data.updated} widgets.`,
+      timer: 2000,
+    });
+
+    // 🔄 Volver a cargar widgets del backend
+    fetchWidgets().then((res) => {
+      const safe = Array.isArray(res)
+        ? res.map((w) => ({
+            ...w,
+            data_source:
+              typeof w.data_source === "string"
+                ? JSON.parse(w.data_source)
+                : w.data_source,
+            colors:
+              typeof w.colors === "string"
+                ? JSON.parse(w.colors)
+                : w.colors,
+          }))
+        : [];
+
+      setWidgets(safe);
+    });
+  } catch (e: any) {
+    console.error("❌ Error actualizando:", e);
+    MySwal.fire({
+      icon: "error",
+      title: "Error",
+      text: e.response?.data?.message || "No se pudo actualizar el dashboard.",
+    });
+  } finally {
+    setUpdatingAll(false);
+  }
+};
 
 // 🔁 Detectar automáticamente el ancho del contenedor
 useEffect(() => {
@@ -231,14 +289,34 @@ const handleAddSection = async () => {
   // ============================================================
   return (
     <div className="mt-6 pb-16">   {/* 👈 padding inferior agregado */}
-    <div className="mb-4 flex justify-end">
+  <div className="mb-4 flex justify-between items-center">
+  
+  {/* Botón izquierda → Nueva sección */}
   <button
     onClick={handleAddSection}
     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded shadow"
   >
     ➕ Nueva Sección
   </button>
+
+  {/* Botón derecha → Actualizar Dashboard */}
+  <button
+    onClick={handleUpdateAllWidgets}
+    disabled={updatingAll}
+    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded shadow flex items-center gap-2 disabled:opacity-50"
+  >
+    {updatingAll ? (
+      <>
+        <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+        Actualizando...
+      </>
+    ) : (
+      <>🔄 Actualizar Dashboard</>
+    )}
+  </button>
+
 </div>
+
 <div id="dashboard-root" className="w-full px-6">
   <GridLayout
   className="layout w-full"

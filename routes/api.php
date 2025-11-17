@@ -29,6 +29,7 @@ use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\AI\DashboardSectionController;
 use App\Http\Controllers\SegmentAnalyzerController;
 use App\Http\Controllers\JobStatsController;
+use App\Http\Controllers\SQLDashboardController;
 
 
 
@@ -233,6 +234,11 @@ Route::prefix('ai/dashboard-sections')->group(function () {
 
 
 Route::get('/job-stats', [JobStatsController::class, 'index']);
+
+
+
+
+Route::post('/sqltrainings/dashboard/execute', [SQLDashboardController::class, 'runAll']);
 
 });
 
