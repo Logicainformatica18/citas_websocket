@@ -91,23 +91,37 @@ foreach ($filters as $key => $value) {
     ];
 
     return Inertia::render('job_offers/index', [
-        'offers'  => $offers->through(fn($offer) => [
-            'id'          => $offer->id,
-            'title'       => $offer->title,
-            'company'     => $offer->company,
-            'country'     => $offer->country,
-            'city'        => $offer->city,
-            'modality'    => $offer->modality,
-            'workload'    => $offer->workload,
-            'salary_min'  => $offer->salary_min,
-            'salary_max'  => $offer->salary_max,
-            'currency'    => $offer->currency,
-            'source'      => $offer->source,
-            'external_id' => $offer->external_id,
-            'url'         => $offer->url,
-            'published_at'=> optional($offer->published_at)->format('Y-m-d'),
-            'created_at'  => optional($offer->created_at)->format('Y-m-d'),
-        ]),
+       'offers' => $offers->through(fn($offer) => [
+    'id'                => $offer->id,
+    'title'             => $offer->title,
+    'company'           => $offer->company,
+    'country'           => $offer->country,
+    'region'            => $offer->region,
+    'city'              => $offer->city,
+
+    'modality'          => $offer->modality,
+    'workload'          => $offer->workload,
+
+    'experience_level'  => $offer->experience_level,
+    'education_level'   => $offer->education_level,
+
+    'certifications'    => $offer->certifications,
+    'skills'            => $offer->skills,
+    'description'       => $offer->description,
+    'benefits'          => $offer->benefits,
+
+    'salary_min'        => $offer->salary_min,
+    'salary_max'        => $offer->salary_max,
+    'currency'          => $offer->currency,
+    'compensation_type' => $offer->compensation_type,
+
+    'source'            => $offer->source,
+    'search_query'      => $offer->search_query,
+
+    'published_at'      => optional($offer->published_at)->format('Y-m-d'),
+    'created_at'        => optional($offer->created_at)->format('Y-m-d'),
+]),
+
 
         // filtros activos
         'filters' => $filters,
@@ -391,30 +405,44 @@ public function preview(Request $request)
         });
     }
 
-    public function show($id)
-    {
-        $offer = JobOffer::findOrFail($id);
+public function show($id)
+{
+    $offer = JobOffer::findOrFail($id);
 
-        return response()->json([
-            'offer' => [
-                'id'          => $offer->id,
-                'title'       => $offer->title,
-                'company'     => $offer->company,
-                'country'     => $offer->country,
-                'city'        => $offer->city,
-                'modality'    => $offer->modality,
-                'workload'    => $offer->workload,
-                'salary_min'  => $offer->salary_min,
-                'salary_max'  => $offer->salary_max,
-                'currency'    => $offer->currency,
-                'source'      => $offer->source,
-                'external_id' => $offer->external_id,
-                'url'         => $offer->url,
-                'published_at'=> optional($offer->published_at)->format('Y-m-d'),
-                'created_at'  => optional($offer->created_at)->format('Y-m-d'),
-            ],
-        ]);
-    }
+    return response()->json([
+        'offer' => [
+            'id'                => $offer->id,
+            'title'             => $offer->title,
+            'company'           => $offer->company,
+            'country'           => $offer->country,
+            'region'            => $offer->region,
+            'city'              => $offer->city,
+            'modality'          => $offer->modality,
+            'workload'          => $offer->workload,
+            'experience_level'  => $offer->experience_level,
+            'education_level'   => $offer->education_level,
+            'education_field'   => $offer->education_field,
+            'certifications'    => $offer->certifications,
+            'requirements'      => $offer->requirements,
+            'skills'            => $offer->skills,
+            'description'       => $offer->description,
+            'benefits'          => $offer->benefits,
+            'salary_min'        => $offer->salary_min,
+            'salary_max'        => $offer->salary_max,
+            'currency'          => $offer->currency,
+            'compensation_type' => $offer->compensation_type,
+            'source'            => $offer->source,
+            'search_query'      => $offer->search_query,
+            'external_id'       => $offer->external_id,
+            'url'               => $offer->url,
+            'application_url'   => $offer->application_url,
+            'application_type'  => $offer->application_type,
+            'published_at'      => optional($offer->published_at)->format('Y-m-d'),
+            'created_at'        => optional($offer->created_at)->format('Y-m-d'),
+        ],
+    ]);
+}
+
 
     public function update(Request $request, $id)
     {

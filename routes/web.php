@@ -94,6 +94,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
     });
 
+Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
+    ->name('job-offers.show');
 
 Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel']);
 

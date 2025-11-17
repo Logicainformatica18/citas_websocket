@@ -7,6 +7,7 @@ import { Trash2, Plus, Briefcase } from 'lucide-react';
 import JobOfferModal from './JobOfferModal';
 import JobOfferCsvModal from './JobOfferCsvModal';
 import JobOfferFilters from './JobOfferFilters';
+import JobOfferDetailModal from "./JobOfferDetailModal";
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Ofertas de Empleo', href: '/job-offers' },
@@ -143,6 +144,18 @@ const exportExcel = async () => {
     setExporting(false);
   }
 };
+const [detailItem, setDetailItem] = useState(null);
+const [showDetail, setShowDetail] = useState(false);
+
+const openDetail = async (id: number) => {
+  try {
+    const res = await axios.get(`/job-offers/${id}`);
+    setDetailItem(res.data.offer);
+    setShowDetail(true);
+  } catch (e) {
+    alert("No se pudo cargar el detalle.");
+  }
+};
 
 
 
@@ -170,7 +183,7 @@ const exportExcel = async () => {
       Generando...
     </>
   ) : (
-    <>📊 Exportar Excel</>
+    <>📊 Exportar Excel (Hasta 4 mil Registros)</>
   )}
 </button>
 
@@ -266,15 +279,16 @@ const exportExcel = async () => {
                     </button>
                   </td>
 
-                  <td className="px-4 py-2 font-medium">
-                    {item.url ? (
-                      <a className="text-blue-600 hover:underline" href={item.url} target="_blank">
-                        {item.title}
-                      </a>
-                    ) : (
-                      item.title
-                    )}
-                  </td>
+                 <td className="px-4 py-2 font-medium">
+  
+    <button
+    onClick={() => openDetail(item.id)}
+    className="text-blue-600 hover:underline"
+  >
+    {item.title}
+  </button>
+</td>
+
 
                   <td className="px-4 py-2">{item.company ?? '-'}</td>
                   <td className="px-4 py-2">{item.country ?? '-'}</td>
@@ -357,6 +371,13 @@ const exportExcel = async () => {
           onImported={() => router.get('/job-offers')}   // <--- actualizado
         />
       )}
+{showDetail && (
+  <JobOfferDetailModal
+    open={showDetail}
+    item={detailItem}
+    onClose={() => setShowDetail(false)}
+  />
+)}
 
       {showCsvModal && (
         <JobOfferCsvModal
@@ -367,4 +388,5 @@ const exportExcel = async () => {
       )}
     </AppLayout>
   );
+  
 }
