@@ -10,35 +10,112 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 
 use Illuminate\Support\Facades\Log;
-
+    use Maatwebsite\Excel\Facades\Excel;
 class JobOfferController extends Controller
 {
-    public function index()
-    {
-        $offers = JobOffer::orderBy('id', 'desc')->paginate(10);
+   public function index(Request $request)
+{
+    // === Filtros que vienen desde la URL ===
+    $filters = [
+        'companies'       => $request->input('companies', []),
+        'countries'       => $request->input('countries', []),
+        'cities'          => $request->input('cities', []),
+        'sources'         => $request->input('sources', []),
+        'modalities'      => $request->input('modalities', []),
+        'job_types'       => $request->input('job_types', []),
+        'remote_types'    => $request->input('remote_types', []),
+        'workloads'       => $request->input('workloads', []),
 
-        return Inertia::render('job_offers/index', [
-            'offers' => $offers->through(function ($offer) {
-                return [
-                    'id'          => $offer->id,
-                    'title'       => $offer->title,
-                    'company'     => $offer->company,
-                    'country'     => $offer->country,
-                    'city'        => $offer->city,
-                    'modality'    => $offer->modality,
-                    'workload'    => $offer->workload,
-                    'salary_min'  => $offer->salary_min,
-                    'salary_max'  => $offer->salary_max,
-                    'currency'    => $offer->currency,
-                    'source'      => $offer->source,
-                    'external_id' => $offer->external_id,
-                    'url'         => $offer->url,
-                    'published_at'=> optional($offer->published_at)->format('Y-m-d'),
-                    'created_at'  => optional($offer->created_at)->format('Y-m-d'),
-                ];
-            }),
-        ]);
+        // === NUEVOS FILTROS POR FECHAS ===
+        'published_from'  => $request->input('published_from'),
+        'published_to'    => $request->input('published_to'),
+        'created_from'    => $request->input('created_from'),
+        'created_to'      => $request->input('created_to'),
+    ];
+
+    $query = JobOffer::query()->orderBy('id', 'desc');
+
+    // === Filtros múltiples por select ===
+    foreach ([
+        'companies'    => 'company',
+        'countries'    => 'country',
+        'cities'       => 'city',
+        'sources'      => 'source',
+        'modalities'   => 'modality',
+        'job_types'    => 'job_type',
+        'remote_types' => 'remote_type',
+        'workloads'    => 'workload',
+    ] as $filterKey => $column) {
+        if (!empty($filters[$filterKey])) {
+            $query->whereIn($column, $filters[$filterKey]);
+        }
     }
+
+    // === NUEVO: FILTRO POR FECHAS (published_at) ===
+    if ($filters['published_from']) {
+        $query->whereDate('published_at', '>=', $filters['published_from']);
+    }
+
+    if ($filters['published_to']) {
+        $query->whereDate('published_at', '<=', $filters['published_to']);
+    }
+
+    // === NUEVO: FILTRO POR FECHAS (created_at) ===
+    if ($filters['created_from']) {
+        $query->whereDate('created_at', '>=', $filters['created_from']);
+    }
+
+    if ($filters['created_to']) {
+        $query->whereDate('created_at', '<=', $filters['created_to']);
+    }
+
+    // === Paginación que retiene filtros ===
+    $offers = $query->paginate(10)->appends($filters);
+// 🔥 Normalizar valores "null" o vacíos
+foreach ($filters as $key => $value) {
+    if ($value === "null" || $value === "" || $value === null) {
+        $filters[$key] = null;
+    }
+}
+
+    // === Datos de combos ===
+    $comboData = [
+        'companies'    => JobOffer::whereNotNull('company')->select('company')->distinct()->orderBy('company')->pluck('company'),
+        'countries'    => JobOffer::whereNotNull('country')->select('country')->distinct()->orderBy('country')->pluck('country'),
+        'cities'       => JobOffer::whereNotNull('city')->select('city')->distinct()->orderBy('city')->pluck('city'),
+        'sources'      => JobOffer::select('source')->distinct()->orderBy('source')->pluck('source'),
+        'modalities'   => JobOffer::select('modality')->distinct()->orderBy('modality')->pluck('modality'),
+        'job_types'    => JobOffer::select('job_type')->distinct()->orderBy('job_type')->pluck('job_type'),
+        'remote_types' => JobOffer::select('remote_type')->distinct()->orderBy('remote_type')->pluck('remote_type'),
+        'workloads'    => JobOffer::select('workload')->distinct()->orderBy('workload')->pluck('workload'),
+    ];
+
+    return Inertia::render('job_offers/index', [
+        'offers'  => $offers->through(fn($offer) => [
+            'id'          => $offer->id,
+            'title'       => $offer->title,
+            'company'     => $offer->company,
+            'country'     => $offer->country,
+            'city'        => $offer->city,
+            'modality'    => $offer->modality,
+            'workload'    => $offer->workload,
+            'salary_min'  => $offer->salary_min,
+            'salary_max'  => $offer->salary_max,
+            'currency'    => $offer->currency,
+            'source'      => $offer->source,
+            'external_id' => $offer->external_id,
+            'url'         => $offer->url,
+            'published_at'=> optional($offer->published_at)->format('Y-m-d'),
+            'created_at'  => optional($offer->created_at)->format('Y-m-d'),
+        ]),
+
+        // filtros activos
+        'filters' => $filters,
+
+        // combos para selects
+        'combos' => $comboData,
+    ]);
+}
 
     public function fetchPaginated()
     {
@@ -388,4 +465,149 @@ public function preview(Request $request)
             return response()->json(['message' => 'Ofertas eliminadas correctamente']);
         });
     }
+
+
+public function exportExcel(Request $request)
+{
+    ini_set('max_execution_time', 0);
+    ini_set('memory_limit', '-1');
+
+    // ============================
+    // 1. Recuperar filtros crudos
+    // ============================
+    $filters = $request->all();
+
+    // ============================
+    // 2. Normalizar "null" y vacíos
+    // ============================
+    foreach ($filters as $k => $v) {
+        if ($v === "null" || $v === "" || $v === null) {
+            $filters[$k] = null;
+        }
+    }
+
+    // ============================
+    // 3. Normalizar filtros múltiples
+    // ============================
+    $multi = [
+        'companies','countries','cities','sources',
+        'modalities','job_types','remote_types','workloads'
+    ];
+
+    foreach ($multi as $m) {
+
+        if (!isset($filters[$m]) || $filters[$m] === null) {
+            $filters[$m] = [];
+            continue;
+        }
+
+        // si viene como array -> ok
+        if (is_array($filters[$m])) continue;
+
+        // si viene como string "A,B,C"
+        $filters[$m] = array_filter(
+            explode(',', $filters[$m]),
+            fn($v) => trim($v) !== ""
+        );
+    }
+
+    // ============================
+    // 4. Construir query
+    // ============================
+    $query = JobOffer::orderBy('id', 'desc');
+
+    $filterMap = [
+        'companies'    => 'company',
+        'countries'    => 'country',
+        'cities'       => 'city',
+        'sources'      => 'source',
+        'modalities'   => 'modality',
+        'job_types'    => 'job_type',
+        'remote_types' => 'remote_type',
+        'workloads'    => 'workload',
+    ];
+
+    foreach ($filterMap as $key => $column) {
+        if (!empty($filters[$key])) {
+            $query->whereIn($column, $filters[$key]);
+        }
+    }
+
+    // ============================
+    // 5. Filtros por fecha
+    // ============================
+    if (!empty($filters['published_from'])) {
+        $query->whereDate('published_at', '>=', $filters['published_from']);
+    }
+
+    if (!empty($filters['published_to'])) {
+        $query->whereDate('published_at', '<=', $filters['published_to']);
+    }
+
+    if (!empty($filters['created_from'])) {
+        $query->whereDate('created_at', '>=', $filters['created_from']);
+    }
+
+    if (!empty($filters['created_to'])) {
+        $query->whereDate('created_at', '<=', $filters['created_to']);
+    }
+
+    // ============================
+    // 6. Obtener resultados
+    // ============================
+    $query->limit(4000);
+    $rows = $query->get()->map(function ($o) {
+
+        return [
+            'ID'                => $o->id,
+            'Titulo'            => $o->title,
+            'Empresa'           => $o->company,
+            'Pais'              => $o->country,
+            'Region'            => $o->region,
+            'State Code'        => $o->state_code,
+            'Ciudad'            => $o->city,
+            'Ciudad ASCII'      => $o->city_ascii,
+            'Location'          => $o->location,
+            'ZIP'               => $o->zip_code,
+            'Modalidad'         => $o->modality,
+            'Job Type'          => $o->job_type,
+            'Remote Type'       => $o->remote_type,
+            'Workload'          => $o->workload,
+            'Experiencia'       => $o->experience_level,
+            'Educación Nivel'   => $o->education_level,
+            'Educación Campo'   => $o->education_field,
+            'Certificaciones'   => $o->certifications,
+            'Requisitos'        => $o->requirements,
+            'Skills'            => $o->skills,
+            'Descripción'       => $o->description,
+            'Beneficios'        => $o->benefits,
+            'Latitud'           => $o->latitude,
+            'Longitud'          => $o->longitude,
+            'Salario Min'       => $o->salary_min,
+            'Salario Max'       => $o->salary_max,
+            'Moneda'            => $o->currency,
+            'Tipo Pago'         => $o->compensation_type,
+            'Fuente'            => $o->source,
+            'Search Query'      => $o->search_query,
+            'External ID'       => $o->external_id,
+            'URL'               => $o->url,
+            'Application URL'   => $o->application_url,
+            'Application Type'  => $o->application_type,
+            'Publicado'         => optional($o->published_at)->format('Y-m-d'),
+            'Expira'            => optional($o->expiry)->format('Y-m-d'),
+            'Creado'            => optional($o->created_at)->format('Y-m-d H:i'),
+            'Actualizado'       => optional($o->updated_at)->format('Y-m-d H:i'),
+        ];
+    });
+
+    if ($rows->isEmpty()) {
+        return back()->with('error', '⚠ No hay datos para exportar con los filtros aplicados.');
+    }
+
+    return Excel::download(new \App\Exports\JobOffersExport($rows), 'job_offers.xlsx');
+}
+
+
+
+
 }

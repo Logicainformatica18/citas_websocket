@@ -95,6 +95,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
 
+Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel']);
+
+
 
     Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
         ->name('job_offers.fetch')
@@ -273,11 +276,10 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 
 // 🚦 Activar / desactivar (switch)
     Route::patch('methodologies/{id}/toggle', [MethodologyController::class, 'toggle'])->name('methodologies.toggle');
- 
+
+
 
 });
-
-
 
 
 
