@@ -185,9 +185,12 @@ $country = match (strtolower($country)) {
                     'salary_min'   => null,
                     'salary_max'   => null,
                     'search_query' => $methodologyName,
-                  'published_at' => isset($job['created_at'])
-    ? Carbon::createFromTimestamp($job['created_at'])
+                 'published_at' => isset($job['created_at'])
+    ? (is_numeric($job['created_at'])
+        ? Carbon::createFromTimestamp($job['created_at'])
+        : Carbon::parse($job['created_at']))
     : now(),
+
 
                     'created_at'   => now(),
                     'updated_at'   => now(),

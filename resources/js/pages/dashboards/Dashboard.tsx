@@ -27,6 +27,7 @@ import ProfileBlock from "./components/StackOverFlow/Profileblock";
 import BackgroundParticles from "../../components/BackgroundParticles"; // 👈 Fondo animado
 import MetricCard from "./components/Metrics/MetricCard";
 import DashboardAIWidgets from "./DashboardAIWidgets";
+import JobStatsCard from "./components/DashboardAI/JobStatsCard";
 
 
 
@@ -70,6 +71,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
 
 
 
+  <JobStatsCard />
 
 
 
@@ -94,7 +96,6 @@ export default function Dashboard({ initialData }: { initialData: any }) {
   <MetricCard metric="obsolescence-index" />
   <MetricCard metric="career-improvement" />
 </div> */}
-
 
 
 

@@ -28,6 +28,8 @@ use App\Http\Controllers\AI\AITrainingController;
 use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\AI\DashboardSectionController;
 use App\Http\Controllers\SegmentAnalyzerController;
+use App\Http\Controllers\JobStatsController;
+
 
 
 use Illuminate\Support\Facades\DB;
@@ -230,6 +232,7 @@ Route::prefix('ai/dashboard-sections')->group(function () {
 
 
 
+Route::get('/job-stats', [JobStatsController::class, 'index']);
 
 });
 

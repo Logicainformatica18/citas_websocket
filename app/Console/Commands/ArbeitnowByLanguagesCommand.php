@@ -193,9 +193,12 @@ $region = RegionHelper::fromCountry($country);
         'external_id'       => $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_')),
         'url'               => $urlJob,
         'search_query'      => $languageName,
-        'published_at'      => isset($job['created_at'])
-            ? Carbon::createFromTimestamp($job['created_at'])
-            : now(),
+       'published_at' => isset($job['created_at'])
+    ? (is_numeric($job['created_at'])
+        ? Carbon::createFromTimestamp($job['created_at'])
+        : Carbon::parse($job['created_at']))
+    : now(),
+
         'created_at'        => now(),
         'updated_at'        => now(),
         'region' => $region,
