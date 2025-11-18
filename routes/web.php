@@ -27,7 +27,7 @@ use App\Http\Controllers\LanguageController;
 use Laravel\Socialite\Facades\Socialite;
 use App\Http\Controllers\TechnologyController;
 use App\Http\Controllers\MethodologyController;
-
+use App\Http\Controllers\PdfDocumentController;
 
 Route::prefix('auth/saml2')->group(function () {
     Route::get('/redirect', [Saml2LoginController::class, 'redirect'])->name('saml.login');
@@ -281,6 +281,21 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 
 
 
+Route::prefix('pdf')->group(function () {
+
+    // 📄 Listar documentos PDF
+    Route::get('/', [PdfDocumentController::class, 'index'])
+        ->name('pdf.index');
+
+    // ➕ Subir PDF
+    Route::post('/upload', [PdfDocumentController::class, 'store'])
+        ->name('pdf.store');
+
+    // 👁️ Ver un PDF (páginas + gráficos + tablas + resumen)
+    Route::get('/{id}', [PdfDocumentController::class, 'show'])
+        ->name('pdf.show');
+
+});
 });
 
 

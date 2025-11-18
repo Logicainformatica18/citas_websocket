@@ -28,6 +28,8 @@
         "openai-php/laravel": "^0.16.0",
         "phpmyadmin/sql-parser": "^6.0",
         "pusher/pusher-php-server": "^7.2",
+        "setasign/fpdf": "^1.8",
+        "setasign/fpdi": "^2.6",
         "socialiteproviders/saml2": "^4.7",
         "spatie/laravel-permission": "^6.17",
         "symfony/css-selector": "^7.3",
