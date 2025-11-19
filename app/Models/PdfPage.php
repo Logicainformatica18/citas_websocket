@@ -8,36 +8,40 @@ class PdfPage extends Model
 {
     protected $fillable = [
         'pdf_id',
+        'part_id',
         'page_number',
-        'image_path',
         'text_content',
-        'content_type',
+        'page_image',
+        'type',
         'metadata_json',
-        'detected_elements',
-        'ai_processed'
+        'elements_json',
+        'ai_summary_short',
+        'ai_summary_medium',
+        'ai_summary_long',
     ];
 
     protected $casts = [
-        'metadata_json'     => 'array',
-        'detected_elements' => 'array',
-        'ai_processed'      => 'boolean',
+        'metadata_json' => 'array',
+        'elements_json' => 'array',
     ];
 
-    // 📘 Relación con el documento
-    public function document()
+    public function part()
+    {
+        return $this->belongsTo(PdfDocumentPart::class, 'part_id');
+    }
+
+    public function pdf()
     {
         return $this->belongsTo(PdfDocument::class, 'pdf_id');
     }
 
-    // 📊 Gráficos detectados en la página
-    public function graphs()
-    {
-        return $this->hasMany(PdfGraph::class, 'pdf_page_id');
-    }
-
-    // 📋 Tablas detectadas en la página
     public function tables()
     {
-        return $this->hasMany(PdfTable::class, 'pdf_page_id');
+        return $this->hasMany(PdfPageTable::class, 'page_id');
+    }
+
+    public function graphs()
+    {
+        return $this->hasMany(PdfPageGraph::class, 'page_id');
     }
 }

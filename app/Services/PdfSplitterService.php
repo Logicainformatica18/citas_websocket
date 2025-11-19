@@ -1,51 +1,47 @@
 <?php
-
 namespace App\Services;
 
 use setasign\Fpdi\Fpdi;
-use Illuminate\Support\Facades\Storage;
 
 class PdfSplitterService
 {
-    public function splitPdf($path, $pagesPerChunk = 100)
+    public function split(string $inputPath, int $pagesPerChunk = 20): array
     {
-        $fullPath = Storage::disk('public')->path($path);
-
-        // Abrir PDF original
         $pdf = new Fpdi();
-        $pageCount = $pdf->setSourceFile($fullPath);
+        $totalPages = $pdf->setSourceFile($inputPath);
 
         $chunks = [];
-        $chunkIndex = 1;
-        $start = 1;
 
-        while ($start <= $pageCount) {
+        for ($start = 1, $num = 1; $start <= $totalPages; $start += $pagesPerChunk, $num++) {
 
-            $end = min($start + $pagesPerChunk - 1, $pageCount);
+            $end = min($start + $pagesPerChunk - 1, $totalPages);
+            $chunkPath = storage_path("app/public/pdf_parts/part_{$num}.pdf");
 
-            $newPdf = new Fpdi();
+            $this->extract($inputPath, $chunkPath, $start, $end);
 
-            for ($page = $start; $page <= $end; $page++) {
-
-                $templateId = $newPdf->importPage($page);
-                $size = $newPdf->getTemplateSize($templateId);
-
-                $newPdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-                $newPdf->useTemplate($templateId);
-            }
-
-            $chunkFilename = "pdf_chunks/chunk_{$chunkIndex}.pdf";
-            Storage::disk('public')->makeDirectory('pdf_chunks');
-            $chunkPath = Storage::disk('public')->path($chunkFilename);
-
-            $newPdf->Output('F', $chunkPath);
-
-            $chunks[] = $chunkFilename;
-
-            $chunkIndex++;
-            $start += $pagesPerChunk;
+            $chunks[] = [
+                'start' => $start,
+                'end'   => $end,
+                'path'  => "pdf_parts/part_{$num}.pdf"
+            ];
         }
 
         return $chunks;
+    }
+
+    private function extract($input, $output, $start, $end)
+    {
+        $pdf = new Fpdi();
+        $pdf->setSourceFile($input);
+
+        for ($page = $start; $page <= $end; $page++) {
+            $template = $pdf->importPage($page);
+            $size = $pdf->getTemplateSize($template);
+
+            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $pdf->useTemplate($template);
+        }
+
+        $pdf->Output($output, 'F');
     }
 }

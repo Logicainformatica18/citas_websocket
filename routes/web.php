@@ -28,6 +28,8 @@ use Laravel\Socialite\Facades\Socialite;
 use App\Http\Controllers\TechnologyController;
 use App\Http\Controllers\MethodologyController;
 use App\Http\Controllers\PdfDocumentController;
+use App\Http\Controllers\PdfDocumentPartController;
+
 
 Route::prefix('auth/saml2')->group(function () {
     Route::get('/redirect', [Saml2LoginController::class, 'redirect'])->name('saml.login');
@@ -281,21 +283,38 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 
 
 
-Route::prefix('pdf')->group(function () {
+Route::prefix('pdf')->name('pdf.')->group(function () {
+    Route::get('/', [PdfDocumentController::class, 'index'])->name('index');
+    Route::post('/', [PdfDocumentController::class, 'store'])->name('store');
 
-    // 📄 Listar documentos PDF
-    Route::get('/', [PdfDocumentController::class, 'index'])
-        ->name('pdf.index');
+    Route::get('/{id}', [PdfDocumentController::class, 'show'])->name('show');
 
-    // ➕ Subir PDF
-    Route::post('/upload', [PdfDocumentController::class, 'store'])
-        ->name('pdf.store');
+    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])->name('uploadPart');
 
-    // 👁️ Ver un PDF (páginas + gráficos + tablas + resumen)
-    Route::get('/{id}', [PdfDocumentController::class, 'show'])
-        ->name('pdf.show');
-
+    Route::get('/{pdfId}/part/{partId}', [PdfDocumentController::class, 'showPart'])->name('showPart');
 });
+
+
+// PDF Document Parts (bloques)
+Route::prefix('pdf/{pdf}/parts')->group(function () {
+
+    // subir parte
+    Route::post('/', [PdfDocumentPartController::class, 'store'])
+        ->name('pdf.parts.store');
+
+    // ver parte
+    Route::get('/{part}', [PdfDocumentPartController::class, 'show'])
+        ->name('pdf.parts.show');
+
+    // reprocesar parte
+    Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])
+        ->name('pdf.parts.reprocess');
+
+    // eliminar parte
+    Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])
+        ->name('pdf.parts.destroy');
+});
+
 });
 
 

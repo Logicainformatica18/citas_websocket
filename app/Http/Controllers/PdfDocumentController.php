@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\PdfDocument;
-use App\Jobs\ProcessPdfDocumentJob;
+use App\Models\PdfDocumentPart;
 use Illuminate\Support\Facades\Storage;
-use App\Jobs\PdfOcrJob;
 
 class PdfDocumentController extends Controller
 {
@@ -23,42 +22,71 @@ class PdfDocumentController extends Controller
     }
 
     /*******************************************************************
-     * 📤 SUBIR PDF (CORREGIDO)
+     * 🆕 1) CREAR DOCUMENTO (solo título y metadata)
      *******************************************************************/
     public function store(Request $request)
     {
         $request->validate([
-            'pdf' => 'required|mimes:pdf|max:50000'
+            'title'       => 'required|max:255',
+            'year'        => 'nullable',
+            'source'      => 'nullable|string|max:255',
+            'description' => 'nullable|string',
         ]);
-
-        // Guardar PDF en disco "public" (IMPORTANTE)
-        $path = $request->file('pdf')->store('pdf_uploads', 'public');
 
         $pdf = PdfDocument::create([
-            'title' => $request->get('title', $request->file('pdf')->getClientOriginalName()),
-            'description' => $request->get('description'),
-            'source' => $request->get('source'),
-            'year' => $request->get('year'),
-            'file_path' => $path,
-            'processed' => false
+            'title'       => $request->title,
+            'description' => $request->description,
+            'source'      => $request->source,
+            'year'        => $request->year,
+            'processed'   => false,
+            'file_path'   => '',        // 🔥 YA NO SE GUARDA PDF COMPLETO, PERO NO DEBE SER NULL
+            'total_pages' => 0
         ]);
 
-        // Ejecutar el Job
-   PdfOcrJob::dispatch($pdf->id);
-
-        return back()->with('success', 'PDF subido y en cola para procesarse.');
+        return redirect()
+            ->route('pdf.show', $pdf->id)
+            ->with('success', 'Documento creado. Ahora cargue las partes (20 páginas).');
     }
 
     /*******************************************************************
-     * 👁 VER DETALLE DEL PDF
+     * 🆕 2) SUBIR UNA PARTE (PDF de 20 páginas)
+     *******************************************************************/
+    public function uploadPart(Request $request, $pdfId)
+    {
+        $request->validate([
+            'part_pdf' => 'required|mimes:pdf|max:50000',
+        ]);
+
+        $pdf = PdfDocument::findOrFail($pdfId);
+
+        // 🔥 1) Guardar archivo físico
+        $path = $request->file('part_pdf')->store("pdf_parts/{$pdfId}", 'public');
+
+        // 🔥 2) Siguiente número
+        $nextNumber = $pdf->parts()->count() + 1;
+
+        // 🔥 3) Crear registro de la parte
+        $part = PdfDocumentPart::create([
+            'pdf_id'      => $pdf->id,
+            'part_number' => $nextNumber,
+            'file_path'   => $path,
+            'start_page'  => null, // lo sabremos si deseas
+            'end_page'    => null,
+            'processed'   => false,
+        ]);
+
+ \App\Jobs\PdfPartProcessJob::dispatch($part->id);
+
+
+        return back()->with('success', "Parte {$nextNumber} cargada y procesándose.");
+    }
+
+    /*******************************************************************
+     * 🧩 3) DETALLE DEL DOCUMENTO = LISTA DE PARTES
      *******************************************************************/
     public function show($id)
     {
-        $pdf = PdfDocument::with([
-            'pages.graphs',
-            'pages.tables',
-            'summary'
-        ])->findOrFail($id);
+        $pdf = PdfDocument::with('parts')->findOrFail($id);
 
         return inertia('pdf/Show', [
             'pdf' => $pdf
@@ -66,61 +94,67 @@ class PdfDocumentController extends Controller
     }
 
     /*******************************************************************
-     * 🔄 REP_PROCESSAR (VOLVER A ANALIZAR)
+     * 🔎 4) DETALLE DE UNA PARTE (tablas/gráficos/resumen/páginas)
      *******************************************************************/
-    public function reprocess($id)
+    public function showPart($pdfId, $partId)
     {
-        $pdf = PdfDocument::findOrFail($id);
+        $pdf = PdfDocument::findOrFail($pdfId);
 
-        // resetear estado
-        $pdf->update(['processed' => false]);
+        $part = PdfDocumentPart::where('pdf_id', $pdfId)
+            ->where('id', $partId)
+            ->with(['pages.tables', 'pages.graphs', 'summary'])
+            ->firstOrFail();
 
-        // volver a ejecutar el job
-        ProcessPdfDocumentJob::dispatch($pdf->id);
-
-        return back()->with('success', 'El PDF está siendo reprocesado.');
+        return inertia('pdf/Part', [
+            'pdf'     => $pdf,
+            'part'    => $part,
+            'pages'   => $part->pages,
+            'summary' => $part->summary,
+        ]);
     }
 
     /*******************************************************************
-     * 📥 DESCARGAR PDF
+     * 🔁 REPROCESAR UNA PARTE
      *******************************************************************/
-    public function download($id)
+    public function reprocessPart($pdfId, $partId)
     {
-        $pdf = PdfDocument::findOrFail($id);
+        $part = PdfDocumentPart::where('pdf_id', $pdfId)
+            ->where('id', $partId)
+            ->firstOrFail();
 
-        if (!Storage::disk('public')->exists($pdf->file_path)) {
-            abort(404, 'El archivo no existe.');
-        }
+        $part->update(['processed' => false]);
 
-        return Storage::disk('public')->download($pdf->file_path, $pdf->title);
+     \App\Jobs\PdfPartProcessJob::dispatch($part->id);
+
+
+        return back()->with('success', "Parte {$part->part_number} reprocesándose.");
     }
 
     /*******************************************************************
-     * ❌ ELIMINAR PDF (Y TODO LO RELACIONADO)
+     * ❌ ELIMINAR PDF COMPLETO
      *******************************************************************/
     public function destroy($id)
     {
         $pdf = PdfDocument::findOrFail($id);
 
-        // eliminar archivo físico
-        if (Storage::disk('public')->exists($pdf->file_path)) {
-            Storage::disk('public')->delete($pdf->file_path);
+        // borrar partes físicas
+        foreach ($pdf->parts as $part) {
+            if (Storage::disk('public')->exists($part->file_path)) {
+                Storage::disk('public')->delete($part->file_path);
+            }
         }
 
-        // eliminar directorio de imágenes si lo usas
-        Storage::disk('public')->deleteDirectory("pdf_pages/{$pdf->id}");
+        // borrar carpeta completa
+        Storage::disk('public')->deleteDirectory("pdf_parts/{$pdf->id}");
 
-        // eliminar resultados OCR (si están en public)
-        Storage::disk('public')->deleteDirectory("pdf_results/{$pdf->id}");
-
-        // eliminar de BD (relaciones con cascade)
+        // borrar BD
         $pdf->delete();
 
-        return back()->with('success', 'PDF eliminado correctamente.');
+        return back()->with('success', 'Documento eliminado correctamente.');
     }
 
     /*******************************************************************
-     * 🔄 PAGINACIÓN AJAX (PARA LA TABLA)
+     * 🔄 PAGINACIÓN AJAX
      *******************************************************************/
     public function fetch()
     {

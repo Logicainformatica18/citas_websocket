@@ -16,25 +16,13 @@ class PdfDocument extends Model
         'total_pages',
     ];
 
-    protected $casts = [
-        'processed' => 'boolean',
-    ];
+    public function parts()
+    {
+        return $this->hasMany(PdfDocumentPart::class, 'pdf_id');
+    }
 
-    // 📄 Un PDF tiene muchas páginas
     public function pages()
     {
         return $this->hasMany(PdfPage::class, 'pdf_id');
-    }
-
-    // 📦 Trozos de texto para resúmenes
-    public function chunks()
-    {
-        return $this->hasMany(PdfChunk::class, 'pdf_id');
-    }
-
-    // 🧠 Resumen global
-    public function summary()
-    {
-        return $this->hasOne(PdfSummary::class, 'pdf_id');
     }
 }
