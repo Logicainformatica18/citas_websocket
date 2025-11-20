@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\PdfDocumentPart;
+use App\Models\PdfDocument;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
@@ -20,17 +21,50 @@ class PdfPartMarkAsProcessedJob implements ShouldQueue
     {
         $this->partId = $partId;
     }
+public function handle()
+{
+    $part = PdfDocumentPart::findOrFail($this->partId);
 
-    public function handle()
-    {
-        $part = PdfDocumentPart::findOrFail($this->partId);
+    $completed =
+        $part->ocr_done &&
+        $part->tables_done &&
+        $part->graphs_done &&
+        $part->summary_done;
 
+    if ($completed) {
+
+        // 🔥 Marcar parte como completada
         $part->update([
-            'processed' => 1
+            'processed' => 1,
+            'step' => 'completed'
         ]);
 
-        Log::info("✅ [MarkAsProcessed] Parte marcada como processada", [
-            'part_id' => $part->id
-        ]);
+        Log::info("🟩 Parte {$part->id} marcada como COMPLETED");
+
+        // 🔥 Ahora SÍ verificar si el documento completo está listo
+        $this->finalizeDocumentIfComplete($part->pdf_id);
+    }
+}
+
+
+
+    public function finalizeDocumentIfComplete($pdfId)
+    {
+        $pdf = PdfDocument::with('parts')->find($pdfId);
+        if (!$pdf) return;
+
+        $total = $pdf->parts->count();
+
+        // ✔ todas las partes con summary_done = 1
+        $finished = $pdf->parts->where('summary_done', 1)->count();
+
+        if ($total > 0 && $total === $finished) {
+
+            $pdf->update([
+                'processed' => true
+            ]);
+
+            Log::info("📘 Documento {$pdf->id} marcado como procesado COMPLETO");
+        }
     }
 }

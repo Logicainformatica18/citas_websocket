@@ -1,3 +1,4 @@
+// resources/js/Pages/Pdf/Components/UploadPartsModal.tsx
 import React, { useRef, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -44,7 +45,6 @@ export default function UploadPartsModal({ open, onClose, pdfId }: Props) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-lg">
 
-                {/* Header */}
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold">Cargar partes del PDF</h2>
                     <button onClick={onClose}>
@@ -52,7 +52,6 @@ export default function UploadPartsModal({ open, onClose, pdfId }: Props) {
                     </button>
                 </div>
 
-                {/* Dropzone */}
                 <div
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
@@ -80,7 +79,6 @@ export default function UploadPartsModal({ open, onClose, pdfId }: Props) {
                     />
                 </div>
 
-                {/* Selected Files */}
                 {files.length > 0 && (
                     <div className="mt-4">
                         <h3 className="font-semibold mb-2">Archivos seleccionados:</h3>
@@ -94,7 +92,6 @@ export default function UploadPartsModal({ open, onClose, pdfId }: Props) {
                     </div>
                 )}
 
-                {/* Buttons */}
                 <div className="mt-6 flex justify-end gap-3">
                     <button
                         onClick={onClose}

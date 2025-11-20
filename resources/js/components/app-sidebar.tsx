@@ -24,9 +24,12 @@ import {
     Brain,
     Settings,
     Layers3,
-    Database,  Languages,
-  Cpu,
-  Workflow,
+    Database,
+    Languages,
+    Cpu,
+    Workflow,
+    FolderSearch,
+    FileSearch,
 } from 'lucide-react';
 
 // 🔷 Color institucional ISIL
@@ -34,20 +37,16 @@ const isilBlue = 'text-sky-500 dark:text-sky-400';
 
 type PageProps = {
     permissions: string[];
-    auth: {
-        user: any;
-        role: string;
-    };
+    auth: { user: any; role: string };
 };
 
 export function AppSidebar() {
-    const { permissions } = usePage<PageProps>().props;
-    const { state } = useSidebar(); // 🔹 Para saber si está colapsado o no
+    const { state } = useSidebar();
     const isCollapsed = state === 'collapsed';
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            {/* Logo superior */}
+            {/* Logo */}
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -61,7 +60,8 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="pt-3 pb-2 space-y-4">
-                {/* 🧭 Bloque principal */}
+
+                {/* 🧭 Principal */}
                 <div className="flex flex-col gap-1 pl-3">
                     <div className="flex items-center mb-1 gap-2">
                         <Layers3 className={`ml-1 w-5 h-5 ${isilBlue}`} />
@@ -73,131 +73,119 @@ export function AppSidebar() {
                     </div>
 
                     <SidebarMenu>
+
+                        {/* Dashboard */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/dashboard"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/dashboard" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Dashboard</span>
+                                    <span className="font-medium">Dashboard</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
+                        {/* Syllabus */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/syllabus"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/syllabus" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <FileText className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Syllabus</span>
+                                    <span className="font-medium">Syllabus</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
+                        {/* Carreras */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/careers"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/careers" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <BookOpen className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Carreras</span>
+                                    <span className="font-medium">Carreras</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
-                    {/* ✅ Lenguajes */}
-<SidebarMenuItem>
-  <SidebarMenuButton asChild>
-    <Link
-      href="/languages"
-      className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-    >
-      {/* 💬 Representa comunicación / lenguaje */}
-      <Languages className={`w-5 h-5 ${isilBlue}`} />
-      <span className="text-gray-800 dark:text-gray-100 font-medium">
-        Lenguajes
-      </span>
-    </Link>
-  </SidebarMenuButton>
-</SidebarMenuItem>
-
-{/* ✅ Tecnologías */}
-<SidebarMenuItem>
-  <SidebarMenuButton asChild>
-    <Link
-      href="/technologies"
-      className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-    >
-      {/* ⚙️ Representa sistemas, frameworks, infraestructura */}
-      <Cpu className={`w-5 h-5 ${isilBlue}`} />
-      <span className="text-gray-800 dark:text-gray-100 font-medium">
-        Tecnologías
-      </span>
-    </Link>
-  </SidebarMenuButton>
-</SidebarMenuItem>
-
-{/* ✅ Metodologías */}
-<SidebarMenuItem>
-  <SidebarMenuButton asChild>
-    <Link
-      href="/methodologies"
-      className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-    >
-      {/* 🧩 Representa procesos, marcos de trabajo y métodos */}
-      <Workflow className={`w-5 h-5 ${isilBlue}`} />
-      <span className="text-gray-800 dark:text-gray-100 font-medium">
-        Metodologías
-      </span>
-    </Link>
-  </SidebarMenuButton>
-</SidebarMenuItem>
-
-
-
+                        {/* Lenguajes */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/courses"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/languages" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
+                                    <Languages className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="font-medium">Lenguajes</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        {/* Tecnologías */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/technologies" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
+                                    <Cpu className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="font-medium">Tecnologías</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        {/* Metodologías */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/methodologies" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
+                                    <Workflow className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="font-medium">Metodologías</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        {/* Cursos */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/courses" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <GraduationCap className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Cursos ISIL</span>
+                                    <span className="font-medium">Cursos ISIL</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link
-                                    href="/job-offers"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
-                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Bolsa de Empleo</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                             <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link
-                                    href="/pdf"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
-                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Documentos PDF</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                   
+
                     </SidebarMenu>
-
                 </div>
 
-                {/* 🧠 Bloque de IA */}
+                {/* 📤 NUEVA SECCIÓN: EXTRACCIÓN DE DATOS */}
+                <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
+                    <div className="flex items-center mb-1 gap-2">
+                        <FolderSearch className={`ml-1 w-5 h-5 ${isilBlue}`} />
+                        {!isCollapsed && (
+                            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
+                                Extracción de Datos
+                            </span>
+                        )}
+                    </div>
+
+                    <SidebarMenu>
+
+                        {/* Extracción desde Bolsa de Trabajo */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/job-offers" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
+                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="font-medium">Empleos – Extracción</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        {/* Extracción desde PDF */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link href="/pdf" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
+                                    <FileSearch className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="font-medium">PDF – Extracción</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                    </SidebarMenu>
+                </div>
+
+                {/* 🧠 IA */}
                 <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
                     <div className="flex items-center mb-1 gap-2">
                         <Brain className={`ml-1 w-5 h-5 ${isilBlue}`} />
@@ -211,21 +199,16 @@ export function AppSidebar() {
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/admin/ai-trainings"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/admin/ai-trainings" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <Database className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">
-                                        Entrenamiento IA
-                                    </span>
+                                    <span className="font-medium">Entrenamiento IA</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </div>
 
-                {/* ⚙️ Bloque administrativo */}
+                {/* ⚙️ Administración */}
                 <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
                     <div className="flex items-center mb-1 gap-2">
                         <Settings className={`ml-1 w-5 h-5 ${isilBlue}`} />
@@ -237,34 +220,31 @@ export function AppSidebar() {
                     </div>
 
                     <SidebarMenu>
+
+                        {/* Usuarios */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/users"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/users" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <UserCircle2 className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Usuarios</span>
+                                    <span className="font-medium">Usuarios</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
+                        {/* Roles */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link
-                                    href="/roles"
-                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
-                                >
+                                <Link href="/roles" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
                                     <Shield className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Roles</span>
+                                    <span className="font-medium">Roles</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+
                     </SidebarMenu>
                 </div>
             </SidebarContent>
 
-            {/* 👤 Usuario logueado */}
             <SidebarFooter>
                 <NavUser />
             </SidebarFooter>

@@ -100,6 +100,7 @@ class PdfPartExtractPagesJob implements ShouldQueue
                 'start_page' => 1,
                 'end_page'   => count($pages),
             ]);
+ 
 
             Log::info("✅ [ExtractPages] Páginas guardadas correctamente para parte {$part->id}");
 

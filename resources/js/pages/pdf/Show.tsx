@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "@inertiajs/react";
+import { Layers, ChevronLeft, PlusCircle, Hourglass, CheckCircle, Eye } from "lucide-react";
 import UploadPartsModal from "./Components/UploadPartsModal";
-import { Layers, ChevronLeft, PlusCircle } from "lucide-react";
 
 interface Props {
     pdf: any;
@@ -9,6 +9,22 @@ interface Props {
 
 export default function Show({ pdf }: Props) {
     const [openModal, setOpenModal] = useState(false);
+
+    // 🔧 Determinar estado según flag real
+    const getFlagStatus = (flag: number) => {
+        if (flag === 1) {
+            return {
+                label: "Listo",
+                icon: <CheckCircle className="w-3 h-3" />,
+                color: "text-green-600",
+            };
+        }
+        return {
+            label: "Procesando…",
+            icon: <Hourglass className="w-3 h-3" />,
+            color: "text-yellow-600",
+        };
+    };
 
     return (
         <div className="p-8 max-w-6xl mx-auto text-gray-900 dark:text-gray-100">
@@ -36,18 +52,18 @@ export default function Show({ pdf }: Props) {
                 </p>
 
                 <div className="mt-3">
-                    {pdf.processed ? (
+                    {pdf.processed >= 1 ? (
                         <span className="px-3 py-1 text-xs bg-green-600 text-white rounded-full shadow">
                             Procesado ✓
                         </span>
                     ) : (
                         <span className="px-3 py-1 text-xs bg-yellow-600 text-white rounded-full shadow animate-pulse">
-                            Procesando…
+                            Procesando partes…
                         </span>
                     )}
                 </div>
 
-                {/* 📤 BOTÓN SUBIR PARTE */}
+                {/* 📤 SUBIR PARTES */}
                 <div className="mt-6">
                     <button
                         onClick={() => setOpenModal(true)}
@@ -61,7 +77,7 @@ export default function Show({ pdf }: Props) {
                 </div>
             </div>
 
-            {/* 📚 TABLA DE PARTES */}
+            {/* 📚 LISTA DE PARTES */}
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
                             rounded-xl shadow-lg overflow-hidden">
 
@@ -69,7 +85,7 @@ export default function Show({ pdf }: Props) {
                     <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs uppercase">
                         <tr>
                             <th className="px-4 py-3 text-left">Parte</th>
-                            <th className="px-4 py-3 text-center">Estado</th>
+                            <th className="px-4 py-3 text-left">Progreso</th>
                             <th className="px-4 py-3 text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -83,47 +99,84 @@ export default function Show({ pdf }: Props) {
                             </tr>
                         )}
 
-                        {pdf.parts.map((part: any) => (
-                            <tr
-                                key={part.id}
-                                className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition"
-                            >
-                                <td className="px-4 py-3 font-medium">
-                                    Parte {part.part_number}
-                                </td>
+                        {pdf.parts.map((part: any) => {
+                            const ocr = getFlagStatus(part.ocr_done);
+                            const tables = getFlagStatus(part.tables_done);
+                            const graphs = getFlagStatus(part.graphs_done);
+                            const summary = getFlagStatus(part.summary_done);
 
-                                <td className="px-4 py-3 text-center">
-                                    {part.processed ? (
-                                        <span className="px-2 py-1 text-xs bg-green-600 text-white rounded-full shadow">
-                                            Procesado
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-1 text-xs bg-yellow-500 text-white rounded-full shadow animate-pulse">
-                                            Procesando…
-                                        </span>
-                                    )}
-                                </td>
+                            const allComplete =
+                                part.ocr_done &&
+                                part.tables_done &&
+                                part.graphs_done &&
+                                part.summary_done;
 
-                                <td className="px-4 py-3 text-right">
-                                    {part.processed && (
+                            // Porcentaje real desde backend
+                            const percent = Math.round((part.processed ?? 0) * 100);
+                            const statusLabel = part.step ?? "processing";
+
+                            return (
+                                <tr
+                                    key={part.id}
+                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition"
+                                >
+                                    <td className="px-4 py-3 font-medium">
+                                        Parte {part.part_number}
+                                    </td>
+
+                                    {/* 🔁 ESTADO POR SECCIÓN */}
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-col gap-1 text-xs">
+
+                                            {/* Estado general */}
+                                            <div className="font-semibold text-blue-600 dark:text-blue-400">
+                                                {percent}% — {statusLabel}
+                                            </div>
+
+                                            <div className={`flex items-center gap-1 ${ocr.color}`}>
+                                                {ocr.icon} OCR: {ocr.label}
+                                            </div>
+
+                                            <div className={`flex items-center gap-1 ${tables.color}`}>
+                                                {tables.icon} Tablas: {tables.label}
+                                            </div>
+
+                                            <div className={`flex items-center gap-1 ${graphs.color}`}>
+                                                {graphs.icon} Gráficos: {graphs.label}
+                                            </div>
+
+                                            <div className={`flex items-center gap-1 ${summary.color}`}>
+                                                {summary.icon} Resumen: {summary.label}
+                                            </div>
+
+                                        </div>
+                                    </td>
+
+                                    {/* 🔗 ACCIONES */}
+                                    <td className="px-4 py-3 text-right">
                                         <Link
                                             href={route("pdf.parts.show", { pdf: pdf.id, part: part.id })}
-                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700
-                                                       dark:bg-blue-500 dark:hover:bg-blue-600
-                                                       text-white text-xs rounded-lg inline-flex
-                                                       items-center gap-2 shadow transition"
+                                            className={`
+                                                px-3 py-1.5 rounded-lg inline-flex items-center gap-2 shadow text-xs
+                                                ${
+                                                    allComplete
+                                                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                                                        : "bg-gray-300 text-gray-700 cursor-pointer hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200"
+                                                }
+                                            `}
                                         >
+                                            <Eye className="w-4 h-4" />
                                             Ver detalle
                                         </Link>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
 
-            {/* 🪟 MODAL (solo en modo claro/oscuro automático) */}
+            {/* 🪟 MODAL */}
             <UploadPartsModal
                 open={openModal}
                 onClose={() => setOpenModal(false)}

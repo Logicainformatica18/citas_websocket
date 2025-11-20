@@ -79,9 +79,11 @@ class PdfPartUploadToGCSJob implements ShouldQueue
         // Guardar URL final
         $gcsUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsName;
 
-        $part->update([
-            'gcs_path' => $gcsUri,
-        ]);
+      
+$part->update([
+    'gcs_path' => $gcsUri,
+    'step'      => 'uploaded',
+]);
 
         Log::info("✅ PDF subido correctamente", [
             'part_id' => $part->id,

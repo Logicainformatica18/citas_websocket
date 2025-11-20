@@ -152,6 +152,17 @@ Texto OCR:
                 continue;
             }
         }
+$part->update([
+    'graphs_done' => 1,
+    'step'        => 'graphs_detected',
+    'processed'   => 0.50,
+]);
+
+Log::info("📌 [DetectGraphs] Estado actualizado", [
+    'part_id'   => $part->id,
+    'step'      => 'graphs_detected',
+    'processed' => 0.50
+]);
 
         Log::info("✅ [DetectGraphs] Completado para parte {$part->id}");
     }

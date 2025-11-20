@@ -138,6 +138,17 @@ $fullText
                     "notes_json"     => $notes,
                 ]
             );
+$part->update([
+    'summary_done' => 1,
+    'step'         => 'summarized',
+    'processed'    => 0.85,  // o el porcentaje que tú definas
+]);
+
+Log::info("📌 [Summary] Estado actualizado", [
+    'part_id'   => $part->id,
+    'step'      => 'summarized',
+    'processed' => 0.85
+]);
 
             Log::info("🟩 [Summary] Resumen guardado para parte {$part->id}");
 

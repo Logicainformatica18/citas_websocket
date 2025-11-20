@@ -101,10 +101,19 @@ class PdfPartRunOcrJob implements ShouldQueue
             'output_prefix' => $outputPrefix
         ]);
 
-        // 7️⃣ Guardar output_prefix en BD
-        $part->update([
-            'ocr_output_prefix' => $outputPrefix
-        ]);
+        // 🔥 Actualizar estado del pipeline
+$part->update([
+    'ocr_output_prefix' => $outputPrefix,
+    'ocr_done'          => 1,
+    'processed'         => 0.60,              // porcentaje de avance
+    'step'              => 'extracted',       // estado lógico del proceso
+]);
+
+Log::info("📌 [RunOCR] Estado actualizado", [
+    'part_id'   => $part->id,
+    'processed' => 0.60,
+    'step'      => 'extracted'
+]);
 
         $client->close();
     }

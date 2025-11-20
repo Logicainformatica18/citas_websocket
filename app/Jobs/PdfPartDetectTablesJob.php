@@ -137,6 +137,17 @@ Texto OCR:
                 continue;
             }
         }
+$part->update([
+    'tables_done' => 1,
+    'step'        => 'tables_detected',
+    'processed'   => 0.65,  // porcentaje aproximado para esta etapa
+]);
+
+Log::info("📌 [DetectTables] Estado actualizado", [
+    'part_id'   => $part->id,
+    'step'      => 'tables_detected',
+    'processed' => 0.65
+]);
 
         Log::info("✅ [DetectTables] Completado para parte {$part->id}");
     }
