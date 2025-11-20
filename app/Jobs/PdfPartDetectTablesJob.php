@@ -30,7 +30,6 @@ class PdfPartDetectTablesJob implements ShouldQueue
 
         Log::info("📊 [DetectTables] Analizando tablas para parte {$part->id}");
 
-        // Obtener páginas
         $pages = $part->pages()->orderBy('page_number')->get();
 
         foreach ($pages as $page) {
@@ -42,16 +41,21 @@ class PdfPartDetectTablesJob implements ShouldQueue
                     continue;
                 }
 
-                // 🔥 PROMPT para detectar tablas
+                /* ----------------------------------------------------
+                   PROMPT SEGURO (NO INVENTA, NO COMPLETA)
+                ---------------------------------------------------- */
                 $prompt = "
-Eres un detector de tablas.
+Analiza el siguiente texto OCR y extrae únicamente tablas REALES.
 
-Toma el siguiente texto OCR y responde SOLO EN JSON.
+REGLAS:
+1. NO inventes, NO completes valores faltantes.
+2. Si la tabla está incompleta, devuelve solo lo que esté visible.
+3. Si los datos están demasiado corruptos, devuelve una nota explicando por qué.
+4. NO reestructures la tabla, NO infieras columnas.
+5. Si NO hay tablas, devuelve: { \"tables\": [] }
+6. Usa SIEMPRE JSON válido.
 
-Extrae todas las tablas presentes.
-Si no hay tablas, devuelve un array vacío.
-
-Formato JSON estricto:
+FORMATO:
 {
   \"tables\": [
     {
@@ -59,7 +63,7 @@ Formato JSON estricto:
          [\"col1\", \"col2\", \"col3\"],
          [\"val1\", \"val2\", \"val3\"]
       ],
-      \"insights\": [\"texto libre sobre lo que significa la tabla\"]
+      \"notes\": [\"indica si faltan datos, valores ilegibles, OCR muy ruidoso\"]
     }
   ]
 }
@@ -68,14 +72,13 @@ Texto OCR:
 {$page->text_content}
                 ";
 
-                // 🔥 Llamada a OpenAI
                 $response = Http::withToken(env('OPENAI_API_KEY'))
                     ->post("https://api.openai.com/v1/chat/completions", [
                         "model" => "gpt-4o-mini",
-                        "temperature" => 0.1,
+                        "temperature" => 0,
                         "response_format" => ["type" => "json_object"],
                         "messages" => [
-                            ["role" => "system", "content" => "Eres un extractor experto de tablas en texto OCR."],
+                            ["role" => "system", "content" => "Eres un extractor experto de tablas basado únicamente en lo que realmente aparece en el OCR."],
                             ["role" => "user", "content" => $prompt]
                         ]
                     ]);
@@ -90,25 +93,48 @@ Texto OCR:
                 $decoded = json_decode($json, true);
 
                 if (!isset($decoded['tables']) || empty($decoded['tables'])) {
-                    Log::info("▫️ [DetectTables] Página {$page->id} → sin tablas.");
+                    Log::info("▫️ [DetectTables] Página {$page->id} → sin tablas detectadas.");
                     continue;
                 }
 
-                // 🔥 Guardar tablas
+                // VALIDACIÓN DE CADA TABLA
                 foreach ($decoded['tables'] as $t) {
+
+                    $rows = $t['rows'] ?? [];
+                    $notes = $t['notes'] ?? [];
+
+                    if (!is_array($rows) || empty($rows)) {
+                        Log::warning("⚠️ [DetectTables] Tabla inválida en página {$page->id}. Se omite.");
+                        continue;
+                    }
+
+                    // Validar que cada fila sea un array plano
+                    $valid = true;
+                    foreach ($rows as $r) {
+                        if (!is_array($r)) {
+                            $valid = false;
+                            break;
+                        }
+                    }
+
+                    if (!$valid) {
+                        Log::warning("❌ [DetectTables] Tabla corrupta en página {$page->id}, no se guarda.");
+                        continue;
+                    }
+
+                    // Guardar tabla
                     PdfPageTable::create([
-                        "page_id" => $page->id,
-                        "data_json" => $t['rows'] ?? [],
-                        "insights_json" => $t['insights'] ?? [],
+                        "page_id"  => $page->id,
+                        "data_json" => $rows,
+                        "insights_json" => $notes,
                     ]);
                 }
 
-                Log::info("🟩 [DetectTables] Página {$page->id} → " . count($decoded['tables']) . " tablas detectadas.");
+                Log::info("🟩 [DetectTables] Página {$page->id} → " . count($decoded['tables']) . " tabla(s) guardadas.");
 
             } catch (\Exception $e) {
-
-                Log::error("❌ [DetectTables] Error página {$page->id}: " . $e->getMessage());
-                continue; // No detener toda la cadena
+                Log::error("❌ [DetectTables] Error en página {$page->id}: " . $e->getMessage());
+                continue;
             }
         }
 

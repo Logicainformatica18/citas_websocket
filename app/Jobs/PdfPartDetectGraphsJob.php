@@ -41,53 +41,50 @@ class PdfPartDetectGraphsJob implements ShouldQueue
                     continue;
                 }
 
-                // ======== 🔥 PROMPT ESPECIALIZADO EN GRÁFICOS ==========
+                /* ----------------------------------------------------
+                   PROMPT SEGURO · SIN INVENTOS · ESTRICTO
+                ---------------------------------------------------- */
                 $prompt = "
-Eres un experto en detección de GRÁFICOS (charts) a partir de texto OCR.
+Analiza el siguiente texto OCR e identifica ÚNICAMENTE gráficos reales.
+No inventes valores, no completes series faltantes, no interpolar.
 
-Analiza el siguiente texto y detecta si contiene información de un gráfico
-(barras, líneas, pastel, comparativos, series numéricas, etc).
+REGLAS:
+1. Usa solo números visibles en el OCR.
+2. Si no hay valores numéricos suficientes → NO generes gráfico.
+3. Si existe gráfico pero datos incompletos → devuélvelo con
+   \"notes\": [\"datos insuficientes\", \"OCR parcial\", etc.]
+4. Si NO hay gráficos → devuelve { \"graphs\": [] }
+5. El JSON siempre debe ser válido.
 
-Si NO hay gráficos → devuelve:
-{
-  \"graphs\": []
-}
-
-Si SÍ hay gráficos, devuelve formato JSON estricto:
-
+FORMATO EXACTO:
 {
   \"graphs\": [
     {
-      \"title\": \"Nombre del gráfico si existe\",
+      \"title\": \"texto o null\",
       \"data\": {
-         \"labels\": [\"2020\", \"2021\", \"2022\"],
-         \"values\": [100, 120, 140]
+         \"labels\": [\"A\", \"B\", \"C\"],
+         \"values\": [10, 20, 30]
       },
-      \"insights\": [
-         \"Descripción de qué representa el gráfico\",
-         \"Conclusiones relevantes\"
+      \"notes\": [
+         \"observaciones del OCR o problemas detectados\"
       ]
     }
   ]
 }
 
-Evita inventar datos. Usa solo lo que esté en el texto.
-Puede haber más de un gráfico.
-
 Texto OCR:
 {$page->text_content}
                 ";
-                // =========================================================
 
                 $response = Http::withToken(env("OPENAI_API_KEY"))
                     ->post("https://api.openai.com/v1/chat/completions", [
                         "model" => "gpt-4o-mini",
-                        "temperature" => 0.2,
+                        "temperature" => 0,
                         "response_format" => ["type" => "json_object"],
                         "messages" => [
                             [
                                 "role" => "system",
-                                "content" => "Eres un analista que detecta gráficos y series de datos en OCR."
+                                "content" => "Eres un analista que detecta gráficos sin completar datos ni inventar valores."
                             ],
                             [
                                 "role" => "user",
@@ -111,11 +108,36 @@ Texto OCR:
                 }
 
                 foreach ($decoded['graphs'] as $g) {
+
+                    $data = $g['data'] ?? [];
+                    $labels = $data['labels'] ?? [];
+                    $values = $data['values'] ?? [];
+                    $notes = $g['notes'] ?? [];
+
+                    /* ----------------------------------------------------
+                       VALIDACIÓN · NO GUARDAR GRÁFICOS CORRUPTOS
+                    ---------------------------------------------------- */
+
+                    if (!is_array($labels) || !is_array($values)) {
+                        Log::warning("❌ [DetectGraphs] Datos corruptos en página {$page->id}, se descarta.");
+                        continue;
+                    }
+
+                    if (count($labels) < 2 || count($values) < 2) {
+                        Log::warning("⚠️ [DetectGraphs] Serie demasiado corta en página {$page->id}");
+                        $notes[] = "Datos insuficientes para graficar.";
+                    }
+
+                    if (count($labels) !== count($values)) {
+                        Log::warning("❌ [DetectGraphs] labels y values NO coinciden en página {$page->id}");
+                        $notes[] = "Labels y values no coinciden. OCR incompleto.";
+                    }
+
                     PdfPageGraph::create([
                         "page_id"      => $page->id,
                         "title"        => $g["title"] ?? null,
-                        "data_json"    => $g["data"] ?? [],
-                        "insights_json"=> $g["insights"] ?? [],
+                        "data_json"    => $data,
+                        "insights_json"=> $notes,
                     ]);
                 }
 

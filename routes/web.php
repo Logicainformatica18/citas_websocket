@@ -292,6 +292,9 @@ Route::prefix('pdf')->name('pdf.')->group(function () {
     Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])->name('uploadPart');
 
     Route::get('/{pdfId}/part/{partId}', [PdfDocumentController::class, 'showPart'])->name('showPart');
+    Route::delete('/{id}', [PdfDocumentController::class, 'destroy'])
+    ->name('pdf.destroy');
+
 });
 
 

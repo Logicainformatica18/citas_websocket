@@ -7,6 +7,7 @@ import {
     FileText,
     PlusCircle,
     Eye,
+    Trash2,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -43,43 +44,79 @@ export default function PDFIndex() {
     }, [initialPagination]);
 
     /* -----------------------------------
-     * CREAR SOLO EL REGISTRO DEL DOCUMENTO
+     * CREAR DOCUMENTO
      * ----------------------------------- */
     const createDocument = async (e: any) => {
         e.preventDefault();
 
         if (!title.trim()) {
-            Swal.fire("Aviso", "El título es obligatorio", "warning");
+            Swal.fire("Aviso", "El título es obligatorio.", "warning");
             return;
         }
 
-        await axios.post("/pdf", {
-            title: title,
-        });
+        await axios.post("/pdf", { title });
 
-        Swal.fire("Listo", "Documento creado. Ahora puedes cargar partes.", "success");
+        Swal.fire({
+            title: "Documento creado",
+            text: "Ya puedes cargar las partes (PDF 20 páginas)",
+            icon: "success",
+            confirmButtonColor: "#2563eb",
+        });
 
         setTitle("");
         router.reload();
     };
 
-    /* -------- PAGINATION -------- */
+    /* -----------------------------------
+     * ELIMINAR DOCUMENTO
+     * ----------------------------------- */
+    const deleteDocument = (id: number) => {
+        Swal.fire({
+            title: "¿Eliminar documento?",
+            text: "Esto eliminará todas las partes, OCR, tablas y gráficos.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Sí, eliminar",
+            cancelButtonText: "Cancelar",
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#6b7280",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.delete(`/pdf/${id}`, {
+                    onSuccess: () => {
+                        Swal.fire(
+                            "Eliminado",
+                            "El documento fue eliminado correctamente.",
+                            "success"
+                        );
+                    },
+                });
+            }
+        });
+    };
+
+    /* -----------------------------------
+     * PAGINACIÓN AJAX
+     * ----------------------------------- */
     const fetchPage = async (page: number) => {
         const res = await axios.get(`/pdf?page=${page}`);
         setItems(res.data.documents.data);
         setPagination(res.data.documents);
     };
 
+    /* -----------------------------------
+     * BADGE DE ESTADO
+     * ----------------------------------- */
     const getStatusBadge = (processed: boolean) => {
         if (processed) {
             return (
-                <span className="px-3 py-1 bg-green-600 text-white text-xs rounded-full">
+                <span className="px-3 py-1 bg-green-600 text-white text-xs rounded-full shadow-sm">
                     Procesado
                 </span>
             );
         }
         return (
-            <span className="px-3 py-1 bg-yellow-500 text-white text-xs rounded-full animate-pulse">
+            <span className="px-3 py-1 bg-yellow-500 text-white text-xs rounded-full shadow-sm animate-pulse">
                 Incompleto
             </span>
         );
@@ -87,10 +124,10 @@ export default function PDFIndex() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+            <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition">
 
                 {/* HEADER */}
-                <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+                <div className="flex items-center justify-between mb-6 pb-4">
                     <h1 className="text-3xl font-semibold flex items-center gap-2">
                         <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                         Documentos PDF
@@ -100,9 +137,9 @@ export default function PDFIndex() {
                 {/* CARD NUEVO DOCUMENTO */}
                 <form
                     onSubmit={createDocument}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 mb-6 rounded-lg shadow space-y-4"
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 mb-8 rounded-xl shadow-lg space-y-4"
                 >
-                    <h2 className="font-semibold text-lg flex items-center gap-2">
+                    <h2 className="font-semibold text-lg flex items-center gap-2 text-gray-700 dark:text-gray-300">
                         <PlusCircle className="w-5 h-5 text-blue-500" />
                         Crear nuevo documento
                     </h2>
@@ -121,46 +158,61 @@ export default function PDFIndex() {
                     <div className="flex justify-end">
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition"
                         >
                             Crear documento
                         </button>
                     </div>
                 </form>
 
-                {/* TABLA PRINCIPAL */}
-                <div className="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-800">
+                {/* TABLA */}
+                <div className="overflow-x-auto rounded-xl shadow border border-gray-200 dark:border-gray-800">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                        <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm uppercase">
+                        <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs uppercase">
                             <tr>
-                                <th className="px-4 py-2">Título</th>
-                                <th className="px-4 py-2 text-center">Estado</th>
-                                <th className="px-4 py-2 text-right">Acciones</th>
+                                <th className="px-4 py-3">Título</th>
+                                <th className="px-4 py-3 text-center">Estado</th>
+                                <th className="px-4 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
 
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800 text-sm">
                             {items.map((item) => (
-                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition">
-                                    <td className="px-4 py-2 font-semibold">{item.title}</td>
-                                    <td className="px-4 py-2 text-center">
+                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
+                                    <td className="px-4 py-3 font-medium">{item.title}</td>
+
+                                    <td className="px-4 py-3 text-center">
                                         {getStatusBadge(item.processed)}
                                     </td>
 
-                                    <td className="px-4 py-2 text-right">
+                                    <td className="px-4 py-3 text-right flex gap-2 justify-end">
+
+                                        {/* Ver partes */}
                                         <Link
                                             href={route("pdf.show", item.id)}
-                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg inline-flex items-center gap-1"
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg inline-flex items-center gap-1 shadow"
                                         >
                                             <Eye className="w-4 h-4" /> Ver partes
                                         </Link>
+
+                                        {/* Eliminar */}
+                                        <button
+                                            onClick={() => deleteDocument(item.id)}
+                                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg inline-flex items-center gap-1 shadow"
+                                        >
+                                            <Trash2 className="w-4 h-4" /> Eliminar
+                                        </button>
+
                                     </td>
                                 </tr>
                             ))}
 
                             {items.length === 0 && (
                                 <tr>
-                                    <td className="px-4 py-6 text-center text-gray-500 dark:text-gray-400" colSpan={3}>
+                                    <td
+                                        colSpan={3}
+                                        className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
+                                    >
                                         No hay documentos registrados.
                                     </td>
                                 </tr>
@@ -169,13 +221,13 @@ export default function PDFIndex() {
                     </table>
                 </div>
 
-                {/* PAGINATION */}
-                <div className="flex justify-center mt-6 gap-1">
+                {/* PAGINACIÓN */}
+                <div className="flex justify-center mt-6 gap-2">
                     {Array.from({ length: pagination.last_page }, (_, i) => i + 1).map((page) => (
                         <button
                             key={page}
                             onClick={() => fetchPage(page)}
-                            className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition ${
                                 page === pagination.current_page
                                     ? "bg-blue-600 text-white shadow"
                                     : "bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
