@@ -1,108 +1,128 @@
-import React, { useState } from "react";
+import React from "react";
 
-export default function PartTables({ pages }) {
-    // Todas las tablas de todas las páginas
-    const tables = pages.flatMap((p) => p.tables || []);
+interface Props {
+    pages: any[];
+}
 
-    // Convertir JSON (string o array) a formato usable
-    const normalize = (raw) => {
-        if (!raw) return null;
+export default function PartTables({ pages }: Props) {
+    // Filtrar solo páginas que tengan tablas válidas
+    const pagesWithTables = pages.filter(
+        (p) => Array.isArray(p.tables) && p.tables.length > 0
+    );
 
-        // Si viene como string → intentar parsear
-        if (typeof raw === "string") {
-            try {
-                raw = JSON.parse(raw);
-            } catch {
-                return null;
-            }
-        }
+    // Si NO hay ninguna tabla → NO renderizar nada
+    if (pagesWithTables.length === 0) {
+        return null;
+    }
 
-        // Debe ser un array de arrays
-        if (!Array.isArray(raw) || !Array.isArray(raw[0])) {
-            return null;
-        }
-
-        return raw;
-    };
+    // Ordenado por número de página
+    const orderedPages = [...pagesWithTables].sort(
+        (a, b) => Number(a.page_number) - Number(b.page_number)
+    );
 
     return (
-        <div className="mt-6">
+        <div>
             <h2 className="text-xl font-bold mb-4">Tablas detectadas</h2>
 
-            {tables.length === 0 && (
-                <p className="text-gray-500">No se detectaron tablas.</p>
-            )}
+            {orderedPages.map((page) => (
+                <div
+                    key={page.id}
+                    className="mb-8 border rounded p-4 bg-white shadow-sm"
+                >
+                    <h3 className="font-semibold text-lg mb-3">
+                        Página {page.page_number}
+                    </h3>
 
-            {tables.map((tbl, idx) => {
-                const [showJson, setShowJson] = useState(false);
-                const data = normalize(tbl.data_json);
+                    {page.tables.map((table: any, idx: number) => {
+                        const rows = table.data_json ?? [];
 
-                return (
-                    <div
-                        key={idx}
-                        className="mb-8 p-5 border rounded bg-white shadow-sm"
-                    >
-                        <h3 className="font-semibold text-lg mb-2">
-                            Tabla {idx + 1}
-                        </h3>
+                        // Validación: tabla vacía o mal formada
+                        if (!Array.isArray(rows) || rows.length === 0) {
+                            return (
+                                <div
+                                    key={idx}
+                                    className="p-3 border bg-gray-50 rounded"
+                                >
+                                    <p className="text-gray-500 text-sm">
+                                        Tabla detectada pero sin datos válidos.
+                                    </p>
+                                </div>
+                            );
+                        }
 
-                        {/* botón JSON */}
-                        <button
-                            onClick={() => setShowJson(!showJson)}
-                            className="text-blue-600 text-sm mb-3"
-                        >
-                            {showJson
-                                ? "Ocultar datos originales"
-                                : "Ver datos originales (OCR)"}
-                        </button>
+                        const headers = rows[0];
 
-                        {showJson && (
-                            <pre className="bg-gray-100 p-3 rounded text-sm border max-h-64 overflow-auto mb-4">
-                                {JSON.stringify(tbl.data_json, null, 2)}
-                            </pre>
-                        )}
+                        return (
+                            <div
+                                key={idx}
+                                className="mb-6 p-3 border bg-gray-50 rounded"
+                            >
+                                <h4 className="font-semibold mb-2">
+                                    Tabla {idx + 1}
+                                </h4>
 
-                        {/* Si no tiene estructura válida */}
-                        {!data ? (
-                            <p className="text-red-600 text-sm">
-                                No se pudo interpretar la estructura de la tabla.
-                            </p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full border-collapse border border-gray-300">
-                                    <thead className="bg-gray-100">
-                                        <tr>
-                                            {data[0].map((col, i) => (
-                                                <th
-                                                    key={i}
-                                                    className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold"
-                                                >
-                                                    {col}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-
-                                    <tbody>
-                                        {data.slice(1).map((row, r) => (
-                                            <tr key={r}>
-                                                {row.map((cell, c) => (
-                                                    <td
-                                                        key={c}
-                                                        className="border border-gray-300 px-3 py-2 text-sm"
-                                                    >
-                                                        {cell}
-                                                    </td>
-                                                ))}
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-sm border border-gray-300">
+                                        <thead className="bg-gray-200">
+                                            <tr>
+                                                {headers.map(
+                                                    (col: any, i: number) => (
+                                                        <th
+                                                            key={i}
+                                                            className="border px-2 py-1 font-semibold"
+                                                        >
+                                                            {col}
+                                                        </th>
+                                                    )
+                                                )}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+
+                                        <tbody>
+                                            {rows
+                                                .slice(1)
+                                                .map(
+                                                    (
+                                                        row: any[],
+                                                        rIdx: number
+                                                    ) => (
+                                                        <tr key={rIdx}>
+                                                            {row.map(
+                                                                (
+                                                                    cell,
+                                                                    cIdx
+                                                                ) => (
+                                                                    <td
+                                                                        key={
+                                                                            cIdx
+                                                                        }
+                                                                        className="border px-2 py-1"
+                                                                    >
+                                                                        {cell}
+                                                                    </td>
+                                                                )
+                                                            )}
+                                                        </tr>
+                                                    )
+                                                )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {(table.insights_json ?? []).length > 0 && (
+                                    <ul className="mt-2 text-sm text-gray-600 list-disc ml-5">
+                                        {table.insights_json.map(
+                                            (txt: string, ii: number) => (
+                                                <li key={ii}>{txt}</li>
+                                            )
+                                        )}
+                                    </ul>
+                                )}
                             </div>
-                        )}
-                    </div>
-                );
-            })}
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 }

@@ -21,7 +21,7 @@ export default function Part({ pdf, part, pages, summary }) {
                 <button onClick={() => setTab("pages")}>Páginas</button>
                 <button onClick={() => setTab("tables")}>Tablas</button>
                 <button onClick={() => setTab("graphs")}>Gráficos</button>
-                <button onClick={() => setTab("meta")}>Metadata</button>
+                {/* <button onClick={() => setTab("meta")}>Metadata</button> */}
             </div>
 
             {/* CONTENIDO */}
@@ -29,7 +29,7 @@ export default function Part({ pdf, part, pages, summary }) {
             {tab === "pages" && <PartPages pages={pages} />}
             {tab === "tables" && <PartTables pages={pages} />}
             {tab === "graphs" && <PartGraphs pages={pages} />}
-            {tab === "meta" && <PartMetadata part={part} />}
+            {/* {tab === "meta" && <PartMetadata part={part} />} */}
         </div>
     );
 }

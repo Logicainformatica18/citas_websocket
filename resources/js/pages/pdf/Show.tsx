@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Link, router } from "@inertiajs/react";
+import { Link } from "@inertiajs/react";
 import UploadPartsModal from "./Components/UploadPartsModal";
-import PartsTable from "./Components/PartsTable";
 import { Layers, ChevronLeft, PlusCircle } from "lucide-react";
 
 interface Props {
@@ -14,7 +13,6 @@ export default function Show({ pdf }: Props) {
     return (
         <div className="p-6 max-w-5xl mx-auto">
 
-            {/* BACK */}
             <div className="mb-4">
                 <Link href="/pdf" className="inline-flex items-center text-blue-600 hover:underline">
                     <ChevronLeft className="w-4 h-4 mr-1" />
@@ -22,7 +20,6 @@ export default function Show({ pdf }: Props) {
                 </Link>
             </div>
 
-            {/* TITLE */}
             <div className="mb-6">
                 <h1 className="text-3xl font-bold flex items-center gap-2">
                     <Layers className="w-8 h-8 text-blue-600" />
@@ -45,7 +42,6 @@ export default function Show({ pdf }: Props) {
                     )}
                 </div>
 
-                {/* Botón Abrir Modal */}
                 <div className="mt-6">
                     <button
                         onClick={() => setOpenModal(true)}
@@ -57,10 +53,58 @@ export default function Show({ pdf }: Props) {
                 </div>
             </div>
 
-            {/* TABLE OF PARTS */}
-            <PartsTable pdf={pdf} />
+            {/* LISTA DE PARTES */}
+            <div className="bg-white dark:bg-gray-800 border rounded shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                        <tr>
+                            <th className="px-4 py-3 text-left">Parte</th>
+                            <th className="px-4 py-3 text-center">Estado</th>
+                            <th className="px-4 py-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
 
-            {/* MODAL */}
+                    <tbody>
+                        {pdf.parts.length === 0 && (
+                            <tr>
+                                <td colSpan={3} className="text-center py-6 text-gray-500">
+                                    No se han subido partes aún.
+                                </td>
+                            </tr>
+                        )}
+
+                        {pdf.parts.map((part: any) => (
+                            <tr key={part.id}>
+                                <td className="px-4 py-3">Parte {part.part_number}</td>
+
+                                <td className="px-4 py-3 text-center">
+                                    {part.processed ? (
+                                        <span className="px-2 py-1 text-xs bg-green-600 text-white rounded">
+                                            Procesado
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-1 text-xs bg-yellow-500 text-white rounded animate-pulse">
+                                            Procesando…
+                                        </span>
+                                    )}
+                                </td>
+
+                                <td className="px-4 py-3 text-right">
+                                    {part.processed && (
+                                        <Link
+                                            href={route("pdf.parts.show", { pdf: pdf.id, part: part.id })}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center gap-2"
+                                        >
+                                            Ver detalle
+                                        </Link>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
             <UploadPartsModal
                 open={openModal}
                 onClose={() => setOpenModal(false)}
