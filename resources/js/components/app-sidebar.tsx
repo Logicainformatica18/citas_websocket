@@ -182,6 +182,17 @@ export function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                             <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link
+                                    href="/pdf"
+                                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
+                                >
+                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
+                                    <span className="text-gray-800 dark:text-gray-100 font-medium">Documentos PDF</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </SidebarMenu>
 
                 </div>
