@@ -26,31 +26,31 @@ class PdfPartUploadToGCSJob implements ShouldQueue
     {
         $part = PdfDocumentPart::findOrFail($this->partId);
 
+        // RUTA SEGÚN BD
+        $dbPath = $part->file_path; // <- ESTA SÍ EXISTE
+
         Log::info("🚀 [UploadToGCS] Iniciando upload", [
             'part_id' => $part->id,
-            'db_path' => $part->file_path,
+            'db_path' => $dbPath,
         ]);
 
-        // 🔥 Construcción correcta de archivo en Herd + Windows
-        $localPath = public_path('storage/' . ltrim($part->file_path, '/'));
+        // Ruta real en storage
+        $localPath = storage_path("app/public/" . $dbPath);
 
-        // 🔎 Validación
         if (!file_exists($localPath)) {
-            Log::error("❌ [UploadToGCS] Archivo NO existe", [
-                'expected_path' => $localPath,
-                'db_path' => $part->file_path,
+            Log::error("❌ Archivo local no encontrado", [
+                "expected_path" => $localPath,
+                "db_path" => $dbPath
             ]);
-
-            // Evita que la cadena completa falle
-            throw new \Exception("Archivo local no encontrado: " . $localPath);
+            throw new \Exception("Archivo local no encontrado: $localPath");
         }
 
-        Log::info("📄 [UploadToGCS] Archivo encontrado", [
+        Log::info("📄 Archivo encontrado", [
             'localPath' => $localPath,
-            'size' => filesize($localPath),
+            'size_MB' => round(filesize($localPath) / 1024 / 1024, 2)
         ]);
 
-        // ☁️ Cliente GCS
+        // Cliente GCS
         $storage = new StorageClient([
             'projectId'   => env('GCS_PROJECT_ID'),
             'keyFilePath' => env('GCS_KEY_FILE_PATH'),
@@ -58,33 +58,32 @@ class PdfPartUploadToGCSJob implements ShouldQueue
 
         $bucket = $storage->bucket(env('GCS_BUCKET'));
 
-        // Nombre final en GCS
+        // Nombre final
         $gcsName = "pdf_parts/{$part->id}.pdf";
 
-        // 🚀 Subida real
+        // Subida
         try {
             $bucket->upload(
                 fopen($localPath, 'r'),
                 ['name' => $gcsName]
             );
         } catch (\Exception $e) {
-            Log::error("❌ [UploadToGCS] Error subiendo a GCS", [
+            Log::error("❌ Error subiendo a GCS", [
                 'error' => $e->getMessage(),
                 'localPath' => $localPath,
                 'gcsName' => $gcsName
             ]);
-
-            throw $e; // permite que Laravel reintente
+            throw $e;
         }
 
-        // URI final
+        // Guardar URL final
         $gcsUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsName;
 
         $part->update([
             'gcs_path' => $gcsUri,
         ]);
 
-        Log::info("✅ [UploadToGCS] PDF subido correctamente", [
+        Log::info("✅ PDF subido correctamente", [
             'part_id' => $part->id,
             'gcs_uri' => $gcsUri,
         ]);
