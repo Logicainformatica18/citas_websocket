@@ -35,6 +35,8 @@ export default function PDFIndex() {
     const [items, setItems] = useState<PdfDoc[]>([]);
     const [pagination, setPagination] = useState(initialPagination);
     const [title, setTitle] = useState("");
+const [editingId, setEditingId] = useState<number | null>(null);
+const [editTitle, setEditTitle] = useState("");
 
     useEffect(() => {
         setItems(initialPagination.data);
@@ -64,6 +66,21 @@ export default function PDFIndex() {
         setTitle("");
         router.reload();
     };
+const saveTitle = async (item: PdfDoc) => {
+    if (!editTitle.trim()) {
+        Swal.fire("Aviso", "El título no puede estar vacío.", "warning");
+        return;
+    }
+router.put(route("pdf.update", item.id), { title: editTitle });
+
+
+
+
+    Swal.fire("Actualizado", "Título modificado.", "success");
+
+    setEditingId(null);
+    router.reload({ only: ["documents"] });
+};
 
     /* ----------------------
         ELIMINAR DOCUMENTO
@@ -193,9 +210,50 @@ export default function PDFIndex() {
                         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                             {items.map((item) => (
                                 <tr key={item.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/60 transition">
-                                    <td className="px-4 py-3 font-medium">
-                                        {item.title}
-                                    </td>
+                                   <td className="px-4 py-3 font-medium">
+
+    {/* Si estoy editando este documento */}
+    {editingId === item.id ? (
+        <div className="flex items-center gap-2">
+            <input
+                autoFocus
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="border px-2 py-1 rounded w-full dark:bg-gray-800 dark:border-gray-600"
+            />
+
+            <button
+                onClick={() => saveTitle(item)}
+                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+            >
+                Guardar
+            </button>
+
+            <button
+                onClick={() => setEditingId(null)}
+                className="px-2 py-1 bg-gray-400 hover:bg-gray-500 text-white rounded"
+            >
+                Cancelar
+            </button>
+        </div>
+    ) : (
+        <div className="flex items-center justify-between">
+            {item.title}
+
+            <button
+                onClick={() => {
+                    setEditingId(item.id);
+                    setEditTitle(item.title);
+                }}
+                className="ml-3 text-blue-600 hover:text-blue-800 text-xs underline"
+            >
+                Editar
+            </button>
+        </div>
+    )}
+
+</td>
+
 
                                     <td className="px-4 py-3 text-center">
                                         <BadgeEstado processed={item.processed} step={item.step} />

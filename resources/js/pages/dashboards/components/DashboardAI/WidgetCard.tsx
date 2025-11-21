@@ -96,7 +96,7 @@ useEffect(() => {
     }
   };
   document.addEventListener("mousedown", handleClickOutside);
-  console.log(normalizedData.map(d => d.name));
+//   console.log(normalizedData.map(d => d.name));
 
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
@@ -158,11 +158,11 @@ const numericKeys = allKeys.filter((k) => {
     return obj;
   });
 
-  console.log("🧩 Normalización:", {
-    categoryKey,
-    numericKeys,
-    muestra: normalizedData[0],
-  });
+//   console.log("🧩 Normalización:", {
+//     categoryKey,
+//     numericKeys,
+//     muestra: normalizedData[0],
+//   });
 
   return { normalizedData, categoryKey, numericKeys };
 }, [JSON.stringify(rawData)]);
@@ -188,15 +188,15 @@ const filteredData = normalizedData.filter(d =>
   activeLabels.includes(d[categoryKey])
 );
 
-// 🧩 Log seguro (ya después del cálculo)
-useEffect(() => {
-  console.table(rawData.slice(0, 3));
-  console.log("🧩 Normalización:", {
-    categoryKey,
-    numericKeys,
-    muestra: normalizedData[0],
-  });
-}, [categoryKey, numericKeys, normalizedData]);
+// // 🧩 Log seguro (ya después del cálculo)
+// useEffect(() => {
+//   console.table(rawData.slice(0, 3));
+//   console.log("🧩 Normalización:", {
+//     categoryKey,
+//     numericKeys,
+//     muestra: normalizedData[0],
+//   });
+// }, [categoryKey, numericKeys, normalizedData]);
 
 
 
@@ -320,7 +320,7 @@ const exportToPDF = () => {
       justifyContent: "space-between",
     }}
   >
- 
+
 
     {/* 🧩 Gráfico principal */}
     <div style={{ flex: 1, minHeight: "240px" }}>

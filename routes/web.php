@@ -283,40 +283,73 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 
 
 
+/*
+|--------------------------------------------------------------------------
+| 📄 PDF DOCUMENTS (AGRUPADO CORRECTAMENTE)
+|--------------------------------------------------------------------------
+*/
 Route::prefix('pdf')->name('pdf.')->group(function () {
-    Route::get('/', [PdfDocumentController::class, 'index'])->name('index');
-    Route::post('/', [PdfDocumentController::class, 'store'])->name('store');
 
-    Route::get('/{id}', [PdfDocumentController::class, 'show'])->name('show');
+    /*
+    |--------------------------------------------------------------------------
+    | 🧩 PARTES DEL PDF  (DEBEN IR PRIMERO - RUTAS MÁS ESPECÍFICAS)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('{pdf}/parts')->name('parts.')->group(function () {
 
-    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])->name('uploadPart');
+        Route::post('/', [PdfDocumentPartController::class, 'store'])
+            ->name('store');
 
-    Route::get('/{pdfId}/part/{partId}', [PdfDocumentController::class, 'showPart'])->name('showPart');
+        Route::get('/{part}', [PdfDocumentPartController::class, 'show'])
+            ->name('show');
+
+        Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])
+            ->name('reprocess');
+
+        Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])
+            ->name('destroy');
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📥 SUBIR Y VER PARTES DEL DOCUMENTO PRINCIPAL
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])
+        ->name('uploadPart');
+
+    Route::get('/{id}/part/{partId}', [PdfDocumentController::class, 'showPart'])
+        ->name('showPart');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ✏️ UPDATE Y DELETE DEL PDF (PRIMERO ANTES DEL GET /{id})
+    |--------------------------------------------------------------------------
+    */
+    Route::put('/{id}', [PdfDocumentController::class, 'update'])
+        ->name('update');
+
     Route::delete('/{id}', [PdfDocumentController::class, 'destroy'])
-    ->name('pdf.destroy');
+        ->name('destroy');
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📃 Rutas generales (index, store, show)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/', [PdfDocumentController::class, 'index'])
+        ->name('index');
+
+    Route::post('/', [PdfDocumentController::class, 'store'])
+        ->name('store');
+
+    Route::get('/{id}', [PdfDocumentController::class, 'show'])
+        ->name('show');
 });
 
-
-// PDF Document Parts (bloques)
-Route::prefix('pdf/{pdf}/parts')->group(function () {
-
-    // subir parte
-    Route::post('/', [PdfDocumentPartController::class, 'store'])
-        ->name('pdf.parts.store');
-
-    // ver parte
-    Route::get('/{part}', [PdfDocumentPartController::class, 'show'])
-        ->name('pdf.parts.show');
-
-    // reprocesar parte
-    Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])
-        ->name('pdf.parts.reprocess');
-
-    // eliminar parte
-    Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])
-        ->name('pdf.parts.destroy');
-});
 
 });
 

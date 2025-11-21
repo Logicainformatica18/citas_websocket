@@ -164,4 +164,28 @@ class PdfDocumentController extends Controller
             'documents' => $documents
         ]);
     }
+    /*******************************************************************
+ * ✏️  EDITAR DOCUMENTO (título, año, descripción, fuente)
+ *******************************************************************/
+public function update(Request $request, $id)
+{
+    $request->validate([
+        'title'       => 'required|max:255',
+        'year'        => 'nullable',
+        'source'      => 'nullable|string|max:255',
+        'description' => 'nullable|string',
+    ]);
+
+    $pdf = PdfDocument::findOrFail($id);
+
+    $pdf->update([
+        'title'       => $request->title,
+        'year'        => $request->year,
+        'source'      => $request->source,
+        'description' => $request->description,
+    ]);
+
+    return back()->with('success', 'Documento actualizado correctamente.');
+}
+
 }
