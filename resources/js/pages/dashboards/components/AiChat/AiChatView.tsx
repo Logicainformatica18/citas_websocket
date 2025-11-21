@@ -252,6 +252,26 @@ export default function AiChatView() {
     </button>
   </div>
 )}
+{/* 🔍 Sugerencias de autocompletado */}
+{logic.showSuggestions && logic.suggestions.length > 0 && (
+  <div
+    className="absolute bottom-14 left-0 right-0 bg-[#2d2f35] border border-[#3f4144]
+               rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto"
+  >
+    {logic.suggestions.map((sug) => (
+      <div
+        key={sug.id}
+        onClick={() => logic.handleSuggestionClick(sug)}
+        className="px-3 py-2 text-sm text-gray-200 cursor-pointer hover:bg-[#3a3c43]"
+      >
+        <div className="font-medium">{sug.prompt}</div>
+        {sug.description && (
+          <div className="text-xs text-gray-400">{sug.description}</div>
+        )}
+      </div>
+    ))}
+  </div>
+)}
 
       </div>
 

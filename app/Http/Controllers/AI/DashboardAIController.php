@@ -42,50 +42,142 @@ class DashboardAIController extends Controller
             ->values()
             ->toArray();
 
-        // ============================
-        // 2️⃣ Buscar entrenamiento
-        // ============================
-        $training = null;
-
-
-
-// 🧠 Buscar por ID o texto
-if ($request->has('training_id')) {
-    $training = DB::table('aitrainings')
-        ->where('id', $request->training_id)
-        ->where('is_active', 1)
-        ->first();
-} elseif ($userMessage) {
-    $normalized = mb_strtolower($userMessage);
-    $training = DB::table('aitrainings')
-        ->where('is_active', 1)
-        ->whereRaw('LOWER(prompt) LIKE ?', ['%' . $normalized . '%'])
-        ->first();
-}
-
-// 🚦Parametro opcional para forzar nueva respuesta
+    // ============================================================
+// ⚡ 1️⃣ Reejecutar SQL REAL si existe training y NO se forza
+// ============================================================
+// ============================================================
+// 🔍 Buscar entrenamiento si viene training_id
+// ============================================================
+$training = null;
 $forceNew = filter_var($request->get('force_new', false), FILTER_VALIDATE_BOOLEAN);
 
-// ⚡ 1️⃣ Si el training tiene cache y no se fuerza nueva ejecución
-if ($training && !$forceNew && !empty($training->cached_response)) {
-    Log::info("♻️ [AI CACHE] Respuesta recuperada del cache local", [
-        'training_id' => $training->id,
-        'topic' => $training->topic
-    ]);
+if ($request->has('training_id')) {
+    $training = DB::table('aitrainings')
+        ->where('id', $request->get('training_id'))
+        ->first();
 
-    $cached = json_decode($training->cached_response, true);
-
-    return response()->json([
-        'topic'        => $training->topic,
-        'prompt'       => $training->prompt,
-        'component'    => $training->component ?? null,
-        'result'       => $cached['result'] ?? null,
-        'explanation'  => $cached['explanation'] ?? '💾 Respuesta recuperada del cache local.',
-        'excel_path'   => $cached['excel'] ?? null,
-        'voice_url'    => $cached['voice'] ?? null,
-        'message'      => '🧠 Entrenamiento cargado desde cache local.',
-    ]);
+    if (!$training) {
+        Log::warning("⚠️ Training ID no encontrado", [
+            'training_id' => $request->get('training_id')
+        ]);
+    }
 }
+
+if ($training && !$forceNew) {
+
+    Log::info("♻️ [AI REALTIME] Ejecutando SQL validada sin explicación IA", [
+        'training_id' => $training->id,
+    ]);
+
+    // Buscar SQL validada
+    $sqlTraining = DB::table('sqltrainings')
+        ->where('id', $training->sql_training_id)
+        ->first();
+
+    if (!$sqlTraining || empty($sqlTraining->sql_validated)) {
+        return response()->json([
+            'message' => '⚠️ El entrenamiento no tiene SQL validada.'
+        ], 400);
+    }
+
+    // ============================================================
+    // 🛠 Normalizar SQL a string
+    // ============================================================
+    $sql = $sqlTraining->sql_validated;
+
+    if ($sql instanceof \Illuminate\Database\Query\Expression) {
+        $sql = $sql->getValue(DB::connection()->getQueryGrammar());
+    }
+    if (is_object($sql)) $sql = json_encode($sql, JSON_UNESCAPED_UNICODE);
+    if (is_array($sql))  $sql = json_encode($sql, JSON_UNESCAPED_UNICODE);
+
+    $sql = trim((string) $sql);
+
+    if (!preg_match('/^\s*select\s+/i', $sql)) {
+        return response()->json([
+            'message' => '⚠️ SQL no válida, debe comenzar con SELECT.',
+            'sql'     => $sql
+        ], 400);
+    }
+
+    // ============================================================
+    // ▶ Ejecutar SQL REAL
+    // ============================================================
+    try {
+     $result = DB::select($sql);
+
+// 🔧 Convertir cada stdClass en array asociativo
+$result = array_map(fn($r) => (array)$r, $result);
+
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'message' => '⚠️ Error al ejecutar SQL.',
+            'error'   => $e->getMessage(),
+            'sql'     => $sql
+        ], 500);
+    }
+
+    // ============================================================
+    // 💾 Guardar outputs actualizados
+    // ============================================================
+    DB::table('sqltrainings')
+        ->where('id', $sqlTraining->id)
+        ->update([
+            'last_test_output' => json_encode($result, JSON_UNESCAPED_UNICODE),
+            'last_executed_at' => now(),
+            'updated_at'       => now(),
+        ]);
+
+    // ============================================================
+    // 💾 Actualizar last_run_at del entrenamiento
+    // ============================================================
+    DB::table('aitrainings')
+        ->where('id', $training->id)
+        ->update([
+            'last_run_at' => now(),
+            'updated_at'  => now(),
+        ]);
+
+    // ============================================================
+    // 🎁 RESPUESTA ESPECIAL PARA EL FRONTEND
+    // ============================================================
+    // ============================================================
+// 📊 Generar Excel actualizado directamente desde $result
+// ============================================================
+$filename = "training_{$training->id}_" . now()->format('Ymd_His') . ".xlsx";
+$relativePath = "sql_results/{$filename}";
+
+\Excel::store(
+    new \App\Exports\ArrayExport($result),
+    $relativePath,
+    'public'
+);
+
+$excelDownloadUrl = asset("storage/{$relativePath}");
+
+// ============================================================
+// 🎁 respuesta final
+// ============================================================
+return response()->json([
+    'topic' => $training->topic,
+    'prompt' => $training->prompt,
+    'component' => $training->component,
+    'result' => $result,
+    'message' => '🔄 Datos actualizados.',
+    'training_id' => $training->id,
+
+    // Excel
+    'excel_download_url' => url("/api/exports/dynamic-excel?training_id={$training->id}"),
+
+    // Gráficos
+    'chart_builder_enabled' => true,
+    'chart_types' => ['bar','line','pie','area'],
+]);
+
+
+}
+ 
 
 
 
