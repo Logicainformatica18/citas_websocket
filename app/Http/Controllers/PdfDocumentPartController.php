@@ -6,64 +6,76 @@ use Illuminate\Http\Request;
 use App\Models\PdfDocument;
 use App\Models\PdfDocumentPart;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+
+
 
 class PdfDocumentPartController extends Controller
 {
     /*******************************************************************
      * 📌 1) SUBIR UNA PARTE (PDF de 20 páginas)
      *******************************************************************/
-    public function store(Request $request, $pdfId)
-    {
-        $request->validate([
-            'part_pdf' => 'required|mimes:pdf|max:50000',
-        ]);
+public function store(Request $request, $pdfId)
+{
 
-        $pdf = PdfDocument::findOrFail($pdfId);
+    $request->validate([
+        'part_pdf' => 'required|mimes:pdf|max:500000',
+    ]);
 
-        // Guardar archivo en storage/app/public/pdf_parts/{id}/
-        $path = $request->file('part_pdf')->store("pdf_parts/{$pdfId}", 'public');
+    $pdf = PdfDocument::findOrFail($pdfId);
 
-        // Determinar número de parte
-        $nextNumber = $pdf->parts()->count() + 1;
+    // Guardar archivo
+    $path = $request->file('part_pdf')->store("pdf_parts/{$pdfId}", 'public');
 
-        // Crear part
-        $part = PdfDocumentPart::create([
-            'pdf_id'      => $pdf->id,
-            'part_number' => $nextNumber,
-            'file_path'   => $path,
-            'processed'   => false,
-        ]);
+    // Siguiente número
+    $nextNumber = $pdf->parts()->count() + 1;
 
-        // Lanzar OCR con Job ADAPTADO (PdfPartProcessJob)
-        \App\Jobs\PdfPartProcessJob::dispatch($part->id)
-            ->onQueue('default');
+    $part = PdfDocumentPart::create([
+        'pdf_id'      => $pdf->id,
+        'part_number' => $nextNumber,
+        'file_path'   => $path,
+        'processed'   => false,
+    ]);
 
-        return back()->with('success', "Parte {$nextNumber} cargada y procesándose.");
-    }
+    \App\Jobs\PdfPartProcessJob::dispatch($part->id);
+
+    // 🔥 RESPONDER JSON (esto evita el 422)
+    return response()->json([
+        'message' => "Parte {$nextNumber} cargada.",
+        'part_id' => $part->id,
+        'file'    => $path,
+    ], 201);
+}
+
 
     /*******************************************************************
      * 👁 2) VER DETALLE DE UNA PARTE
      *******************************************************************/
-    public function show($pdfId, $partId)
-    {
-        $pdf = PdfDocument::findOrFail($pdfId);
+public function show($pdfId, $partId)
+{
+    $pdf = PdfDocument::findOrFail($pdfId);
 
-        $part = PdfDocumentPart::where('pdf_id', $pdfId)
-            ->where('id', $partId)
-            ->with([
-                'pages.tables',
-                'pages.graphs',
-                'summary'
-            ])
-            ->firstOrFail();
+    $part = PdfDocumentPart::where('pdf_id', $pdfId)
+        ->where('id', $partId)
+        ->with([
+            'pages.tables',
+            'pages.graphs',
+            'summary'
+        ])
+        ->firstOrFail();
 
-        return inertia('pdf/Part', [
-            'pdf'     => $pdf,
-            'part'    => $part,
-            'pages'   => $part->pages,
-            'summary' => $part->summary,
-        ]);
-    }
+    // 🔥 Asegurar que el frontend reciba la URL pública del PDF (para "Ver PDF")
+    $part->file_url = \Storage::disk('public')->url($part->file_path);
+
+    return inertia('pdf/Part', [
+        'pdf'     => $pdf,
+        'part'    => $part,
+        'pages'   => $part->pages,
+        'summary' => $part->summary,
+        'file_url' => $part->file_url, // opcional, por si quieres usarlo directamente
+    ]);
+}
+
 
     /*******************************************************************
      * 🔁 3) REPROCESAR UNA PARTE (volver a lanzar el OCR)
@@ -85,24 +97,31 @@ class PdfDocumentPartController extends Controller
     /*******************************************************************
      * ❌ 4) ELIMINAR UNA PARTE
      *******************************************************************/
-    public function destroy($pdfId, $partId)
-    {
-        $part = PdfDocumentPart::where('pdf_id', $pdfId)
-            ->where('id', $partId)
-            ->firstOrFail();
+public function destroy($pdfId, $partId)
+{
+    $part = PdfDocumentPart::where('pdf_id', $pdfId)
+        ->where('id', $partId)
+        ->firstOrFail();
 
-        // borrar PDF físico
-        if (Storage::disk('public')->exists($part->file_path)) {
-            Storage::disk('public')->delete($part->file_path);
-        }
-
-        // borrar resultados
-        $part->pages()->delete();
-        $part->summary()->delete();
-
-        // borrar BD
-        $part->delete();
-
-        return back()->with('success', "Parte eliminada correctamente.");
+    // borrar PDF físico
+    if (Storage::disk('public')->exists($part->file_path)) {
+        Storage::disk('public')->delete($part->file_path);
     }
+
+    // borrar OCR, páginas, resumen
+    $part->pages()->delete();
+    $part->summary()->delete();
+
+    // borrar BD
+    $part->delete();
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => 'Parte eliminada correctamente.',
+        'deleted_part_id' => $partId
+    ]);
+}
+
+
+
 }

@@ -29,6 +29,8 @@ use App\Http\Controllers\TechnologyController;
 use App\Http\Controllers\MethodologyController;
 use App\Http\Controllers\PdfDocumentController;
 use App\Http\Controllers\PdfDocumentPartController;
+use App\Http\Controllers\ScrapingSourceController;
+
 
 
 Route::prefix('auth/saml2')->group(function () {
@@ -288,68 +290,40 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 | 📄 PDF DOCUMENTS (AGRUPADO CORRECTAMENTE)
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| 📄 PDF DOCUMENTS (MOVER AL INICIO PARA EVITAR COLISIONES)
+|--------------------------------------------------------------------------
+*/
 Route::prefix('pdf')->name('pdf.')->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | 🧩 PARTES DEL PDF  (DEBEN IR PRIMERO - RUTAS MÁS ESPECÍFICAS)
-    |--------------------------------------------------------------------------
-    */
     Route::prefix('{pdf}/parts')->name('parts.')->group(function () {
-
-        Route::post('/', [PdfDocumentPartController::class, 'store'])
-            ->name('store');
-
-        Route::get('/{part}', [PdfDocumentPartController::class, 'show'])
-            ->name('show');
-
-        Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])
-            ->name('reprocess');
-
-        Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])
-            ->name('destroy');
+        Route::post('', [PdfDocumentPartController::class, 'store'])->name('store');
+        Route::get('/{part}', [PdfDocumentPartController::class, 'show'])->name('show');
+        Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])->name('reprocess');
+        Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])->name('destroy');
     });
 
+    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])->name('uploadPart');
+    Route::get('/{id}/part/{partId}', [PdfDocumentController::class, 'showPart'])->name('showPart');
 
-    /*
-    |--------------------------------------------------------------------------
-    | 📥 SUBIR Y VER PARTES DEL DOCUMENTO PRINCIPAL
-    |--------------------------------------------------------------------------
-    */
-    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])
-        ->name('uploadPart');
+    Route::put('/{id}', [PdfDocumentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [PdfDocumentController::class, 'destroy'])->name('destroy');
 
-    Route::get('/{id}/part/{partId}', [PdfDocumentController::class, 'showPart'])
-        ->name('showPart');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ✏️ UPDATE Y DELETE DEL PDF (PRIMERO ANTES DEL GET /{id})
-    |--------------------------------------------------------------------------
-    */
-    Route::put('/{id}', [PdfDocumentController::class, 'update'])
-        ->name('update');
-
-    Route::delete('/{id}', [PdfDocumentController::class, 'destroy'])
-        ->name('destroy');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 📃 Rutas generales (index, store, show)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/', [PdfDocumentController::class, 'index'])
-        ->name('index');
-
-    Route::post('/', [PdfDocumentController::class, 'store'])
-        ->name('store');
-
-    Route::get('/{id}', [PdfDocumentController::class, 'show'])
-        ->name('show');
+    Route::get('/', [PdfDocumentController::class, 'index'])->name('index');
+    Route::post('/', [PdfDocumentController::class, 'store'])->name('store');
+    Route::get('/{id}', [PdfDocumentController::class, 'show'])->name('show');
 });
 
+
+
+Route::prefix('scraping-sources')->group(function () {
+    Route::get('/', [ScrapingSourceController::class, 'index'])->name('scraping_sources.index');
+    Route::get('/fetch', [ScrapingSourceController::class, 'fetch'])->name('scraping_sources.fetch');
+    Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
+    Route::put('/{id}', [ScrapingSourceController::class, 'update'])->name('scraping_sources.update');
+    Route::delete('/{id}', [ScrapingSourceController::class, 'destroy'])->name('scraping_sources.destroy');
+});
 
 });
 

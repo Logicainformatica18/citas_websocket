@@ -181,6 +181,14 @@ export function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+<SidebarMenuItem>
+    <SidebarMenuButton asChild>
+        <Link href="/scraping-sources">
+            <Database className="w-4 h-4" />
+            Fuentes Scraping
+        </Link>
+    </SidebarMenuButton>
+</SidebarMenuItem>
 
                     </SidebarMenu>
                 </div>

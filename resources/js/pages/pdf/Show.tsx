@@ -1,6 +1,17 @@
 import React, { useState } from "react";
 import { Link } from "@inertiajs/react";
-import { Layers, ChevronLeft, PlusCircle, Hourglass, CheckCircle, Eye } from "lucide-react";
+import {
+    Layers,
+    ChevronLeft,
+    PlusCircle,
+    Hourglass,
+    CheckCircle,
+    Eye,
+    Trash2,
+    FileText
+} from "lucide-react";
+import axios from "axios";
+import Swal from "sweetalert2";
 import UploadPartsModal from "./Components/UploadPartsModal";
 
 interface Props {
@@ -24,6 +35,25 @@ export default function Show({ pdf }: Props) {
             icon: <Hourglass className="w-3 h-3" />,
             color: "text-yellow-600",
         };
+    };
+
+    // 🗑 Eliminar parte
+    const deletePart = async (partId: number) => {
+        const confirm = await Swal.fire({
+            title: "¿Eliminar parte?",
+            text: "Se eliminará el archivo y todos los datos procesados.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Sí, eliminar",
+            cancelButtonText: "Cancelar",
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        await axios.delete(`/pdf/${pdf.id}/parts/${partId}`);
+
+        Swal.fire("Eliminado", "La parte fue eliminada correctamente.", "success");
+        location.reload();
     };
 
     return (
@@ -111,9 +141,12 @@ export default function Show({ pdf }: Props) {
                                 part.graphs_done &&
                                 part.summary_done;
 
-                            // Porcentaje real desde backend
                             const percent = Math.round((part.processed ?? 0) * 100);
-                            const statusLabel = part.step ?? "processing";
+
+                            // 🔥 URL del archivo
+                            const fileUrl = part.file_url
+                                ? part.file_url
+                                : `/storage/${part.file_path}`;
 
                             return (
                                 <tr
@@ -124,13 +157,11 @@ export default function Show({ pdf }: Props) {
                                         Parte {part.part_number}
                                     </td>
 
-                                    {/* 🔁 ESTADO POR SECCIÓN */}
+                                    {/* 🔁 ESTADO */}
                                     <td className="px-4 py-3">
                                         <div className="flex flex-col gap-1 text-xs">
-
-                                            {/* Estado general */}
                                             <div className="font-semibold text-blue-600 dark:text-blue-400">
-                                                {percent}% — {statusLabel}
+                                                {percent}% — {part.step ?? "processing"}
                                             </div>
 
                                             <div className={`flex items-center gap-1 ${ocr.color}`}>
@@ -148,26 +179,44 @@ export default function Show({ pdf }: Props) {
                                             <div className={`flex items-center gap-1 ${summary.color}`}>
                                                 {summary.icon} Resumen: {summary.label}
                                             </div>
-
                                         </div>
                                     </td>
 
                                     {/* 🔗 ACCIONES */}
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 text-right flex justify-end gap-2">
+
+                                        {/* 📄 Ver PDF */}
+                                        <a
+                                            href={fileUrl}
+                                            target="_blank"
+                                            className="px-3 py-1.5 rounded-lg inline-flex items-center gap-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 shadow text-xs"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            Ver PDF
+                                        </a>
+
+                                        {/* 👁 Ver detalle */}
                                         <Link
                                             href={route("pdf.parts.show", { pdf: pdf.id, part: part.id })}
-                                            className={`
-                                                px-3 py-1.5 rounded-lg inline-flex items-center gap-2 shadow text-xs
+                                            className={`px-3 py-1.5 rounded-lg inline-flex items-center gap-2 shadow text-xs
                                                 ${
                                                     allComplete
                                                         ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                                        : "bg-gray-300 text-gray-700 cursor-pointer hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200"
-                                                }
-                                            `}
+                                                        : "bg-gray-300 text-gray-700 hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200"
+                                                }`}
                                         >
                                             <Eye className="w-4 h-4" />
                                             Ver detalle
                                         </Link>
+
+                                        {/* ❌ Eliminar */}
+                                        <button
+                                            onClick={() => deletePart(part.id)}
+                                            className="px-3 py-1.5 rounded-lg inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white shadow text-xs"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            Eliminar
+                                        </button>
                                     </td>
                                 </tr>
                             );
