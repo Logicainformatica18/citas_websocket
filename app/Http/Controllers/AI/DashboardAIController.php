@@ -177,7 +177,7 @@ return response()->json([
 
 
 }
- 
+
 
 
 
@@ -551,7 +551,7 @@ public function transcribe(Request $request)
 // ==========================================================
 public function speak(Request $request)
 {
-    $text = $request->input('text', 'Hola Anthony, soy VERA respondiendo con voz.');
+    $text = $request->input('text', 'Hola , soy VERA respondiendo con voz.');
 
     try {
         $response = Http::withToken(env('OPENAI_API_KEY'))->post(

@@ -25,141 +25,158 @@ class ProcessScrapingSourceJob implements ShouldQueue
 
     public function handle()
     {
-        Log::info("🔥 INICIANDO ProcessScrapingSourceJob para ID {$this->sourceId}");
+        Log::info("🔥 INICIANDO JOB ProcessScrapingSourceJob para ID {$this->sourceId}");
 
         $source = ScrapingSource::find($this->sourceId);
 
         if (!$source) {
-            Log::error("❌ ScrapingSource {$this->sourceId} no encontrado.");
+            Log::warning("⚠️ ScrapingSource {$this->sourceId} no encontrado.");
             return;
         }
 
+        Log::info("🚀 Procesando scraping para ID {$source->id}");
+
         $source->update([
-            'scrape_status'  => 'processing',
+            'scrape_status'  => 'Procesando...',
             'scrape_message' => 'Procesando…',
             'scrape_result'  => null,
         ]);
 
         try {
 
+            /* ============================================================
+               VALIDACIONES
+            ============================================================ */
             if (!$source->url || !$source->web_prompt) {
-                Log::error("❌ Falta URL o Prompt", [
+                Log::error("❌ URL o prompt no definidos", [
                     'url' => $source->url,
-                    'prompt' => $source->web_prompt,
+                    'prompt' => $source->web_prompt
                 ]);
-                throw new Exception("La fuente no tiene URL o prompt configurado.");
+                throw new Exception("URL o prompt no definido.");
             }
 
-            Log::info("🌐 URL: {$source->url}");
-            Log::info("🔎 Web Prompt recibido: {$source->web_prompt}");
+            Log::info("🌐 URL objetivo: {$source->url}");
+            Log::info("🧠 Prompt del usuario: {$source->web_prompt}");
 
             /* ============================================================
-                1) INTENTAR DESCARGAR HTML
+               1) INTENTAR LEER HTML
             ============================================================ */
             $html = null;
 
             try {
                 $html = Http::timeout(20)->get($source->url)->body();
-                Log::info("📥 HTML descargado (".strlen($html)." bytes)");
+                Log::info("📥 HTML obtenido correctamente (".strlen($html)." caracteres)");
             } catch (\Throwable $e) {
-                Log::warning("⚠️ No se pudo descargar HTML: ".$e->getMessage());
+                Log::warning("⚠️ No se pudo obtener HTML. GPT usará solo la URL.");
             }
 
             /* ============================================================
-                2) CREAR PROMPT FINAL
+               2) CONSTRUIR EL PROMPT FINAL
             ============================================================ */
-            $finalPrompt = "
-Analiza la siguiente URL:
+            $fullPrompt = "
+Realiza scraping inteligente de la siguiente URL:
 
 {$source->url}
 
-Usa EXACTAMENTE este prompt del usuario:
+Usa exactamente estas instrucciones del usuario:
 
 {$source->web_prompt}
 
-Contenido HTML descargado (si existe):
+Si está disponible, se incluye el HTML extraído:
+
 " . ($html ?: '[NO HTML DISPONIBLE]') . "
 
 Devuelve SOLO JSON estricto.
 ";
 
-            Log::info("📝 Prompt final listo.");
+            Log::info("📝 Prompt final preparado para GPT.");
 
             /* ============================================================
-                3) LLAMAR OPENAI — VERSION ROBUSTA (extraída del job del sílabo)
+               3) LLAMAR AL MODELO OPENAI
             ============================================================ */
 
+            Log::info("🤖 Enviando solicitud a OpenAI…");
+
             $response = Http::withToken(env('OPENAI_API_KEY'))
-                ->post("https://api.openai.com/v1/chat/completions", [
+                ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'Eres un scraper experto. Devuelve JSON válido.'],
-                        ['role' => 'user', 'content' => $finalPrompt],
+                        [
+                            'role' => 'system',
+                            'content' => 'Eres un scraper inteligente. Devuelve SOLO JSON válido.'
+                        ],
+                        [
+                            'role' => 'user',
+                            'content' => $fullPrompt
+                        ],
                     ],
                     'temperature' => 0.1,
                     'response_format' => ['type' => 'json_object'],
                 ]);
 
-            Log::info("📡 Respuesta OpenAI HTTP ".$response->status());
+            Log::info("📡 Respuesta recibida de OpenAI", [
+                'status' => $response->status(),
+            ]);
 
-            // 1️⃣ Error HTTP
+            // ⚠️ 1) ERROR HTTP
             if ($response->failed()) {
-                Log::error("❌ Error HTTP OpenAI", [
+                Log::error("❌ Error HTTP en respuesta OpenAI", [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'body'   => $response->body(),
                 ]);
-                throw new Exception("OpenAI devolvió error HTTP ".$response->status());
+                throw new Exception("OpenAI devolvió un error HTTP: {$response->status()}");
             }
 
-            // 2️⃣ Validar existencia de choices
-            $json = $response->json();
+            // ⚠️ 2) RESPUESTA SIN CHOICES (CASO MÁS COMÚN)
+            $body = $response->json();
 
-            if (!isset($json['choices'][0]['message']['content'])) {
-                Log::error("❌ OpenAI sin 'choices'", [
-                    'json' => $json
+            if (!isset($body['choices'][0]['message']['content'])) {
+                Log::error("❌ OpenAI no devolvió 'choices'", [
+                    'response' => $body
                 ]);
-                throw new Exception("OpenAI devolvió respuesta inválida (sin choices)");
+                throw new Exception("OpenAI devolvió una respuesta inválida (sin choices)");
             }
 
-            $raw = $json['choices'][0]['message']['content'];
+            $raw = $body['choices'][0]['message']['content'];
 
-            Log::info("🔥 RAW:", ['raw' => $raw]);
+            Log::info("🔥 RAW GPT RESPONSE:", ['raw' => $raw]);
 
             /* ============================================================
-                4) LIMPIEZA DE JSON
+               4) LIMPIEZA DEL JSON
             ============================================================ */
             $clean = trim($raw);
             $clean = preg_replace('/^```(json)?/i', '', $clean);
             $clean = preg_replace('/```$/', '', $clean);
             $clean = trim($clean);
 
-            Log::info("🧽 CLEAN JSON:", ['clean' => $clean]);
+            Log::info("🧽 JSON LIMPIO:", ['clean' => $clean]);
 
             $decoded = json_decode($clean, true);
 
             if (!$decoded) {
                 Log::error("❌ JSON inválido: ".json_last_error_msg());
-                throw new Exception("JSON inválido: ".$clean);
+                throw new Exception("GPT no devolvió JSON válido: ".$clean);
             }
 
-            Log::info("✅ JSON OK. Keys: ", array_keys($decoded));
+            Log::info("✅ JSON decodeado correctamente", ['keys' => array_keys($decoded)]);
 
             /* ============================================================
-                5) GUARDAR RESULTADO
+               5) GUARDAR RESULTADOS
             ============================================================ */
 
             $source->update([
-                'scrape_status'   => 'done',
+                'scrape_status'   => 'Procesado',
                 'scrape_message'  => 'OK',
                 'scrape_result'   => json_encode($decoded, JSON_PRETTY_PRINT),
-                'scraped_at'      => now(),
+         'last_scraped_at' => now(),
+
             ]);
 
-            Log::info("🏁 Scraping completo para ID {$source->id}");
+            Log::info("🏁 Scraping completado exitosamente para ID {$source->id}");
 
         } catch (Exception $e) {
 
-            Log::error("❌ ERROR SCRAPING ID {$source->id}: ".$e->getMessage(), [
+            Log::error("❌ ERROR en scraping {$source->id}: ".$e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 

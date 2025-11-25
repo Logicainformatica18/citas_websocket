@@ -1,44 +1,149 @@
-import React, { useState } from "react";
-import { Head, router } from "@inertiajs/react";
+import { useState } from "react";
+import AppLayout from "@/layouts/app-layout";
+import { BreadcrumbItem } from "@/types";
 import axios from "axios";
-import { PlusCircle, Pencil, Trash2, Globe, FileText, Database } from "lucide-react";
-import CreateModal from "./Components/CreateModal";
-import EditModal from "./Components/EditModal";
 
-export default function Index({ sources, filters }: any) {
-    const [openCreate, setOpenCreate] = useState(false);
-    const [editData, setEditData] = useState<any | null>(null);
+import {
+    PlusCircle,
+    Pencil,
+    Trash2,
+    Database,
+    CheckCircle,
+    XCircle,
+} from "lucide-react";
+
+import { toast } from "sonner";
+import SourceModal from "./Components/SourceModal";
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: "Scraping", href: "/scraping-sources" },
+];
+
+type Source = {
+    id: number;
+    name: string;
+    url: string;
+    frequency: string | null;
+    pdf_path?: string | null;
+    web_prompt?: string | null;
+    api_url?: string | null;
+    api_key?: string | null;
+    excel_path?: string | null;
+};
+
+type Pagination<T> = {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    links: any[];
+};
+
+export default function ScrapingSourcesIndex({
+    sources,
+    filters,
+}: {
+    sources: Pagination<Source>;
+    filters: any;
+}) {
+
     const [search, setSearch] = useState(filters?.search || "");
+    const [modalData, setModalData] = useState<Source | null>(null);
 
-    const handleSearch = (e: React.FormEvent) => {
+    const [items, setItems] = useState<Source[]>(sources.data);
+    const [pagination, setPagination] = useState(sources);
+
+    /* =====================================================
+        BUSCADOR
+    ===================================================== */
+    const handleSearch = (e: any) => {
         e.preventDefault();
-        router.get("/scraping-sources", { search }, { preserveState: true });
+        axios
+            .get(`/scraping-sources/fetch?search=${search}`)
+            .then((r) => {
+                setItems(r.data.sources.data);
+                setPagination(r.data.sources);
+            })
+            .catch(() => toast.error("Error buscando"));
     };
 
-    const toggleField = async (id: number, field: string, value: boolean) => {
-        await axios.put(`/scraping-sources/${id}`, { [field]: !value });
-    };
-
+    /* =====================================================
+        DELETE — estilo USERS (axios)
+    ===================================================== */
     const deleteSource = async (id: number) => {
         if (!confirm("¿Eliminar este portal definitivamente?")) return;
 
-        await axios.delete(`/scraping-sources/${id}`);
-        router.reload();
+        try {
+            await axios.delete(`/scraping-sources/${id}`);
+            setItems((prev) => prev.filter((x) => x.id !== id));
+            toast.success("Fuente eliminada");
+        } catch {
+            toast.error("No se pudo eliminar");
+        }
     };
 
+    /* =====================================================
+        PAGINACIÓN AJAX
+    ===================================================== */
+    const fetchPage = async (url: string) => {
+        if (!url) return;
+
+        const query = url.includes("?") ? url.split("?")[1] : "";
+
+        try {
+            const res = await axios.get(`/scraping-sources/fetch?${query}`);
+            setItems(res.data.sources.data);
+            setPagination(res.data.sources);
+        } catch {
+            toast.error("Error cargando página");
+        }
+    };
+
+    /* =====================================================
+        BADGES ✔✖
+    ===================================================== */
+    const statusBadge = (exists: boolean) =>
+        exists ? (
+            <span className="flex items-center justify-center text-green-600">
+                <CheckCircle size={18} />
+            </span>
+        ) : (
+            <span className="flex items-center justify-center text-red-500">
+                <XCircle size={18} />
+            </span>
+        );
+
+    const isPossible = (item: Source) =>
+        !!item.pdf_path ||
+        !!item.web_prompt ||
+        !!item.api_url ||
+        !!item.api_key ||
+        !!item.excel_path;
+
+    /* =====================================================
+        RENDER
+    ===================================================== */
     return (
-        <>
-            <Head title="Fuentes de Scraping" />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <div className="p-8">
 
-            <div className="p-8 max-w-6xl mx-auto">
-                <h1 className="text-3xl font-bold mb-6">Fuentes de Scraping</h1>
+                {/* HEADER */}
+                <div className="flex justify-between mb-6">
+                    <h1 className="text-3xl font-semibold flex items-center gap-2">
+                        <Database className="w-7 h-7 text-blue-600" />
+                        TENDENCIAS TECNOLÓGICAS
+                    </h1>
+                </div>
 
-                {/* 🔎 SEARCH */}
-                <form onSubmit={handleSearch} className="mb-6 flex gap-3">
+                {/* BUSCADOR */}
+                <form
+                    onSubmit={handleSearch}
+                   className="flex gap-3 mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow"
+
+                >
                     <input
                         type="text"
                         placeholder="Buscar portal..."
-                        className="rounded-lg border-gray-300 w-64"
+                        className="rounded-md border w-64 px-2 py-1"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
@@ -49,81 +154,81 @@ export default function Index({ sources, filters }: any) {
 
                     <button
                         type="button"
-                        onClick={() => setOpenCreate(true)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg inline-flex items-center gap-2"
+                        onClick={() => setModalData({} as Source)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"
                     >
                         <PlusCircle className="w-5 h-5" />
                         Nuevo
                     </button>
                 </form>
 
-                {/* 📋 TABLE */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                {/* TABLA */}
+              <div className="overflow-x-auto rounded-xl shadow border bg-white dark:bg-gray-900 dark:border-gray-700">
+
+                    <table className="min-w-full divide-y text-sm">
+          <thead className="bg-gray-100 dark:bg-gray-700 uppercase text-xs text-gray-800 dark:text-gray-100">
+
                             <tr>
-                                <th className="px-4 py-3">Portal</th>
+                                <th className="px-4 py-3 text-left">Portal</th>
                                 <th className="px-4 py-3">Frecuencia</th>
-                                <th className="px-4 py-3">PDF</th>
-                                <th className="px-4 py-3">Web</th>
-                                <th className="px-4 py-3">API</th>
-                                <th className="px-4 py-3">Scrapable</th>
+                                <th className="px-4 py-3 text-center">PDF</th>
+                                <th className="px-4 py-3 text-center">Web</th>
+                                <th className="px-4 py-3 text-center">API</th>
+                                <th className="px-4 py-3 text-center">Excel</th>
+                                <th className="px-4 py-3 text-center">¿Posible?</th>
                                 <th className="px-4 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
+
                         <tbody>
-                            {sources.data.map((item: any) => (
-                                <tr key={item.id} className="border-t dark:border-gray-700">
-                                    <td className="px-4 py-3">
+                            {items.map((item) => (
+                             <tr
+  key={item.id}
+  className="hover:bg-gray-200 dark:hover:bg-gray-800 transition text-gray-900 dark:text-gray-100"
+>
+
+                                   <td className="px-4 py-3 text-gray-900 dark:text-gray-100">
+
                                         <div className="font-semibold">{item.name}</div>
-                                        <a
-                                            href={item.url}
-                                            target="_blank"
-                                            className="text-blue-500 text-xs hover:underline"
-                                        >
-                                            {item.url}
-                                        </a>
-                                    </td>
-
-                                    <td className="px-4 py-3">{item.frequency ?? "-"}</td>
-
-                                    {/* SWITCHES */}
-                                    <td className="px-4 py-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={item.has_pdf}
-                                            onChange={() => toggleField(item.id, "has_pdf", item.has_pdf)}
-                                        />
+                                        {item.url && (
+                                            <a
+                                                href={item.url}
+                                                target="_blank"
+                                                className="text-blue-500 text-xs underline"
+                                            >
+                                                {item.url}
+                                            </a>
+                                        )}
                                     </td>
 
                                     <td className="px-4 py-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={item.web_only}
-                                            onChange={() => toggleField(item.id, "web_only", item.web_only)}
-                                        />
+                                        {item.frequency ?? "-"}
                                     </td>
 
-                                    <td className="px-4 py-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={item.has_api}
-                                            onChange={() => toggleField(item.id, "has_api", item.has_api)}
-                                        />
+                                    <td className="px-4 py-3 text-center">
+                                        {statusBadge(!!item.pdf_path)}
                                     </td>
 
-                                    <td className="px-4 py-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={item.scrapable}
-                                            onChange={() => toggleField(item.id, "scrapable", item.scrapable)}
-                                        />
+                                    <td className="px-4 py-3 text-center">
+                                        {statusBadge(!!item.web_prompt)}
                                     </td>
 
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 text-center">
+                                        {statusBadge(!!item.api_url || !!item.api_key)}
+                                    </td>
+
+                                    <td className="px-4 py-3 text-center">
+                                        {statusBadge(!!item.excel_path)}
+                                    </td>
+
+                                    <td className="px-4 py-3 text-center">
+                                        {statusBadge(isPossible(item))}
+                                    </td>
+
+                                    <td className="px-4 py-3 text-right flex justify-end gap-3">
                                         <button
-                                            onClick={() => setEditData(item)}
-                                            className="text-blue-600 hover:text-blue-800 mr-3"
+                                            onClick={() => setModalData(item)}
+                                            className="text-blue-600 hover:text-blue-800"
                                         >
                                             <Pencil className="w-5 h-5" />
                                         </button>
@@ -137,36 +242,56 @@ export default function Index({ sources, filters }: any) {
                                     </td>
                                 </tr>
                             ))}
+
+                            {items.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-4 py-6 text-center">
+                                        No se encontraron resultados.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
-
-                    {/* PAGINATION */}
-                    <div className="p-4 flex justify-between text-sm text-gray-600">
-                        <span>
-                            Página {sources.current_page} de {sources.last_page}
-                        </span>
-
-                        <div className="flex gap-2">
-                            {sources.links.map((link: any, i: number) => (
-                                <button
-                                    key={i}
-                                    disabled={!link.url}
-                                    onClick={() => router.get(link.url)}
-                                    className={`px-3 py-1 rounded ${
-                                        link.active ? "bg-blue-600 text-white" : "bg-gray-200"
-                                    }`}
-                                >
-                                    {link.label.replace("&laquo;", "«").replace("&raquo;", "»")}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
                 </div>
-            </div>
 
-            {/* MODALES */}
-            {openCreate && <CreateModal onClose={() => setOpenCreate(false)} />}
-            {editData && <EditModal data={editData} onClose={() => setEditData(null)} />}
-        </>
+                {/* PAGINACIÓN */}
+                <div className="flex justify-center mt-6 gap-2">
+                    {pagination.links.map((link, i) => (
+                        <button
+                            key={i}
+                            disabled={!link.url}
+                            onClick={() => fetchPage(link.url)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                                link.active
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100"
+                            }`}
+                        >
+                            {link.label.replace("&laquo;", "«").replace("&raquo;", "»")}
+                        </button>
+                    ))}
+                </div>
+
+                {/* MODAL */}
+                {modalData && (
+                    <SourceModal
+                        data={modalData}
+                        onClose={() => setModalData(null)}
+                        onSaved={(saved) => {
+                            if (!saved) return;
+
+                            setItems((prev) => {
+                                const exists = prev.find((s) => s.id === saved.id);
+                                return exists
+                                    ? prev.map((s) => (s.id === saved.id ? saved : s))
+                                    : [saved, ...prev];
+                            });
+
+                          //  toast.success("Fuente guardada");
+                        }}
+                    />
+                )}
+            </div>
+        </AppLayout>
     );
 }

@@ -319,10 +319,15 @@ Route::prefix('pdf')->name('pdf.')->group(function () {
 
 Route::prefix('scraping-sources')->group(function () {
     Route::get('/', [ScrapingSourceController::class, 'index'])->name('scraping_sources.index');
+    Route::get('/{id}', [ScrapingSourceController::class, 'show']);
+
     Route::get('/fetch', [ScrapingSourceController::class, 'fetch'])->name('scraping_sources.fetch');
     Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
     Route::put('/{id}', [ScrapingSourceController::class, 'update'])->name('scraping_sources.update');
     Route::delete('/{id}', [ScrapingSourceController::class, 'destroy'])->name('scraping_sources.destroy');
+    Route::post('/{id}/process', [ScrapingSourceController::class, 'process'])
+    ->name('scraping_sources.process');
+
 });
 
 });
