@@ -30,6 +30,7 @@ use App\Http\Controllers\MethodologyController;
 use App\Http\Controllers\PdfDocumentController;
 use App\Http\Controllers\PdfDocumentPartController;
 use App\Http\Controllers\ScrapingSourceController;
+use App\Http\Controllers\ScrapingWebResultController;
 
 
 
@@ -331,6 +332,13 @@ Route::prefix('parts')->group(function () {
     Route::post('{partId}/reprocess', [PdfDocumentPartController::class, 'reprocess']);
     Route::delete('{partId}', [PdfDocumentPartController::class, 'destroy']);
 });
+
+// web routes
+Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])
+     ->name('scraping.results.index');
+
+Route::get('/scraping/results/{id}', [ScrapingWebResultController::class, 'show'])
+     ->name('scraping.results.show');
 
 });
 

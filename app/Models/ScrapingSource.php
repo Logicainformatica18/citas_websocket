@@ -22,32 +22,24 @@ class ScrapingSource extends Model
         'api_url',
         'api_key',
 
-        // Web prompt
+        // WEB
         'web_prompt',
 
-        // Flags automáticos
+        // Flags
         'has_pdf',
         'web_only',
         'has_api',
         'excel_csv',
 
-        // Scraping result
-        'scrape_status',
-        'scrape_message',
-        'scrape_count',
-        'scrape_result',
-        'last_scraped_at',
-
         'auto_process',
     ];
 
     protected $casts = [
-        'has_pdf'          => 'boolean',
-        'web_only'         => 'boolean',
-        'has_api'          => 'boolean',
-        'excel_csv'        => 'boolean',
-        'auto_process'     => 'boolean',
-        'last_scraped_at'  => 'datetime',
+        'has_pdf'      => 'boolean',
+        'web_only'     => 'boolean',
+        'has_api'      => 'boolean',
+        'excel_csv'    => 'boolean',
+        'auto_process' => 'boolean',
     ];
 
     /**
@@ -56,28 +48,33 @@ class ScrapingSource extends Model
      * ================================================
      */
 
-    // ➤ Relación principal ahora: ScrapingSource → pdf_document_parts
+    // ➤ Relación con resultados web
+    public function webResults()
+    {
+        return $this->hasMany(ScrapingWebResult::class, 'source_id');
+    }
+
+    // ➤ Relación con partes de PDF (tu módulo de documentos)
     public function parts()
     {
         return $this->hasMany(PdfDocumentPart::class, 'scraping_source_id');
     }
 
-    // ➤ Acceso rápido a páginas vía partes
     public function pages()
     {
         return $this->hasManyThrough(
-            PdfPage::class,           // Modelo final
-            PdfDocumentPart::class,   // Modelo intermedio
-            'scraping_source_id',     // FK en partes
-            'part_id',                // FK en páginas
-            'id',                     // PK en ScrapingSource
-            'id'                      // PK en partes
+            PdfPage::class,
+            PdfDocumentPart::class,
+            'scraping_source_id',
+            'part_id',
+            'id',
+            'id'
         );
     }
 
     /**
      * ================================================
-     * 🔎 ACCESSORS
+     * 🔍 ACCESSORS AUTOMÁTICOS (Flags inteligentes)
      * ================================================
      */
 

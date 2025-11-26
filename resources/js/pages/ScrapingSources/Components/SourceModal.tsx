@@ -28,8 +28,35 @@ export default function SourceModal({
     const isEdit = !!data?.id;
     const modalRef = useRef<HTMLDivElement>(null);
 
-    const DEFAULT_PROMPT = `Extrae todas las tecnologías, herramientas, lenguajes, metodologías y tendencias relevantes del contenido.
-Devuélvelas en un JSON organizado.`;
+const DEFAULT_PROMPT = `
+Analiza la URL proporcionada y devuelve SIEMPRE un JSON con este formato:
+
+{
+  "source_url": "",
+  "sub_results": [
+    {
+      "url": "",
+      "title": "",
+      "summary": "",
+      "technologies": [],
+      "languages": [],
+      "methodologies": [],
+      "trends": [],
+      "concepts": [],
+      "raw_text": ""
+    }
+  ]
+}
+
+Instrucciones:
+
+1. Extrae entre 5 y 10 sub-URLs internas relevantes del mismo dominio.
+2. Para cada sub-URL detectada, analiza su contenido y completa los campos.
+3. Si no hay sub-URLs relevantes, usa la URL principal como único sub_result.
+4. Devuelve SIEMPRE el campo "sub_results" aunque esté vacío.
+5. Devuelve SOLO JSON válido.
+`;
+
 
     const [activeTab, setActiveTab] = useState("pdf");
     const [loading, setLoading] = useState(false);

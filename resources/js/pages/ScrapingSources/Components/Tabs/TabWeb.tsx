@@ -2,49 +2,41 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Loader2, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
+import { router } from "@inertiajs/react";
+import { Link } from "@inertiajs/react";
+
 
 export default function TabWeb({
     form,
     setForm,
     isEdit,
     sourceId,
-}: {
-    form: any;
-    setForm: (data: any) => void;
-    isEdit: boolean;
-    sourceId: number | null;
 }) {
     const [processing, setProcessing] = useState(false);
 
- const processSource = async () => {
-    if (!sourceId) return;
+    const processSource = async () => {
+        if (!sourceId) return;
 
-    try {
-        setProcessing(true);
+        try {
+            setProcessing(true);
 
-        await axios.post(`/scraping-sources/${sourceId}/process`);
-        toast.success("Scraping iniciado…");
+            await axios.post(`/scraping-sources/${sourceId}/process`);
 
-        // 🔥 Esperar unos segundos a que el Job termine
-        setTimeout(async () => {
-            const res = await axios.get(`/scraping-sources/${sourceId}`);
-            setForm(prev => ({
-                ...prev,
-                scrape_status: res.data.source.scrape_status,
-                scrape_message: res.data.source.scrape_message,
-                scrape_result: res.data.source.scrape_result,
-                last_scraped_at: res.data.source.last_scraped_at,
-            }));
-        }, 3000); // 3 segundos para que termine el Job
+            toast.success("Scraping iniciado…");
 
-    } catch (e) {
-        toast.error("Error al iniciar el scraping");
-    } finally {
-        setProcessing(false);
-    }
-};
+            // 🔥 Esperar unos segundos a que el Job avance
+            setTimeout(() => {
+                // 👉 Redirigir al listado de resultados web
+                router.visit(`/scraping/${sourceId}/results`);
+            }, 2000);
 
-
+        } catch (e) {
+            console.error(e);
+            toast.error("Error al iniciar el scraping");
+        } finally {
+            setProcessing(false);
+        }
+    };
 
     return (
         <div className="space-y-5">
@@ -60,17 +52,6 @@ export default function TabWeb({
                     }
                 />
             </div>
-
-            {/* ESTADO */}
-           {isEdit && (
-    <div className="p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-        <div className="text-sm font-semibold">Estado actual:</div>
-        <div className="mt-1 text-blue-600 dark:text-blue-400">
-            {form.scrape_status ?? "Sin procesar"}
-        </div>
-    </div>
-)}
-
 
             {/* BOTÓN PROCESAR */}
             {isEdit && (
@@ -93,6 +74,15 @@ export default function TabWeb({
                     Procesar Fuente
                 </button>
             )}
+            {isEdit && sourceId && (
+    <Link
+        href={`/scraping/${sourceId}/results`}
+        className="block text-center px-4 py-2 mt-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+    >
+        Ver Resultados Web
+    </Link>
+)}
+
         </div>
     );
 }
