@@ -47,24 +47,48 @@ export default function ScrapingSourcesIndex({
 }) {
 
     const [search, setSearch] = useState(filters?.search || "");
+    const [timer, setTimer] = useState<any>(null);
+
     const [modalData, setModalData] = useState<Source | null>(null);
 
     const [items, setItems] = useState<Source[]>(sources.data);
     const [pagination, setPagination] = useState(sources);
+const searchLive = (value: string) => {
+    setSearch(value);
 
-    /* =====================================================
-        BUSCADOR
-    ===================================================== */
-    const handleSearch = (e: any) => {
-        e.preventDefault();
+    // limpiar el timer anterior
+    if (timer) clearTimeout(timer);
+
+    // crear nuevo timer
+    const newTimer = setTimeout(() => {
         axios
-            .get(`/scraping-sources/fetch?search=${search}`)
+            .get(`/scraping-sources/fetch?search=${value}`)
             .then((r) => {
                 setItems(r.data.sources.data);
                 setPagination(r.data.sources);
             })
             .catch(() => toast.error("Error buscando"));
-    };
+    }, 400);
+
+    setTimer(newTimer);
+};
+
+    /* =====================================================
+        BUSCADOR
+    ===================================================== */
+const handleSearch = (e: any) => {
+    e.preventDefault();
+
+    axios
+        .get(`/scraping-sources/fetch?search=${search}`)
+        .then((r) => {
+            setItems(r.data.sources.data);
+            setPagination(r.data.sources);
+        })
+        .catch(() => toast.error("Error buscando"));
+};
+
+
 
     /* =====================================================
         DELETE — estilo USERS (axios)
@@ -135,32 +159,33 @@ export default function ScrapingSourcesIndex({
                 </div>
 
                 {/* BUSCADOR */}
-                <form
-                    onSubmit={handleSearch}
-                   className="flex gap-3 mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow"
+             {/* BUSCADOR */}
+<form
+    onSubmit={handleSearch}
+    className="flex gap-3 mb-6 bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 shadow"
+>
+    <input
+        type="text"
+        placeholder="Buscar portal..."
+        className="rounded-md border w-64 px-2 py-1"
+        value={search}
+        onChange={(e) => searchLive(e.target.value)}   // <<–– BUSQUEDA AUTOMÁTICA
+    />
 
-                >
-                    <input
-                        type="text"
-                        placeholder="Buscar portal..."
-                        className="rounded-md border w-64 px-2 py-1"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+        Buscar
+    </button>
 
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg">
-                        Buscar
-                    </button>
+    <button
+        type="button"
+        onClick={() => setModalData({} as Source)}
+        className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"
+    >
+        <PlusCircle className="w-5 h-5" />
+        Nuevo
+    </button>
+</form>
 
-                    <button
-                        type="button"
-                        onClick={() => setModalData({} as Source)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"
-                    >
-                        <PlusCircle className="w-5 h-5" />
-                        Nuevo
-                    </button>
-                </form>
 
                 {/* TABLA */}
               <div className="overflow-x-auto rounded-xl shadow border bg-white dark:bg-gray-900 dark:border-gray-700">

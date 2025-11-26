@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ScrapingSource;
+use App\Models\PdfDocumentPart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -10,32 +11,42 @@ use Inertia\Inertia;
 class ScrapingSourceController extends Controller
 {
     /** INDEX */
-    public function index(Request $request)
-    {
-        $sources = ScrapingSource::when($request->search, function ($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('url', 'like', "%{$request->search}%");
-            })
-            ->orderBy('id', 'desc')
-            ->paginate(10);
+public function index(Request $request)
+{
+    $sources = ScrapingSource::when($request->search, function ($q) use ($request) {
+            $q->where('name', 'like', "%{$request->search}%")
+              ->orWhere('url', 'like', "%{$request->search}%");
+        })
+        ->orderBy('id', 'desc')
+        ->paginate(10)
+        ->appends($request->only('search')); // <-- mantiene el query en paginación
 
-        return Inertia::render('ScrapingSources/Index', [
-            'sources' => $sources,
-            'filters' => [
-                'search' => $request->search ?? null,
-            ],
-        ]);
-    }
+    return Inertia::render('ScrapingSources/Index', [
+        'sources' => $sources,
+        'filters' => [
+            'search' => $request->search ?? null,
+        ],
+    ]);
+}
+
 
     /** FETCH (AJAX) */
-    public function fetch(Request $request)
-    {
-        $sources = ScrapingSource::orderBy('id', 'desc')->paginate(10);
+  public function fetch(Request $request)
+{
+    $search = $request->search;
 
-        return response()->json([
-            'sources' => $sources
-        ]);
-    }
+    $sources = ScrapingSource::when($search, function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('url', 'like', "%{$search}%");
+        })
+        ->orderBy('id', 'desc')
+        ->paginate(10);
+
+    return response()->json([
+        'sources' => $sources
+    ]);
+}
+
 
     /** STORE */
     public function store(Request $request)
@@ -121,11 +132,13 @@ class ScrapingSourceController extends Controller
         if ($source->pdf_path) Storage::disk('public')->delete($source->pdf_path);
         if ($source->excel_path) Storage::disk('public')->delete($source->excel_path);
 
+        // ❗ Eliminamos también parts asociadas
+        PdfDocumentPart::where('scraping_source_id', $id)->delete();
+
         $source->delete();
 
         return response()->json(['message' => 'Fuente eliminada']);
     }
-
 
     /** 🚀 INICIAR SCRAPING */
     public function process($id)
@@ -151,13 +164,39 @@ class ScrapingSourceController extends Controller
             'source' => $source
         ]);
     }
+
+    /** SHOW */
 public function show($id)
 {
-    return response()->json([
-        'source' => ScrapingSource::findOrFail($id)
-    ]);
+    return redirect()->to("/scraping-sources/{$id}/parts");
 }
 
+
+
+
+    /**
+     * ============================================================
+     * 🔥 NUEVO: PARTES ASOCIADAS AL SCRAPING SOURCE
+     * ============================================================
+     */
+/**
+ * ============================================================
+ * 📄 LISTAR PARTES DE UN SCRAPING SOURCE
+ * ============================================================
+ */
+public function parts($id)
+{
+    $source = ScrapingSource::findOrFail($id);
+
+    $parts = PdfDocumentPart::where('scraping_source_id', $id)
+        ->orderBy('part_number', 'asc')
+        ->get();
+
+    return Inertia::render('ScrapingSources/Parts/Index', [
+        'source' => $source,
+        'parts'  => $parts,
+    ]);
+}
 
 
 }

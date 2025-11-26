@@ -42,16 +42,43 @@ class ScrapingSource extends Model
     ];
 
     protected $casts = [
-        'has_pdf'        => 'boolean',
-        'web_only'       => 'boolean',
-        'has_api'        => 'boolean',
-        'excel_csv'      => 'boolean',
-        'auto_process'   => 'boolean',
-        'last_scraped_at'=> 'datetime',
+        'has_pdf'          => 'boolean',
+        'web_only'         => 'boolean',
+        'has_api'          => 'boolean',
+        'excel_csv'        => 'boolean',
+        'auto_process'     => 'boolean',
+        'last_scraped_at'  => 'datetime',
     ];
 
     /**
-     * Accessors (computed fields)
+     * ================================================
+     * 🔗 RELACIONES
+     * ================================================
+     */
+
+    // ➤ Relación principal ahora: ScrapingSource → pdf_document_parts
+    public function parts()
+    {
+        return $this->hasMany(PdfDocumentPart::class, 'scraping_source_id');
+    }
+
+    // ➤ Acceso rápido a páginas vía partes
+    public function pages()
+    {
+        return $this->hasManyThrough(
+            PdfPage::class,           // Modelo final
+            PdfDocumentPart::class,   // Modelo intermedio
+            'scraping_source_id',     // FK en partes
+            'part_id',                // FK en páginas
+            'id',                     // PK en ScrapingSource
+            'id'                      // PK en partes
+        );
+    }
+
+    /**
+     * ================================================
+     * 🔎 ACCESSORS
+     * ================================================
      */
 
     public function getHasPdfAttribute()

@@ -295,39 +295,41 @@ Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController
 | 📄 PDF DOCUMENTS (MOVER AL INICIO PARA EVITAR COLISIONES)
 |--------------------------------------------------------------------------
 */
-Route::prefix('pdf')->name('pdf.')->group(function () {
 
-    Route::prefix('{pdf}/parts')->name('parts.')->group(function () {
-        Route::post('', [PdfDocumentPartController::class, 'store'])->name('store');
-        Route::get('/{part}', [PdfDocumentPartController::class, 'show'])->name('show');
-        Route::post('/{part}/reprocess', [PdfDocumentPartController::class, 'reprocess'])->name('reprocess');
-        Route::delete('/{part}', [PdfDocumentPartController::class, 'destroy'])->name('destroy');
-    });
 
-    Route::post('/{id}/upload-part', [PdfDocumentController::class, 'uploadPart'])->name('uploadPart');
-    Route::get('/{id}/part/{partId}', [PdfDocumentController::class, 'showPart'])->name('showPart');
-
-    Route::put('/{id}', [PdfDocumentController::class, 'update'])->name('update');
-    Route::delete('/{id}', [PdfDocumentController::class, 'destroy'])->name('destroy');
-
-    Route::get('/', [PdfDocumentController::class, 'index'])->name('index');
-    Route::post('/', [PdfDocumentController::class, 'store'])->name('store');
-    Route::get('/{id}', [PdfDocumentController::class, 'show'])->name('show');
-});
 
 
 
 Route::prefix('scraping-sources')->group(function () {
     Route::get('/', [ScrapingSourceController::class, 'index'])->name('scraping_sources.index');
-    Route::get('/{id}', [ScrapingSourceController::class, 'show']);
-
     Route::get('/fetch', [ScrapingSourceController::class, 'fetch'])->name('scraping_sources.fetch');
+    Route::get('/{id}', [ScrapingSourceController::class, 'show']);
+Route::get('/{id}/parts', [ScrapingSourceController::class, 'parts'])
+    ->name('scraping_sources.parts');
+
+
     Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
     Route::put('/{id}', [ScrapingSourceController::class, 'update'])->name('scraping_sources.update');
     Route::delete('/{id}', [ScrapingSourceController::class, 'destroy'])->name('scraping_sources.destroy');
     Route::post('/{id}/process', [ScrapingSourceController::class, 'process'])
     ->name('scraping_sources.process');
 
+
+});
+Route::get('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'show'])
+    ->name('pdf.parts.show');
+Route::delete('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'destroy'])
+    ->name('pdf.parts.destroy');
+
+
+    Route::prefix('scraping-sources/{id}/parts')->group(function () {
+    Route::post('/', [PdfDocumentPartController::class, 'store']); // subir partes (LOTE)
+});
+
+Route::prefix('parts')->group(function () {
+    Route::get('{partId}', [PdfDocumentPartController::class, 'show']); // ver detalle
+    Route::post('{partId}/reprocess', [PdfDocumentPartController::class, 'reprocess']);
+    Route::delete('{partId}', [PdfDocumentPartController::class, 'destroy']);
 });
 
 });

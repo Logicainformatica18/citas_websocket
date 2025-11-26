@@ -228,7 +228,11 @@ Devuélvelas en un JSON organizado.`;
                         {/* CONTENIDO DEL TAB */}
                         <div className="pr-2">
                             {activeTab === "pdf" && (
-                                <TabPdf existingPdf={data?.pdf_path} handleFile={handleFile} />
+                                <TabPdf
+                                existingPdf={data?.pdf_path}
+                                handleFile={handleFile}
+                                  sourceId={data?.id}
+                                />
                             )}
 
                             {activeTab === "web" && (
@@ -237,7 +241,7 @@ Devuélvelas en un JSON organizado.`;
         setForm={setForm}
         isEdit={isEdit}
         sourceId={data?.id}
-    
+
     />
 )}
 

@@ -144,7 +144,7 @@ export function AppSidebar() {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
-                   
+
 
                     </SidebarMenu>
                 </div>
@@ -185,7 +185,7 @@ export function AppSidebar() {
     <SidebarMenuButton asChild>
         <Link href="/scraping-sources">
             <Database className="w-4 h-4" />
-            Fuentes Scraping
+           Tendencias Tecnológicas
         </Link>
     </SidebarMenuButton>
 </SidebarMenuItem>

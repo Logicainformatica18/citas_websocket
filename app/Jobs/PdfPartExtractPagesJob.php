@@ -36,7 +36,7 @@ class PdfPartExtractPagesJob implements ShouldQueue
 
             Log::info("📥 [ExtractPages] Leyendo JSON OCR de GCS", [
                 'part_id' => $part->id,
-                'prefix' => $part->ocr_output_prefix
+                'prefix'  => $part->ocr_output_prefix
             ]);
 
             // 1) Conectar a GCS
@@ -48,9 +48,12 @@ class PdfPartExtractPagesJob implements ShouldQueue
             $bucket = $storage->bucket(env('GCS_BUCKET'));
 
             // 2) Listar JSON del OCR
-            $objects = $bucket->objects(['prefix' => $part->ocr_output_prefix]);
+            $objects = $bucket->objects([
+                'prefix' => $part->ocr_output_prefix
+            ]);
 
             $pages = [];
+
             foreach ($objects as $obj) {
 
                 if (!str_ends_with($obj->name(), '.json')) {
@@ -83,15 +86,16 @@ class PdfPartExtractPagesJob implements ShouldQueue
 
             // 4) Guardar cada página en DB
             $pageNumber = 1;
+
             foreach ($pages as $text) {
                 PdfPage::create([
-                    'pdf_id'        => $part->pdf_id,
                     'part_id'       => $part->id,
                     'page_number'   => $pageNumber,
                     'text_content'  => $text,
                     'metadata_json' => json_encode([]),
                     'elements_json' => json_encode([]),
                 ]);
+
                 $pageNumber++;
             }
 
@@ -100,18 +104,16 @@ class PdfPartExtractPagesJob implements ShouldQueue
                 'start_page' => 1,
                 'end_page'   => count($pages),
             ]);
- 
 
             Log::info("✅ [ExtractPages] Páginas guardadas correctamente para parte {$part->id}");
 
         } catch (\Throwable $e) {
 
-            Log::error("❌ [ExtractPages] ERROR FATAL en parte {$this->partId}: {$e->getMessage()}", [
+            Log::error("❌ [ExtractPages] ERROR en parte {$this->partId}: {$e->getMessage()}", [
                 'trace' => $e->getTraceAsString()
             ]);
 
-            // ❗ MUY IMPORTANTE: no relanzar el error para NO matar el worker
-            // simplemente retornamos para que la chain continúe
+            // No detiene la chain
             return;
         }
     }
