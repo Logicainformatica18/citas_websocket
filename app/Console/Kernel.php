@@ -9,9 +9,10 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
     \App\Console\Commands\GetOnBoardByLanguagesCommand::class,
-       \App\Console\Commands\ArbeitnowImportCommand::class,
+
      \App\Console\Commands\ArbeitnowByLanguagesCommand::class,
          \App\Console\Commands\ArbeitnowByMethodologiesCommand::class,
+        \App\Console\Commands\scraping\AdzunaByCompetenciesCommand::class,
   \App\Console\Commands\RunAllJobs::class,
 ];
 

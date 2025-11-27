@@ -175,20 +175,13 @@ export function AppSidebar() {
                         {/* Extracción desde PDF */}
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link href="/pdf" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
+                                <Link href="/scraping-sources" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
                                     <FileSearch className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">PDF – Extracción</span>
+                                    <span className="font-medium"> Tendencias Tech</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-<SidebarMenuItem>
-    <SidebarMenuButton asChild>
-        <Link href="/scraping-sources">
-            <Database className="w-4 h-4" />
-           Tendencias Tecnológicas
-        </Link>
-    </SidebarMenuButton>
-</SidebarMenuItem>
+
 
                     </SidebarMenu>
                 </div>

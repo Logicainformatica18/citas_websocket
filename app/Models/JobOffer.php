@@ -90,6 +90,49 @@ class JobOffer extends Model
         return $this->belongsToMany(Methodology::class, 'methodology_job')
                     ->withTimestamps();
     }
+public function competencies()
+{
+    return $this->belongsToMany(Competency::class, 'competency_job_offer')
+                ->withTimestamps();
+}
+public function analyzeCompetenciesWeighted(int $careerId): array
+{
+    $texto = strtolower(
+        ($this->title ?? '') . ' ' .
+        ($this->requirements ?? '') . ' ' .
+        ($this->skills ?? '') . ' ' .
+        ($this->description ?? '')
+    );
+
+    $competencias = Competency::where('career_id', $careerId)->get();
+
+    $matched = [];
+    $missing = [];
+    $score = 0;
+    $totalWeight = $competencias->sum('weight');
+
+    foreach ($competencias as $comp)
+    {
+        $match = str_contains($texto, strtolower($comp->name))
+              || str_contains($texto, strtolower($comp->category))
+              || str_contains($texto, strtolower($comp->description_es));
+
+        if ($match) {
+            $matched[] = $comp->name;
+            $score += $comp->weight;
+        } else {
+            $missing[] = $comp->name;
+        }
+    }
+
+    $finalScore = $totalWeight > 0 ? $score / $totalWeight : 0;
+
+    return [
+        'matched' => $matched,
+        'missing' => $missing,
+        'score'   => round($finalScore, 4),
+    ];
+}
 
 
 }
