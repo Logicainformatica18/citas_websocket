@@ -31,6 +31,7 @@ use App\Http\Controllers\PdfDocumentController;
 use App\Http\Controllers\PdfDocumentPartController;
 use App\Http\Controllers\ScrapingSourceController;
 use App\Http\Controllers\ScrapingWebResultController;
+use App\Http\Controllers\CompetencyController;
 
 
 
@@ -333,12 +334,23 @@ Route::prefix('parts')->group(function () {
     Route::delete('{partId}', [PdfDocumentPartController::class, 'destroy']);
 });
 
-// web routes
+
 Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])
      ->name('scraping.results.index');
 
 Route::get('/scraping/results/{id}', [ScrapingWebResultController::class, 'show'])
      ->name('scraping.results.show');
+
+
+
+Route::prefix('competencies')->group(function () {
+    Route::get('/', [CompetencyController::class, 'index'])->name('competencies.index');
+    Route::get('/fetch', [CompetencyController::class, 'fetchPaginated']);
+    Route::post('/', [CompetencyController::class, 'store']);
+    Route::put('/{id}', [CompetencyController::class, 'update']);
+    Route::delete('/{id}', [CompetencyController::class, 'destroy']);
+    Route::patch('/{id}/toggle', [CompetencyController::class, 'toggle']);
+});
 
 });
 

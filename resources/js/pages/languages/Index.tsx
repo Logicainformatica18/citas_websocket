@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { Trash2, Plus, Search, Edit } from "lucide-react";
-import LanguageModal from "./LanguageModal";
+import LanguageModal from "./languageModal";
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: "Lenguajes", href: "/languages" }];
 
@@ -56,14 +56,18 @@ export default function LanguagesIndex() {
     setPagination(initialPagination);
   }, [initialPagination]);
 
-  // 🔁 Debounce de búsqueda
- useEffect(() => {
-  if (search.trim() === "") return; // 🚫 no llames al iniciar
+useEffect(() => {
   const delay = setTimeout(() => {
-    fetchPage(`/languages/fetch?search=${encodeURIComponent(search)}`);
-  }, 500);
+    if (search.trim() === "") {
+      fetchPage("/languages/fetch"); // 👈 recarga el listado completo
+    } else {
+      fetchPage(`/languages/fetch?search=${encodeURIComponent(search)}`);
+    }
+  }, 400);
+
   return () => clearTimeout(delay);
 }, [search]);
+
 
 
   const normalizePagePayload = (payload: any): Pagination<Language> => {

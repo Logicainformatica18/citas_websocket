@@ -43,17 +43,21 @@ export default function MethodologiesIndex() {
     setMounted(true);
   }, [initialPagination]);
 
-  // 🔁 Debounce de búsqueda
-  useEffect(() => {
-    if (!mounted) return;
-    if (search.trim() === "") return;
+useEffect(() => {
+  if (!mounted) return;
 
-    const delay = setTimeout(() => {
+  const delay = setTimeout(() => {
+    if (search.trim() === "") {
+      fetchPage("/methodologies/fetch"); // 🔄 recarga completa
+    } else {
       fetchPage(`/methodologies/fetch?search=${encodeURIComponent(search)}`);
-    }, 500);
+    }
+  }, 500);
 
-    return () => clearTimeout(delay);
-  }, [search, mounted]);
+  return () => clearTimeout(delay);
+}, [search, mounted]);
+
+
 
   const fetchPage = async (url: string) => {
     try {
@@ -218,13 +222,13 @@ export default function MethodologiesIndex() {
                             onChange={() => toggleEnabled(item.id, item.enabled)}
                           />
                           <div className="
-                            w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full 
+                            w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full
                             peer dark:bg-gray-700 peer-checked:bg-blue-600
                             relative transition
                           ">
                             <span
                               className="
-                                absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full 
+                                absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full
                                 transition-all peer-checked:translate-x-5 shadow
                               "
                             ></span>

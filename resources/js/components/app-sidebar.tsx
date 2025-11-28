@@ -9,7 +9,7 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 
-import { Link, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import AppLogo from './app-logo';
 import { NavUser } from '@/components/nav-user';
 
@@ -30,15 +30,10 @@ import {
     Workflow,
     FolderSearch,
     FileSearch,
+    ListChecks,
 } from 'lucide-react';
 
-// 🔷 Color institucional ISIL
 const isilBlue = 'text-sky-500 dark:text-sky-400';
-
-type PageProps = {
-    permissions: string[];
-    auth: { user: any; role: string };
-};
 
 export function AppSidebar() {
     const { state } = useSidebar();
@@ -46,7 +41,7 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            {/* Logo */}
+            {/* LOGO */}
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -61,194 +56,145 @@ export function AppSidebar() {
 
             <SidebarContent className="pt-3 pb-2 space-y-4">
 
-                {/* 🧭 Principal */}
-                <div className="flex flex-col gap-1 pl-3">
-                    <div className="flex items-center mb-1 gap-2">
-                        <Layers3 className={`ml-1 w-5 h-5 ${isilBlue}`} />
-                        {!isCollapsed && (
-                            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                                Principal
-                            </span>
-                        )}
-                    </div>
+                {/* 🧭 PRINCIPAL */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<Layers3 className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Principal"
+                />
 
-                    <SidebarMenu>
+                <SidebarMenu>
+                    <MenuItem href="/dashboard" icon={<BarChart3 className={`w-5 h-5 ${isilBlue}`} />} label="Dashboard" />
+                    <MenuItem href="/syllabus" icon={<FileText className={`w-5 h-5 ${isilBlue}`} />} label="Syllabus" />
+                </SidebarMenu>
 
-                        {/* Dashboard */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/dashboard" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Dashboard</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                {/* 🎓 NÚCLEO ACADÉMICO */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<GraduationCap className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Académico"
+                />
 
-                        {/* Syllabus */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/syllabus" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <FileText className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Syllabus</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                <SidebarMenu>
+                    <MenuItem href="/careers" icon={<BookOpen className={`w-5 h-5 ${isilBlue}`} />} label="Carreras" />
+                    <MenuItem href="/courses" icon={<GraduationCap className={`w-5 h-5 ${isilBlue}`} />} label="Cursos ISIL" />
+                </SidebarMenu>
 
-                        {/* Carreras */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/careers" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <BookOpen className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Carreras</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                {/* 🧠 SKILLS & KNOWLEDGE */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<Cpu className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Habilidades"
+                />
 
-                        {/* Lenguajes */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/languages" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <Languages className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Lenguajes</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                <SidebarMenu>
+                    <MenuItem href="/languages" icon={<Languages className={`w-5 h-5 ${isilBlue}`} />} label="Lenguajes" />
+                    <MenuItem href="/technologies" icon={<Cpu className={`w-5 h-5 ${isilBlue}`} />} label="Tecnologías" />
+                    <MenuItem href="/methodologies" icon={<Workflow className={`w-5 h-5 ${isilBlue}`} />} label="Metodologías" />
+                    <MenuItem href="/competencies" icon={<ListChecks className={`w-5 h-5 ${isilBlue}`} />} label="Competencias" />
+                </SidebarMenu>
 
-                        {/* Tecnologías */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/technologies" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <Cpu className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Tecnologías</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                {/* 📥 EXTRACCIÓN DE DATOS */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<FolderSearch className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Extracción de Datos"
+                />
 
-                        {/* Metodologías */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/methodologies" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <Workflow className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Metodologías</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                <SidebarMenu>
+                    <MenuItem
+                        href="/job-offers"
+                        icon={<BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />}
+                        label="Empleos – Extracción"
+                    />
+                    <MenuItem
+                        href="/scraping-sources"
+                        icon={<FileSearch className={`w-5 h-5 ${isilBlue}`} />}
+                        label="Tendencias Tech"
+                    />
+                </SidebarMenu>
 
-                        {/* Cursos */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/courses" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <GraduationCap className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Cursos ISIL</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                {/* 🤖 INTELIGENCIA ARTIFICIAL */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<Brain className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Inteligencia Artificial"
+                />
 
+                <SidebarMenu>
+                    <MenuItem
+                        href="/admin/ai-trainings"
+                        icon={<Database className={`w-5 h-5 ${isilBlue}`} />}
+                        label="Entrenamiento IA"
+                    />
+                </SidebarMenu>
 
+                {/* ⚙️ ADMINISTRACIÓN */}
+                <SectionLabel
+                    isCollapsed={isCollapsed}
+                    icon={<Settings className={`ml-1 w-5 h-5 ${isilBlue}`} />}
+                    label="Administración"
+                />
 
-                    </SidebarMenu>
-                </div>
-
-                {/* 📤 NUEVA SECCIÓN: EXTRACCIÓN DE DATOS */}
-                <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
-                    <div className="flex items-center mb-1 gap-2">
-                        <FolderSearch className={`ml-1 w-5 h-5 ${isilBlue}`} />
-                        {!isCollapsed && (
-                            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                                Extracción de Datos
-                            </span>
-                        )}
-                    </div>
-
-                    <SidebarMenu>
-
-                        {/* Extracción desde Bolsa de Trabajo */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/job-offers" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
-                                    <BriefcaseBusiness className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Empleos – Extracción</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        {/* Extracción desde PDF */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/scraping-sources" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/20 transition">
-                                    <FileSearch className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium"> Tendencias Tech</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-
-                    </SidebarMenu>
-                </div>
-
-                {/* 🧠 IA */}
-                <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
-                    <div className="flex items-center mb-1 gap-2">
-                        <Brain className={`ml-1 w-5 h-5 ${isilBlue}`} />
-                        {!isCollapsed && (
-                            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                                Inteligencia Artificial
-                            </span>
-                        )}
-                    </div>
-
-                    <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/admin/ai-trainings" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <Database className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Entrenamiento IA</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-                </div>
-
-                {/* ⚙️ Administración */}
-                <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
-                    <div className="flex items-center mb-1 gap-2">
-                        <Settings className={`ml-1 w-5 h-5 ${isilBlue}`} />
-                        {!isCollapsed && (
-                            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
-                                Administración
-                            </span>
-                        )}
-                    </div>
-
-                    <SidebarMenu>
-
-                        {/* Usuarios */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/users" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <UserCircle2 className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Usuarios</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        {/* Roles */}
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link href="/roles" className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition">
-                                    <Shield className={`w-5 h-5 ${isilBlue}`} />
-                                    <span className="font-medium">Roles</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                    </SidebarMenu>
-                </div>
+                <SidebarMenu>
+                    <MenuItem href="/users" icon={<UserCircle2 className={`w-5 h-5 ${isilBlue}`} />} label="Usuarios" />
+                    <MenuItem href="/roles" icon={<Shield className={`w-5 h-5 ${isilBlue}`} />} label="Roles" />
+                </SidebarMenu>
             </SidebarContent>
 
+            {/* Usuario */}
             <SidebarFooter>
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
+    );
+}
+
+/* -------------------- COMPONENTES AUXILIARES --------------------- */
+
+function SectionLabel({
+    isCollapsed,
+    icon,
+    label,
+}: {
+    isCollapsed: boolean;
+    icon: React.ReactNode;
+    label: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1 pl-3 border-t border-gray-200 dark:border-gray-700 pt-2">
+            <div className="flex items-center mb-1 gap-2">
+                {icon}
+                {!isCollapsed && (
+                    <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
+                        {label}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function MenuItem({
+    href,
+    icon,
+    label,
+}: {
+    href: string;
+    icon: React.ReactNode;
+    label: string;
+}) {
+    return (
+        <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+                <Link
+                    href={href}
+                    className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30 transition"
+                >
+                    {icon}
+                    <span className="font-medium">{label}</span>
+                </Link>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
     );
 }

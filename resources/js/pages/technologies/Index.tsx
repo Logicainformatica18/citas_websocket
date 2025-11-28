@@ -76,17 +76,20 @@ export default function TechnologiesIndex() {
     setMounted(true);
   }, [initialPagination]);
 
-  // 🔍 Búsqueda con debounce
-  useEffect(() => {
-    if (!mounted) return;
-    if (search.trim() === "") return;
+useEffect(() => {
+  if (!mounted) return;
 
-    const delay = setTimeout(() => {
+  const delay = setTimeout(() => {
+    if (search.trim() === "") {
+      fetchPage("/technologies/fetch");   // ← recarga normal
+    } else {
       fetchPage(`/technologies/fetch?search=${encodeURIComponent(search)}`);
-    }, 500);
+    }
+  }, 500);
 
-    return () => clearTimeout(delay);
-  }, [search, mounted]);
+  return () => clearTimeout(delay);
+}, [search, mounted]);
+
 
 const normalizePagePayload = (payload: any): Pagination<Technology> => {
   const pager = payload?.technologies ?? payload;

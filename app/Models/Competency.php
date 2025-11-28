@@ -14,7 +14,7 @@ class Competency extends Model
     'description_es',
     'description_en',
     'category',
-    'weight',        // ⭐ AÑADIR ESTE
+    'weight',        
     'embedding',
 ];
 
