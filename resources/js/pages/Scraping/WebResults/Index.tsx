@@ -8,6 +8,8 @@ import {
     Pencil,
     Trash2,
     ListChecks,
+    Loader2,
+    PlayCircle
 } from "lucide-react";
 
 import ViewModal from "./Components/ViewModal";
@@ -48,6 +50,28 @@ export default function WebResultsIndex({
     const [viewModal, setViewModal] = useState<WebResult | null>(null);
     const [editModal, setEditModal] = useState<WebResult | null>(null);
 
+    const [processingAll, setProcessingAll] = useState(false);
+const [processingId, setProcessingId] = useState<number | null>(null);
+
+const processOne = async (id: number) => {
+    setProcessingId(id);
+
+    try {
+        await axios.post(`/scraping/result/${id}/process`);
+        toast.success("Procesamiento iniciado");
+
+        // Cambiar visualmente a pending
+        setItems((prev) =>
+            prev.map((x) =>
+                x.id === id ? { ...x, status: "pending" } : x
+            )
+        );
+    } catch {
+        toast.error("No se pudo procesar");
+    }
+
+    setProcessingId(null);
+};
 
     // ===========================================
     // Utils
@@ -64,8 +88,16 @@ export default function WebResultsIndex({
     };
 
     const statusBadge = (status: string) => {
+        if (status === "pending") {
+            return (
+                <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 flex items-center gap-1 justify-center">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Pendiente
+                </span>
+            );
+        }
+
         const colors: any = {
-            pending: "bg-yellow-100 text-yellow-800",
             completed: "bg-green-100 text-green-800",
             error: "bg-red-100 text-red-800",
         };
@@ -121,6 +153,24 @@ export default function WebResultsIndex({
         } catch {
             toast.error("Error cargando página");
         }
+    };
+
+    // ===========================================
+    // Procesar todos
+    // ===========================================
+    const processAll = async () => {
+        if (!confirm("¿Procesar todos los enlaces pendientes?")) return;
+
+        setProcessingAll(true);
+
+        try {
+            await axios.post(`/scraping/${source.id}/results/process-all`);
+            toast.success("Trabajo enviado. Procesando en background…");
+        } catch {
+            toast.error("No se pudo iniciar el procesamiento");
+        }
+
+        setProcessingAll(false);
     };
 
     // ===========================================
@@ -181,11 +231,24 @@ export default function WebResultsIndex({
             <div className="p-8">
 
                 {/* HEADER */}
-                <div className="flex justify-between mb-6">
+                <div className="flex justify-between mb-6 items-center">
                     <h1 className="text-3xl font-semibold flex items-center gap-2">
                         <ListChecks className="w-7 h-7 text-blue-600" />
                         Resultados Web – {source.name}
                     </h1>
+
+                    <button
+                        onClick={processAll}
+                        disabled={processingAll}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700 disabled:opacity-50"
+                    >
+                        {processingAll ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <PlayCircle className="w-5 h-5" />
+                        )}
+                        Procesar todos
+                    </button>
                 </div>
 
                 {/* BUSCADOR */}
@@ -243,28 +306,46 @@ export default function WebResultsIndex({
                                         {formatDate(item.created_at)}
                                     </td>
 
-                                    <td className="px-4 py-3 text-right flex justify-end gap-3">
-                                        <button
-                                            onClick={() => setViewModal(item)}
-                                            className="text-blue-600 hover:text-blue-800"
-                                        >
-                                            <Eye className="w-5 h-5" />
-                                        </button>
+                                 <td className="px-4 py-3 text-right flex justify-end gap-3">
 
-                                        <button
-                                            onClick={() => setEditModal(item)}
-                                            className="text-green-600 hover:text-green-800"
-                                        >
-                                            <Pencil className="w-5 h-5" />
-                                        </button>
+    {/* Procesar uno */}
+    <button
+        onClick={() => processOne(item.id)}
+        className="text-blue-600 hover:text-blue-800 flex items-center"
+        disabled={processingId === item.id}
+    >
+        {processingId === item.id ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+            <PlayCircle className="w-5 h-5" />
+        )}
+    </button>
 
-                                        <button
-                                            onClick={() => deleteItem(item.id)}
-                                            className="text-red-600 hover:text-red-800"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    </td>
+    {/* Ver */}
+    <button
+        onClick={() => setViewModal(item)}
+        className="text-blue-600 hover:text-blue-800"
+    >
+        <Eye className="w-5 h-5" />
+    </button>
+
+    {/* Editar */}
+    <button
+        onClick={() => setEditModal(item)}
+        className="text-green-600 hover:text-green-800"
+    >
+        <Pencil className="w-5 h-5" />
+    </button>
+
+    {/* Eliminar */}
+    <button
+        onClick={() => deleteItem(item.id)}
+        className="text-red-600 hover:text-red-800"
+    >
+        <Trash2 className="w-5 h-5" />
+    </button>
+</td>
+
                                 </tr>
                             ))}
 
@@ -313,7 +394,6 @@ export default function WebResultsIndex({
                     setData={setEditModal}
                     onSave={saveEdit}
                 />
-
             </div>
         </AppLayout>
     );

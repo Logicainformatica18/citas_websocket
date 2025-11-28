@@ -351,11 +351,15 @@ Route::prefix('competencies')->group(function () {
     Route::delete('/{id}', [CompetencyController::class, 'destroy']);
     Route::patch('/{id}/toggle', [CompetencyController::class, 'toggle']);
 });
-Route::put('/scraping-results/{id}', [ScrapingWebResultController::class, 'update'])
-    ->name('scraping.results.update');
+// Web Results
+Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])->name('scraping.results.index');
+Route::get('/scraping/{source}/results/fetch', [ScrapingWebResultController::class, 'fetch']);
 
-Route::delete('/scraping-results/{id}', [ScrapingWebResultController::class, 'destroy'])
-    ->name('scraping.results.destroy');
+Route::post('/scraping/{source}/results/process-all', [ScrapingWebResultController::class, 'processAll']);
+
+Route::delete('/scraping/results/{id}', [ScrapingWebResultController::class, 'destroy']);
+Route::put('/scraping/results/{id}', [ScrapingWebResultController::class, 'update']);
+Route::post('/scraping/result/{id}/process', [ScrapingWebResultController::class, 'processOne']);
 
 });
 

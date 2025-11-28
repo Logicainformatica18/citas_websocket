@@ -2,21 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\ScrapingWebResult;
 use App\Models\ScrapingSource;
+use Illuminate\Http\Request;
+use App\Jobs\ProcessWebResultJob;
 
 class ScrapingWebResultController extends Controller
 {
     /**
-     * 📌 Listar resultados web por fuente
+     * LISTAR
      */
     public function index($sourceId)
     {
         $source = ScrapingSource::findOrFail($sourceId);
 
         $results = ScrapingWebResult::where('source_id', $sourceId)
-            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'asc')
             ->paginate(25);
 
         return inertia('Scraping/WebResults/Index', [
@@ -25,47 +26,80 @@ class ScrapingWebResultController extends Controller
         ]);
     }
 
-
     /**
-     * 📌 Mostrar un resultado individual
+     * AJAX FETCH
      */
-    public function show($resultId)
+    public function fetch(Request $request, $sourceId)
     {
-        $result = ScrapingWebResult::findOrFail($resultId);
+        $query = ScrapingWebResult::where('source_id', $sourceId);
 
-        return inertia('Scraping/WebResults/Show', [
-            'result' => $result,
+        if ($request->search) {
+            $query->where('url', 'like', "%{$request->search}%");
+        }
+
+        $results = $query->orderBy('id', 'asc')->paginate(25);
+
+        return response()->json([
+            'results' => $results
         ]);
     }
 
+    /**
+     * PROCESAR TODOS
+     */
+    public function processAll($sourceId)
+    {
+        $pendings = ScrapingWebResult::where('source_id', $sourceId)
+            ->where('status', 'pending')
+            ->get();
+
+        foreach ($pendings as $row) {
+            ProcessWebResultJob::dispatch($row->id);
+        }
+
+        return response()->json([
+            'message' => "Procesamiento enviado para {$pendings->count()} enlaces."
+        ]);
+    }
 
     /**
-     * ✏️ Actualizar (URL, categoría, estado…)
+     * ACTUALIZAR
      */
     public function update(Request $request, $id)
     {
         $result = ScrapingWebResult::findOrFail($id);
 
-        $validated = $request->validate([
-            'url'      => 'required|string|max:1000',
+        $request->validate([
+            'url'      => 'required',
             'category' => 'nullable|string|max:255',
-            'status'   => 'nullable|string|in:pending,completed,error',
+            'status'   => 'required|in:pending,completed,error',
         ]);
 
-        $result->update($validated);
+        $result->update($request->all());
 
-        return back()->with('success', 'Resultado actualizado correctamente.');
+        return response()->json(['message' => 'Actualizado']);
     }
 
-
     /**
-     * 🗑 Eliminar resultado web
+     * ELIMINAR
      */
     public function destroy($id)
     {
-        $result = ScrapingWebResult::findOrFail($id);
-        $result->delete();
+        ScrapingWebResult::findOrFail($id)->delete();
 
-        return back()->with('success', 'Resultado eliminado.');
+        return response()->json([
+            'message' => 'Eliminado'
+        ]);
     }
+    public function processOne($id)
+{
+    $result = ScrapingWebResult::findOrFail($id);
+
+    \App\Jobs\ProcessWebResultJob::dispatch($result->id);
+
+    return response()->json([
+        'message' => 'Procesamiento iniciado'
+    ]);
+}
+
 }
