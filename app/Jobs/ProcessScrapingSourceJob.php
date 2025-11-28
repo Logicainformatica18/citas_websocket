@@ -26,7 +26,7 @@ class ProcessScrapingSourceJob implements ShouldQueue
 
     public function handle()
     {
-        Log::info("🔥 INICIANDO JOB WebScraping para SourceID {$this->sourceId}");
+        Log::info("🔍 INICIANDO DISCOVERY para SourceID {$this->sourceId}");
 
         $source = ScrapingSource::find($this->sourceId);
 
@@ -37,132 +37,121 @@ class ProcessScrapingSourceJob implements ShouldQueue
 
         try {
 
-            /* ============================================================
-               VALIDACIONES
-            ============================================================ */
             if (!$source->url || !$source->web_prompt) {
-                throw new Exception("URL o prompt no definido en la fuente.");
+                throw new Exception("URL o web_prompt no definido en la fuente.");
             }
 
             Log::info("🌐 URL objetivo: {$source->url}");
 
-            /* ============================================================
-               1) OBTENER HTML (opcional)
-            ============================================================ */
-            $html = null;
+            /* ======================================================
+               1) OBTENER HTML REAL CON PLAYWRIGHT
+            ====================================================== */
+            $scriptPath = base_path('scraping/tech_scraper.mjs');
+            $command = "node \"$scriptPath\" \"{$source->url}\"";
+            $html = shell_exec($command);
 
-            try {
-                $html = Http::timeout(20)->get($source->url)->body();
-                Log::info("📥 HTML obtenido correctamente (" . strlen($html) . " chars)");
-            } catch (\Throwable $e) {
-                Log::warning("⚠️ No se pudo obtener HTML, GPT trabajará solo con URL.");
+            if (!$html || strlen($html) < 50) {
+                throw new Exception("Playwright devolvió HTML vacío o muy corto.");
             }
 
-            /* ============================================================
-               2) CONSTRUIR PROMPT FINAL
-            ============================================================ */
-            $fullPrompt = "
-Realiza scraping inteligente según estas instrucciones del usuario:
+            Log::info("📥 Playwright entregó HTML real (" . strlen($html) . " chars)");
 
+            /* ======================================================
+               2) CONSTRUIR PROMPT USANDO TU web_prompt
+            ====================================================== */
+
+            $finalPrompt = "
+Eres un scraper inteligente. Analiza el HTML real incluido abajo.
+
+Instrucciones definidas por el usuario:
+---------------------
 {$source->web_prompt}
+---------------------
 
-URL principal:
-{$source->url}
+Tu misión es devolver SOLO JSON válido.
 
-Si el HTML está disponible, úsalo:
-" . ($html ?: "[NO HTML DISPONIBLE]") . "
+IMPORTANTE:
+- Respeta exactamente el formato solicitado por el usuario.
+- Usa únicamente enlaces reales presentes en el HTML.
+- NO inventes campos adicionales.
+- NO devuelvas texto fuera del JSON.
 
-Recuerda: devuelve SOLO JSON válido.
+================ HTML REAL ================
+$html
+===========================================
 ";
 
-            /* ============================================================
-               3) LLAMAR A OPENAI
-            ============================================================ */
+            /* ======================================================
+               3) ENVIAR A OPENAI
+            ====================================================== */
+            Log::info("🤖 Enviando HTML a GPT para extracción…");
 
-            Log::info("🤖 Enviando solicitud a GPT…");
-
-            $response = Http::withToken(env('OPENAI_API_KEY'))
-                ->post('https://api.openai.com/v1/chat/completions', [
+            $response = Http::withToken(env('OPENAI_API_KEY'))->post(
+                'https://api.openai.com/v1/chat/completions',
+                [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'Eres un scraper inteligente que devuelve SOLO JSON válido.'],
-                        ['role' => 'user', 'content' => $fullPrompt]
+                        ['role' => 'system', 'content' => 'Devuelve SOLO JSON válido. Nada más.'],
+                        ['role' => 'user', 'content' => $finalPrompt],
                     ],
-                    'temperature' => 0.1,
+                    'temperature' => 0.0,
                     'response_format' => ['type' => 'json_object'],
-                ]);
+                ]
+            );
 
             if ($response->failed()) {
                 throw new Exception("Error HTTP desde OpenAI: " . $response->status());
             }
 
-            $body = $response->json();
-
-            if (!isset($body['choices'][0]['message']['content'])) {
-                throw new Exception("Respuesta inválida (sin choices)");
+            $raw = $response->json()['choices'][0]['message']['content'] ?? null;
+            if (!$raw) {
+                throw new Exception("OpenAI devolvió contenido vacío.");
             }
 
-            $raw = $body['choices'][0]['message']['content'];
-
-            Log::info("🧠 RAW RESPONSE:", ['raw' => $raw]);
-
-
-            /* ============================================================
-               4) LIMPIEZA JSON
-            ============================================================ */
-            $clean = trim($raw);
-            $clean = preg_replace('/^```(json)?/i', '', $clean);
-            $clean = preg_replace('/```$/', '', $clean);
-            $clean = trim($clean);
-
-            $decoded = json_decode($clean, true);
+            /* ======================================================
+               4) DECODIFICAR JSON
+            ====================================================== */
+            $decoded = json_decode($raw, true);
 
             if (!$decoded) {
                 throw new Exception("JSON inválido: " . json_last_error_msg());
             }
 
-            Log::info("🧩 JSON procesado correctamente.");
-
-
-            /* ============================================================
-               5) GUARDAR RESULTADOS EN scraping_web_results
-            ============================================================ */
-
-            if (!isset($decoded['sub_results']) || !is_array($decoded['sub_results'])) {
-                throw new Exception("El JSON no contiene 'sub_results'.");
+            if (!isset($decoded['links']) || !is_array($decoded['links'])) {
+                throw new Exception("El JSON no contiene 'links'.");
             }
 
-            foreach ($decoded['sub_results'] as $item) {
+            /* ======================================================
+               5) GUARDAR links EN scraping_web_results (PENDING)
+            ====================================================== */
+            $count = 0;
 
+            foreach ($decoded['links'] as $link) {
                 ScrapingWebResult::create([
-                    'source_id'        => $source->id,
-                    'url'              => $item['url'] ?? $source->url,
-                    'raw_html'         => $html,
-                    'ai_raw_response'  => $raw,
-                    'ai_json'          => $item, // cast automático
-                    'status'           => 'completed',
-                    'error_message'    => null,
+                    'source_id'       => $source->id,
+                    'url'             => $link['url'] ?? null,
+                    'category'        => $link['category'] ?? null,
+                    'raw_html'        => null,
+                    'ai_raw_response' => null,
+                    'ai_json'         => null,
+                    'status'          => 'pending',
+                    'error_message'   => null,
                 ]);
+
+                $count++;
             }
 
-            Log::info("🏁 Scraping completado correctamente — se guardaron "
-                . count($decoded['sub_results']) . " subresultados.");
+            Log::info("🏁 DISCOVERY COMPLETADO: {$count} enlaces guardados.");
 
         } catch (Exception $e) {
 
-            Log::error("❌ ERROR en scraping Web: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error("❌ ERROR en DISCOVERY: " . $e->getMessage());
 
-            // NO guardamos en la tabla padre ya, solo log
             ScrapingWebResult::create([
-                'source_id'       => $source->id,
-                'url'             => $source->url,
-                'raw_html'        => $html ?? null,
-                'ai_raw_response' => null,
-                'ai_json'         => null,
-                'status'          => 'error',
-                'error_message'   => $e->getMessage(),
+                'source_id'     => $source->id,
+                'url'           => $source->url,
+                'status'        => 'error',
+                'error_message' => $e->getMessage(),
             ]);
         }
     }

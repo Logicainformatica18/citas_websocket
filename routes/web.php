@@ -351,6 +351,11 @@ Route::prefix('competencies')->group(function () {
     Route::delete('/{id}', [CompetencyController::class, 'destroy']);
     Route::patch('/{id}/toggle', [CompetencyController::class, 'toggle']);
 });
+Route::put('/scraping-results/{id}', [ScrapingWebResultController::class, 'update'])
+    ->name('scraping.results.update');
+
+Route::delete('/scraping-results/{id}', [ScrapingWebResultController::class, 'destroy'])
+    ->name('scraping.results.destroy');
 
 });
 

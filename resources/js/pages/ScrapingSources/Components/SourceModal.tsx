@@ -29,32 +29,63 @@ export default function SourceModal({
     const modalRef = useRef<HTMLDivElement>(null);
 
 const DEFAULT_PROMPT = `
-Analiza la URL proporcionada y devuelve SIEMPRE un JSON con este formato:
+Quiero que actúes como un analista experto en tecnología y arquitectura de información.
+
+Tu objetivo es IDENTIFICAR enlaces realmente útiles dentro del HTML proporcionado y entregar una lista de sub-URLs valiosas que aporten conocimiento relevante al Observatorio Tecnológico.
+
+💡 IMPORTANTE:
+- Usa SOLO enlaces reales presentes en el HTML.
+- No inventes URLs, títulos o categorías.
+- No incluyas enlaces repetidos o irrelevantes (publicidad, login, newsletter, footer, banners).
+- Clasifica cada enlace según el tema detectado.
+
+📌 Devuelve JSON con este formato EXACTO:
 
 {
-  "source_url": "",
-  "sub_results": [
+  "links": [
     {
-      "url": "",
-      "title": "",
-      "summary": "",
-      "technologies": [],
-      "languages": [],
-      "methodologies": [],
-      "trends": [],
-      "concepts": [],
-      "raw_text": ""
+      "url": "URL absoluta del enlace encontrado",
+      "title": "Título del enlace o texto visible",
+      "category": "Una de: AI, Cloud, Data, Cybersecurity, DevOps, Business Analytics, Networking, Software Quality, Customer Experience, IT Operations, HR Tech, Virtualization, General",
+      "importance": 0-100
     }
   ]
 }
 
-Instrucciones:
+📌 REGLAS PARA IMPORTANCE (0-100):
+- 80-100 = Categorías o hubs principales del sitio (páginas madre de temas).
+- 50-80 = Subtemas o secciones relevantes.
+- 20-50 = Artículos individuales de valor.
+- 0-20 = Contenido duplicado o poco útil (NO incluir).
 
-1. Extrae entre 5 y 10 sub-URLs internas relevantes del mismo dominio.
-2. Para cada sub-URL detectada, analiza su contenido y completa los campos.
-3. Si no hay sub-URLs relevantes, usa la URL principal como único sub_result.
-4. Devuelve SIEMPRE el campo "sub_results" aunque esté vacío.
-5. Devuelve SOLO JSON válido.
+📌 REGLAS DE FILTRADO:
+- Solo enlaces educacionales, técnicos o conceptuales.
+- Evita: login, subscribe, cookies, política, about, contact, publicidad, vendor links.
+- No incluir PDFs ni enlaces vacíos.
+- No incluir enlaces externos sin contenido tecnológico.
+
+📌 SOBRE TÍTULOS:
+- Si no hay texto visible, intenta deducir un título breve a partir de patrones de la URL.
+- No inventes contenido.
+
+📌 SOBRE CATEGORÍAS:
+Clasifica según palabras clave del enlace o contexto del HTML:
+- AI → "ai", "machine-learning", "nlp"
+- Cloud → "cloud", "aws", "azure", "gcp"
+- Data → "data", "analytics", "database"
+- Cybersecurity → "security", "cyber"
+- DevOps → "devops", "ci/cd"
+- Networking → "network", "lan", "5g"
+- Business Analytics → "analytics", "bi"
+- Customer Experience → "customer", "cx"
+- Software Quality → "qa", "testing", "quality"
+- IT Operations → "operations", "itops"
+- HR Tech → "hr", "talent", "recruiting"
+- Virtualization → "virtual", "desktop", "vdi"
+- General → si no encaja en categorías tech.
+
+📌 ENTREGA:
+Devuelve SOLO JSON válido. Nada de texto fuera del objeto JSON.
 `;
 
 

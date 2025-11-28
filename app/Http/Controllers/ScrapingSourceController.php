@@ -7,6 +7,7 @@ use App\Models\PdfDocumentPart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use App\Jobs\ExtractLinksJob;
 
 class ScrapingSourceController extends Controller
 {
@@ -53,39 +54,18 @@ class ScrapingSourceController extends Controller
     /** ============================================================
      * 📌 CREAR FUENTE
      * ============================================================ */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'url'         => 'nullable|url|max:500',
-            'frequency'   => 'nullable|string|max:50',
-            'notes'       => 'nullable|string|max:500',
+ public function store(Request $request)
+{
+    $source = ScrapingSource::create($request->all());
 
-            'web_prompt'  => 'nullable|string',
-            'api_url'     => 'nullable|string|max:500',
-            'api_key'     => 'nullable|string|max:255',
+    // 🔥 Inicia solo la etapa de descubrimiento
+    ExtractLinksJob::dispatch($source->id);
 
-            'pdf_file'    => 'nullable|file|mimes:pdf',
-            'excel_file'  => 'nullable|file|mimes:xlsx,xls,csv',
-        ]);
-
-        if ($request->hasFile('pdf_file')) {
-            $validated['pdf_path'] = $request->file('pdf_file')
-                                            ->store('scraping/pdf', 'public');
-        }
-
-        if ($request->hasFile('excel_file')) {
-            $validated['excel_path'] = $request->file('excel_file')
-                                              ->store('scraping/excel', 'public');
-        }
-
-        $source = ScrapingSource::create($validated);
-
-        return response()->json([
-            'message' => 'Fuente creada correctamente',
-            'source' => $source
-        ], 201);
-    }
+    return response()->json([
+        'message' => 'Fuente registrada y extracción inicial iniciada.',
+        'source'   => $source
+    ]);
+}
 
 
     /** ============================================================
