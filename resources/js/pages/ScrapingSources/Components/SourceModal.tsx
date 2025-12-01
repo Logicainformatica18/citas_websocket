@@ -28,85 +28,26 @@ export default function SourceModal({
     const isEdit = !!data?.id;
     const modalRef = useRef<HTMLDivElement>(null);
 
-const DEFAULT_PROMPT = `
-Quiero que actúes como un analista experto en tecnología y arquitectura de información.
-
-Tu objetivo es IDENTIFICAR enlaces realmente útiles dentro del HTML proporcionado y entregar una lista de sub-URLs valiosas que aporten conocimiento relevante al Observatorio Tecnológico.
-
-💡 IMPORTANTE:
-- Usa SOLO enlaces reales presentes en el HTML.
-- No inventes URLs, títulos o categorías.
-- No incluyas enlaces repetidos o irrelevantes (publicidad, login, newsletter, footer, banners).
-- Clasifica cada enlace según el tema detectado.
-
-📌 Devuelve JSON con este formato EXACTO:
-
-{
-  "links": [
-    {
-      "url": "URL absoluta del enlace encontrado",
-      "title": "Título del enlace o texto visible",
-      "category": "Una de: AI, Cloud, Data, Cybersecurity, DevOps, Business Analytics, Networking, Software Quality, Customer Experience, IT Operations, HR Tech, Virtualization, General",
-      "importance": 0-100
-    }
-  ]
-}
-
-📌 REGLAS PARA IMPORTANCE (0-100):
-- 80-100 = Categorías o hubs principales del sitio (páginas madre de temas).
-- 50-80 = Subtemas o secciones relevantes.
-- 20-50 = Artículos individuales de valor.
-- 0-20 = Contenido duplicado o poco útil (NO incluir).
-
-📌 REGLAS DE FILTRADO:
-- Solo enlaces educacionales, técnicos o conceptuales.
-- Evita: login, subscribe, cookies, política, about, contact, publicidad, vendor links.
-- No incluir PDFs ni enlaces vacíos.
-- No incluir enlaces externos sin contenido tecnológico.
-
-📌 SOBRE TÍTULOS:
-- Si no hay texto visible, intenta deducir un título breve a partir de patrones de la URL.
-- No inventes contenido.
-
-📌 SOBRE CATEGORÍAS:
-Clasifica según palabras clave del enlace o contexto del HTML:
-- AI → "ai", "machine-learning", "nlp"
-- Cloud → "cloud", "aws", "azure", "gcp"
-- Data → "data", "analytics", "database"
-- Cybersecurity → "security", "cyber"
-- DevOps → "devops", "ci/cd"
-- Networking → "network", "lan", "5g"
-- Business Analytics → "analytics", "bi"
-- Customer Experience → "customer", "cx"
-- Software Quality → "qa", "testing", "quality"
-- IT Operations → "operations", "itops"
-- HR Tech → "hr", "talent", "recruiting"
-- Virtualization → "virtual", "desktop", "vdi"
-- General → si no encaja en categorías tech.
-
-📌 ENTREGA:
-Devuelve SOLO JSON válido. Nada de texto fuera del objeto JSON.
-`;
 
 
     const [activeTab, setActiveTab] = useState("pdf");
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
-   const [form, setForm] = useState({
+const [form, setForm] = useState({
     name: data?.name || "",
     url: data?.url || "",
     frequency: data?.frequency || "",
     notes: data?.notes || "",
 
-    web_prompt: data?.web_prompt || DEFAULT_PROMPT,
+    // 🔥 Ya NO tiene valor por defecto. Queda EXACTAMENTE como venga en data o vacío.
+    web_prompt: data?.web_prompt ?? "",
 
     api_url: data?.api_url || "",
     api_key: data?.api_key || "",
     pdf_file: null,
     excel_file: null,
 
-    // 🔥 Campos que faltaban
     scrape_status: data?.scrape_status || null,
     scrape_message: data?.scrape_message || null,
     scrape_result: data?.scrape_result || null,

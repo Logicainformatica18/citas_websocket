@@ -39,80 +39,71 @@ class ProcessWebResultJob implements ShouldQueue
         }
 
         try {
+
             Log::info("🌐 Procesando enlace hijo (ID={$result->id}): {$result->url}");
 
-            // 1) Ejecutar Playwright
-            $script = base_path('scraping/tech_scraper.mjs');
-            $cmd = "node \"$script\" \"{$result->url}\" 2>&1";
-
-            Log::info("🟦 Ejecutando comando Node", ['cmd' => $cmd]);
-
-            $html = shell_exec($cmd);
-
-            Log::info("🟧 Tamaño HTML: " . strlen($html ?? ''));
+            // 1️⃣ Descargar HTML sin Playwright (rápido, seguro, barato)
+            $html = Http::timeout(20)->get($result->url)->body();
 
             if (!$html || strlen($html) < 50) {
-                throw new Exception("HTML vacío o insuficiente.");
+                throw new Exception("HTML vacío o muy corto.");
             }
 
-            // 2) Prompt
-            $prompt = <<<EOT
-Usa el siguiente HTML real para extraer información estructurada.
+            // 2️⃣ Recortar HTML para no explotar tokens (sección útil)
+            $cleanHtml = substr($html, 0, 15000);  // evita truncados
 
-PROMPT DEFINIDO POR EL USUARIO (PADRE):
+            // 3️⃣ Prompt limpio (sin incrustar HTML)
+            $prompt = "
+Eres un analista experto. Extrae información estructurada de la página enviada como documento.
+
+PROMPT BASE DEFINIDO POR EL PADRE:
+--------------------------------
 {$source->web_prompt}
+--------------------------------
 
-HTML:
-===========================
-$html
-===========================
+Reglas:
+- Usa solo el HTML entregado en documents.
+- No inventes datos.
+- Devuelve únicamente JSON válido.
+";
 
-Devuelve únicamente JSON válido.
-EOT;
-
-            Log::info("🟦 Prompt enviado a GPT (200 chars): " . substr($prompt, 0, 200));
-
-            // 3) Llamada OpenAI Responses API (formato correcto)
+            // 4️⃣ Llamada OpenAI usando /responses + documents (estándar ChatGPT)
             $response = Http::withToken(env('OPENAI_API_KEY'))->post(
-                'https://api.openai.com/v1/responses',
+                "https://api.openai.com/v1/responses",
                 [
-                    'model' => 'gpt-4o-mini',
-                    'input' => $prompt,
-                    'temperature' => 0.1,
-                    'text' => [
-                        'format' => [
-                            'type' => 'json_object'
+                    "model" => "gpt-4o-mini",
+                    "input" => $prompt,
+                    "documents" => [
+                        [
+                            "type" => "text",
+                            "source" => "upload",
+                            "content" => $cleanHtml
                         ]
                     ],
+                    "temperature" => 0,
                 ]
-            );
+            )->json();
 
-            Log::info("🟦 Respuesta completa de OpenAI: " . json_encode($response->json()));
-
-            $raw = $response->json()['output_text'] ?? null;
+            $raw = $response["output_text"] ?? null;
 
             if (!$raw) {
-                throw new Exception("La IA devolvió vacío. Respuesta completa: " . json_encode($response->json()));
+                throw new Exception("La IA devolvió vacío.");
             }
 
-            Log::info("🟦 RAW IA (200 chars): " . substr($raw, 0, 200));
-
-            // 4) Parsear JSON
+            // 5️⃣ Parseo seguro
             $json = json_decode($raw, true);
 
             if (!$json) {
-                throw new Exception("JSON inválido: " . $raw);
+                throw new Exception("JSON inválido recibido.");
             }
 
-            Log::info("🟩 JSON parseado correctamente.");
-
-            // 5) Actualizar registro
+            // 6️⃣ Guardar resultados
             $result->update([
-                'raw_html'        => $html,
-                'ai_raw_response' => $raw,
-                'ai_json'         => $json,
-                'status'          => 'completed',
-                'error_message'   => null,
+                "raw_html"        => $cleanHtml,
+                "ai_raw_response" => $raw,
+                "ai_json"         => $json,
+                "status"          => "completed",
+                "error_message"   => null,
             ]);
 
             Log::info("✔ Procesado correctamente (ID={$result->id})");
@@ -122,8 +113,8 @@ EOT;
             Log::error("❌ ERROR procesando result {$result->id}: " . $e->getMessage());
 
             $result->update([
-                'status'        => 'error',
-                'error_message' => $e->getMessage(),
+                "status"        => "error",
+                "error_message" => $e->getMessage(),
             ]);
         }
     }

@@ -25,24 +25,27 @@ class ExtractLinksJob implements ShouldQueue
     }
 
     /**
-     * Normaliza URLs relativas → absolutas
+     * Limpia HTML y extrae solo contenido útil
      */
-    private function normalizeUrl(string $base, string $url): string
+    private function cleanHtml($html)
     {
-        if (!$url) return $base;
+        // 1️⃣ Remover scripts y styles
+        $html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html);
+        $html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html);
 
-        // ya es absoluta
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
+        // 2️⃣ Remover comentarios
+        $html = preg_replace('/<!--.*?-->/s', '', $html);
+
+        // 3️⃣ Quedarse solo con la parte central del contenido
+        if (preg_match('/<(main|article|section)[^>]*>(.*?)<\/(main|article|section)>/is', $html, $match)) {
+            $html = $match[0];
         }
 
-        // URLs tipo //cdn...
-        if (str_starts_with($url, '//')) {
-            return 'https:' . $url;
-        }
+        // 4️⃣ Reducir espacios
+        $html = preg_replace('/\s+/', ' ', $html);
 
-        // unimos con la base
-        return rtrim($base, '/') . '/' . ltrim($url, '/');
+        // 5️⃣ Limitar tamaño a 20k chars
+        return substr($html, 0, 20000);
     }
 
     public function handle()
@@ -50,114 +53,147 @@ class ExtractLinksJob implements ShouldQueue
         $source = ScrapingSource::find($this->sourceId);
         if (!$source) return;
 
-        Log::info("🔍 Discovery → Extrayendo enlaces desde {$source->url}");
+        $url = rtrim($source->url, '/');
+
+        Log::info("🔍 ExtractLinksJob → $url");
 
         try {
+            // 1️⃣ Obtener HTML
+            $rawHtml = Http::timeout(20)->get($url)->body();
+            $html = $this->cleanHtml($rawHtml);
 
-            // ======================================================
-            // 1) Obtener HTML real usando Playwright
-            // ======================================================
-            $script = base_path('scraping/tech_scraper.mjs');
-            $cmd = "node \"$script\" \"{$source->url}\"";
+            Log::info("📦 HTML limpio (chars=" . strlen($html) . ")");
 
-            $html = shell_exec($cmd);
+            // 2️⃣ Extraer SOLO los enlaces visibles
+            preg_match_all('/<a[^>]+href=["\'](.*?)["\'][^>]*>(.*?)<\/a>/is', $html, $matches);
 
-            if (!$html || strlen($html) < 50) {
-                throw new Exception("HTML vacío o insuficiente.");
+            $allLinks = [];
+
+            for ($i = 0; $i < count($matches[1]); $i++) {
+                $href = trim($matches[1][$i]);
+                $text = strip_tags(trim($matches[2][$i] ?? ''));
+
+                if ($text === "") continue;
+
+                // Normalizamos URL absoluta
+                $absoluteUrl = str_starts_with($href, "http")
+                    ? $href
+                    : $url . "/" . ltrim($href, "/");
+
+                $allLinks[] = [
+                    "url" => $absoluteUrl,
+                    "text" => $text
+                ];
             }
 
-            // ======================================================
-            // 2) Prompt simple para extracción de enlaces
-            // ======================================================
-            $prompt = <<<EOT
-Eres un extractor de enlaces relevantes.
+            // Limitar a 50 antes de mandar a GPT
+            $allLinks = array_slice($allLinks, 0, 50);
 
-Analiza el HTML y devuelve SOLO JSON válido con este formato:
+            // 3️⃣ Prompt FIJO sin web_prompt
+            $prompt = "
+Analiza esta lista de enlaces extraídos desde una página web:
+
+" . json_encode($allLinks, JSON_PRETTY_PRINT) . "
+
+Tu tarea:
+
+1. Selecciona SOLO los 10 enlaces más útiles para un Observatorio Tecnológico.
+   Prioriza enlaces que traten sobre:
+   - Inteligencia Artificial
+   - Computación en la Nube
+   - Ciberseguridad
+   - Desarrollo de Software
+   - Ciencia de Datos
+   - Transformación Digital
+   - Tendencias tecnológicas
+   - Software empresarial
+   - Herramientas de colaboración
+   - Infraestructura
+   - DevOps / InfraOps
+
+2. Elimina enlaces triviales como:
+   - login, register, home
+   - publicidad
+   - política de privacidad
+   - navegación
+   - enlaces repetidos
+
+3. Devuelve SOLO JSON válido con el siguiente formato exacto:
 
 {
-  "source_url": "{$source->url}",
-  "links": [
+  \"links\": [
     {
-      "url": "https://...",
-      "title": "Título corto",
-      "category": "AI | Cloud | Security | Networking | Data | Software | DevOps"
+      \"url\": \"...\",
+      \"title\": \"...\",
+      \"category\": \"...\",
+      \"reason\": \"por qué este enlace es útil para el Observatorio\"
     }
   ]
 }
 
-Reglas:
-- No inventes enlaces.
-- No incluyas login, footer, políticas, redes sociales.
-- No enlaces repetidos.
-- Extrae solo artículos, guías, páginas de contenido.
-- URLs relativas deben mantenerse como están (las normalizo yo).
-- Devuelve SOLO JSON.
+NO incluyas nada fuera del JSON.
+";
 
-HTML:
-===================
-$html
-===================
-EOT;
+            Log::info("📤 Enviando prompt a GPT (chars=" . strlen($prompt) . ")");
 
-            // ======================================================
-            // 3) OpenAI
-            // ======================================================
-            $response = Http::withToken(env('OPENAI_API_KEY'))->post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'model' => 'gpt-4o-mini',
-                    'messages' => [
-                        ['role' => 'system', 'content' => 'Extraes enlaces y devuelves JSON limpio.'],
-                        ['role' => 'user', 'content' => $prompt],
+            // 4️⃣ Llamar a GPT
+            $response = Http::timeout(60)
+                ->withToken(env('OPENAI_API_KEY'))
+                ->post("https://api.openai.com/v1/chat/completions", [
+                    "model" => "gpt-4o-mini",
+                    "messages" => [
+                        ["role" => "system", "content" => "Eres un analista experto en extracción de enlaces útiles para observatorios tecnológicos."],
+                        ["role" => "user", "content" => $prompt]
                     ],
-                    'temperature' => 0.0,
-                    'response_format' => ['type' => 'json_object'],
-                ]
-            );
+                    "temperature" => 0,
+                ])->json();
 
-            $raw = $response->json()['choices'][0]['message']['content'] ?? null;
-            if (!$raw) throw new Exception("La IA no devolvió contenido.");
+            $raw = $response["choices"][0]["message"]["content"] ?? null;
 
-            // ======================================================
-            // 4) Decodificar JSON
-            // ======================================================
-            $decoded = json_decode($raw, true);
-            if (!$decoded || !isset($decoded['links'])) {
-                throw new Exception("JSON inválido (no contiene links).");
+            if (!$raw) {
+                throw new Exception("La IA devolvió vacío.");
             }
 
-            // ======================================================
-            // 5) Insertar enlaces normalizados
-            // ======================================================
-            $links = $decoded['links'];
+            // Limpiar codeblocks
+            $raw = trim(preg_replace('/```json|```/i', '', $raw));
 
-            foreach ($links as $link) {
+            $json = json_decode($raw, true);
 
-                $normalizedUrl = $this->normalizeUrl($source->url, $link['url']);
+            if (!$json || !isset($json["links"])) {
+                throw new Exception("JSON inválido: " . substr($raw, 0, 200));
+            }
+
+            // 5️⃣ Guardar en BD evitando duplicados
+            $inserted = 0;
+
+            foreach ($json["links"] as $link) {
+
+                if (!isset($link["url"])) continue;
+
+                // Evitar duplicados
+                $exists = ScrapingWebResult::where("source_id", $source->id)
+                    ->where("url", $link["url"])
+                    ->exists();
+
+                if ($exists) continue;
 
                 ScrapingWebResult::create([
-                    'source_id'       => $source->id,
-                    'url'             => $normalizedUrl,
-                    'category'        => $link['category'] ?? null,
-                    'ai_json'         => null,
-                    'ai_raw_response' => null,
-                    'raw_html'        => null,
-                    'status'          => 'pending',
+                    "source_id" => $source->id,
+                    "url" => $link["url"],
+                    "title" => $link["title"] ?? null,
+                    "category" => $link["category"] ?? null,
+                    "reason" => $link["reason"] ?? null,
+                    "ai_json" => $link,
+                    "status" => "pending"
                 ]);
+
+                $inserted++;
             }
 
-            Log::info("✔ Discovery completado con " . count($links) . " enlaces agregados.");
+            Log::info("✔ Enlaces guardados: $inserted");
 
         } catch (Exception $e) {
-
-            Log::error("❌ ERROR Discovery: " . $e->getMessage());
-
-            ScrapingWebResult::create([
-                'source_id'     => $source->id,
-                'url'           => $source->url,
-                'status'        => 'error',
-                'error_message' => $e->getMessage(),
-            ]);
+            Log::error("❌ ERROR ExtractLinksJob: " . $e->getMessage());
         }
     }
 }

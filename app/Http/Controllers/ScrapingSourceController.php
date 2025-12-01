@@ -4,15 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\ScrapingSource;
 use App\Models\PdfDocumentPart;
+use App\Models\ScrapingWebResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+
+// Jobs
 use App\Jobs\ExtractLinksJob;
+use App\Jobs\ProcessWebResultJob;
 
 class ScrapingSourceController extends Controller
 {
     /** ============================================================
-     * 📌 LISTADO DE FUENTES
+     * 📌 LISTADO
      * ============================================================ */
     public function index(Request $request)
     {
@@ -54,18 +58,18 @@ class ScrapingSourceController extends Controller
     /** ============================================================
      * 📌 CREAR FUENTE
      * ============================================================ */
- public function store(Request $request)
-{
-    $source = ScrapingSource::create($request->all());
+    public function store(Request $request)
+    {
+        $source = ScrapingSource::create($request->all());
 
-    // 🔥 Inicia solo la etapa de descubrimiento
-    ExtractLinksJob::dispatch($source->id);
+        // 🔥 Nuevo flujo: solo inicia descubrimiento
+        ExtractLinksJob::dispatch($source->id);
 
-    return response()->json([
-        'message' => 'Fuente registrada y extracción inicial iniciada.',
-        'source'   => $source
-    ]);
-}
+        return response()->json([
+            'message' => 'Fuente registrada y extracción inicial iniciada.',
+            'source'   => $source
+        ]);
+    }
 
 
     /** ============================================================
@@ -80,11 +84,9 @@ class ScrapingSourceController extends Controller
             'url'         => 'sometimes|url|max:500',
             'frequency'   => 'sometimes|string|max:50',
             'notes'       => 'sometimes|string|max:500',
-
             'web_prompt'  => 'nullable|string',
             'api_url'     => 'nullable|string|max:500',
             'api_key'     => 'nullable|string|max:255',
-
             'pdf_file'    => 'nullable|file|mimes:pdf|max:100240',
             'excel_file'  => 'nullable|file|mimes:xlsx,xls,csv|max:10240',
         ]);
@@ -93,13 +95,11 @@ class ScrapingSourceController extends Controller
 
         if ($request->hasFile('pdf_file')) {
             if ($source->pdf_path) Storage::disk('public')->delete($source->pdf_path);
-
             $data['pdf_path'] = $request->file('pdf_file')->store('scraping/pdf', 'public');
         }
 
         if ($request->hasFile('excel_file')) {
             if ($source->excel_path) Storage::disk('public')->delete($source->excel_path);
-
             $data['excel_path'] = $request->file('excel_file')->store('scraping/excel', 'public');
         }
 
@@ -131,33 +131,65 @@ class ScrapingSourceController extends Controller
 
 
     /** ============================================================
-     * 🚀 INICIAR SCRAPING (YA NO ACTUALIZA scrape_status)
+     * ▶️ BOTÓN 1 — Obtener Enlaces Iniciales
      * ============================================================ */
-    public function process($id)
+    public function extractLinks($id)
     {
         $source = ScrapingSource::findOrFail($id);
 
-        // No hay más estados en la tabla fuente, solo dispara el Job
-        \App\Jobs\ProcessScrapingSourceJob::dispatch($source->id);
+ ExtractLinksJob::dispatch(sourceId: $source->id);
+
 
         return response()->json([
-            'message' => 'Scraping iniciado correctamente'
+            'message' => 'Extracción inicial de enlaces iniciadwwwwwass.'
         ]);
     }
 
 
     /** ============================================================
-     * 📄 REDIRECCIÓN A PARTES DE PDF
+     * ▶️ BOTÓN 2 — Procesar Enlaces (Job hijo)
+     * ============================================================ */
+    public function processData($id)
+    {
+        $source = ScrapingSource::findOrFail($id);
+
+        $pendings = ScrapingWebResult::where('source_id', $id)
+                    ->where('status', 'pending')
+                    ->get();
+
+        foreach ($pendings as $row) {
+            ProcessWebResultJob::dispatch($row->id);
+        }
+
+        return response()->json([
+            'message' => 'Procesamiento de enlaces iniciado.'
+        ]);
+    }
+
+
+    /** ============================================================
+     * 🟦 BOTÓN 3 — Verificar Enlaces Pendientes (para el UI)
+     * ============================================================ */
+    public function pendingCount($id)
+    {
+        $count = ScrapingWebResult::where('source_id', $id)
+                    ->where('status', 'pending')
+                    ->count();
+
+        return response()->json([
+            'pending' => $count
+        ]);
+    }
+
+
+    /** ============================================================
+     * 📄 PARTES PDF
      * ============================================================ */
     public function show($id)
     {
         return redirect()->to("/scraping-sources/{$id}/parts");
     }
 
-
-    /** ============================================================
-     * 📄 LISTAR PARTES PDF
-     * ============================================================ */
     public function parts($id)
     {
         $source = ScrapingSource::findOrFail($id);
@@ -171,5 +203,4 @@ class ScrapingSourceController extends Controller
             'parts'  => $parts,
         ]);
     }
-
 }

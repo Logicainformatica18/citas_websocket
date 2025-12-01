@@ -308,6 +308,7 @@ Route::prefix('scraping-sources')->group(function () {
     Route::get('/{id}', [ScrapingSourceController::class, 'show']);
 Route::get('/{id}/parts', [ScrapingSourceController::class, 'parts'])
     ->name('scraping_sources.parts');
+    Route::get('/{id}/pending-count', [ScrapingSourceController::class, 'pendingCount']);
 
 
     Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
@@ -317,6 +318,9 @@ Route::get('/{id}/parts', [ScrapingSourceController::class, 'parts'])
     ->name('scraping_sources.process');
 
 
+
+    Route::post('/{id}/extract-links', [ScrapingSourceController::class, 'extractLinks']);
+Route::post('/{id}/process-data', [ScrapingSourceController::class, 'processData']);
 });
 Route::get('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'show'])
     ->name('pdf.parts.show');
@@ -360,6 +364,7 @@ Route::post('/scraping/{source}/results/process-all', [ScrapingWebResultControll
 Route::delete('/scraping/results/{id}', [ScrapingWebResultController::class, 'destroy']);
 Route::put('/scraping/results/{id}', [ScrapingWebResultController::class, 'update']);
 Route::post('/scraping/result/{id}/process', [ScrapingWebResultController::class, 'processOne']);
+
 
 });
 

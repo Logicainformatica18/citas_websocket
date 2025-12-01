@@ -1,33 +1,49 @@
 import { chromium } from 'playwright';
 
 const url = process.argv[2];
-if (!url) {
-    console.error("❌ No URL provided");
-    process.exit(1);
-}
 
 (async () => {
+    const browser = await chromium.launch({
+        headless: true,
+    });
+
+    const page = await browser.newPage({
+        userAgent:
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        bypassCSP: true
+    });
+
     try {
-        const browser = await chromium.launch({
-            headless: true
+        await page.goto(url, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000
         });
 
-        const page = await browser.newPage({
-            bypassCSP: true
-        });
+        // Scroll profundo (muy importante)
+        await page.evaluate(async () => {
+            await new Promise(resolve => {
+                const distance = 700;
+                let total = 0;
+                const timer = setInterval(() => {
+                    window.scrollBy(0, distance);
+                    total += distance;
 
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+                    if (total > document.body.scrollHeight * 2) {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 200);
+            });
+        });
 
         await page.waitForTimeout(1500);
 
         const html = await page.content();
-
         console.log(html);
 
-        await browser.close();
-
     } catch (err) {
-        console.error("❌ Playwright error:", err.message);
-        process.exit(1);
+        console.error("SCRAPER ERROR:", err.message);
+    } finally {
+        await browser.close();
     }
 })();

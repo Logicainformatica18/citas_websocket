@@ -1,40 +1,52 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Loader2, PlayCircle } from "lucide-react";
+import { Loader2, Link as LinkIcon, PlayCircle, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { router } from "@inertiajs/react";
-import { Link } from "@inertiajs/react";
 
+export default function TabWeb({ form, setForm, isEdit, sourceId }) {
+    const [processingLinks, setProcessingLinks] = useState(false);
+    const [processingData, setProcessingData] = useState(false);
+    const [hasPendingLinks, setHasPendingLinks] = useState(false);
 
-export default function TabWeb({
-    form,
-    setForm,
-    isEdit,
-    sourceId,
-}) {
-    const [processing, setProcessing] = useState(false);
-
-    const processSource = async () => {
+    // 📌 Cargar estado de enlaces pendientes
+    useEffect(() => {
         if (!sourceId) return;
 
+        axios.get(`/scraping/${sourceId}/pending-count`)
+            .then((res) => setHasPendingLinks(res.data.pending > 0))
+            .catch(() => setHasPendingLinks(false));
+    }, [sourceId]);
+
+    // ▶️ BOTÓN 1 — OBTENER ENLACES
+    const getLinks = async () => {
+        setProcessingLinks(true);
         try {
-            setProcessing(true);
+            await axios.post(`/scraping-sources/${sourceId}/extract-links`);
+            toast.success("Extracción de enlaces iniciada…");
 
-            await axios.post(`/scraping-sources/${sourceId}/process`);
+            setTimeout(() => router.reload(), 1500);
+        } catch {
+            toast.error("Error al extraer enlaces");
+        } finally {
+            setProcessingLinks(false);
+        }
+    };
 
-            toast.success("Scraping iniciado…");
+    // ▶️ BOTÓN 2 — PROCESAR DATOS
+    const processData = async () => {
+        setProcessingData(true);
+        try {
+            await axios.post(`/scraping-sources/${sourceId}/process-data`);
+            toast.success("Procesamiento iniciado…");
 
-            // 🔥 Esperar unos segundos a que el Job avance
             setTimeout(() => {
-                // 👉 Redirigir al listado de resultados web
                 router.visit(`/scraping/${sourceId}/results`);
             }, 2000);
-
-        } catch (e) {
-            console.error(e);
-            toast.error("Error al iniciar el scraping");
+        } catch {
+            toast.error("Error al procesar enlaces");
         } finally {
-            setProcessing(false);
+            setProcessingData(false);
         }
     };
 
@@ -53,36 +65,54 @@ export default function TabWeb({
                 />
             </div>
 
-            {/* BOTÓN PROCESAR */}
+            {/* BOTONES */}
             {isEdit && (
-                <button
-                    onClick={processSource}
-                    disabled={processing}
-                    className="
-                        px-4 py-2 w-full
-                        bg-purple-600 hover:bg-purple-700
-                        text-white rounded-lg
-                        flex items-center justify-center gap-2
-                        font-semibold
-                    "
-                >
-                    {processing ? (
-                        <Loader2 className="animate-spin w-5 h-5" />
-                    ) : (
-                        <PlayCircle className="w-5 h-5" />
-                    )}
-                    Procesar Fuente
-                </button>
-            )}
-            {isEdit && sourceId && (
-    <Link
-        href={`/scraping/${sourceId}/results`}
-        className="block text-center px-4 py-2 mt-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
-    >
-        Ver Resultados Web
-    </Link>
-)}
+                <div className="space-y-3">
 
+                    {/* 🔵 BOTÓN 1 — Obtener enlaces */}
+                    <button
+                        onClick={getLinks}
+                        disabled={processingLinks}
+                        className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
+                    >
+                        {processingLinks ? (
+                            <Loader2 className="animate-spin w-5 h-5" />
+                        ) : (
+                            <LinkIcon className="w-5 h-5" />
+                        )}
+                        Obtener Enlaces Iniciales
+                    </button>
+
+                    {/* 🟣 BOTÓN 2 — Procesar Enlaces */}
+                    <button
+                        onClick={processData}
+                        disabled={!hasPendingLinks || processingData}
+                        className={`
+                            w-full px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2
+                            ${hasPendingLinks
+                                ? "bg-purple-600 hover:bg-purple-700 text-white"
+                                : "bg-gray-400 text-white cursor-not-allowed opacity-50"}
+                        `}
+                    >
+                        {processingData ? (
+                            <Loader2 className="animate-spin w-5 h-5" />
+                        ) : (
+                            <ListChecks className="w-5 h-5" />
+                        )}
+                        Procesar Datos de Enlaces
+                    </button>
+
+                    {/* 🟦 BOTÓN 3 — Ver Resultados */}
+                    <a
+                        href={`/scraping/${sourceId}/results`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold"
+                    >
+                        Ver Resultados Web
+                    </a>
+                </div>
+            )}
         </div>
     );
 }
