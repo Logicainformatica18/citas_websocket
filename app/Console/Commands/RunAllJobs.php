@@ -172,7 +172,7 @@ class RunAllJobs extends Command
 
 // 'adzuna:competencies --country=au --pages=1',
 // 'adzuna:competencies --country=nz --pages=1',
- 'computrabajo:competencies  --pages=1',
+ 'computrabajo:competencies  --pages=5',
 
 ];
 

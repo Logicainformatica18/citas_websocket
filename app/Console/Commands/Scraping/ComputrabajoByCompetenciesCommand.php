@@ -7,13 +7,16 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
-use App\Models\CompetencyMetric; // Si no existe, te lo creo
+use App\Models\CompetencyMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Console\Commands\Traits\JobFilterTrait; // 👈 IMPORTANTE
 
 class ComputrabajoByCompetenciesCommand extends Command
 {
+    use JobFilterTrait; // 👈 ACTIVA EL FILTRO TECH
+
     protected $signature = 'computrabajo:competencies {--pages=2}';
     protected $description = '🌎 Scrapea Computrabajo buscando ofertas por competencias (skills) con geolocalización y métricas.';
 
@@ -51,6 +54,7 @@ class ComputrabajoByCompetenciesCommand extends Command
         $this->info("🔍 Scrapeando Computrabajo para {$competencies->count()} competencias...");
 
         foreach ($competencies as $comp) {
+
             $this->warn("\n💡 Competencia actual: {$comp->name}");
 
             $searchString = strtolower(trim($comp->name));
@@ -90,6 +94,13 @@ class ComputrabajoByCompetenciesCommand extends Command
 
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
+
+                                // ⚠️ FILTRO TECNOLÓGICO OBLIGATORIO
+                                if (!$this->isTechRelated($title)) {
+                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    return;
+                                }
+
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
@@ -102,6 +113,7 @@ class ComputrabajoByCompetenciesCommand extends Command
 
                                 $modality = $this->detectModality($title . ' ' . $city);
 
+                                // EXTRAER SALARIO
                                 $salaryText = null;
                                 $offer->filter('p.fc_aux')->each(function ($node) use (&$salaryText) {
                                     $txt = trim($node->text());
@@ -114,7 +126,7 @@ class ComputrabajoByCompetenciesCommand extends Command
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                                // 💾 Verificar duplicados
+                                // DUPLICADOS
                                 $existing = JobOffer::where('source', 'Computrabajo')
                                     ->where('title', $title)
                                     ->where('company', $company)
@@ -126,18 +138,19 @@ class ComputrabajoByCompetenciesCommand extends Command
                                     return;
                                 }
 
-                                // 🌎 Normalizar país para DB
-                                $country = match (strtolower($country)) {
+                                // NORMALIZAR PAÍS
+                                $countryFormatted = match (strtolower($country)) {
                                     'peru' => 'Perú',
                                     'mexico' => 'México',
                                     default => ucfirst($country),
                                 };
 
+                                // CREAR OFERTA
                                 $job = JobOffer::create([
                                     'title'        => $title,
                                     'company'      => $company,
-                                    'country'      => $country,
-                                    'region'       => RegionHelper::fromCountry($country),
+                                    'country'      => $countryFormatted,
+                                    'region'       => RegionHelper::fromCountry($countryFormatted),
                                     'state_code'   => strtoupper($code),
                                     'city'         => $city,
                                     'latitude'     => $lat,
@@ -152,7 +165,7 @@ class ComputrabajoByCompetenciesCommand extends Command
                                     'published_at' => now(),
                                 ]);
 
-                                // 🔗 Relación pivot: Competencia ↔ Oferta
+                                // RELACIÓN PIVOT
                                 $job->competencies()->syncWithoutDetaching([$comp->id]);
 
                                 $totalNew++;
@@ -166,14 +179,14 @@ class ComputrabajoByCompetenciesCommand extends Command
                         usleep(random_int(500000, 1500000));
 
                     } catch (\Throwable $e) {
-                        $this->warn("💥 Error página {$p} en {$country}: {$e->getMessage()}");
+                        $this->warn("💥 Error página {$p} en {$country}: " . $e->getMessage());
                     }
                 }
 
                 sleep(3);
             }
 
-            // 📊 Guardar métricas por competencia (igual a LanguageMetric)
+            // MÉTRICAS
             CompetencyMetric::updateOrCreate(
                 [
                     'competency_id' => $comp->id,
@@ -192,12 +205,11 @@ class ComputrabajoByCompetenciesCommand extends Command
             $this->info("📊 {$comp->name}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        $this->info("\n🎯 Scraping Computrabajo + Competencias completado con éxito.");
+        $this->info("\n🎯 Scraping Computrabajo + Competencias COMPLETADO.");
     }
 
-
     // ───────────────────────────────────────────────
-    // Helpers (iguales a tu versión)
+    // Helpers
     // ───────────────────────────────────────────────
 
     protected function extractCityFromUrl($url)

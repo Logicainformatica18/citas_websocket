@@ -5,6 +5,23 @@ namespace App\Console\Commands\Traits;
 trait JobFilterTrait
 {
     /**
+ * 🟩 Excepciones que SÍ deben considerarse como tecnología,
+ * aunque incluyan palabras de la blacklist.
+ */
+protected array $jobTitleWhitelist = [
+    'docente programador',
+    'docente de programación',
+    'docente de informática',
+    'profesor de programación',
+    'profesor de sistemas',
+    'profesor de computación',
+    'instructor de programación',
+    'instructor de software',
+    'capacitador en tecnología',
+    'capacitador en programación',
+];
+
+    /**
      * 🚫 Palabras clave NO relacionadas con tecnología.
      */
  protected array $jobTitleBlacklist = [
@@ -97,18 +114,28 @@ trait JobFilterTrait
     /**
      * 🔍 Retorna true si el título está relacionado con tecnología.
      */
-    protected function isTechRelated(string $title): bool
-    {
-        $title = mb_strtolower($title);
+  protected function isTechRelated(string $title): bool
+{
+    $title = mb_strtolower($title);
 
-        foreach ($this->jobTitleBlacklist as $word) {
-            if (str_contains($title, $word)) {
-                return false;
-            }
+    // 🟩 1. Primero: si coincide con whitelist → ES tech
+    foreach ($this->jobTitleWhitelist as $good) {
+        if (str_contains($title, $good)) {
+            return true;
         }
-
-        return true;
     }
+
+    // 🟥 2. Después: si coincide con blacklist → NO es tech
+    foreach ($this->jobTitleBlacklist as $word) {
+        if (str_contains($title, $word)) {
+            return false;
+        }
+    }
+
+    // 🟦 3. Si no coincide con nada → se acepta como tech
+    return true;
+}
+
 
     /**
      * 🚫 Filtra un array de ofertas, dejando solo las tecnológicas.
