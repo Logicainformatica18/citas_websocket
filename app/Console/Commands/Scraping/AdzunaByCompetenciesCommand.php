@@ -32,54 +32,84 @@ class AdzunaByCompetenciesCommand extends Command
         'gb' => ['city' => 'Londres', 'lat' => 51.5074, 'lng' => -0.1278],
         'fr' => ['city' => 'París', 'lat' => 48.8566, 'lng' => 2.3522],
     ];
-    public function handle()
-    {
-        $country = strtolower($this->option('country'));
-        $pages   = (int) $this->option('pages');
+  public function handle()
+{
+    $country = strtolower($this->option('country'));
+    $pages   = (int) $this->option('pages');
 
-        $competencies = Competency::pluck('description_en', 'id');
+    // Solo competencias asociadas a carreras (tu requerimiento)
+    $competencies = Competency::whereNotNull('career_id')
+        ->pluck('description_en', 'id');
 
-        $appId   = config('services.adzuna.app_id');
-        $appKey  = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
+    $appId   = config('services.adzuna.app_id');
+    $appKey  = config('services.adzuna.app_key');
+    $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
 
-        $this->info("🌍 Importando desde Adzuna para {$competencies->count()} competencias...");
+    $this->info("🌍 Importando desde Adzuna para {$competencies->count()} competencias...");
 
-        foreach ($competencies as $competencyId => $description_en) {
+    foreach ($competencies as $competencyId => $description_en) {
 
-            $this->warn("\n💡 Procesando competencia: {$description_en}");
+        $this->warn("\n💡 Procesando competencia: {$description_en}");
 
-            for ($page = 1; $page <= $pages; $page++) {
+        $totalFound = 0;   // cuántos resultados devolvió Adzuna
+        $totalNew   = 0;   // cuántas ofertas nuevas se insertaron
 
-                $url = "{$baseUrl}/{$country}/search/{$page}?app_id={$appId}&app_key={$appKey}&results_per_page=100&what=" . urlencode($description_en);
+        for ($page = 1; $page <= $pages; $page++) {
 
-                try {
-                    $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) continue;
+            $url = "{$baseUrl}/{$country}/search/{$page}?app_id={$appId}&app_key={$appKey}"
+                 . "&results_per_page=100&what=" . urlencode($description_en);
 
-                    $results = $response->json('results') ?? [];
+            try {
+                $response = Http::timeout(25)->get($url);
+                if ($response->failed()) continue;
 
-                    foreach ($results as $job) {
+                $results = $response->json('results') ?? [];
 
-                        $offer = $this->processJobOffer($job, $description_en, $country);
+                $totalFound += count($results);
 
-                        if ($offer) {
-                            // 🔗 asociar competencia
-                            $offer->competencies()->syncWithoutDetaching([$competencyId]);
-                        }
+                foreach ($results as $job) {
+
+                    // Crear o reutilizar JobOffer
+                    $offer = $this->processJobOffer($job, $description_en, $country);
+
+                    if ($offer) {
+                        // Asociar competencia en pivot
+                        $offer->competencies()->syncWithoutDetaching([$competencyId]);
+                        $totalNew++;
                     }
-
-                    sleep(1.1);
-
-                } catch (\Throwable $e) {
-                    $this->error("❌ Error en {$description_en}: {$e->getMessage()}");
-                    Log::error("Error en AdzunaByCompetenciesCommand: " . $e->getMessage());
                 }
+
+                sleep(1.1);
+
+            } catch (\Throwable $e) {
+                $this->error("❌ Error en {$description_en}: {$e->getMessage()}");
+                Log::error("Error en AdzunaByCompetenciesCommand: " . $e->getMessage());
             }
         }
 
-        $this->info("\n🎯 Finalizado.");
+        // =====================================================
+        // 📊 MÉTRICAS DIARIAS POR COMPETENCIA
+        // =====================================================
+        $today = now()->toDateString();
+
+        \App\Models\CompetencyMetric::updateOrCreate(
+            [
+                'competency_id' => $competencyId,
+                'run_date'      => $today,
+                'source'        => 'Adzuna',
+            ],
+            [
+                'competency_name'    => $description_en,
+                'jobs_found_count'   => $totalFound,
+                'jobs_new_count'     => $totalNew,
+                'updated_at'         => now(),
+            ]
+        );
     }
+
+    $this->info("\n🎯 Proceso completado.");
+}
+
 protected function processJobOffer(array $job, string $query, string $country)
 {
     $existing = JobOffer::where('external_id', $job['id'])->first();

@@ -12,7 +12,18 @@ class Kernel extends ConsoleKernel
 
      \App\Console\Commands\ArbeitnowByLanguagesCommand::class,
          \App\Console\Commands\ArbeitnowByMethodologiesCommand::class,
-        \App\Console\Commands\scraping\AdzunaByCompetenciesCommand::class,
+         \App\Console\Commands\scraping\AdzunaByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\ArbeitnowByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\ComputrabajoByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\GetOnBoardByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\GreenhouseByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\JobicyByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\JoobleByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\ReedByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\RemoteOkByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\RemotiveByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\USAJOBSByCompetenciesCommand::class,
+    \App\Console\Commands\scraping\WantedlyByCompetenciesCommand::class,
   \App\Console\Commands\RunAllJobs::class,
 ];
 

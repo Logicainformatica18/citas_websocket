@@ -49,7 +49,10 @@ class ComputrabajoByCompetenciesCommand extends Command
     {
         $pages = (int) $this->option('pages');
 
-        $competencies = Competency::select('id', 'name', 'description_en')->get();
+      $competencies = Competency::select('id', 'name', 'description_en')
+    ->whereNotNull('career_id')
+    ->get();
+
 
         $this->info("🔍 Scrapeando Computrabajo para {$competencies->count()} competencias...");
 
