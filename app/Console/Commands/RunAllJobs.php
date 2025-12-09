@@ -174,6 +174,15 @@ class RunAllJobs extends Command
 // 'adzuna:competencies --country=nz --pages=1',
  'computrabajo:competencies  --pages=5',
 
+ //php artisan rss:import-techcrunch
+ //php artisan rss:import-mckinsey
+ //php artisan rss:import-venturebeat
+
+ //tendencias de hoy
+ 'hackernews:trends',
+ 'hackernews:trends --year=2025',
+ 
+
 ];
 
         $total = count($commands);

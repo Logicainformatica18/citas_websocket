@@ -97,4 +97,10 @@ class ScrapingSource extends Model
     {
         return !empty($this->excel_path);
     }
+
+    public function trends()
+{
+    return $this->hasMany(TrendTechnology::class, 'source_id');
+}
+
 }

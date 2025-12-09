@@ -14,6 +14,18 @@ class Kernel extends ConsoleKernel
          \App\Console\Commands\ArbeitnowByMethodologiesCommand::class,
         \App\Console\Commands\scraping\AdzunaByCompetenciesCommand::class,
   \App\Console\Commands\RunAllJobs::class,
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      \App\Console\Commands\RSS\ImportSomosDigital::class,
+    \App\Console\Commands\RSS\ImportUnescoArticles::class,
+    \App\Console\Commands\RSS\ImportEducause::class,
+    \App\Console\Commands\RSS\ImportWEF::class,
+    \App\Console\Commands\RSS\ImportMcKinsey::class,
+    \App\Console\Commands\RSS\ImportTechCrunch::class,
+    \App\Console\Commands\RSS\ImportTheVerge::class,
+    \App\Console\Commands\RSS\ImportVentureBeat::class,
+
+ \App\Console\Commands\RunAllRss::class,
 ];
 
     /**
