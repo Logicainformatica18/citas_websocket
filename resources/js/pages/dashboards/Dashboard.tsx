@@ -71,7 +71,7 @@ export default function Dashboard({ initialData }: { initialData: any }) {
 
 
 
-  <JobStatsCard />
+  {/* <JobStatsCard /> */}
 
 
 
@@ -80,12 +80,14 @@ export default function Dashboard({ initialData }: { initialData: any }) {
                     <DashboardProvider>
   <DynamicAIWidget />
   {/* 📊 Gráficos IA generados por VERA */}
-<div className="mt-8 border-t border-gray-700 pt-6 pb-10">
-  <h2 className="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">
+<div className="mt-8 border-t border-[#0A4E61] pt-6 pb-10">
+  <h2 className="text-xl font-bold text-[#1CBCE8] mb-4 flex items-center gap-2">
     🤖 DASHBOARD GENERADO POR VERA
   </h2>
+
   <DashboardAIWidgets />
 </div>
+
 
 
 {/* <div className="grid grid-cols-3 gap-3">
