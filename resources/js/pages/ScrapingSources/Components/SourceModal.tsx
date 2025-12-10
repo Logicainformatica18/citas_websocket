@@ -52,6 +52,7 @@ const [form, setForm] = useState({
     scrape_message: data?.scrape_message || null,
     scrape_result: data?.scrape_result || null,
     last_scraped_at: data?.last_scraped_at || null,
+    web_only: data?.web_only ?? false,
 });
 
 
@@ -63,47 +64,66 @@ const [form, setForm] = useState({
     /* ======================================================
        SUBMIT — con spinner y barra de progreso
     ====================================================== */
-    const submit = async () => {
-        try {
-            setLoading(true);
-            setUploadProgress(0);
+  const submit = async () => {
+    try {
+        setLoading(true);
+        setUploadProgress(0);
 
-            const fd = new FormData();
-            Object.entries(form).forEach(([k, v]) => {
+        const fd = new FormData();
+
+        // 🔥 Siempre enviar web_only como 0 o 1
+        fd.append("web_only", form.web_only ? "1" : "0");
+
+        Object.entries(form).forEach(([k, v]) => {
+            // Archivos, textos, etc.
+            if (k !== "api_url" && k !== "api_key") {
+                // ⛔ IMPORTANTE: permitir enviar cadenas vacías en web_prompt
+                if (k === "web_prompt") {
+                    fd.append("web_prompt", v ?? "");
+                    return;
+                }
+
                 if (v !== null && v !== undefined && v !== "") {
                     fd.append(k, v as any);
                 }
-            });
 
-            const url = isEdit
-                ? `/scraping-sources/${data.id}`
-                : `/scraping-sources`;
+                return;
+            }
 
-            if (isEdit) fd.append("_method", "PUT");
+            // 🔥 API URL Y API KEY → siempre se envían, incluso si están vacías
+            fd.append(k, v ?? "");
+        });
 
-            const res = await axios.post(url, fd, {
-                headers: { "Content-Type": "multipart/form-data" },
-                onUploadProgress: (event) => {
-                    if (event.total) {
-                        const percent = Math.round((event.loaded * 100) / event.total);
-                        setUploadProgress(percent);
-                    }
-                },
-            });
+        const url = isEdit
+            ? `/scraping-sources/${data.id}`
+            : `/scraping-sources`;
 
-            toast.success(isEdit ? "Fuente actualizada" : "Fuente creada");
+        if (isEdit) fd.append("_method", "PUT");
 
-            if (res.data.source) onSaved(res.data.source);
+        const res = await axios.post(url, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+            onUploadProgress: (event) => {
+                if (event.total) {
+                    const percent = Math.round((event.loaded * 100) / event.total);
+                    setUploadProgress(percent);
+                }
+            },
+        });
 
-            onClose();
-        } catch (err) {
-            console.error(err);
-            toast.error("Error al guardar");
-        } finally {
-            setLoading(false);
-            setUploadProgress(0);
-        }
-    };
+        toast.success(isEdit ? "Fuente actualizada" : "Fuente creada");
+
+        if (res.data.source) onSaved(res.data.source);
+
+        onClose();
+    } catch (err) {
+        console.error(err);
+        toast.error("Error al guardar");
+    } finally {
+        setLoading(false);
+        setUploadProgress(0);
+    }
+};
+
 
     /* ======================================================
        CERRAR AL HACER CLICK AFUERA

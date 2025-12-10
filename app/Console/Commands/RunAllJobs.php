@@ -14,73 +14,73 @@ class RunAllJobs extends Command
     public function handle()
     {
       $commands = [
-//     'arbeitnow:languages',
-//     'arbeitnow:methodologies',
-//  'arbeitnow:technologies',
+    'arbeitnow:languages',
+    'arbeitnow:methodologies',
+ 'arbeitnow:technologies',
 
-//     'getonboard:languages',
-//     'getonboard:methodologies',
-//     'getonboard:technologies',
-
-
-//  'computrabajo:technologies --country=pe --pages=1',
-//     'computrabajo:technologies --country=bo --pages=1',
-// 'computrabajo:technologies --country=ar --pages=1',
-// 'computrabajo:technologies --country=uy --pages=1',
-// 'computrabajo:technologies --country=mx --pages=1',
-// 'computrabajo:technologies --country=co --pages=1',
-// 'computrabajo:technologies --country=ec --pages=1',
-// 'computrabajo:technologies --country=ve --pages=1',
-// 'computrabajo:technologies --country=cl --pages=1',
-
-// 'computrabajo:languages --pages=1',
-// 'computrabajo:methodologies --pages=1',
+    'getonboard:languages',
+    'getonboard:methodologies',
+    'getonboard:technologies',
 
 
-//  'adzuna:technologies --country=us --pages=1',
-//     'adzuna:technologies --country=ca --pages=1',
-//     'adzuna:technologies --country=mx --pages=1',
-//     'adzuna:technologies --country=br --pages=1',
+ 'computrabajo:technologies --country=pe --pages=1',
+    'computrabajo:technologies --country=bo --pages=1',
+'computrabajo:technologies --country=ar --pages=1',
+'computrabajo:technologies --country=uy --pages=1',
+'computrabajo:technologies --country=mx --pages=1',
+'computrabajo:technologies --country=co --pages=1',
+'computrabajo:technologies --country=ec --pages=1',
+'computrabajo:technologies --country=ve --pages=1',
+'computrabajo:technologies --country=cl --pages=1',
 
-//     'adzuna:technologies --country=es --pages=1',
-//     'adzuna:technologies --country=fr --pages=1',
-//     'adzuna:technologies --country=de --pages=1',
-//     'adzuna:technologies --country=it --pages=1',
-//     'adzuna:technologies --country=gb --pages=1',
-//     'adzuna:technologies --country=nl --pages=1',
-//     'adzuna:technologies --country=ch --pages=1',
-//     'adzuna:technologies --country=pl --pages=1',
-
-// 'adzuna:technologies --country=in --pages=1',
-// 'adzuna:technologies --country=sg --pages=1',
-
-// 'adzuna:technologies --country=za --pages=1',
-
-// 'adzuna:technologies --country=au --pages=1',
-// 'adzuna:technologies --country=nz --pages=1',
+'computrabajo:languages --pages=1',
+'computrabajo:methodologies --pages=1',
 
 
-//  'adzuna:languages --country=us --pages=1',
-// 'adzuna:languages --country=ca --pages=1',
-// 'adzuna:languages --country=mx --pages=1',
-// 'adzuna:languages --country=br --pages=1',
+ 'adzuna:technologies --country=us --pages=1',
+    'adzuna:technologies --country=ca --pages=1',
+    'adzuna:technologies --country=mx --pages=1',
+    'adzuna:technologies --country=br --pages=1',
 
-// 'adzuna:languages --country=es --pages=1',
-// 'adzuna:languages --country=fr --pages=1',
-// 'adzuna:languages --country=de --pages=1',
-// 'adzuna:languages --country=it --pages=1',
-// 'adzuna:languages --country=gb --pages=1',
-// 'adzuna:languages --country=nl --pages=1',
-// 'adzuna:languages --country=ch --pages=1',
-// 'adzuna:languages --country=pl --pages=1',
+    'adzuna:technologies --country=es --pages=1',
+    'adzuna:technologies --country=fr --pages=1',
+    'adzuna:technologies --country=de --pages=1',
+    'adzuna:technologies --country=it --pages=1',
+    'adzuna:technologies --country=gb --pages=1',
+    'adzuna:technologies --country=nl --pages=1',
+    'adzuna:technologies --country=ch --pages=1',
+    'adzuna:technologies --country=pl --pages=1',
 
-// 'adzuna:languages --country=in --pages=1',
-// 'adzuna:languages --country=sg --pages=1',
+'adzuna:technologies --country=in --pages=1',
+'adzuna:technologies --country=sg --pages=1',
 
-// 'adzuna:languages --country=za --pages=1',
+'adzuna:technologies --country=za --pages=1',
 
-// 'adzuna:languages --country=au --pages=1',
-// 'adzuna:languages --country=nz --pages=1',
+'adzuna:technologies --country=au --pages=1',
+'adzuna:technologies --country=nz --pages=1',
+
+
+ 'adzuna:languages --country=us --pages=1',
+'adzuna:languages --country=ca --pages=1',
+'adzuna:languages --country=mx --pages=1',
+'adzuna:languages --country=br --pages=1',
+
+'adzuna:languages --country=es --pages=1',
+'adzuna:languages --country=fr --pages=1',
+'adzuna:languages --country=de --pages=1',
+'adzuna:languages --country=it --pages=1',
+'adzuna:languages --country=gb --pages=1',
+'adzuna:languages --country=nl --pages=1',
+'adzuna:languages --country=ch --pages=1',
+'adzuna:languages --country=pl --pages=1',
+
+'adzuna:languages --country=in --pages=1',
+'adzuna:languages --country=sg --pages=1',
+
+'adzuna:languages --country=za --pages=1',
+
+'adzuna:languages --country=au --pages=1',
+'adzuna:languages --country=nz --pages=1',
 
 
 // 'jooble:languages --country="United States" --pages=1',
@@ -172,56 +172,7 @@ class RunAllJobs extends Command
 
 // 'adzuna:competencies --country=au --pages=1',
 // 'adzuna:competencies --country=nz --pages=1',
-//  'computrabajo:competencies  --pages=5',
-
-
-
-'jooble:competencies --country="United States" --pages=1',
-'jooble:competencies --country="India" --pages=1',
-'jooble:competencies --country="United Kingdom" --pages=1',
-'jooble:competencies --country="Germany" --pages=1',
-'jooble:competencies --country="Spain" --pages=1',
-'jooble:competencies --country="Canada" --pages=1',
-'jooble:competencies --country="Italy" --pages=1',
-'jooble:competencies --country="Mexico" --pages=1',
-
-
-'greenhouse:competencies --company=cloudflare',
-'greenhouse:competencies --company=stripe',
-'greenhouse:competencies --company=discord',
-'greenhouse:competencies --company=gitlab',
-'greenhouse:competencies --company=dropbox',
-'greenhouse:competencies --company=airbnb',
-'greenhouse:competencies --company=datadog',
-'greenhouse:competencies --company=notion',
-'greenhouse:competencies --company=shopify',
-'greenhouse:competencies --company=brex',
-'greenhouse:competencies --company=zoom',
-'greenhouse:competencies --company=hubspot',
-'greenhouse:competencies --company=duolingo',
-'greenhouse:competencies --company=figma',
-'greenhouse:competencies --company=reddit',
-
-// 🌱 Startups tech
-'greenhouse:competencies --company=rippling',
-'greenhouse:competencies --company=deel',
-'greenhouse:competencies --company=ramp',
-'greenhouse:competencies --company=mercury',
-'greenhouse:competencies --company=wise',
-'greenhouse:competencies --company=bolt',
-'greenhouse:competencies --company=sentry',
-'greenhouse:competencies --company=zapier',
-'greenhouse:competencies --company=benchling',
-'greenhouse:competencies --company=anduril',
-
-
-'greenhouse:languages --company=asana',
-'greenhouse:languages --company=grammarly',
-'greenhouse:languages --company=openai',
-
-'reed:competencies',
-'usajobs:competencies',
-
+ 'computrabajo:competencies  --pages=5',
 
 ];
 

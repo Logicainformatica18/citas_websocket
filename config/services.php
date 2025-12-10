@@ -41,6 +41,10 @@ return [
     'api' => [
     'key' => env('API_KEY'),
 ],
+'github' => [
+    'token' => env('GITHUB_TOKEN'),
+],
+
 
 'adzuna' => [
     'app_id' => env('ADZUNA_APP_ID'),

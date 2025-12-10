@@ -27,7 +27,11 @@ class ScrapingSourceController extends Controller
             ->orderBy('id', 'desc')
             ->paginate(10)
             ->appends($request->only('search'));
-
+  // 👇 FORZAR web_only A BOOLEANO
+    $sources->getCollection()->transform(function ($s) {
+        $s->web_only = (bool) $s->web_only;
+        return $s;
+    });
         return Inertia::render('ScrapingSources/Index', [
             'sources' => $sources,
             'filters' => [
@@ -48,6 +52,11 @@ class ScrapingSourceController extends Controller
             })
             ->orderBy('id', 'desc')
             ->paginate(10);
+              // 👇 FORZAR web_only A BOOLEANO
+    $sources->getCollection()->transform(function ($s) {
+        $s->web_only = (bool) $s->web_only;
+        return $s;
+    });
 
         return response()->json([
             'sources' => $sources
@@ -75,41 +84,60 @@ class ScrapingSourceController extends Controller
     /** ============================================================
      * 📌 ACTUALIZAR FUENTE
      * ============================================================ */
-    public function update(Request $request, $id)
-    {
-        $source = ScrapingSource::findOrFail($id);
+public function update(Request $request, $id)
+{
+    $source = ScrapingSource::findOrFail($id);
 
-        $validated = $request->validate([
-            'name'        => 'sometimes|string|max:255',
-            'url'         => 'sometimes|url|max:500',
-            'frequency'   => 'sometimes|string|max:50',
-            'notes'       => 'sometimes|string|max:500',
-            'web_prompt'  => 'nullable|string',
-            'api_url'     => 'nullable|string|max:500',
-            'api_key'     => 'nullable|string|max:255',
-            'pdf_file'    => 'nullable|file|mimes:pdf|max:100240',
-            'excel_file'  => 'nullable|file|mimes:xlsx,xls,csv|max:10240',
-        ]);
+    $validated = $request->validate([
+        'name'        => 'sometimes|string|max:255',
+        'url'         => 'sometimes|url|max:500',
+        'frequency'   => 'sometimes|string|max:50',
+        'notes'       => 'sometimes|string|max:500',
 
-        $data = $validated;
+        'web_prompt'  => 'nullable|string',
 
-        if ($request->hasFile('pdf_file')) {
-            if ($source->pdf_path) Storage::disk('public')->delete($source->pdf_path);
-            $data['pdf_path'] = $request->file('pdf_file')->store('scraping/pdf', 'public');
-        }
+        'api_url'     => 'nullable',
+        'api_key'     => 'nullable',
 
-        if ($request->hasFile('excel_file')) {
-            if ($source->excel_path) Storage::disk('public')->delete($source->excel_path);
-            $data['excel_path'] = $request->file('excel_file')->store('scraping/excel', 'public');
-        }
+        'pdf_file'    => 'nullable|file|mimes:pdf|max:100240',
+        'excel_file'  => 'nullable|file|mimes:xlsx,xls,csv|max:10240',
+    ]);
 
-        $source->update($data);
+    $data = $validated;
 
-        return response()->json([
-            'message' => 'Fuente actualizada correctamente',
-            'source' => $source
-        ]);
+    // 🔥 LIMPIAR CAMPOS SI FUERON BORRADOS EN EL FORMULARIO
+    if ($request->has('web_prompt') && $request->input('web_prompt') === '') {
+        $data['web_prompt'] = null;
     }
+
+    if ($request->has('api_url') && $request->input('api_url') === '') {
+        $data['api_url'] = null;
+    }
+
+    if ($request->has('api_key') && $request->input('api_key') === '') {
+        $data['api_key'] = null;
+    }
+
+    // Archivos
+    if ($request->hasFile('pdf_file')) {
+        if ($source->pdf_path) Storage::disk('public')->delete($source->pdf_path);
+        $data['pdf_path'] = $request->file('pdf_file')->store('scraping/pdf', 'public');
+    }
+
+    if ($request->hasFile('excel_file')) {
+        if ($source->excel_path) Storage::disk('public')->delete($source->excel_path);
+        $data['excel_path'] = $request->file('excel_file')->store('scraping/excel', 'public');
+    }
+
+    $source->update($data);
+
+    return response()->json([
+        'message' => 'Fuente actualizada correctamente',
+        'source' => $source
+    ]);
+}
+
+
 
 
     /** ============================================================

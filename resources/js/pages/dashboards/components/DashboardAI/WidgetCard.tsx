@@ -528,7 +528,7 @@ const exportToPDF = () => {
       >
         📄 Exportar PDF
       </button>
-<button
+{/* <button
   onClick={async () => {
     setMenuOpen(false);
     await handleSegment();
@@ -536,7 +536,7 @@ const exportToPDF = () => {
   className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-cyan-400 text-sm"
 >
   🧠 Segmentar datos
-</button>
+</button> */}
 
       <button
         onClick={() => {

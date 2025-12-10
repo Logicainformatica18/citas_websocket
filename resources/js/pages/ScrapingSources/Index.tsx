@@ -26,6 +26,7 @@ type Source = {
     frequency: string | null;
     pdf_path?: string | null;
     web_prompt?: string | null;
+    web_only?: boolean | null;
     api_url?: string | null;
     api_key?: string | null;
     excel_path?: string | null;
@@ -138,7 +139,7 @@ const handleSearch = (e: any) => {
 
     const isPossible = (item: Source) =>
         !!item.pdf_path ||
-        !!item.web_prompt ||
+    item.web_only === true ||      // ✔ indicador real para web
         !!item.api_url ||
         !!item.api_key ||
         !!item.excel_path;
@@ -234,9 +235,10 @@ const handleSearch = (e: any) => {
                                         {statusBadge(!!item.pdf_path)}
                                     </td>
 
-                                    <td className="px-4 py-3 text-center">
-                                        {statusBadge(!!item.web_prompt)}
-                                    </td>
+                                 <td className="px-4 py-3 text-center">
+    {statusBadge(item.web_only === true)}
+</td>
+
 
                                     <td className="px-4 py-3 text-center">
                                         {statusBadge(!!item.api_url || !!item.api_key)}
