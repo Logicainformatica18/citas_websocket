@@ -45,6 +45,7 @@ class PdfPartDetectTablesJob implements ShouldQueue
                    PROMPT SEGURO (NO INVENTA, NO COMPLETA)
                 ---------------------------------------------------- */
                 $prompt = "
+                Responde siempre en español.
 Analiza el siguiente texto OCR y extrae únicamente tablas REALES.
 
 REGLAS:
@@ -78,7 +79,7 @@ Texto OCR:
                         "temperature" => 0,
                         "response_format" => ["type" => "json_object"],
                         "messages" => [
-                            ["role" => "system", "content" => "Eres un extractor experto de tablas basado únicamente en lo que realmente aparece en el OCR."],
+                            ["role" => "system", "content" => "Responde SIEMPRE en español. Nunca inventes datos."],
                             ["role" => "user", "content" => $prompt]
                         ]
                     ]);

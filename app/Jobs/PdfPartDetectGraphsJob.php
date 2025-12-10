@@ -45,6 +45,7 @@ class PdfPartDetectGraphsJob implements ShouldQueue
                    PROMPT SEGURO · SIN INVENTOS · ESTRICTO
                 ---------------------------------------------------- */
                 $prompt = "
+                Responde siempre en español.
 Analiza el siguiente texto OCR e identifica ÚNICAMENTE gráficos reales.
 No inventes valores, no completes series faltantes, no interpolar.
 
@@ -84,7 +85,7 @@ Texto OCR:
                         "messages" => [
                             [
                                 "role" => "system",
-                                "content" => "Eres un analista que detecta gráficos sin completar datos ni inventar valores."
+                                "content" => "Responde SIEMPRE en español. Nunca inventes datos."
                             ],
                             [
                                 "role" => "user",

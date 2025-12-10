@@ -50,31 +50,33 @@ class PdfPartGenerateSummaryJob implements ShouldQueue
         // ================================================================
         // 2️⃣ PROMPT SEGURO SIN INVENTOS
         // ================================================================
-        $prompt = "
-Eres un analista que resume documentos SIN INVENTAR contenido.
+$prompt = "
+Responde siempre en español.
+Eres un analista especializado en resumir documentos de manera rigurosa y SIN INVENTAR información.
 
-Reglas:
-- SOLO usa información explícitamente presente en el texto.
-- NO agregues ejemplos externos, ni suposiciones, ni estadísticas inventadas.
-- Si el texto está incompleto, indícalo en \"notes\".
-- Usa lenguaje claro y formal.
-- Respuestas SIEMPRE en JSON válido.
+Reglas estrictas:
+- SOLO usa contenido explícitamente presente en el texto OCR.
+- NO inventes datos, NO completes con información externa.
+- NO hagas suposiciones, NO generes ejemplos ficticios.
+- Si el texto está incompleto, borroso o presenta lagunas, indícalo únicamente en \"notes\".
+- Mantén un tono profesional, claro y formal.
+- La respuesta debe ser SIEMPRE un JSON 100% válido.
 
-Formato EXACTO:
+Formato EXACTO que debes devolver:
 {
-  \"summary_short\": \"1–2 frases máximo\",
-  \"summary_medium\": \"Un párrafo que cubre lo esencial\",
-  \"summary_long\": \"Mínimo 180 palabras. No inventar nada.\",
-  \"insights\": [\"lista de conclusiones basadas SOLO en el texto\"],
-  \"topics\": [\"lista de temas detectados\"],
+  \"summary_short\": \"1–2 frases máximo basadas únicamente en el texto\",
+  \"summary_medium\": \"Un párrafo que explique lo esencial del contenido\",
+  \"summary_long\": \"Mínimo 180 palabras. Basado solo en el texto. Sin inventar nada.\",
+  \"insights\": [\"lista de conclusiones extraídas SOLO del contenido real del texto\"],
+  \"topics\": [\"lista de temas detectados explícitamente\"],
   \"notes\": [
-     \"advertencias sobre OCR, lagunas, texto incompleto o problemas detectados\"
+     \"advertencias sobre OCR débil, texto faltante, posibles errores o secciones ilegibles\"
   ]
 }
 
-Texto OCR:
+A continuación, tienes el TEXTO OCR que debes analizar sin modificar ni reinterpretar:
 $fullText
-        ";
+";
 
         try {
 
@@ -86,7 +88,7 @@ $fullText
                     "messages" => [
                         [
                             "role" => "system",
-                            "content" => "Eres un analista experto y extremadamente riguroso. Nunca inventas datos."
+                            "content" => "Responde SIEMPRE en español. Nunca inventes datos."
                         ],
                         [
                             "role" => "user",
