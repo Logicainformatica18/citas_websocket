@@ -53,42 +53,104 @@ class ProcessWebResultJob implements ShouldQueue
             $cleanHtml = substr($html, 0, 15000);  // evita truncados
 
             // 3️⃣ Prompt limpio (sin incrustar HTML)
-            $prompt = "
-Eres un analista experto. Extrae información estructurada de la página enviada como documento.
+          $prompt = "
+Eres un analista especializado en extraer información estructurada desde páginas web.
+Recibirás el HTML de la página en 'documents'. Tu misión es transformar el contenido
+en datos estructurados útiles para un Observatorio Tecnológico y Académico.
 
-PROMPT BASE DEFINIDO POR EL PADRE:
---------------------------------
-{$source->web_prompt}
---------------------------------
+EXTRAE SOLO LO QUE REALMENTE APARECE. NO INVENTES NADA.
 
-Reglas:
-- Usa solo el HTML entregado en documents.
-- No inventes datos.
-- Devuelve únicamente JSON válido.
+Devuelve EXCLUSIVAMENTE JSON válido con la siguiente estructura:
+
+{
+  \"source_url\": \"URL procesada\",
+  \"title\": \"título detectado o null\",
+  \"summary\": \"una frase corta que resuma el artículo (extraída del html)\",
+
+  \"technologies\": [
+    {
+      \"name\": \"nombre de la tecnología\",
+      \"category\": \"lenguaje | framework | cloud | devops | ai | data | security | methodology | other\",
+      \"description\": \"frase breve obtenida del contenido\",
+      \"relevance\": \"alta | media | baja\"
+    }
+  ],
+
+  \"certifications\": [
+    {
+      \"name\": \"nombre de certificación\",
+      \"provider\": \"organización o vendor real mencionado en el html\",
+      \"description\": \"para qué sirve (extraído del contenido)\",
+      \"level\": \"básico | intermedio | avanzado | experto | no indicado\"
+    }
+  ],
+
+  \"trends\": [
+    {
+      \"trend\": \"nombre de una tendencia mencionada en el contenido\",
+      \"type\": \"technology | skill | role | market | methodology | other\",
+      \"signal_strength\": \"explícita si el texto dice 'creciente', 'alta demanda', 'tendencia', etc.\",
+      \"evidence\": \"párrafo o frase exacta extraída del html (obligatorio)\"
+    }
+  ],
+
+  \"skills\": [
+    {
+      \"name\": \"nombre de habilidad o competencia mencionada\",
+      \"type\": \"technical | soft | methodological | other\",
+      \"context\": \"explicación breve basada en el texto\"
+    }
+  ],
+
+  \"roles\": [
+    {
+      \"name\": \"rol profesional mencionado en el contenido\",
+      \"demand_signal\": \"alta | media | baja | no indicada\",
+      \"context\": \"por qué aparece según el artículo\"
+    }
+  ],
+
+  \"metadata\": {
+    \"language_detected\": \"idioma detectado\",
+    \"year_detected\": \"año mencionado explícitamente o null\",
+    \"html_tokens\": \"no completar\"
+  }
+}
+
+REGLAS IMPORTANTES:
+- NO resumas el contenido en texto libre: solo datos estructurados.
+- NO inventes tecnologías, certificaciones ni tendencias.
+- Si un campo no existe, devuélvelo como null o lista vacía.
+- El JSON debe ser 100% válido y parseable.
+- Debes basarte solo en el documento HTML entregado.
 ";
 
-            // 4️⃣ Llamada OpenAI usando /responses + documents (estándar ChatGPT)
-            $response = Http::withToken(env('OPENAI_API_KEY'))->post(
-                "https://api.openai.com/v1/responses",
-                [
-                    "model" => "gpt-4o-mini",
-                    "input" => $prompt,
-                    "documents" => [
-                        [
-                            "type" => "text",
-                            "source" => "upload",
-                            "content" => $cleanHtml
-                        ]
-                    ],
-                    "temperature" => 0,
-                ]
-            )->json();
 
-            $raw = $response["output_text"] ?? null;
+     $response = Http::withToken(env('OPENAI_API_KEY'))->post(
+    'https://api.openai.com/v1/chat/completions',
+    [
+        "model" => "gpt-4o-mini",
+        "temperature" => 0,
+        "messages" => [
+            [
+                "role" => "system",
+                "content" => "Eres un analista experto en extraer datos estructurados desde HTML. Devuelve SOLO JSON válido y no inventes nada."
+            ],
+            [
+                "role" => "user",
+                "content" => $prompt . "\n\nContenidoHTML:\n" . $cleanHtml
+            ]
+        ]
+    ]
+)->json();
 
-            if (!$raw) {
-                throw new Exception("La IA devolvió vacío.");
-            }
+// Obtener respuesta
+$raw = $response["choices"][0]["message"]["content"] ?? null;
+
+if (!$raw) {
+    throw new Exception("La IA devolvió vacío o no procesó el HTML.");
+}
+
 
             // 5️⃣ Parseo seguro
             $json = json_decode($raw, true);

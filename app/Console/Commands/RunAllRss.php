@@ -119,6 +119,8 @@ class RunAllRss extends Command
 // 'npm:trends --packages=react,vue,angular --period=last-week',
 // 'npm:trends --packages=next,nuxt,svelte,astro --period=last-month',
 
+// 'hackernews:trends',
+//  'hackernews:trends --year=2025',
 // ==========================
 // 🌐 REDDIT TECHNOLOGY TRENDS
 // ==========================

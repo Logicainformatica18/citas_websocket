@@ -36,7 +36,7 @@ class ScrapingSource extends Model
 
     protected $casts = [
         'has_pdf'      => 'boolean',
-        'web_only'     => 'boolean',
+ 'web_only' => 'boolean',
         'has_api'      => 'boolean',
         'excel_csv'    => 'boolean',
         'auto_process' => 'boolean',
@@ -83,10 +83,7 @@ class ScrapingSource extends Model
         return !empty($this->pdf_path);
     }
 
-    public function getWebOnlyAttribute()
-    {
-        return !empty($this->web_prompt);
-    }
+
 
     public function getHasApiAttribute()
     {
