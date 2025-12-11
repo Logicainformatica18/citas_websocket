@@ -120,182 +120,218 @@ export default function SyllabusIndex() {
     );
   };
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
-          <h1 className="text-3xl font-semibold flex items-center gap-2">
-            <FileText className="text-blue-600 dark:text-blue-400 w-6 h-6" />
-            Gestión de Sílabos
-          </h1>
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-md shadow-md flex items-center gap-2 transition"
-          >
-            <Plus className="w-4 h-4" /> Subir Sílabos
-          </button>
-        </div>
+return (
+  <AppLayout breadcrumbs={breadcrumbs}>
+    <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
 
-        {/* Botón eliminar múltiple */}
-        {selectedIds.length > 0 && (
-          <div className="mb-4">
-            <button
-              onClick={removeBulk}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition"
-            >
-              Eliminar Seleccionados ({selectedIds.length})
-            </button>
-          </div>
-        )}
+      {/* HEADER ISIL */}
+      <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+        <h1 className="text-3xl font-semibold flex items-center gap-2">
+          <FileText className="text-[#1CBCE8] w-7 h-7" />
+          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Gestión de Sílabos</span>
+        </h1>
 
-        {/* Tabla */}
-        <div className="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-800">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm uppercase">
-              <tr>
-                <th className="px-4 py-2 text-center">
-                  <input
-                    type="checkbox"
-                    checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
-                    onChange={(e) =>
-                      setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
-                    }
-                  />
-                </th>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Ver</th>
-                <th className="px-4 py-2">Archivo</th>
-                <th className="px-4 py-2">Estado</th>
-                <th className="px-4 py-2">Curso</th>
-                <th className="px-4 py-2">Lenguajes</th>
-                <th className="px-4 py-2">Tecnologías</th>
-                <th className="px-4 py-2">Metodologías</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
-                >
-                  <td className="px-4 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(item.id)}
-                      onChange={(e) =>
-                        setSelectedIds((prev) =>
-                          e.target.checked
-                            ? [...prev, item.id]
-                            : prev.filter((id) => id !== item.id)
-                        )
-                      }
-                    />
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <button
-                      onClick={() => removeOne(item.id, item.filename)}
-                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 inline-flex items-center gap-1 text-sm font-medium"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-                  </td>
-                  <td className="px-4 py-2">
-                    <a
-                      href={`/${item.path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
-                    >
-                      Ver PDF
-                    </a>
-                  </td>
-                  <td className="px-4 py-2">{item.filename}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.status === 'pending'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                          : item.status === 'processing'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
-                          : item.status === 'processed'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">{item.structured_data?.curso ?? '-'}</td>
-                  <td className="px-4 py-2">{item.structured_data?.lenguajes?.join(', ') ?? '-'}</td>
-                  <td className="px-4 py-2">{renderTecnologias(item.structured_data?.tecnologias)}</td>
-                  <td className="px-4 py-2">{item.structured_data?.metodologias?.join(', ') ?? '-'}</td>
-                </tr>
-              ))}
-
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
-                    No hay sílabos para mostrar.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* 🔹 Paginación intacta */}
-        {pagination.last_page > 1 && (
-          <div className="flex justify-center mt-6 gap-2">
-            {(() => {
-              const pages: (number | string)[] = [];
-              const total = pagination.last_page;
-              const current = pagination.current_page;
-
-              if (total <= 7) {
-                for (let i = 1; i <= total; i++) pages.push(i);
-              } else {
-                pages.push(1);
-                if (current > 4) pages.push('...');
-                const start = Math.max(2, current - 1);
-                const end = Math.min(total - 1, current + 1);
-                for (let i = start; i <= end; i++) pages.push(i);
-                if (current < total - 3) pages.push('...');
-                pages.push(total);
-              }
-
-              return pages.map((p, idx) =>
-                p === '...' ? (
-                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 dark:text-gray-400">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={`page-${p}-${idx}`}
-                    onClick={() => fetchPage(`/syllabus/fetch?page=${p}`)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition ${
-                      pagination.current_page === p
-                        ? 'bg-blue-600 text-white shadow'
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                    disabled={pagination.current_page === p}
-                  >
-                    {p}
-                  </button>
-                )
-              );
-            })()}
-          </div>
-        )}
+        <button
+          onClick={() => setShowModal(true)}
+          className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow flex items-center gap-2 transition"
+        >
+          <Plus className="w-4 h-4" /> Subir Sílabos
+        </button>
       </div>
 
-      {showModal && (
-        <SyllabusModal
-          open={showModal}
-          onClose={() => setShowModal(false)}
-          onUploaded={() => fetchPage('/syllabus/fetch')}
-        />
+      {/* BOTÓN ELIMINAR MÚLTIPLE */}
+      {selectedIds.length > 0 && (
+        <div className="mb-4">
+          <button
+            onClick={removeBulk}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition"
+          >
+            Eliminar Seleccionados ({selectedIds.length})
+          </button>
+        </div>
       )}
-    </AppLayout>
-  );
+
+      {/* TABLA */}
+      <div className="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-800">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+
+          {/* HEADER ISIL */}
+          <thead className="bg-[#1CBCE8] dark:bg-[#1CBCE8]/20 text-white dark:text-[#1CBCE8] uppercase text-xs tracking-wide">
+            <tr>
+              <th className="px-4 py-2 text-center">
+                <input
+                  type="checkbox"
+                  checked={items.length > 0 && items.every((i) => selectedIds.includes(i.id))}
+                  onChange={(e) =>
+                    setSelectedIds(e.target.checked ? items.map((i) => i.id) : [])
+                  }
+                />
+              </th>
+              <th className="px-4 py-2">Acciones</th>
+              <th className="px-4 py-2">Ver</th>
+              <th className="px-4 py-2">Archivo</th>
+              <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2">Curso</th>
+              <th className="px-4 py-2">Lenguajes</th>
+              <th className="px-4 py-2">Tecnologías</th>
+              <th className="px-4 py-2">Metodologías</th>
+            </tr>
+          </thead>
+
+          {/* BODY */}
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+            {items.map((item) => (
+              <tr
+                key={item.id}
+                className="hover:bg-[#E7F9FD] dark:hover:bg-[#1CBCE8]/10 transition-colors"
+              >
+                {/* SELECT */}
+                <td className="px-4 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={(e) =>
+                      setSelectedIds((prev) =>
+                        e.target.checked
+                          ? [...prev, item.id]
+                          : prev.filter((id) => id !== item.id)
+                      )
+                    }
+                  />
+                </td>
+
+                {/* ACCIONES */}
+                <td className="px-4 py-2 whitespace-nowrap">
+                  <button
+                    onClick={() => removeOne(item.id, item.filename)}
+                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 text-sm font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" /> Eliminar
+                  </button>
+                </td>
+
+                {/* VER PDF */}
+                <td className="px-4 py-2">
+                  <a
+                    href={`/${item.path}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#1CBCE8] hover:underline font-medium text-sm"
+                  >
+                    Ver PDF
+                  </a>
+                </td>
+
+                {/* FILENAME */}
+                <td className="px-4 py-2">{item.filename}</td>
+
+                {/* ESTADO → CHIP ISIL */}
+                <td className="px-4 py-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium
+                      ${
+                        item.status === "pending"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          : item.status === "processing"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                          : item.status === "processed"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
+                          : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
+                      }
+                    `}
+                  >
+                    {item.status}
+                  </span>
+                </td>
+
+                {/* CURSO */}
+                <td className="px-4 py-2">{item.structured_data?.curso ?? "-"}</td>
+
+                {/* LENGUAJES */}
+                <td className="px-4 py-2">
+                  {item.structured_data?.lenguajes?.join(", ") ?? "-"}
+                </td>
+
+                {/* TECNOLOGÍAS */}
+                <td className="px-4 py-2">
+                  {renderTecnologias(item.structured_data?.tecnologias)}
+                </td>
+
+                {/* METODOLOGÍAS */}
+                <td className="px-4 py-2">
+                  {item.structured_data?.metodologias?.join(", ") ?? "-"}
+                </td>
+              </tr>
+            ))}
+
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  No hay sílabos para mostrar.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* PAGINACIÓN ISIL */}
+      {pagination.last_page > 1 && (
+        <div className="flex justify-center mt-6 gap-2">
+          {(() => {
+            const pages: (number | string)[] = [];
+            const total = pagination.last_page;
+            const current = pagination.current_page;
+
+            if (total <= 7) {
+              for (let i = 1; i <= total; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (current > 4) pages.push("...");
+              const start = Math.max(2, current - 1);
+              const end = Math.min(total - 1, current + 1);
+              for (let i = start; i <= end; i++) pages.push(i);
+              if (current < total - 3) pages.push("...");
+              pages.push(total);
+            }
+
+            return pages.map((p, idx) =>
+              p === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 dark:text-gray-400">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={`page-${p}-${idx}`}
+                  onClick={() => fetchPage(`/syllabus/fetch?page=${p}`)}
+                  className={`px-3 py-1 rounded-md text-sm transition
+                    ${
+                      pagination.current_page === p
+                        ? "bg-[#1CBCE8] text-white shadow"
+                        : "bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    }
+                  `}
+                  disabled={pagination.current_page === p}
+                >
+                  {p}
+                </button>
+              )
+            );
+          })()}
+        </div>
+      )}
+
+    </div>
+
+    {/* MODAL SUBIR SYLLABUS */}
+    {showModal && (
+      <SyllabusModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onUploaded={() => fetchPage("/syllabus/fetch")}
+      />
+    )}
+  </AppLayout>
+);
+
 }

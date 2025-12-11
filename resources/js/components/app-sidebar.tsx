@@ -92,6 +92,7 @@ export function AppSidebar() {
                     <MenuItem href="/technologies" icon={<Cpu className={`w-5 h-5 ${isilBlue}`} />} label="Tecnologías" />
                     <MenuItem href="/methodologies" icon={<Workflow className={`w-5 h-5 ${isilBlue}`} />} label="Metodologías" />
                     <MenuItem href="/competencies" icon={<ListChecks className={`w-5 h-5 ${isilBlue}`} />} label="Competencias" />
+                      <MenuItem href="/tech-positions" icon={<ListChecks className={`w-5 h-5 ${isilBlue}`} />} label="Roles Tech" />
                 </SidebarMenu>
 
                 {/* 📥 EXTRACCIÓN DE DATOS */}
@@ -111,6 +112,11 @@ export function AppSidebar() {
                         href="/scraping-sources"
                         icon={<FileSearch className={`w-5 h-5 ${isilBlue}`} />}
                         label="Tendencias Tech"
+                    />
+                    <MenuItem
+                        href="/topics-ia"
+                        icon={<FileSearch className={`w-5 h-5 ${isilBlue}`} />}
+                        label="Topics IA"
                     />
                 </SidebarMenu>
 

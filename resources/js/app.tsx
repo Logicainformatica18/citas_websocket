@@ -17,6 +17,15 @@ if (token) {
 }
 
 const appName = import.meta.env.VITE_APP_NAME || 'Isil';
+const colors = {
+  isil: {
+    primary: "#1CBCE8",
+    primaryDark: "#17A8D0",
+    soft: "#E7F9FD",
+    badge: "#C9F3FF",
+    text: "#0C647A"
+  }
+};
 
 createInertiaApp({
     title: (title) => `${title}  ${appName}`,

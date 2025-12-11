@@ -4,7 +4,7 @@ import { usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Plus, Search, Edit } from "lucide-react";
+import { Trash2, Plus, Search, Edit,Award } from "lucide-react";
 import MethodologyModal from "./MethodologyModal";
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: "Metodologías", href: "/methodologies" }];
@@ -123,166 +123,223 @@ useEffect(() => {
     setEditing(null);
     setShowModal(false);
   };
+return (
+  <AppLayout breadcrumbs={breadcrumbs}>
+    <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-          Metodologías
+      {/* HEADER ISIL */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+        <h1 className="text-3xl font-semibold flex items-center gap-2">
+          <Award className="w-6 h-6 text-[#1CBCE8]" />
+          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Metodologías</span>
         </h1>
 
-        {/* 🔍 Búsqueda */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar metodología..."
-              className="pl-9 pr-3 py-2 w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setEditing(null);
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Nueva Metodología
-          </button>
-        </div>
-
-        {/* Tabla */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-collapse">
-            <thead className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 uppercase text-sm">
-              <tr>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Nombre</th>
-                <th className="px-4 py-2">Contexto</th>
-                <th className="px-4 py-2">Activo</th>
-                <th className="px-4 py-2">Creado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-6 text-slate-500">
-                    Cargando...
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-6 text-slate-500">
-                    No hay metodologías registradas.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => {
-                  const ctx = contexts.find((c) => c.id === item.context_id);
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                    >
-                      <td className="px-4 py-2 whitespace-nowrap flex gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="text-blue-500 hover:text-blue-700 inline-flex items-center gap-1"
-                        >
-                          <Edit className="w-4 h-4" /> Editar
-                        </button>
-                        <button
-                          onClick={() => removeOne(item.id, item.name)}
-                          className="text-red-500 hover:text-red-700 inline-flex items-center gap-1"
-                        >
-                          <Trash2 className="w-4 h-4" /> Eliminar
-                        </button>
-                      </td>
-
-                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
-                        {item.name}
-                      </td>
-
-                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        {ctx ? ctx.search_context : "-"}
-                      </td>
-
-                      {/* 🔥 SWITCH ACTIVAR/DESACTIVAR */}
-                      <td className="px-4 py-2 text-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={item.enabled}
-                            onChange={() => toggleEnabled(item.id, item.enabled)}
-                          />
-                          <div className="
-                            w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full
-                            peer dark:bg-gray-700 peer-checked:bg-blue-600
-                            relative transition
-                          ">
-                            <span
-                              className="
-                                absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full
-                                transition-all peer-checked:translate-x-5 shadow
-                              "
-                            ></span>
-                          </div>
-                        </label>
-                      </td>
-
-                      <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
-                        {new Date(item.created_at || "").toLocaleDateString("es-PE")}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* PAGINACIÓN */}
-        {pagination.last_page > 1 && (
-          <div className="flex justify-center mt-6 gap-1">
-            {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-              .map((page) => (
-                <button
-                  key={page}
-                  onClick={() =>
-                    fetchPage(
-                      `/methodologies/fetch?page=${page}&search=${encodeURIComponent(search)}`
-                    )
-                  }
-                  className={`px-3 py-1 rounded text-sm font-medium transition ${
-                    pagination.current_page === page
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
-                  }`}
-                  disabled={pagination.current_page === page}
-                >
-                  {page}
-                </button>
-              ))}
-          </div>
-        )}
-
-        {/* MODAL */}
-        {showModal && (
-          <MethodologyModal
-            open={showModal}
-            onClose={handleModalClose}
-            onCreated={() => fetchPage("/methodologies/fetch")}
-            editing={editing}
-            contexts={contexts}
-          />
-        )}
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowModal(true);
+          }}
+          className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow transition"
+        >
+          Nueva Metodología
+        </button>
       </div>
-    </AppLayout>
-  );
+
+      {/* BUSCADOR */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6 items-start sm:items-center">
+
+        {/* Searchbox */}
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <input
+            type="text"
+            placeholder="Buscar metodología..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="
+              w-full pl-9 pr-3 py-2 rounded-md
+              bg-white dark:bg-gray-800
+              border border-gray-300 dark:border-gray-700
+              text-gray-900 dark:text-gray-100
+              focus:ring-2 focus:ring-[#1CBCE8] outline-none
+            "
+          />
+        </div>
+
+      </div>
+
+      {/* TABLA ISIL */}
+      <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+        <table className="min-w-full text-sm">
+
+          {/* ENCABEZADO AZUL ISIL */}
+          <thead className="bg-[#1CBCE8] dark:bg-[#1CBCE8]/20 text-white dark:text-[#1CBCE8] uppercase text-xs tracking-wide">
+            <tr>
+              <th className="px-4 py-2 text-left">Acciones</th>
+              <th className="px-4 py-2 text-left">Nombre</th>
+              <th className="px-4 py-2 text-left">Contexto</th>
+              <th className="px-4 py-2 text-left">Estado</th>
+              <th className="px-4 py-2 text-left">Creado</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+
+            {/* Loading */}
+            {loading && (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-gray-500">Cargando…</td>
+              </tr>
+            )}
+
+            {/* Vacío */}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-gray-500">
+                  No hay metodologías registradas.
+                </td>
+              </tr>
+            )}
+
+            {/* ITEMS */}
+            {!loading && items.length > 0 && items.map((item) => {
+              const ctx = contexts.find((c) => c.id === item.context_id);
+
+              return (
+                <tr
+                  key={item.id}
+                  className="hover:bg-[#E7F9FD] dark:hover:bg-[#1CBCE8]/10 transition-colors"
+                >
+                  {/* Acciones */}
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => openEdit(item)}
+                      className="text-[#1CBCE8] hover:text-[#17A8D0] flex items-center gap-1"
+                    >
+                      <Edit className="w-4 h-4" /> Editar
+                    </button>
+
+                    <button
+                      onClick={() => removeOne(item.id, item.name)}
+                      className="text-red-500 hover:text-red-400 flex items-center gap-1 mt-1"
+                    >
+                      <Trash2 className="w-4 h-4" /> Eliminar
+                    </button>
+                  </td>
+
+                  {/* Nombre */}
+                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
+                    {item.name}
+                  </td>
+
+                  {/* Contexto con chip ISIL */}
+                  <td className="px-4 py-3">
+                    {ctx ? (
+                      <span
+                        className="
+                          px-2 py-1 rounded-md text-xs font-medium
+                          bg-[#C9F3FF] text-[#0C647A]
+                          dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
+                          border border-[#1CBCE8]/30
+                        "
+                      >
+                        {ctx.search_context}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+
+                  {/* Estado */}
+                  <td className="px-4 py-3">
+                    {item.enabled === 1 ? (
+                      <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200">
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-300">
+                        Inactivo
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Fecha */}
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                    {new Date(item.created_at || "").toLocaleDateString("es-PE")}
+                  </td>
+                </tr>
+              );
+            })}
+
+          </tbody>
+        </table>
+      </div>
+
+      {/* PAGINACIÓN ISIL */}
+      {pagination.last_page > 1 && (
+        <div className="flex justify-center mt-6 gap-1">
+
+          {(() => {
+            const pages = [];
+            const total = pagination.last_page;
+            const current = pagination.current_page;
+
+            const addPage = (p: number) => {
+              pages.push(
+                <button
+                  key={p}
+                  onClick={() =>
+                    fetchPage(`/methodologies/fetch?page=${p}&search=${search}`)
+                  }
+                  className={`
+                    px-3 py-1 rounded-md text-sm transition
+                    ${
+                      current === p
+                        ? "bg-[#1CBCE8] text-white shadow"
+                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }
+                  `}
+                >
+                  {p}
+                </button>
+              );
+            };
+
+            if (current > 3) addPage(1);
+            if (current > 4)
+              pages.push(<span key="dots1" className="px-2 text-gray-400">…</span>);
+
+            for (let p = current - 2; p <= current + 2; p++) {
+              if (p >= 1 && p <= total) addPage(p);
+            }
+
+            if (current < total - 3)
+              pages.push(<span key="dots2" className="px-2 text-gray-400">…</span>);
+
+            if (current < total - 2) addPage(total);
+
+            return pages;
+          })()}
+
+        </div>
+      )}
+
+      {/* MODAL */}
+      {showModal && (
+        <MethodologyModal
+          open={showModal}
+          onClose={handleModalClose}
+          onCreated={() => fetchPage("/methodologies/fetch")}
+          editing={editing}
+          contexts={contexts}
+        />
+      )}
+
+    </div>
+  </AppLayout>
+);
+
+
+
+
 }

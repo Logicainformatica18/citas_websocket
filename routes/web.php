@@ -32,6 +32,9 @@ use App\Http\Controllers\PdfDocumentPartController;
 use App\Http\Controllers\ScrapingSourceController;
 use App\Http\Controllers\ScrapingWebResultController;
 use App\Http\Controllers\CompetencyController;
+use App\Http\Controllers\TopicsIAController;
+use App\Http\Controllers\TechPositionController;
+
 
 
 
@@ -364,6 +367,45 @@ Route::post('/scraping/{source}/results/process-all', [ScrapingWebResultControll
 Route::delete('/scraping/results/{id}', [ScrapingWebResultController::class, 'destroy']);
 Route::put('/scraping/results/{id}', [ScrapingWebResultController::class, 'update']);
 Route::post('/scraping/result/{id}/process', [ScrapingWebResultController::class, 'processOne']);
+
+
+
+
+
+Route::prefix('topics-ia')->group(function () {
+
+
+    Route::get('/', [TopicsIAController::class, 'index'])
+        ->name('topics.index');
+    Route::get('/fetch', [TopicsIAController::class, 'fetchPaginated'])
+        ->name('topics.fetch');
+    Route::post('/', [TopicsIAController::class, 'store'])
+        ->name('topics.store');
+    Route::put('/{id}', [TopicsIAController::class, 'update'])
+        ->name('topics.update');
+    Route::delete('/{id}', [TopicsIAController::class, 'destroy'])
+        ->name('topics.destroy');
+    Route::patch('/{id}/toggle', [TopicsIAController::class, 'toggle'])
+        ->name('topics.toggle');
+    Route::patch('/{id}/reactivate', [TopicsIAController::class, 'reactivate'])
+        ->name('topics.reactivate');
+});
+
+
+Route::prefix('tech-positions')->group(function () {
+    Route::get('/', [TechPositionController::class, 'index'])
+        ->name('tech_positions.index');
+    Route::get('/fetch', [TechPositionController::class, 'fetchPaginated'])
+        ->name('tech_positions.fetch');
+    Route::post('/', [TechPositionController::class, 'store'])
+        ->name('tech_positions.store');
+    Route::put('/{id}', [TechPositionController::class, 'update'])
+        ->name('tech_positions.update');
+    Route::delete('/{id}', [TechPositionController::class, 'destroy'])
+        ->name('tech_positions.destroy');
+    Route::patch('/{id}/toggle', [TechPositionController::class, 'toggle'])
+        ->name('tech_positions.toggle');
+});
 
 
 });

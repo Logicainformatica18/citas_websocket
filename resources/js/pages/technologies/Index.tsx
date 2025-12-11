@@ -4,7 +4,7 @@ import { usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Plus, Search, Edit } from "lucide-react";
+import { Trash2, Plus, Search, Edit,Award} from "lucide-react";
 import TechnologyModal from "./TechnologyModal";
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: "Tecnologías", href: "/technologies" }];
@@ -152,200 +152,244 @@ const normalizePagePayload = (payload: any): Pagination<Technology> => {
     setShowModal(false);
   };
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-          Tecnologías
+return (
+  <AppLayout breadcrumbs={breadcrumbs}>
+    <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
+
+      {/* HEADER ISIL */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+        <h1 className="text-3xl font-semibold flex items-center gap-2">
+          <Award className="w-6 h-6 text-[#1CBCE8]" />
+          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Tecnologías</span>
         </h1>
 
-        {/* 🔍 Barra de búsqueda */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar tecnología..."
-              className="pl-9 pr-3 py-2 w-full rounded
-                border border-slate-300 dark:border-slate-700
-                bg-white dark:bg-slate-800
-                text-sm text-gray-900 dark:text-gray-200
-                focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setEditing(null);
-              setShowModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Nueva Tecnología
-          </button>
-        </div>
-
-        {/* TABLA */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-collapse">
-            <thead className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 uppercase text-sm">
-              <tr>
-                <th className="px-4 py-2">Acciones</th>
-                <th className="px-4 py-2">Nombre</th>
-                <th className="px-4 py-2">Categoría</th>
-                <th className="px-4 py-2">Contexto</th>
-                <th className="px-4 py-2">Activo</th>
-                <th className="px-4 py-2">Creado</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
-
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-6 text-slate-500">
-                    Cargando...
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-6 text-slate-500">
-                    No hay tecnologías registradas.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => {
-                  const ctx = contexts.find((c) => c.id === item.context_id);
-                  const cat = categories.find((c) => c.id === item.category_id);
-
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-
-                      {/* ACCIONES */}
-                      <td className="px-4 py-2 whitespace-nowrap flex gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="text-blue-500 hover:text-blue-700 inline-flex items-center gap-1"
-                        >
-                          <Edit className="w-4 h-4" /> Editar
-                        </button>
-                        <button
-                          onClick={() => removeOne(item.id, item.name)}
-                          className="text-red-500 hover:text-red-700 inline-flex items-center gap-1"
-                        >
-                          <Trash2 className="w-4 h-4" /> Eliminar
-                        </button>
-                      </td>
-
-                      {/* NOMBRE */}
-                      <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
-                        {item.name}
-                      </td>
-
-                      {/* CATEGORÍA */}
-                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        {cat ? cat.name : "-"}
-                      </td>
-
-                      {/* CONTEXTO */}
-                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        {ctx ? ctx.search_context : "-"}
-                      </td>
-
-                      {/* SWITCH ENABLED */}
-                      <td className="px-4 py-2 text-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.enabled}
-                            onChange={() => toggleEnabled(item)}
-                            className="sr-only peer"
-                          />
-                          <div
-                            className="
-                              w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full
-                              peer peer-checked:bg-blue-600
-                              dark:bg-slate-700 dark:peer-checked:bg-blue-500
-                              transition
-                            "
-                          ></div>
-                          <div
-                            className="
-                              absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow
-                              peer-checked:translate-x-5 transition
-                            "
-                          ></div>
-                        </label>
-                      </td>
-
-                      {/* FECHA */}
-                      <td className="px-4 py-2 text-gray-600 dark:text-gray-300">
-                        {formatDate(item.created_at)}
-                      </td>
-
-                    </tr>
-                  );
-                })
-              )}
-
-            </tbody>
-          </table>
-        </div>
-
-      {/* PAGINACIÓN INTELIGENTE */}
-<div className="flex justify-center mt-6 gap-1">
-
-  {(() => {
-    const pages = [];
-    const total = pagination.last_page;
-    const current = pagination.current_page;
-
-    const showPage = (page: number) => {
-      pages.push(
         <button
-          key={page}
-          onClick={() => fetchPage(`/technologies/fetch?page=${page}&search=${encodeURIComponent(search)}`)}
-          className={`px-3 py-1 rounded text-sm font-medium transition ${
-            current === page
-              ? "bg-blue-600 text-white"
-              : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600"
-          }`}
-          disabled={current === page}
+          onClick={() => {
+            setEditing(null);
+            setShowModal(true);
+          }}
+          className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow transition"
         >
-          {page}
+          Nueva Tecnología
         </button>
-      );
-    };
-
-    // Mostrar primera página
-    if (current > 3) showPage(1);
-
-    // Mostrar "..."
-    if (current > 4)
-      pages.push(<span key="start-dots" className="px-2 py-1 text-gray-400">…</span>);
-
-    // Páginas centrales
-    for (let p = current - 2; p <= current + 2; p++) {
-      if (p >= 1 && p <= total) showPage(p);
-    }
-
-    // Mostrar "..."
-    if (current < total - 3)
-      pages.push(<span key="end-dots" className="px-2 py-1 text-gray-400">…</span>);
-
-    // Mostrar última página
-    if (current < total - 2) showPage(total);
-
-    return pages;
-  })()}
-
-</div>
-
       </div>
 
+      {/* SEARCHBOX */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6 items-start sm:items-center">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <input
+            type="text"
+            placeholder="Buscar tecnología..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="
+              w-full pl-9 pr-3 py-2 rounded-md
+              bg-white dark:bg-gray-800
+              border border-gray-300 dark:border-gray-700
+              text-gray-900 dark:text-gray-100
+              focus:ring-2 focus:ring-[#1CBCE8] outline-none
+            "
+          />
+        </div>
+      </div>
+
+      {/* TABLA ISIL */}
+      <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+        <table className="min-w-full text-sm">
+
+          {/* HEADER TABLA ISIL */}
+          <thead className="bg-[#1CBCE8] dark:bg-[#1CBCE8]/20 text-white dark:text-[#1CBCE8] uppercase text-xs tracking-wide">
+            <tr>
+              <th className="px-4 py-2 text-left">Acciones</th>
+              <th className="px-4 py-2 text-left">Nombre</th>
+              <th className="px-4 py-2 text-left">Categoría</th>
+              <th className="px-4 py-2 text-left">Contexto</th>
+              <th className="px-4 py-2 text-center">Estado</th>
+              <th className="px-4 py-2 text-left">Creado</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+
+            {/* Loading */}
+            {loading && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-gray-500">Cargando…</td>
+              </tr>
+            )}
+
+            {/* Empty */}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-gray-500">
+                  No hay tecnologías registradas.
+                </td>
+              </tr>
+            )}
+
+            {/* Items */}
+            {!loading &&
+              items.length > 0 &&
+              items.map((item) => {
+                const ctx = contexts.find((c) => c.id === item.context_id);
+                const cat = categories.find((c) => c.id === item.category_id);
+
+                return (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-[#E7F9FD] dark:hover:bg-[#1CBCE8]/10 transition-colors"
+                  >
+                    {/* ACCIONES */}
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openEdit(item)}
+                        className="text-[#1CBCE8] hover:text-[#17A8D0] flex items-center gap-1"
+                      >
+                        <Edit className="w-4 h-4" /> Editar
+                      </button>
+
+                      <button
+                        onClick={() => removeOne(item.id, item.name)}
+                        className="text-red-500 hover:text-red-400 flex items-center gap-1 mt-1"
+                      >
+                        <Trash2 className="w-4 h-4" /> Eliminar
+                      </button>
+                    </td>
+
+                    {/* NOMBRE */}
+                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
+                      {item.name}
+                    </td>
+
+                    {/* CATEGORÍA CHIP ISIL */}
+                    <td className="px-4 py-3">
+                      {cat ? (
+                        <span
+                          className="
+                            px-2 py-1 rounded-md text-xs font-medium
+                            bg-[#C9F3FF] text-[#0C647A]
+                            dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
+                            border border-[#1CBCE8]/30
+                          "
+                        >
+                          {cat.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    {/* CONTEXTO */}
+                    <td className="px-4 py-3">
+                      {ctx ? (
+                        <span
+                          className="
+                            px-2 py-1 rounded-md text-xs font-medium
+                            bg-[#C9F3FF] text-[#0C647A]
+                            dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
+                            border border-[#1CBCE8]/30
+                          "
+                        >
+                          {ctx.search_context}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+
+               <td className="px-4 py-3 text-center">
+  <label className="relative inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      checked={!!item.enabled}
+
+      onChange={() => toggleEnabled(item)}
+      className="sr-only peer"
+    />
+
+    {/* Fondo del switch */}
+    <div
+      className="
+        w-12 h-6 rounded-full transition-colors
+        bg-gray-300 peer-checked:bg-[#1CBCE8]
+        dark:bg-gray-700 dark:peer-checked:bg-[#1CBCE8]
+      "
+    />
+
+    {/* Bolita */}
+    <div
+      className="
+        absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow
+        transition-all duration-300
+        peer-checked:translate-x-6
+      "
+    />
+  </label>
+
+  {/* ESTADO textual para que se vea más claro */}
+  <div className="text-xs mt-1 text-gray-600 dark:text-gray-300">
+    {item.enabled ? "Activo" : "Inactivo"}
+  </div>
+</td>
+
+
+                    {/* FECHA */}
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                      {formatDate(item.created_at)}
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* PAGINACIÓN ISIL */}
+      {pagination.last_page > 1 && (
+        <div className="flex justify-center mt-6 gap-1">
+          {(() => {
+            const pages = [];
+            const current = pagination.current_page;
+            const total = pagination.last_page;
+
+            const addPage = (p: number) =>
+              pages.push(
+                <button
+                  key={p}
+                  onClick={() =>
+                    fetchPage(
+                      `/technologies/fetch?page=${p}&search=${encodeURIComponent(search)}`
+                    )
+                  }
+                  className={`px-3 py-1 rounded-md text-sm transition
+                    ${
+                      current === p
+                        ? "bg-[#1CBCE8] text-white shadow"
+                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }
+                  `}
+                >
+                  {p}
+                </button>
+              );
+
+            if (current > 3) addPage(1);
+            if (current > 4) pages.push(<span key="dots1" className="px-2 text-gray-400">…</span>);
+
+            for (let p = current - 2; p <= current + 2; p++) {
+              if (p >= 1 && p <= total) addPage(p);
+            }
+
+            if (current < total - 3) pages.push(<span key="dots2" className="px-2 text-gray-400">…</span>);
+            if (current < total - 2) addPage(total);
+
+            return pages;
+          })()}
+        </div>
+      )}
+
+      {/* MODAL */}
       {showModal && (
         <TechnologyModal
           open={showModal}
@@ -356,6 +400,9 @@ const normalizePagePayload = (payload: any): Pagination<Technology> => {
           contexts={contexts}
         />
       )}
-    </AppLayout>
-  );
+    </div>
+  </AppLayout>
+);
+
+
 }
