@@ -94,6 +94,8 @@ RULES:
         }
 
         $totalTrends = 0;
+        $year = date('Y');
+        $quarter = ceil(date('n') / 3);
 
         foreach ($topics as $topic) {
 
@@ -127,14 +129,14 @@ RULES:
             }
 
             /* ==========================================================
-             * GUARDAR TENDENCIAS GENERADAS
+             * GUARDAR TENDENCIAS (CON UPSERT PARA EVITAR DUPLICADOS)
              * ========================================================== */
             foreach ($result['tendencias'] as $t) {
 
+                // Verificar / registrar fuente principal
                 $source = null;
 
                 if (!empty($t['source_links'][0]['url'])) {
-
                     $source = ScrapingSource::firstOrCreate(
                         ['url' => $t['source_links'][0]['url']],
                         [
@@ -145,26 +147,31 @@ RULES:
                     );
                 }
 
-                TechnologyTrend::create([
-                    'topic_name'     => $t['topic_name'],
-                    'topic_category' => $label,
-                    'trend_score'    => $t['trend_score'],
-                    'regions'        => json_encode($t['regions']),
-                    'source_id'      => $source?->id ?? 1,
-                    'source_url'     => $t['source_links'][0]['url'] ?? null,
-                    'source_title'   => $t['source_links'][0]['title'] ?? null,
-                    'raw_data'       => json_encode($t),
-                    'year'           => date('Y'),
-                    'quarter'        => ceil(date('n') / 3)
-                ]);
+                // GUARDAR CON UPSERT (actualizar si ya existe)
+                TechnologyTrend::updateOrCreate(
+                    [
+                        'topic_name' => $t['topic_name'],
+                        'year'       => $year,
+                        'quarter'    => $quarter,
+                        'source_id'  => $source?->id ?? 1,
+                    ],
+                    [
+                        'topic_category' => $label,
+                        'trend_score'    => $t['trend_score'],
+                        'regions'        => json_encode($t['regions']),
+                        'source_url'     => $t['source_links'][0]['url'] ?? null,
+                        'source_title'   => $t['source_links'][0]['title'] ?? null,
+                        'raw_data'       => json_encode($t),
+                    ]
+                );
 
                 $totalTrends++;
             }
 
-            $this->info("✅ Tendencias generadas para topic: {$label}");
+            $this->info("✅ Tendencias procesadas para topic: {$label}");
         }
 
-        $this->info("\n🌍 TOTAL DE TENDENCIAS GENERADAS: {$totalTrends}");
+        $this->info("\n🌍 TOTAL DE TENDENCIAS REGISTRADAS/ACTUALIZADAS: {$totalTrends}");
         $this->info("🏁 Observatorio completado correctamente.");
 
         return Command::SUCCESS;
