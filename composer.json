@@ -10,6 +10,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "24slides/laravel-saml2": "^2.4",
+        "aacotroneo/laravel-saml2": "^2.1",
         "barryvdh/laravel-dompdf": "^3.1",
         "google/cloud-storage": "^1.48",
         "google/cloud-vision": "1.7",

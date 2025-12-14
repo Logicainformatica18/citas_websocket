@@ -64,5 +64,8 @@ return [
 'jooble' => [
     'key' => env('JOOBLE_API_KEY'),
 ],
-
+'jobsdatafeeds' => [
+    'host' => 'daily-international-job-postings.p.rapidapi.com',
+    'key'  => env('JOBSDATAFEEDS_RAPIDAPI_KEY'),
+],
 ];
