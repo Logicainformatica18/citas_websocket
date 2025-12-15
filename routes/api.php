@@ -30,12 +30,14 @@ use App\Http\Controllers\AI\DashboardSectionController;
 use App\Http\Controllers\SegmentAnalyzerController;
 use App\Http\Controllers\JobStatsController;
 use App\Http\Controllers\SQLDashboardController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 
 
 
 
 use Illuminate\Support\Facades\DB;
+
 
 
 
@@ -242,7 +244,7 @@ Route::get('/job-stats', [JobStatsController::class, 'index']);
 
 Route::post('/sqltrainings/dashboard/execute', [SQLDashboardController::class, 'runAll']);
 
- 
+
 
 });
 

@@ -7,7 +7,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Session\Middleware\StartSession;
-use App\Http\Middleware\VerifyCsrfToken;
+
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -23,12 +23,25 @@ $app = Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+
+        /**
+         * -----------------------------
+         * 🍪 Cookies
+         * -----------------------------
+         */
         $middleware->encryptCookies(
             except: ['appearance', 'sidebar_state']
         );
 
+        /**
+         * -----------------------------
+         * 🌐 WEB STACK
+         * -----------------------------
+         */
         $middleware->web(
-            prepend: [StartSession::class],
+            prepend: [
+                StartSession::class,
+            ],
             append: [
                 HandleAppearance::class,
                 HandleInertiaRequests::class,
@@ -36,6 +49,23 @@ $app = Application::configure(basePath: dirname(__DIR__))
             ]
         );
 
+        /**
+         * -----------------------------
+         * 🔐 CSRF (FORMA CORRECTA EN LARAVEL 12)
+         * -----------------------------
+         * 👉 SAML POST viene de un IdP externo
+         * 👉 NO tiene _token
+         * 👉 Se excluye aquí (NO en VerifyCsrfToken.php)
+         */
+        $middleware->validateCsrfTokens(except: [
+            'app/saml2/*',
+        ]);
+
+        /**
+         * -----------------------------
+         * 🏷️ Alias de middlewares
+         * -----------------------------
+         */
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
@@ -43,20 +73,26 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'apikey' => App\Http\Middleware\ApiKeyAuth::class,
         ]);
 
+        /**
+         * -----------------------------
+         * 📡 API STACK
+         * -----------------------------
+         */
         $middleware->group('api', [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
-        // ✅ Agregar este middleware a la pila web
-        $middleware->appendToGroup('web', VerifyCsrfToken::class);
     })
-
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })
     ->create();
 
-// ✅ Registrar el listener DESPUÉS de crear la app, usando el contenedor (no el Facade)
+/**
+ * -------------------------------------------------
+ * 🔌 Registrar Socialite SAML Provider
+ * -------------------------------------------------
+ */
 $app->make('events')->listen(
     SocialiteWasCalled::class,
     [Saml2ExtendSocialite::class, 'handle']

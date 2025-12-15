@@ -4,84 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "47841137aebb231c8c9824c8d21fbb48",
+    "content-hash": "228d08dc127c32148a04c2142d0fee86",
     "packages": [
-        {
-            "name": "24slides/laravel-saml2",
-            "version": "2.4.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/24Slides/laravel-saml2.git",
-                "reference": "e7f4938586c65fbe1fdd91552c582cac745223b9"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/24Slides/laravel-saml2/zipball/e7f4938586c65fbe1fdd91552c582cac745223b9",
-                "reference": "e7f4938586c65fbe1fdd91552c582cac745223b9",
-                "shasum": ""
-            },
-            "require": {
-                "ext-openssl": "*",
-                "illuminate/console": "~5.5|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "illuminate/database": "~5.5|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "illuminate/support": "~5.4|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "onelogin/php-saml": "^3.0|^4.0",
-                "php": ">=7.1",
-                "ramsey/uuid": "^3.8|^4.0"
-            },
-            "require-dev": {
-                "mockery/mockery": "^0.9.9",
-                "phpunit/phpunit": "^7.5|^9.0",
-                "squizlabs/php_codesniffer": "^2.3"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "Saml2": "Slides\\Saml2\\Facades\\Auth"
-                    },
-                    "providers": [
-                        "Slides\\Saml2\\ServiceProvider"
-                    ]
-                },
-                "branch-aliases": {
-                    "dev-master": "2.0.8-dev"
-                }
-            },
-            "autoload": {
-                "files": [
-                    "src/helpers.php"
-                ],
-                "psr-4": {
-                    "Slides\\Saml2\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Artem Brezhnev",
-                    "email": "brezzhnev@gmail.com"
-                }
-            ],
-            "description": "SAML2 Service Provider integration to your Laravel 5.4+ application, based on OneLogin toolkit",
-            "homepage": "https://github.com/24slides/laravel-saml2",
-            "keywords": [
-                "SAML2",
-                "SSO",
-                "laravel",
-                "onelogin",
-                "saml"
-            ],
-            "support": {
-                "issues": "https://github.com/24Slides/laravel-saml2/issues",
-                "source": "https://github.com/24Slides/laravel-saml2/tree/2.4.2"
-            },
-            "abandoned": true,
-            "time": "2025-03-12T12:39:37+00:00"
-        },
         {
             "name": "aacotroneo/laravel-saml2",
             "version": "2.1.0",
@@ -3478,16 +3402,16 @@
         },
         {
             "name": "laravel/socialite",
-            "version": "v5.23.2",
+            "version": "v5.24.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/socialite.git",
-                "reference": "41e65d53762d33d617bf0253330d672cb95e624b"
+                "reference": "1d19358c28e8951dde6e36603b89d8f09e6cfbfd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/socialite/zipball/41e65d53762d33d617bf0253330d672cb95e624b",
-                "reference": "41e65d53762d33d617bf0253330d672cb95e624b",
+                "url": "https://api.github.com/repos/laravel/socialite/zipball/1d19358c28e8951dde6e36603b89d8f09e6cfbfd",
+                "reference": "1d19358c28e8951dde6e36603b89d8f09e6cfbfd",
                 "shasum": ""
             },
             "require": {
@@ -3546,7 +3470,7 @@
                 "issues": "https://github.com/laravel/socialite/issues",
                 "source": "https://github.com/laravel/socialite"
             },
-            "time": "2025-11-21T14:00:38+00:00"
+            "time": "2025-12-09T15:37:06+00:00"
         },
         {
             "name": "laravel/tinker",

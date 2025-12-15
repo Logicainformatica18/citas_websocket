@@ -34,28 +34,51 @@ use App\Http\Controllers\ScrapingWebResultController;
 use App\Http\Controllers\CompetencyController;
 use App\Http\Controllers\TopicsIAController;
 use App\Http\Controllers\TechPositionController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
 
 
+Route::middleware('web')->group(function () {
 
+    Route::get('/login/saml', [
+        AuthenticatedSessionController::class,
+        'redirectToSaml'
+    ]);
 
-Route::prefix('auth/saml2')->group(function () {
-    Route::get('/redirect', [Saml2LoginController::class, 'redirect'])->name('saml.login');
-    Route::match(['get', 'post'], '/callback', [Saml2LoginController::class, 'callback'])->name('saml.callback');
+    Route::post('app/saml2/callback', [
+        AuthenticatedSessionController::class,
+        'samlCallback'
+    ]);
+
 });
 
 
-Route::get('/auth/saml2/logout', function () {
-    return response('Logout endpoint SAML2 OK');
-})->name('saml.logout');
+Route::get('/__auth-debug', function () {
+    return response()->json([
+        'auth_check' => auth()->check(),
+        'auth_id' => auth()->id(),
+        'guard' => config('auth.defaults.guard'),
+        'session_id' => session()->getId(),
+        'session_driver' => config('session.driver'),
+        'session_cookie' => config('session.cookie'),
+        'session_domain' => config('session.domain'),
+        'user' => auth()->user(),
+    ]);
+});
+
 
 
 Route::get('/', function () {
     return redirect("dashboard");
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
 
-    Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('permission:administrar');
+    Route::get('/dashboard', [DashboardController::class, 'index']);
 
     // USERS
     Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch')->middleware('permission:administrar');
@@ -414,4 +437,5 @@ Route::prefix('tech-positions')->group(function () {
 
 
 require __DIR__ . '/settings.php';
+
 require __DIR__ . '/auth.php';
