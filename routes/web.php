@@ -40,8 +40,11 @@ use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use Inertia\Inertia;
 
-
+Route::get('/dashboard/lovable', function () {
+    return Inertia::render('dashboardLovable/DashboardLovable');
+})->name('dashboard.lovable');
 Route::middleware('web')->group(function () {
 
     Route::get('/login/saml', [
