@@ -3,11 +3,19 @@ import { Plus, Filter, RefreshCw, MessageSquare } from "lucide-react";
 interface DashboardHeaderProps {
   isChatOpen?: boolean;
   onToggleChat?: () => void;
+
+  /** Acciones globales del dashboard (vienen de DashboardAIWidgets) */
+  onAddSection?: () => void;
+  onRefreshDashboard?: () => void;
+  onOpenFilters?: () => void; // opcional, por si luego conectas filtros
 }
 
 export default function DashboardHeader({
   isChatOpen = true,
   onToggleChat,
+  onAddSection,
+  onRefreshDashboard,
+  onOpenFilters,
 }: DashboardHeaderProps) {
   return (
     <div
@@ -40,14 +48,18 @@ export default function DashboardHeader({
           ACCIONES
       ===================== */}
       <div className="flex flex-wrap gap-2 items-center">
+
         {/* ➕ Nueva sección */}
         <button
+          onClick={onAddSection}
+          disabled={!onAddSection}
           className="
             flex items-center gap-2
             bg-[#1CBCE8] hover:bg-[#1399BE]
             text-white text-sm font-medium
             px-4 py-2 rounded-lg
             transition
+            disabled:opacity-50 disabled:cursor-not-allowed
           "
         >
           <Plus size={16} />
@@ -56,6 +68,7 @@ export default function DashboardHeader({
 
         {/* 🔍 Filtros */}
         <button
+          onClick={onOpenFilters}
           className="
             flex items-center gap-2
             border border-[#1CBCE8]
@@ -71,6 +84,8 @@ export default function DashboardHeader({
 
         {/* 🔄 Actualizar */}
         <button
+          onClick={onRefreshDashboard}
+          disabled={!onRefreshDashboard}
           className="
             flex items-center gap-2
             border border-gray-300 dark:border-gray-600
@@ -78,6 +93,7 @@ export default function DashboardHeader({
             px-4 py-2 rounded-lg text-sm
             hover:bg-gray-100 dark:hover:bg-gray-800
             transition
+            disabled:opacity-50 disabled:cursor-not-allowed
           "
         >
           <RefreshCw size={16} />
@@ -85,7 +101,7 @@ export default function DashboardHeader({
         </button>
 
         {/* 🤖 VERA (abrir / cerrar chat) */}
-        {onToggleChat && (
+        {/* {onToggleChat && (
           <button
             onClick={onToggleChat}
             className={`
@@ -103,7 +119,7 @@ export default function DashboardHeader({
             <MessageSquare size={16} />
             {isChatOpen ? "Cerrar VERA" : "Abrir VERA"}
           </button>
-        )}
+        )} */}
       </div>
     </div>
   );
