@@ -24,7 +24,7 @@ use Laravel\Socialite\Facades\Socialite;
 Route::middleware('guest')->group(function () {
 
     // 🔑 LOGIN CLÁSICO
-    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+    Route::get('login', [AuthenticatedSessionController::class, 'redirectToSaml'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
@@ -33,7 +33,7 @@ Route::middleware('guest')->group(function () {
     Route::get('login/saml', [AuthenticatedSessionController::class, 'redirectToSaml'])
         ->name('login.saml');
 
- 
+
 
     // Route::post('app/saml2/callback', [AuthenticatedSessionController::class, 'samlCallback'])
     //     ->name('login.saml.callback');

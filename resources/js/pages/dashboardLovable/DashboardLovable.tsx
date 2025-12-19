@@ -45,20 +45,22 @@ export default function DashboardLovable() {
             {/* =================================================
                 COLUMNA IZQUIERDA → HEADER + DASHBOARD
             ================================================= */}
-            <div className="flex-1 space-y-6 transition-all duration-300">
-
+            <div
+              className="
+                flex-1
+                min-w-0   /* 👈 CLAVE ABSOLUTA */
+                space-y-6
+                transition-all duration-300
+              "
+            >
               {/* ---------- HEADER ---------- */}
               <DashboardHeader
                 isChatOpen={isChatOpen}
                 onToggleChat={() => setIsChatOpen((v) => !v)}
               />
 
-
-<DashboardLovableWidgets />
-
-
-
-
+              {/* ---------- GRID ---------- */}
+              <DashboardLovableWidgets />
             </div>
 
             {/* =================================================
