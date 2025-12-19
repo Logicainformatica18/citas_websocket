@@ -56,7 +56,8 @@ Route::middleware('web')->group(function () {
         AuthenticatedSessionController::class,
         'samlCallback'
     ]);
-
+Route::get('/logout', [AuthenticatedSessionController::class, 'logout'])
+  ->name('logout');
 });
 
 

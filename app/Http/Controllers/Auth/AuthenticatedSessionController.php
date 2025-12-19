@@ -234,4 +234,13 @@ Log::info('SESSION FINAL', [
 
         return redirect('/');
     }
+      public function logout(Request $request): RedirectResponse
+    {
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/');
+    }
 }

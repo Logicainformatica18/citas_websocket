@@ -139,8 +139,18 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
       </DropdownMenuGroup>
 
       <DropdownMenuSeparator />
+<DropdownMenuItem
+  className="cursor-pointer text-red-600"
+  onClick={() => {
+    cleanup();
+    window.location.href = route('logout');
+  }}
+>
+  <LogOut className="mr-2 text-red-500" />
+  Cerrar sesión
+</DropdownMenuItem>
 
-      <DropdownMenuItem asChild>
+      {/* <DropdownMenuItem asChild>
         <Link
           className="block w-full"
           method="post"
@@ -149,9 +159,9 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
           onClick={cleanup}
         >
           <LogOut className="mr-2 text-red-500" />
-          Cerrar Sesión
+          Cerrar Sesióneeeeeeeeee
         </Link>
-      </DropdownMenuItem>
+      </DropdownMenuItem> */}
     </>
   );
 }
