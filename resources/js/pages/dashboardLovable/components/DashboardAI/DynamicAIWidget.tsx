@@ -1,4 +1,4 @@
-import { useDashboard } from "../../DashboardContext";
+import { useDashboard } from "@/pages/dashboards/DashboardContext";
 import AlignmentGauge from "./AlignmentGauge";
 import AICoursesPieChart from "./AICoursesPieChart";
 import CurricularUpdatesBar from "./CurricularUpdatesBar";

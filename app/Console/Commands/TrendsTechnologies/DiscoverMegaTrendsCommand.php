@@ -14,11 +14,18 @@ class DiscoverMegaTrendsCommand extends Command
     protected $signature = 'ai:mega-trends {--limit=0}';
     protected $description = 'Genera megatendencias tecnológicas usando GPT-5 Search basadas en los topics de trend_topics.';
 
+    /* =========================================================
+     * Helpers
+     * ========================================================= */
+
     private function extractJson($text)
     {
         $s = strpos($text, '{');
         $e = strrpos($text, '}');
-        return ($s !== false && $e !== false) ? substr($text, $s, $e - $s + 1) : null;
+
+        return ($s !== false && $e !== false)
+            ? substr($text, $s, $e - $s + 1)
+            : null;
     }
 
     private function searchBlock($query, $label)
@@ -26,7 +33,7 @@ class DiscoverMegaTrendsCommand extends Command
         $prompt = "
 You MUST perform a REAL WEB SEARCH for:
 
-    {$query}
+{$query}
 
 Goal:
 Generate REAL technological trends validated by REAL URLs.
@@ -53,39 +60,70 @@ Return ONLY this JSON:
 RULES:
 - Return a MINIMUM of 10 trends.
 - All URLs MUST be real and verifiable.
-- If fewer than 10 trends exist for this topic, expand the scope naturally (temas relacionados o subtemas) PERO solo usando contenido que realmente exista.
-- No invented URLs, no fake studies, no fabricated pages.
-- You may use ANY real online source (news, blogs, research portals, corporate reports, developer communities, etc.) as long as the URLs exist.
-- Output MUST be JSON ONLY.";
-
+- If fewer than 10 trends exist, expand the scope naturally BUT only with real existing content.
+- No invented URLs, no fake studies.
+- Output MUST be JSON ONLY.
+";
 
         try {
-            $res = Http::withToken(env('OPENAI_API_KEY'))
-                ->post("https://api.openai.com/v1/chat/completions", [
-                    "model" => "gpt-5-search-api",
-                    "messages" => [
-                        ["role" => "system", "content" => "Return ONLY JSON. Always valid JSON."],
-                        ["role" => "user", "content" => $prompt]
-                    ]
+            // 🔁 Retry + backoff (CRÍTICO para GPT-5 Search)
+            $res = retry(3, function () use ($prompt, $label) {
+                return Http::withToken(env('OPENAI_API_KEY'))
+                    ->timeout(120)
+                    ->post("https://api.openai.com/v1/chat/completions", [
+                        "model" => "gpt-5-search-api",
+                        "messages" => [
+                            ["role" => "system", "content" => "Return ONLY JSON. Always valid JSON."],
+                            ["role" => "user", "content" => $prompt]
+                        ]
+                    ]);
+            }, 15); // ⏱️ espera 15s entre reintentos
+
+            if ($res->failed()) {
+                Log::error("OpenAI HTTP Error", [
+                    'status' => $res->status(),
+                    'body'   => $res->body(),
+                    'label'  => $label
                 ]);
+                return null;
+            }
 
-            $raw = $res->json()['choices'][0]['message']['content'] ?? null;
-            if (!$raw) return null;
+            $jsonResponse = $res->json();
 
+            if (!isset($jsonResponse['choices'][0]['message']['content'])) {
+                Log::warning("GPT-5 Search returned empty content", [
+                    'label' => $label,
+                    'response' => $jsonResponse
+                ]);
+                return null;
+            }
+
+            $raw = $jsonResponse['choices'][0]['message']['content'];
             $json = $this->extractJson($raw);
-            return $json ? json_decode($json, true) : null;
 
-        } catch (\Exception $e) {
+            if (!$json) {
+                Log::warning("Invalid JSON structure returned", [
+                    'label' => $label,
+                    'raw' => $raw
+                ]);
+                return null;
+            }
 
-            Log::error("Search Block Error", [
+            return json_decode($json, true);
+
+        } catch (\Throwable $e) {
+            Log::error("Search Block Exception", [
                 'query' => $query,
                 'label' => $label,
                 'error' => $e->getMessage()
             ]);
-
             return null;
         }
     }
+
+    /* =========================================================
+     * Main
+     * ========================================================= */
 
     public function handle()
     {
@@ -103,6 +141,10 @@ RULES:
 
         foreach ($topics as $topic) {
 
+            // ⏱️ THROTTLING OBLIGATORIO
+            $this->info("⏳ Esperando antes de ejecutar búsqueda…");
+            sleep(7);
+
             $label = $topic->topic_name;
             $query = $topic->search_query;
 
@@ -110,47 +152,37 @@ RULES:
 
             $result = $this->searchBlock($query, $label);
 
-            /* ==========================================================
-             *     MANEJO DE FALLO → NO HAY TENDENCIAS
-             * ========================================================== */
-            if (!$result || !isset($result['tendencias']) || count($result['tendencias']) === 0) {
-
+            /* ======================================================
+             * Manejo de fallo (NO desactivar topic)
+             * ====================================================== */
+            if (
+                !$result ||
+                !isset($result['tendencias']) ||
+                count($result['tendencias']) === 0
+            ) {
                 $this->warn("⛔ No se generaron tendencias para: {$label}");
 
-                // Registrar fallo
                 $topic->fail_count++;
                 $topic->last_fail_at = now();
-
-                // Si supera 3 fallos → desactivarlo automáticamente
-                if ($topic->fail_count >= 3) {
-                    $topic->active = 0;
-                    $topic->auto_disabled_reason = "fail_count_limit_reached";
-                    $this->error("❌ Topic DESACTIVADO automáticamente por fallos repetidos: {$label}");
-                }
-
                 $topic->save();
+
                 continue;
             }
 
-            /* ==========================================================
-             *     REGISTRAR ÉXITO
-             * ========================================================== */
+            /* ======================================================
+             * Registrar éxito
+             * ====================================================== */
             $topic->success_count++;
             $topic->last_success_at = now();
-
-            // Resetear fallos si tuvo éxito
-            if ($topic->fail_count > 0) {
-                $topic->fail_count = 0;
-                $topic->auto_disabled_reason = null;
-            }
-
+            $topic->fail_count = 0;
+            $topic->auto_disabled_reason = null;
             $topic->save();
 
-            /* ==========================================================
-             *     GUARDAR FUENTES
-             * ========================================================== */
+            /* ======================================================
+             * Guardar fuentes usadas
+             * ====================================================== */
             foreach ($result['used_sources'] ?? [] as $src) {
-                if (!isset($src['url'])) continue;
+                if (empty($src['url'])) continue;
 
                 ScrapingSource::firstOrCreate(
                     ['url' => $src['url']],
@@ -162,13 +194,13 @@ RULES:
                 );
             }
 
-            /* ==========================================================
-             *     GUARDAR TENDENCIAS (UPSERT = SIN DUPLICADOS)
-             * ========================================================== */
+            /* ======================================================
+             * Guardar tendencias
+             * ====================================================== */
             foreach ($result['tendencias'] as $t) {
 
-                // Registrar fuente principal
                 $source = null;
+
                 if (!empty($t['source_links'][0]['url'])) {
                     $source = ScrapingSource::firstOrCreate(
                         ['url' => $t['source_links'][0]['url']],
@@ -190,11 +222,10 @@ RULES:
                     [
                         'topic_category' => $label,
                         'trend_score'    => $t['trend_score'],
-
-                        'regions'      => json_encode($t['regions']),
-                        'source_url'   => $t['source_links'][0]['url'] ?? null,
-                        'source_title' => $t['source_links'][0]['title'] ?? null,
-                        'raw_data'     => json_encode($t)
+                        'regions'        => json_encode($t['regions']),
+                        'source_url'     => $t['source_links'][0]['url'] ?? null,
+                        'source_title'   => $t['source_links'][0]['title'] ?? null,
+                        'raw_data'       => json_encode($t)
                     ]
                 );
 
