@@ -7,6 +7,9 @@ import axios from "axios";
 import { fetchWidgets } from "./DashboardAI/useDashboardAPI";
 import WidgetCard from "./DashboardAI/WidgetCard";
 
+// 🔄 CONTEXTO
+import { useDashboard } from "@/pages/dashboards/DashboardContext";
+
 /* =========================================================
    Types
 ========================================================= */
@@ -35,6 +38,9 @@ export default function DashboardLovableWidgets() {
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔄 REFRESH GLOBAL
+  const { refreshKey, stopRefreshing } = useDashboard();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [gridWidth, setGridWidth] = useState(1200);
 
@@ -53,9 +59,11 @@ export default function DashboardLovableWidgets() {
   }, []);
 
   /* ===============================
-     Load data
+     Load data (con refresh)
   =============================== */
   useEffect(() => {
+    setLoading(true);
+
     Promise.all([
       axios.get("/api/ai/dashboard-sections/1"),
       fetchWidgets(),
@@ -79,11 +87,14 @@ export default function DashboardLovableWidgets() {
 
         setWidgets(safeWidgets);
       })
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => {
+        setLoading(false);
+        stopRefreshing(); // 🔓 libera el botón "Actualizar"
+      });
+  }, [refreshKey]);
 
   /* ===============================
-     Items unificados (CLAVE)
+     Items unificados
   =============================== */
   const items = useMemo(() => {
     return [
@@ -97,11 +108,10 @@ export default function DashboardLovableWidgets() {
           y: s.position ?? 0,
           w: 12,
           h: s.height ?? 1,
-
           static: false,
-          isDraggable: false,   // ❌ no mover
-          isResizable: true,    // ✅ estirar
-          resizeHandles: ["s"], // solo vertical
+          isDraggable: false,
+          isResizable: true,
+          resizeHandles: ["s"],
         },
         data: s,
       })),
@@ -113,7 +123,7 @@ export default function DashboardLovableWidgets() {
         layout: {
           i: String(w.id),
           x: w.position_x ?? (index % 2) * 6,
-          y: w.position_y ?? Infinity, // 👈 evita solapes
+          y: w.position_y ?? Infinity,
           w: w.width ?? 6,
           h: w.height ?? 4,
           static: false,
@@ -138,6 +148,9 @@ export default function DashboardLovableWidgets() {
   return (
     <div ref={containerRef} className="w-full min-w-0 relative">
       <GridLayout
+            draggableCancel=".no-drag"
+            draggableHandle=".drag-handle"
+
         layout={layout}
         cols={12}
         rowHeight={76}
@@ -148,6 +161,8 @@ export default function DashboardLovableWidgets() {
         margin={[12, 16]}
         isDraggable
         isResizable
+
+
       >
         {items.map((item) =>
           item.type === "section" ? (
@@ -208,7 +223,8 @@ function SectionCard({
           className="
             text-lg font-bold uppercase tracking-wide
             text-[#0A4E61] dark:text-[#1CBCE8]
-            select-text
+            break-words whitespace-normal
+            leading-snug pr-2
           "
         >
           {section.title}

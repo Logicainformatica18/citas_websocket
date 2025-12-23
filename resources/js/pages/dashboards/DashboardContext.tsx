@@ -9,6 +9,7 @@ type DashboardData = {
 };
 
 type DashboardContextType = {
+  /** Estado IA / VERA */
   data: DashboardData;
   updateDashboard: (
     results: any,
@@ -17,6 +18,12 @@ type DashboardContextType = {
     aggregations?: Record<string, any>,
     instruction?: any
   ) => void;
+
+  /** 🔄 REFRESH DASHBOARD */
+  refreshKey: number;
+  isRefreshing: boolean;
+  refreshDashboard: () => void;
+  stopRefreshing: () => void;
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(
@@ -24,6 +31,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(
 );
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
+  /** ===== DATA IA ===== */
   const [data, setData] = useState<DashboardData>({
     results: null,
     aggregations: {},
@@ -32,6 +40,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     topic: null,
   });
 
+  /** ===== REFRESH STATE ===== */
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  /** ===== ACTUALIZAR DASHBOARD IA ===== */
   const updateDashboard = (
     results: any,
     topic?: string | null,
@@ -42,8 +55,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setData({ results, topic, component, aggregations, instruction });
   };
 
+  /** ===== 🔄 REFRESH GLOBAL ===== */
+  const refreshDashboard = () => {
+    setIsRefreshing(true);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const stopRefreshing = () => {
+    setIsRefreshing(false);
+  };
+
   return (
-    <DashboardContext.Provider value={{ data, updateDashboard }}>
+    <DashboardContext.Provider
+      value={{
+        data,
+        updateDashboard,
+
+        refreshKey,
+        isRefreshing,
+        refreshDashboard,
+        stopRefreshing,
+      }}
+    >
       {children}
     </DashboardContext.Provider>
   );

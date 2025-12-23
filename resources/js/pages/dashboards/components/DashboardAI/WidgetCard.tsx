@@ -499,16 +499,29 @@ const exportToPDF = () => {
           {/* ⚙️ Menú compacto con clic */}
 {/* ⚙️ Menú con icono (arriba a la derecha) */}
 <div className="absolute top-3 right-3" ref={menuRef}>
-  <button
-    onClick={() => setMenuOpen(!menuOpen)}
-    className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-md transition"
-    title="Opciones del widget"
-  >
-    ⚙️
-  </button>
+<button
+  className="
+    no-drag
+    relative z-50
+    p-1.5
+    bg-gray-700 hover:bg-gray-800
+    text-white rounded-md transition
+  "
+  onClick={(e) => {
+    e.stopPropagation();   // ⛔ evita que el click suba al widget
+    e.preventDefault();    // ⛔ evita drag del grid
+    setMenuOpen((v) => !v); // ✅ abre menú
+  }}
+  title="Opciones del widget"
+>
+  ⚙️
+</button>
+
+
 
   {menuOpen && (
-    <div className="absolute right-0 mt-2 bg-gray-800 border border-gray-700 rounded-md shadow-lg w-48 animate-fadeIn z-20">
+  <div className="no-drag absolute right-0 mt-2 bg-gray-800 border border-gray-700 rounded-md shadow-lg w-48 animate-fadeIn z-50">
+
       <button
         onClick={() => {
           exportToExcel();
