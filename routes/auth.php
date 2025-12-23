@@ -24,7 +24,7 @@ use Laravel\Socialite\Facades\Socialite;
 Route::middleware('guest')->group(function () {
 
     // 🔑 LOGIN CLÁSICO
-    Route::get('login', [AuthenticatedSessionController::class, 'redirectToSaml'])
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);

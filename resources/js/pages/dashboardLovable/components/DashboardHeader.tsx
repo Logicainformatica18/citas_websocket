@@ -1,125 +1,157 @@
-import { Plus, Filter, RefreshCw, MessageSquare } from "lucide-react";
+import { Plus, Filter, RefreshCw, LayoutGrid } from "lucide-react";
+import { useDashboard } from "@/pages/dashboards/DashboardContext";
 
 interface DashboardHeaderProps {
-  isChatOpen?: boolean;
-  onToggleChat?: () => void;
+  activeDashboard?: string;
+  dashboards?: string[];
 
-  /** Acciones globales del dashboard (vienen de DashboardAIWidgets) */
+  onChangeDashboard?: (name: string) => void;
+  onCreateDashboard?: () => void;
   onAddSection?: () => void;
-  onRefreshDashboard?: () => void;
-  onOpenFilters?: () => void; // opcional, por si luego conectas filtros
+  onOpenFilters?: () => void;
 }
 
 export default function DashboardHeader({
-  isChatOpen = true,
-  onToggleChat,
+  activeDashboard = "Dashboard Principal",
+  dashboards = ["Dashboard Principal", "Dashboard 2"],
+
+  onChangeDashboard,
+  onCreateDashboard,
   onAddSection,
-  onRefreshDashboard,
   onOpenFilters,
 }: DashboardHeaderProps) {
+  const { refreshDashboard, isRefreshing } = useDashboard();
+
   return (
-    <div
-      className="
-        flex flex-col md:flex-row md:items-center md:justify-between gap-4
-        bg-[#ECFAFD] dark:bg-gray-900
-        border border-[#A7E5F6] dark:border-gray-700
-        rounded-xl px-6 py-4
-      "
-    >
-      {/* =====================
-          IZQUIERDA
-      ===================== */}
-      <div className="flex items-center gap-3">
-        <div className="bg-[#1CBCE8] text-white p-2 rounded-lg">
-          🤖
-        </div>
-
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Dashboard generado por VERA
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Vista creada automáticamente según tus consultas
-          </p>
-        </div>
-      </div>
+    <div className="w-full space-y-4">
 
       {/* =====================
-          ACCIONES
+          TABS SUPERIORES
       ===================== */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex items-center gap-2 flex-wrap">
+        {dashboards.map((name) => {
+          const isActive = name === activeDashboard;
 
-        {/* ➕ Nueva sección */}
+          return (
+            <button
+              key={name}
+              onClick={() => onChangeDashboard?.(name)}
+              className={`
+                flex items-center gap-2
+                px-4 py-2 rounded-xl text-sm font-medium
+                transition
+                ${
+                  isActive
+                    ? "bg-[#1CBCE8] text-white shadow-sm"
+                    : "bg-[#ECFAFD] text-[#0A4E61] hover:bg-[#D5F3FB]"
+                }
+              `}
+            >
+              <LayoutGrid size={16} />
+              {name}
+            </button>
+          );
+        })}
+
+        {/* ➕ Nuevo dashboard */}
         <button
-          onClick={onAddSection}
-          disabled={!onAddSection}
+          onClick={onCreateDashboard}
           className="
             flex items-center gap-2
-            bg-[#1CBCE8] hover:bg-[#1399BE]
-            text-white text-sm font-medium
-            px-4 py-2 rounded-lg
+            px-4 py-2 rounded-xl text-sm font-medium
+            border border-dashed border-[#1CBCE8]
+            text-[#1CBCE8]
+            hover:bg-[#ECFAFD]
             transition
-            disabled:opacity-50 disabled:cursor-not-allowed
           "
         >
           <Plus size={16} />
-          Nueva sección
+          Nuevo
         </button>
+      </div>
 
-        {/* 🔍 Filtros */}
-        <button
-          onClick={onOpenFilters}
-          className="
-            flex items-center gap-2
-            border border-[#1CBCE8]
-            text-[#1CBCE8]
-            px-4 py-2 rounded-lg text-sm
-            hover:bg-[#ECFAFD] dark:hover:bg-gray-800
-            transition
-          "
-        >
-          <Filter size={16} />
-          Filtros
-        </button>
+      {/* =====================
+          HEADER PRINCIPAL
+      ===================== */}
+      <div
+        className="
+          flex flex-col md:flex-row md:items-center md:justify-between gap-4
+          bg-[#ECFAFD]
+          border border-[#A7E5F6]
+          rounded-2xl px-6 py-5
+        "
+      >
+        {/* IZQUIERDA */}
+        <div className="flex items-center gap-4">
+          <div className="bg-[#1CBCE8] text-white p-3 rounded-xl shadow-sm">
+            🤖
+          </div>
 
-        {/* 🔄 Actualizar */}
-        <button
-          onClick={onRefreshDashboard}
-          disabled={!onRefreshDashboard}
-          className="
-            flex items-center gap-2
-            border border-gray-300 dark:border-gray-600
-            text-gray-600 dark:text-gray-300
-            px-4 py-2 rounded-lg text-sm
-            hover:bg-gray-100 dark:hover:bg-gray-800
-            transition
-            disabled:opacity-50 disabled:cursor-not-allowed
-          "
-        >
-          <RefreshCw size={16} />
-          Actualizar
-        </button>
+          <div>
+            <h1 className="text-2xl font-bold text-[#0A4E61]">
+              {activeDashboard}
+            </h1>
+            <p className="text-sm text-[#4A7F8D]">
+              Vista creada automáticamente según tus consultas
+            </p>
+          </div>
+        </div>
 
-        {/* 🤖 VERA (abrir / cerrar chat) */}
-        {/* {onToggleChat && (
+        {/* ACCIONES */}
+        <div className="flex flex-wrap items-center gap-2">
+
+          {/* ➕ Nueva sección */}
           <button
-            onClick={onToggleChat}
+            onClick={onAddSection}
+            className="
+              flex items-center gap-2
+              bg-[#1CBCE8] hover:bg-[#1399BE]
+              text-white text-sm font-medium
+              px-5 py-2.5 rounded-xl
+              transition
+            "
+          >
+            <Plus size={16} />
+            Nueva Sección
+          </button>
+
+          {/* 🔍 Filtros */}
+          <button
+            onClick={onOpenFilters}
+            className="
+              flex items-center gap-2
+              border border-[#1CBCE8]
+              text-[#1CBCE8]
+              px-4 py-2.5 rounded-xl text-sm
+              hover:bg-[#ECFAFD]
+              transition
+            "
+          >
+            <Filter size={16} />
+            Filtros
+          </button>
+
+          {/* 🔄 Actualizar */}
+          <button
+            onClick={refreshDashboard}
+            disabled={isRefreshing}
             className={`
               flex items-center gap-2
-              px-4 py-2 rounded-lg text-sm font-medium
+              border border-[#A7E5F6]
+              text-[#0A4E61]
+              px-4 py-2.5 rounded-xl text-sm
+              hover:bg-[#ECFAFD]
               transition
-              ${
-                isChatOpen
-                  ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              }
+              ${isRefreshing ? "opacity-60 cursor-not-allowed" : ""}
             `}
-            title={isChatOpen ? "Cerrar VERA" : "Abrir VERA"}
           >
-            <MessageSquare size={16} />
-            {isChatOpen ? "Cerrar VERA" : "Abrir VERA"}
+            <RefreshCw
+              size={16}
+              className={isRefreshing ? "animate-spin" : ""}
+            />
+            {isRefreshing ? "Actualizando..." : "Actualizar"}
           </button>
-        )} */}
+        </div>
       </div>
     </div>
   );
