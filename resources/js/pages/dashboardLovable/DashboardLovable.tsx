@@ -3,17 +3,10 @@ import AppLayout from "@/layouts/app-layout";
 import { Head } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
 
-// 👉 CONTEXTO
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
-// 👉 Wrappers Lovable
 import DashboardHeader from "./components/DashboardHeader";
-import DashboardSection from "./components/DashboardSection";
-import WidgetCard from "./components/WidgetCard";
-
 import DashboardLovableWidgets from "./components/DashboardLovableWidgets";
-
-// 👉 Chat VERA
 import AiChatView from "@/pages/dashboards/components/AiChat/AiChatView";
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -29,65 +22,45 @@ export default function DashboardLovable() {
       <Head title="Dashboard Lovable" />
 
       <DashboardProvider>
-        <div className="min-h-screen bg-[#F7FBFD] dark:bg-gray-950 p-4 md:p-6">
+        {/* ===== CONTENEDOR GENERAL ===== */}
+        <div className="bg-[#F7FBFD] dark:bg-gray-950 px-6 py-6">
 
-          {/* ===============================
-              LAYOUT PRINCIPAL (RESPONSIVE)
-          =============================== */}
-          <div
-            className="
-              mt-4
-              flex flex-col xl:flex-row
-              gap-6
-              items-stretch
-            "
-          >
-            {/* =================================================
-                COLUMNA IZQUIERDA → HEADER + DASHBOARD
-            ================================================= */}
-            <div
-              className="
-                flex-1
-                min-w-0   /* 👈 CLAVE ABSOLUTA */
-                space-y-6
-                transition-all duration-300
-              "
-            >
-              {/* ---------- HEADER ---------- */}
+          {/* ===== LAYOUT LOVABLE (2 columnas, 1 scroll) ===== */}
+          <div className="flex gap-6 items-start">
+
+            {/* ==============================
+                COLUMNA IZQUIERDA (DASHBOARD)
+            ============================== */}
+            <div className="flex-1 min-w-0 space-y-6">
+
               <DashboardHeader
                 isChatOpen={isChatOpen}
-                onToggleChat={() => setIsChatOpen((v) => !v)}
+                onToggleChat={() => setIsChatOpen(v => !v)}
               />
 
-              {/* ---------- GRID ---------- */}
               <DashboardLovableWidgets />
+
             </div>
 
-            {/* =================================================
-                COLUMNA DERECHA → CHAT VERA
-            ================================================= */}
+            {/* ==============================
+                COLUMNA DERECHA (CHAT VERA)
+            ============================== */}
             {isChatOpen && (
-              <div
-                className="
-                  w-full xl:w-[380px]
-                  shrink-0
-                  transition-all duration-300
-                "
-              >
+              <div className="w-[420px] shrink-0">
                 <div
                   className="
-                    xl:sticky xl:top-6
-                    h-[420px] xl:h-[calc(100vh-120px)]
                     bg-[#ECFAFD] dark:bg-gray-900
                     border border-[#A7E5F6] dark:border-gray-700
                     rounded-xl
-                    overflow-hidden
+                    min-h-[720px]     /* 🔥 ESTO ES LA CLAVE */
+                    flex flex-col
                   "
                 >
-                  <AiChatView docked />
+                  <AiChatView />
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </DashboardProvider>

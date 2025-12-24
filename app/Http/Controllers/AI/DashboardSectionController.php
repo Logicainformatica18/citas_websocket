@@ -31,7 +31,7 @@ class DashboardSectionController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'position' => 'nullable|integer',
-            'width' => 'nullable|integer',
+        
             'height' => 'nullable|integer',
             'colors' => 'nullable|array', // 👈 ahora acepta colores personalizados
         ]);
@@ -48,7 +48,9 @@ class DashboardSectionController extends Controller
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'position' => $validated['position'] ?? 0,
-            'width' => $validated['width'] ?? 12,
+          // ancho NO se persiste
+'height' => $validated['height'] ?? 1,
+
             'height' => $validated['height'] ?? 1,
             'colors' => json_encode($validated['colors'] ?? $defaultColors, JSON_UNESCAPED_UNICODE),
         ]);
@@ -75,15 +77,15 @@ class DashboardSectionController extends Controller
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'position' => 'nullable|integer',
-            'width' => 'nullable|integer',
+           
             'height' => 'nullable|integer',
             'colors' => 'nullable|array', // 👈 puede venir desde el front
         ]);
 
-        if (isset($validated['colors'])) {
-            $validated['colors'] = json_encode($validated['colors'], JSON_UNESCAPED_UNICODE);
-        }
-
+     if (isset($validated['colors'])) {
+    $validated['colors'] = json_encode($validated['colors'], JSON_UNESCAPED_UNICODE);
+}
+unset($validated['width']); // 🔒 nunca guardar width
         $section->update($validated);
 
         Log::info('🎨 Sección actualizada', [
