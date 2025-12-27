@@ -37,6 +37,29 @@ const LOVABLE_ISIL_SCALE = [
     "#A7EDF9",
     "#C7F5FC",
 ];
+const LOVABLE_DEFAULT_PALETTE = [
+  "#1CBCE8",
+  "#38BDF8",
+  "#0EA5E9",
+  "#7DD3FC",
+  "#0284C7",
+  "#A5F3FC",
+  "#4ADE80",
+  "#FACC15",
+  "#C084FC",
+  "#0F766E",
+  "#22B8E8",
+  "#60A5FA",
+  "#0D9488",
+  "#93C5FD",
+  "#0F766E",
+  "#BAE6FD",
+  "#22C55E",
+  "#FDE047",
+  "#D8B4FE",
+  "#083344",
+];
+
 import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
 
 
@@ -181,6 +204,19 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
         return { normalizedData, categoryKey, numericKeys };
     }, [JSON.stringify(rawData)]);
 
+    const colorMap = React.useMemo(() => {
+  const map = {};
+  normalizedData.forEach((entry, i) => {
+    const key = entry[categoryKey];
+    if (!map[key]) {
+      map[key] =
+        LOVABLE_DEFAULT_PALETTE[i % LOVABLE_DEFAULT_PALETTE.length];
+    }
+  });
+  return map;
+}, [normalizedData, categoryKey]);
+
+
     // 🎛️ Filtro dinámico de categorías
     const categoryLabels = normalizedData.map(d => d[categoryKey]);
 
@@ -305,13 +341,15 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
 
 
     return (
-    <div
-  className="p-5 rounded-xl"
+<div
+  className="p-5 pb-12 rounded-xl relative"
   style={{
     backgroundColor: theme.cardBg,
     border: `1px solid ${theme.border}`,
+    color: theme.text,          // 🔥 CLAVE
   }}
 >
+
 
          <h3
   className="text-sm font-semibold tracking-wide mb-1"
@@ -350,24 +388,25 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
   barGap={4}
 >
 
-                               <CartesianGrid
-  stroke="#E6F7FD"
+<CartesianGrid
+  stroke={theme.grid}          // 🔥
   strokeDasharray="4 6"
   vertical={false}
 />
- 
+
 
 
 
 <XAxis
   dataKey={categoryKey}
-  tick={{ fill: "#0A4E61", fontSize: 11 }}
+  tick={{ fill: theme.text, fontSize: 11 }} // 🔥
   axisLine={false}
   tickLine={false}
   angle={-30}
   textAnchor="end"
   height={60}
 />
+
 
 
 <YAxis
@@ -387,15 +426,19 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
   }}
 />
 
-                                  <Bar dataKey={numericKeys[0]} radius={[6, 6, 0, 0]}>
+<Bar dataKey={numericKeys[0]} radius={[6, 6, 0, 0]}>
   {filteredData.map((_, index) => (
     <Cell
       key={index}
-      fill={theme.bar}
-      fillOpacity={1 - index * 0.035} // 👈 degradado Lovable
+      fill={LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length]}
     />
   ))}
 </Bar>
+
+
+
+
+
 
 
                                 </BarChart>
@@ -415,49 +458,48 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                 overflowY: "auto",
                             }}
                         >
-                            {normalizedData.map((entry, index) => {
-                                const label = entry[categoryKey];
+          {normalizedData.map((entry, index) => {
+  const label = entry[categoryKey];
+  const color =
+    LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length];
 
-                              const color = theme.bar;
+  return (
+    <label
+      key={`${label}-${index}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        fontSize: "13px",
+        color: theme.text,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {/* Checkbox */}
+      <input
+        type="checkbox"
+        checked={activeLabels.includes(label)}
+        onChange={() => toggleLabel(label)}
+        style={{ marginRight: "6px" }}
+      />
+
+      {/* Cuadrado de color */}
+      <span
+        style={{
+          width: 12,
+          height: 12,
+          backgroundColor: color, // ✅ MISMO COLOR QUE LA BARRA
+          borderRadius: 4,
+          marginRight: 6,
+        }}
+      />
+
+      {label}
+    </label>
+  );
+})}
 
 
-
-                                return (
-                                    <label
-                                        key={label}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            fontSize: "13px",
-                                            color: colors.text,
-                                            cursor: "pointer",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {/* Checkbox */}
-                                        <input
-                                            type="checkbox"
-                                            checked={activeLabels.includes(label)}
-                                            onChange={() => toggleLabel(label)}
-                                            style={{ marginRight: "6px" }}
-                                        />
-
-                                        {/* Color cuadrado */}
-                                       <span
-  style={{
-    width: 12,
-    height: 12,
-    backgroundColor: color,
-    borderRadius: 4,
-    marginRight: 6,
-  }}
-/>
-
-
-                                        {label}
-                                    </label>
-                                );
-                            })}
                         </div>
 
                     </div>
@@ -472,11 +514,7 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                 {widget.chart_type === "line" && (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={filteredData}>
-                            <CartesianGrid
-                                stroke="#D5F3FB"
-                                strokeDasharray="3 6"
-                                vertical={false}
-                            />
+                          <CartesianGrid stroke={theme.grid} />
                             <XAxis
                                 dataKey={categoryKey}
                                 tick={{ fill: "#0A4E61", fontSize: 11 }}
@@ -490,8 +528,14 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                 tickLine={false}
                             />
 
-                            <Tooltip contentStyle={{ backgroundColor: colors.bg }} />
-                            <Legend wrapperStyle={{ color: colors.text }} />
+                          <Tooltip
+  contentStyle={{
+    backgroundColor: theme.tooltipBg,
+    border: `1px solid ${theme.border}`,
+    color: theme.text,
+  }}
+/>
+                          <Legend wrapperStyle={{ color: theme.text }} />
                             {numericKeys.map((key, i) => (
                                 <Line
                                     key={key}
@@ -521,13 +565,13 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                 // 👇 Label solo con porcentaje
                                 label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
                             >
-                                {filteredData.map((entry, index) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
-                                    />
+                              {filteredData.map((entry, index) => (
+  <Cell
+    key={`pie-${entry[categoryKey]}-${index}`} // 🔥 clave estable
+    fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
+  />
+))}
 
-                                ))}
                             </Pie>
 
                             <Tooltip

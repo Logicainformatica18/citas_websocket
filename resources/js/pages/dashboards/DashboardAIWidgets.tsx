@@ -18,6 +18,7 @@ const MySwal = withReactContent(Swal);
  * - Protege contra datos faltantes o JSON sin parsear.
  */
 export default function DashboardAIWidgets() {
+    
     const [widgets, setWidgets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [sections, setSections] = useState<any[]>([]);

@@ -31,6 +31,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(
 );
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
+    
   /** ===== DATA IA ===== */
   const [data, setData] = useState<DashboardData>({
     results: null,

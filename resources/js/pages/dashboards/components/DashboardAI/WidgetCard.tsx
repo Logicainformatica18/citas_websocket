@@ -44,6 +44,10 @@ const ISIL_CHART_PALETTE = [
 ];
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
+console.log(
+  "%c🚨 ESTE ARCHIVO SE ESTÁ EJECUTANDO 🚨",
+  "background:red;color:white;font-size:20px;padding:8px"
+);
     const ISIL_COLORS = {
         light: {
             bg: "#ECFAFD",
@@ -366,11 +370,13 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                         vertical={false}
                                     />
 
-                                    <XAxis
-                                        stroke={colors.text}
-                                        tick={{ fill: colors.text, fontSize: 12 }}
-                                        axisLine={false}
-                                    />
+                                  <XAxis
+  dataKey={categoryKey}
+  tick={{ fill: colors.text, fontSize: 12 }}
+  axisLine={false}
+  tickLine={false}
+/>
+
 
                                     <YAxis
                                         stroke={colors.text}
@@ -388,13 +394,13 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                         }}
                                     />
 
-                                    <Bar dataKey={numericKeys[0] || "value"} isAnimationActive={true}>
-                                        {normalizedData.map((entry, index) => (
-                                            <Cell fill={ISIL_CHART_PALETTE[index % ISIL_CHART_PALETTE.length]} />
+                                <Bar dataKey={numericKeys[0] || "value"}>
+  {normalizedData.map((entry, index) => (
+    <Cell fill={ISIL_CHART_PALETTE[index % ISIL_CHART_PALETTE.length]} />
+  ))}
+</Bar>
 
-                                        ))}
 
-                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

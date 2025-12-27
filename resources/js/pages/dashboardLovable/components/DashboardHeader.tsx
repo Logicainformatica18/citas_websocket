@@ -7,7 +7,10 @@ interface DashboardHeaderProps {
 
   onChangeDashboard?: (name: string) => void;
   onCreateDashboard?: () => void;
+
+  /** 🔹 Dispara el SweetAlert + createSection del grid */
   onAddSection?: () => void;
+
   onOpenFilters?: () => void;
 }
 
@@ -25,9 +28,9 @@ export default function DashboardHeader({
   return (
     <div className="w-full space-y-4">
 
-      {/* =====================
-          TABS SUPERIORES
-      ===================== */}
+      {/* ======================================================
+          TABS SUPERIORES (Dashboards)
+      ====================================================== */}
       <div className="flex items-center gap-2 flex-wrap">
         {dashboards.map((name) => {
           const isActive = name === activeDashboard;
@@ -39,7 +42,7 @@ export default function DashboardHeader({
               className={`
                 flex items-center gap-2
                 px-4 py-2 rounded-xl text-sm font-medium
-                transition
+                transition-all duration-200
                 ${
                   isActive
                     ? "bg-[#1CBCE8] text-white shadow-sm"
@@ -62,7 +65,7 @@ export default function DashboardHeader({
             border border-dashed border-[#1CBCE8]
             text-[#1CBCE8]
             hover:bg-[#ECFAFD]
-            transition
+            transition-all duration-200
           "
         >
           <Plus size={16} />
@@ -70,9 +73,9 @@ export default function DashboardHeader({
         </button>
       </div>
 
-      {/* =====================
+      {/* ======================================================
           HEADER PRINCIPAL
-      ===================== */}
+      ====================================================== */}
       <div
         className="
           flex flex-col md:flex-row md:items-center md:justify-between gap-4
@@ -97,19 +100,23 @@ export default function DashboardHeader({
           </div>
         </div>
 
-        {/* ACCIONES */}
+        {/* ==================================================
+            ACCIONES
+        ================================================== */}
         <div className="flex flex-wrap items-center gap-2">
 
-          {/* ➕ Nueva sección */}
+          {/* ➕ Nueva sección (REPLICADO DEL GRID) */}
           <button
             onClick={onAddSection}
-            className="
+            disabled={!onAddSection}
+            className={`
               flex items-center gap-2
               bg-[#1CBCE8] hover:bg-[#1399BE]
               text-white text-sm font-medium
               px-5 py-2.5 rounded-xl
-              transition
-            "
+              transition-all duration-200
+              ${!onAddSection ? "opacity-60 cursor-not-allowed" : ""}
+            `}
           >
             <Plus size={16} />
             Nueva Sección
@@ -124,14 +131,14 @@ export default function DashboardHeader({
               text-[#1CBCE8]
               px-4 py-2.5 rounded-xl text-sm
               hover:bg-[#ECFAFD]
-              transition
+              transition-all duration-200
             "
           >
             <Filter size={16} />
             Filtros
           </button>
 
-          {/* 🔄 Actualizar */}
+          {/* 🔄 Actualizar dashboard */}
           <button
             onClick={refreshDashboard}
             disabled={isRefreshing}
@@ -141,7 +148,7 @@ export default function DashboardHeader({
               text-[#0A4E61]
               px-4 py-2.5 rounded-xl text-sm
               hover:bg-[#ECFAFD]
-              transition
+              transition-all duration-200
               ${isRefreshing ? "opacity-60 cursor-not-allowed" : ""}
             `}
           >

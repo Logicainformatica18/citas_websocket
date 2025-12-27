@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
@@ -17,6 +17,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function DashboardLovable() {
   const [isChatOpen, setIsChatOpen] = useState(true);
 
+  // 👉 REF para exponer funciones del grid
+  const widgetsRef = useRef<{ addSection: () => void }>(null);
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Dashboard Lovable" />
@@ -25,7 +28,7 @@ export default function DashboardLovable() {
         {/* ===== CONTENEDOR GENERAL ===== */}
         <div className="bg-[#F7FBFD] dark:bg-gray-950 px-6 py-6">
 
-          {/* ===== LAYOUT LOVABLE (2 columnas, 1 scroll) ===== */}
+          {/* ===== LAYOUT LOVABLE (2 columnas) ===== */}
           <div className="flex gap-6 items-start">
 
             {/* ==============================
@@ -33,12 +36,13 @@ export default function DashboardLovable() {
             ============================== */}
             <div className="flex-1 min-w-0 space-y-6">
 
+              {/* 🔑 HEADER CONECTADO */}
               <DashboardHeader
-                isChatOpen={isChatOpen}
-                onToggleChat={() => setIsChatOpen(v => !v)}
+                onAddSection={() => widgetsRef.current?.addSection()}
               />
 
-              <DashboardLovableWidgets />
+              {/* 🔑 GRID EXPONE addSection */}
+              <DashboardLovableWidgets ref={widgetsRef} />
 
             </div>
 
@@ -52,7 +56,7 @@ export default function DashboardLovable() {
                     bg-[#ECFAFD] dark:bg-gray-900
                     border border-[#A7E5F6] dark:border-gray-700
                     rounded-xl
-                    min-h-[720px]     /* 🔥 ESTO ES LA CLAVE */
+                    min-h-[720px]
                     flex flex-col
                   "
                 >

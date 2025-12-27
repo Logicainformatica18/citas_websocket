@@ -42,9 +42,6 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use Inertia\Inertia;
 
-Route::get('/dashboard/lovable', function () {
-    return Inertia::render('dashboardLovable/DashboardLovable');
-})->name('dashboard.lovable');
 Route::middleware('web')->group(function () {
 
     Route::get('/login/saml', [
@@ -81,6 +78,11 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+
+
+Route::get('/dashboard/lovable', function () {
+    return Inertia::render('dashboardLovable/DashboardLovable');
+})->name('dashboard.lovable');
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
 

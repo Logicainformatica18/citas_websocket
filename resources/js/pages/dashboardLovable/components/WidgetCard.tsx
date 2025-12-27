@@ -7,12 +7,16 @@ interface Props {
 }
 
 export default function WidgetCard({
+    
   title,
   subtitle,
   insight,
   span = "col-span-12",
   children,
-}: Props) {
+}: Props)
+ {
+
+ 
   return (
     <div
       className={`
