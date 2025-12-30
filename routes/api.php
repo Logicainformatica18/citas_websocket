@@ -219,12 +219,14 @@ Route::get('/ai/chat/history', [DashboardAIController::class, 'history']);
         ->get();
 });
 Route::post('/ai/dashboard-widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
- Route::get('/ai/dashboard-widgets', [DashboardWidgetController::class, 'index']);
- Route::put('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'update']);
+Route::get('/ai/dashboard-widgets', [DashboardWidgetController::class, 'index']);
+Route::put('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'update']);
+Route::put('/ai/dashboard-widgets/{id}/filters', [DashboardWidgetController::class, 'saveFilters']); // ✅ NUEVA
 Route::delete('/ai/dashboard-widgets/{id}', [DashboardWidgetController::class, 'destroy']);
 Route::post('/ai/dashboard-widgets/reorder', [DashboardWidgetController::class, 'reorder']);
 Route::post('/ai/dashboard-widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
 Route::post('/{id}/segment', [DashboardWidgetController::class, 'segmentData']); // 🧠 segmentación
+
 
 Route::prefix('ai/dashboard-sections')->group(function () {
     Route::get('/{dashboard}', [DashboardSectionController::class, 'index']);

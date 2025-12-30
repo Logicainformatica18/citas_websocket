@@ -222,3 +222,7 @@
 .animate-fadeIn {
   animation: fadeIn 0.15s ease-out;
 }
+/* 🎨 SweetAlert compacto – ISIL */
+.isil-swal-actions {
+  margin-top: 14px !important;
+}

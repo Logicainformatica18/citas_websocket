@@ -49,3 +49,16 @@ export async function segmentWidget(widgetId: number, filters: Record<string, an
   const res = await axios.post(`/api/ai/dashboard-widgets/${widgetId}/segment`, { filters });
   return res.data;
 }
+/**
+ * 💾 Guardar filtros del widget (persistencia)
+ */
+export async function saveWidgetFilters(
+  widgetId: number,
+  activeLabels: string[]
+) {
+  return axios.put(`/api/ai/dashboard-widgets/${widgetId}/filters`, {
+    filters: {
+      activeLabels,
+    },
+  });
+}

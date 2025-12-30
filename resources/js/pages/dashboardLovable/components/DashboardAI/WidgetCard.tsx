@@ -17,7 +17,12 @@ import {
 
 import ColorControl from "./ColorControl";
 import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
-import { updateWidget, segmentWidget } from "./useDashboardAPI"; // 👈 ya tienes este método
+import {
+  updateWidget,
+  segmentWidget,
+  saveWidgetFilters,
+} from "./useDashboardAPI";
+
 
 
 // 🧩 Librerías para exportación
@@ -38,26 +43,26 @@ const LOVABLE_ISIL_SCALE = [
     "#C7F5FC",
 ];
 const LOVABLE_DEFAULT_PALETTE = [
-  "#1CBCE8",
-  "#38BDF8",
-  "#0EA5E9",
-  "#7DD3FC",
-  "#0284C7",
-  "#A5F3FC",
-  "#4ADE80",
-  "#FACC15",
-  "#C084FC",
-  "#0F766E",
-  "#22B8E8",
-  "#60A5FA",
-  "#0D9488",
-  "#93C5FD",
-  "#0F766E",
-  "#BAE6FD",
-  "#22C55E",
-  "#FDE047",
-  "#D8B4FE",
-  "#083344",
+    "#1CBCE8",
+    "#38BDF8",
+    "#0EA5E9",
+    "#7DD3FC",
+    "#0284C7",
+    "#A5F3FC",
+    "#4ADE80",
+    "#FACC15",
+    "#C084FC",
+    "#0F766E",
+    "#22B8E8",
+    "#60A5FA",
+    "#0D9488",
+    "#93C5FD",
+    "#0F766E",
+    "#BAE6FD",
+    "#22C55E",
+    "#FDE047",
+    "#D8B4FE",
+    "#083344",
 ];
 
 import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
@@ -66,7 +71,7 @@ import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
 
- const theme = useLovableChartTheme();
+    const theme = useLovableChartTheme();
 
     const defaultColors = {
         bg: "#1e293b",     // fondo por defecto
@@ -87,6 +92,19 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
             ? JSON.parse(widget.colors)
             : widget.colors || {})
     });
+
+
+// 🔒 Leer filtros guardados del widget (persistencia)
+// 🔒 Leer filtros guardados del widget (persistencia)
+const savedOptions =
+  typeof widget.options === "string"
+    ? JSON.parse(widget.options)
+    : widget.options;
+
+const savedActiveLabels: string[] =
+  savedOptions?.filters?.activeLabels || [];
+
+
 
     const handleDelete = async () => {
         const result = await Swal.fire({
@@ -205,34 +223,35 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
     }, [JSON.stringify(rawData)]);
 
     const colorMap = React.useMemo(() => {
-  const map = {};
-  normalizedData.forEach((entry, i) => {
-    const key = entry[categoryKey];
-    if (!map[key]) {
-      map[key] =
-        LOVABLE_DEFAULT_PALETTE[i % LOVABLE_DEFAULT_PALETTE.length];
-    }
-  });
-  return map;
-}, [normalizedData, categoryKey]);
+        const map = {};
+        normalizedData.forEach((entry, i) => {
+            const key = entry[categoryKey];
+            if (!map[key]) {
+                map[key] =
+                    LOVABLE_DEFAULT_PALETTE[i % LOVABLE_DEFAULT_PALETTE.length];
+            }
+        });
+        return map;
+    }, [normalizedData, categoryKey]);
 
 
     // 🎛️ Filtro dinámico de categorías
     const categoryLabels = normalizedData.map(d => d[categoryKey]);
 
-    const [activeLabels, setActiveLabels] = useState(categoryLabels);
+  const [activeLabels, setActiveLabels] = useState<string[]>(
+  savedActiveLabels.length ? savedActiveLabels : categoryLabels
+);
 
-    useEffect(() => {
-        setActiveLabels(categoryLabels);
-    }, [JSON.stringify(categoryLabels)]);
 
-    const toggleLabel = (label) => {
-        setActiveLabels(prev =>
-            prev.includes(label)
-                ? prev.filter((l) => l !== label)
-                : [...prev, label]
-        );
-    };
+useEffect(() => {
+  if (savedActiveLabels.length) {
+    setActiveLabels(savedActiveLabels);
+  } else {
+    setActiveLabels(categoryLabels);
+  }
+}, [JSON.stringify(categoryLabels)]);
+
+
 
     const filteredData = normalizedData.filter(d =>
         activeLabels.includes(d[categoryKey])
@@ -341,28 +360,28 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
 
 
     return (
-<div
-  className="p-5 pb-12 rounded-xl relative"
-  style={{
-    backgroundColor: theme.cardBg,
-    border: `1px solid ${theme.border}`,
-    color: theme.text,          // 🔥 CLAVE
-  }}
->
+        <div
+            className="p-5 pb-12 rounded-xl relative"
+            style={{
+                backgroundColor: theme.cardBg,
+                border: `1px solid ${theme.border}`,
+                color: theme.text,          // 🔥 CLAVE
+            }}
+        >
 
 
-         <h3
-  className="text-sm font-semibold tracking-wide mb-1"
-  style={{
-    color: theme.text,
-    textTransform: "uppercase",
-  }}
->
-  {widget.title}
-</h3>
-<p className="text-xs mb-3" style={{ color: "#4FB3D9" }}>
-  
-</p>
+            <h3
+                className="text-sm font-semibold tracking-wide mb-1"
+                style={{
+                    color: theme.text,
+                    textTransform: "uppercase",
+                }}
+            >
+                {widget.title}
+            </h3>
+            <p className="text-xs mb-3" style={{ color: "#4FB3D9" }}>
+
+            </p>
 
 
 
@@ -382,58 +401,58 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                         {/* 🧩 Gráfico principal */}
                         <div style={{ flex: 1, minHeight: "240px" }}>
                             <ResponsiveContainer width="100%" height="100%">
-                               <BarChart
-  data={filteredData}
-  barCategoryGap={18}
-  barGap={4}
->
+                                <BarChart
+                                    data={filteredData}
+                                    barCategoryGap={18}
+                                    barGap={4}
+                                >
 
-<CartesianGrid
-  stroke={theme.grid}          // 🔥
-  strokeDasharray="4 6"
-  vertical={false}
-/>
-
-
-
-
-<XAxis
-  dataKey={categoryKey}
-  tick={{ fill: theme.text, fontSize: 11 }} // 🔥
-  axisLine={false}
-  tickLine={false}
-  angle={-30}
-  textAnchor="end"
-  height={60}
-/>
+                                    <CartesianGrid
+                                        stroke={theme.grid}          // 🔥
+                                        strokeDasharray="4 6"
+                                        vertical={false}
+                                    />
 
 
 
-<YAxis
-  tick={{ fill: theme.text, fontSize: 11 }}
-  axisLine={false}
-  tickLine={false}
-/>
+
+                                    <XAxis
+                                        dataKey={categoryKey}
+                                        tick={{ fill: theme.text, fontSize: 11 }} // 🔥
+                                        axisLine={false}
+                                        tickLine={false}
+                                        angle={-30}
+                                        textAnchor="end"
+                                        height={60}
+                                    />
+
+
+
+                                    <YAxis
+                                        tick={{ fill: theme.text, fontSize: 11 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
 
 
                                     <Tooltip
-  contentStyle={{
-    backgroundColor: theme.tooltipBg,
-    border: `1px solid ${theme.border}`,
-    color: theme.text,
-    borderRadius: 10,
-    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-  }}
-/>
+                                        contentStyle={{
+                                            backgroundColor: theme.tooltipBg,
+                                            border: `1px solid ${theme.border}`,
+                                            color: theme.text,
+                                            borderRadius: 10,
+                                            boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                                        }}
+                                    />
 
-<Bar dataKey={numericKeys[0]} radius={[6, 6, 0, 0]}>
-  {filteredData.map((_, index) => (
-    <Cell
-      key={index}
-      fill={LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length]}
-    />
-  ))}
-</Bar>
+                                    <Bar dataKey={numericKeys[0]} radius={[6, 6, 0, 0]}>
+                                        {filteredData.map((_, index) => (
+                                            <Cell
+                                                key={index}
+                                                fill={LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length]}
+                                            />
+                                        ))}
+                                    </Bar>
 
 
 
@@ -445,62 +464,47 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                             </ResponsiveContainer>
                         </div>
 
-                        {/* 🎨 Leyenda debajo del gráfico */}
+                        {/* 🎨 Leyenda (solo visual, refleja lo seleccionado) */}
                         <div
                             style={{
                                 display: "flex",
                                 flexWrap: "wrap",
                                 justifyContent: "center",
-                                alignItems: "center",
                                 gap: "10px 18px",
                                 paddingTop: "10px",
-                                maxHeight: "110px",
-                                overflowY: "auto",
                             }}
                         >
-          {normalizedData.map((entry, index) => {
-  const label = entry[categoryKey];
-  const color =
-    LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length];
+                            {filteredData.map((entry, index) => {
+                                const label = entry[categoryKey];
+                                const color =
+                                    LOVABLE_DEFAULT_PALETTE[index % LOVABLE_DEFAULT_PALETTE.length];
 
-  return (
-    <label
-      key={`${label}-${index}`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        fontSize: "13px",
-        color: theme.text,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {/* Checkbox */}
-      <input
-        type="checkbox"
-        checked={activeLabels.includes(label)}
-        onChange={() => toggleLabel(label)}
-        style={{ marginRight: "6px" }}
-      />
-
-      {/* Cuadrado de color */}
-      <span
-        style={{
-          width: 12,
-          height: 12,
-          backgroundColor: color, // ✅ MISMO COLOR QUE LA BARRA
-          borderRadius: 4,
-          marginRight: 6,
-        }}
-      />
-
-      {label}
-    </label>
-  );
-})}
-
-
+                                return (
+                                    <div
+                                        key={label}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            fontSize: "13px",
+                                            color: theme.text,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                width: 12,
+                                                height: 12,
+                                                backgroundColor: color,
+                                                borderRadius: 4,
+                                                marginRight: 6,
+                                            }}
+                                        />
+                                        {label}
+                                    </div>
+                                );
+                            })}
                         </div>
+
 
                     </div>
                 )}
@@ -514,7 +518,7 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                 {widget.chart_type === "line" && (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={filteredData}>
-                          <CartesianGrid stroke={theme.grid} />
+                            <CartesianGrid stroke={theme.grid} />
                             <XAxis
                                 dataKey={categoryKey}
                                 tick={{ fill: "#0A4E61", fontSize: 11 }}
@@ -528,14 +532,14 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                 tickLine={false}
                             />
 
-                          <Tooltip
-  contentStyle={{
-    backgroundColor: theme.tooltipBg,
-    border: `1px solid ${theme.border}`,
-    color: theme.text,
-  }}
-/>
-                          <Legend wrapperStyle={{ color: theme.text }} />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: theme.tooltipBg,
+                                    border: `1px solid ${theme.border}`,
+                                    color: theme.text,
+                                }}
+                            />
+                            <Legend wrapperStyle={{ color: theme.text }} />
                             {numericKeys.map((key, i) => (
                                 <Line
                                     key={key}
@@ -565,12 +569,12 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                                 // 👇 Label solo con porcentaje
                                 label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
                             >
-                              {filteredData.map((entry, index) => (
-  <Cell
-    key={`pie-${entry[categoryKey]}-${index}`} // 🔥 clave estable
-    fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
-  />
-))}
+                                {filteredData.map((entry, index) => (
+                                    <Cell
+                                        key={`pie-${entry[categoryKey]}-${index}`} // 🔥 clave estable
+                                        fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
+                                    />
+                                ))}
 
                             </Pie>
 
@@ -634,6 +638,214 @@ export default function WidgetCard({ widget, onColorChange, onDelete }) {
                         >
                             📄 Exportar PDF
                         </button>
+<button
+  onClick={() => {
+    setMenuOpen(false);
+
+    Swal.fire({
+      // 🔹 Popup más compacto
+      padding: "22px 26px",
+      background: "#F8FCFE",
+
+
+
+
+      html: `
+        <!-- Contador -->
+        <div style="
+          margin:6px 0 10px;
+          font-size:13px;
+          color:#0A4E61;
+          text-align:center;
+        ">
+          Seleccionados:
+          <b>${activeLabels.length}</b> / ${categoryLabels.length}
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div style="
+          display:flex;
+          gap:8px;
+          justify-content:center;
+          margin-bottom:12px;
+        ">
+          <button
+            id="selectAll"
+            style="
+              background:#ECFAFD;
+              color:#0A4E61;
+              border:1px solid #A7E5F6;
+              border-radius:999px;
+              padding:5px 12px;
+              font-size:13px;
+              cursor:pointer;
+            "
+          >
+            ✔ Todos
+          </button>
+
+          <button
+            id="selectNone"
+            style="
+              background:#F8FAFC;
+              color:#64748B;
+              border:1px solid #E2E8F0;
+              border-radius:999px;
+              padding:5px 12px;
+              font-size:13px;
+              cursor:pointer;
+            "
+          >
+            ✖ Ninguno
+          </button>
+        </div>
+
+        <!-- Lista de categorías -->
+        <div
+          style="
+            max-height:240px;
+            overflow:auto;
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+            gap:8px 14px;
+            text-align:left;
+            padding:2px;
+          "
+        >
+          ${categoryLabels
+            .map((label) => {
+              const color = colorMap[label] || "#CBD5E1";
+
+              return `
+                <label
+                  style="
+                    display:flex;
+                    align-items:center;
+                    gap:10px;
+                    padding:8px 10px;
+                    border-radius:10px;
+                    cursor:pointer;
+                    border:1px solid #E2E8F0;
+                    background:#FFFFFF;
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    value="${label}"
+                    ${activeLabels.includes(label) ? "checked" : ""}
+                  />
+
+                  <span
+                    style="
+                      width:12px;
+                      height:12px;
+                      background:${color};
+                      border-radius:4px;
+                      flex-shrink:0;
+                    "
+                  ></span>
+
+                  <span style="
+                    font-size:14px;
+                    color:#0A4E61;
+                    white-space:nowrap;
+                  ">
+                    ${label}
+                  </span>
+                </label>
+              `;
+            })
+            .join("")}
+        </div>
+      `,
+
+      showCancelButton: true,
+    //  showDenyButton: true,
+      confirmButtonText: "Aplicar",
+
+      cancelButtonText: "Cancelar",
+
+      customClass: {
+        actions: "isil-swal-actions",
+      },
+
+      didOpen: () => {
+        document.getElementById("selectAll")?.addEventListener("click", () => {
+          document
+            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+            .forEach((cb) => (cb.checked = true));
+        });
+
+        document.getElementById("selectNone")?.addEventListener("click", () => {
+          document
+            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+            .forEach((cb) => (cb.checked = false));
+        });
+      },
+
+      preConfirm: () => {
+        return Array.from(
+          document.querySelectorAll<HTMLInputElement>(
+            "input[type=checkbox]:checked"
+          )
+        ).map((el) => el.value);
+      },
+  }).then(async (res) => {
+  if (!Array.isArray(res.value)) return;
+
+  // 🟢 1️⃣ APLICAR (solo vista)
+  if (res.isConfirmed) {
+    setActiveLabels(res.value);
+
+    Swal.fire({
+      icon: "info",
+      title: "Filtro aplicado",
+      text: "Puedes guardar los cambios si deseas que sean permanentes.",
+      confirmButtonText: "Guardar cambios",
+      showCancelButton: true,
+      cancelButtonText: "Cerrar",
+      confirmButtonColor: "#1CBCE8",
+    }).then(async (saveRes) => {
+      if (!saveRes.isConfirmed) return;
+
+      // 💾 2️⃣ GUARDAR (persistente)
+      try {
+        await saveWidgetFilters(widget.id, res.value);
+
+        Swal.fire({
+          icon: "success",
+          title: "Cambios guardados",
+          text: "El filtro quedó persistente para este widget.",
+          confirmButtonColor: "#1CBCE8",
+        });
+      } catch {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudo guardar el filtro.",
+        });
+      }
+    });
+  }
+});
+
+
+  }}
+  className="
+    block w-full text-left px-3 py-2
+    hover:bg-[#ECFAFD]
+    text-[#1CBCE8]
+    text-sm
+    rounded-md
+    transition
+  "
+>
+  🎛️ Filtrar
+</button>
+
+
+
+
                         {/* <button
   onClick={async () => {
     setMenuOpen(false);

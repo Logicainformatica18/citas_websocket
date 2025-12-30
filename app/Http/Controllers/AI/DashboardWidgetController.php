@@ -358,6 +358,89 @@ public function updateColor(Request $request, $id)
     }
 }
 
+public function saveFilters(Request $request, $id)
+{
+    try {
+        Log::info('🧩 [saveFilters] Inicio', [
+            'widget_id' => $id,
+            'payload' => $request->all(),
+        ]);
+
+        // 1️⃣ Validar payload
+        $validated = $request->validate([
+            'filters' => 'required|array',
+            'filters.activeLabels' => 'required|array',
+            'filters.activeLabels.*' => 'string',
+        ]);
+
+        Log::info('✅ [saveFilters] Payload validado', [
+            'validated' => $validated,
+        ]);
+
+        // 2️⃣ Buscar widget
+        $widget = DB::table('dashboard_widgets')->find($id);
+
+        if (!$widget) {
+            Log::warning('⚠️ [saveFilters] Widget no encontrado', [
+                'widget_id' => $id,
+            ]);
+
+            return response()->json(['error' => 'Widget no encontrado'], 404);
+        }
+
+        Log::info('📦 [saveFilters] Widget encontrado', [
+            'id' => $widget->id,
+            'options_raw' => $widget->options,
+        ]);
+
+        // 3️⃣ Leer OPTIONS actuales
+        $existingOptions = [];
+        if (!empty($widget->options)) {
+            $existingOptions = json_decode($widget->options, true) ?? [];
+        }
+
+        Log::info('🧠 [saveFilters] Options decodificados', [
+            'existingOptions' => $existingOptions,
+        ]);
+
+        // 4️⃣ Mezclar filtros UX
+        $existingOptions['filters']['activeLabels'] =
+            $validated['filters']['activeLabels'];
+
+        Log::info('🛠 [saveFilters] Options después de merge', [
+            'mergedOptions' => $existingOptions,
+        ]);
+
+        // 5️⃣ Guardar en BD
+        $updatedRows = DB::table('dashboard_widgets')
+            ->where('id', $id)
+            ->update([
+                'options' => json_encode($existingOptions, JSON_UNESCAPED_UNICODE),
+                'updated_at' => now(),
+            ]);
+
+        Log::info('💾 [saveFilters] Resultado UPDATE', [
+            'updated_rows' => $updatedRows,
+        ]);
+
+        return response()->json([
+            'message' => '✅ Filtros guardados correctamente',
+            'options' => $existingOptions,
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('💥 [saveFilters] Error guardando filtros del widget', [
+            'widget_id' => $id,
+            'exception' => $e,
+            'message' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'error' => 'No se pudieron guardar los filtros',
+        ], 500);
+    }
+}
+
 
 
 

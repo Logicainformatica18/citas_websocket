@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Certification;
 class JobOffer extends Model
 {
     use HasFactory;
@@ -134,5 +134,17 @@ public function analyzeCompetenciesWeighted(int $careerId): array
     ];
 }
 
+/**
+ * 🏅 Certificaciones asociadas a la oferta laboral
+ */
+public function certifications()
+{
+    return $this->belongsToMany(
+        Certification::class,
+        'certification_job',
+        'job_offer_id',
+        'certification_id'
+    )->withTimestamps();
+}
 
 }

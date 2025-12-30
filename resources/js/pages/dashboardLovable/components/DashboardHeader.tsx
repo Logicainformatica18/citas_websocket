@@ -123,7 +123,7 @@ export default function DashboardHeader({
           </button>
 
           {/* 🔍 Filtros */}
-          <button
+          {/* <button
             onClick={onOpenFilters}
             className="
               flex items-center gap-2
@@ -136,7 +136,7 @@ export default function DashboardHeader({
           >
             <Filter size={16} />
             Filtros
-          </button>
+          </button> */}
 
           {/* 🔄 Actualizar dashboard */}
           <button

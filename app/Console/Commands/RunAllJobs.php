@@ -173,16 +173,39 @@ class RunAllJobs extends Command
 // 'adzuna:competencies --country=au --pages=1',
 // 'adzuna:competencies --country=nz --pages=1',
 
- 'computrabajo:competencies  --pages=5',
-'computrabajo:technologies --country=pe --pages=1',
-'computrabajo:technologies --country=bo --pages=1',
-'computrabajo:technologies --country=ar --pages=1',
-'computrabajo:technologies --country=uy --pages=1',
-'computrabajo:technologies --country=mx --pages=1',
-'computrabajo:technologies --country=co --pages=1',
-'computrabajo:technologies --country=ec --pages=1',
-'computrabajo:technologies --country=ve --pages=1',
-'computrabajo:technologies --country=cl --pages=1',
+//  'computrabajo:competencies  --pages=5',
+// 'computrabajo:technologies --country=pe --pages=1',
+// 'computrabajo:technologies --country=bo --pages=1',
+// 'computrabajo:technologies --country=ar --pages=1',
+// 'computrabajo:technologies --country=uy --pages=1',
+// 'computrabajo:technologies --country=mx --pages=1',
+// 'computrabajo:technologies --country=co --pages=1',
+// 'computrabajo:technologies --country=ec --pages=1',
+// 'computrabajo:technologies --country=ve --pages=1',
+// 'computrabajo:technologies --country=cl --pages=1',
+
+ 'adzuna:certifications --country=us --pages=1',
+ 'adzuna:certifications --country=ca --pages=1',
+ 'adzuna:certifications --country=mx --pages=1',
+ 'adzuna:certifications --country=br --pages=1',
+
+ 'adzuna:certifications --country=es --pages=1',
+ 'adzuna:certifications --country=fr --pages=1',
+ 'adzuna:certifications --country=de --pages=1',
+ 'adzuna:certifications --country=it --pages=1',
+ 'adzuna:certifications --country=gb --pages=1',
+ 'adzuna:certifications --country=nl --pages=1',
+ 'adzuna:certifications --country=ch --pages=1',
+ 'adzuna:certifications --country=pl --pages=1',
+
+ 'adzuna:certifications --country=in --pages=1',
+ 'adzuna:certifications --country=sg --pages=1',
+
+ 'adzuna:certifications --country=za --pages=1',
+
+ 'adzuna:certifications --country=au --pages=1',
+ 'adzuna:certifications --country=nz --pages=1',
+
 ];
 
         $total = count($commands);

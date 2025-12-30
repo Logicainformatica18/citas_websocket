@@ -8,6 +8,8 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     protected $commands = [
+
+    \App\Console\Commands\Certifications\AdzunaByCertificationsCommand::class,
     \App\Console\Commands\GetOnBoardByLanguagesCommand::class,
 
      \App\Console\Commands\ArbeitnowByLanguagesCommand::class,
@@ -36,6 +38,8 @@ class Kernel extends ConsoleKernel
     \App\Console\Commands\RSS\ImportVentureBeat::class,
 
  \App\Console\Commands\RunAllRss::class,
+
+
 ];
 
     /**

@@ -41,6 +41,17 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use Inertia\Inertia;
+use App\Http\Controllers\Dashboard\RankingCertificacionesController;
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/dashboard/ranking-certificaciones',
+        [RankingCertificacionesController::class, 'index']
+    )->name('dashboard.ranking.certificaciones');
+
+});
+
 
 Route::middleware('web')->group(function () {
 
