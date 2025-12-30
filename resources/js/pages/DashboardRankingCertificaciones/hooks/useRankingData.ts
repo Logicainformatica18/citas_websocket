@@ -1,13 +1,15 @@
-import { rankingCertificationsMock } from "../mocks/rankingCertifications.mock";
+import { RankingResponse } from "../types/ranking";
 
-export function useRankingData() {
+export function useRankingData(ranking: RankingResponse[]) {
+  /**
+   * Aquí luego puedes:
+   * - aplicar pesos
+   * - ordenar por score
+   * - filtrar por vendor / level
+   * - recalcular métricas
+   */
+
   return {
-    data: rankingCertificationsMock,
-    kpis: [
-      { title: "Certificación Top", value: "AWS Solutions", score: 90.6 },
-      { title: "Alta Demanda", value: 7, trend: 12 },
-      { title: "Alta Proyección", value: 12, trend: 8 },
-      { title: "Área Destacada", value: "Cloud Computing" },
-    ],
+    data: ranking,
   };
 }

@@ -11,8 +11,17 @@ export default function KpiCard({ title, value, score, trend }: Props) {
       <p className="text-sm text-gray-500">{title}</p>
       <p className="text-xl font-bold">{value}</p>
 
-      {score && <p className="text-[#1CBCE8] font-bold">Score {score}</p>}
-      {trend && <p className="text-green-500 text-sm">↑ {trend}%</p>}
+      {score !== undefined && (
+        <p className="text-[#1CBCE8] font-bold">
+          Score {score}
+        </p>
+      )}
+
+      {trend !== undefined && (
+        <p className="text-green-500 text-sm">
+          ↑ {trend}%
+        </p>
+      )}
     </div>
   );
 }

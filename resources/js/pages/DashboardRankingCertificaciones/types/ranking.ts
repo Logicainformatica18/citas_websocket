@@ -1,9 +1,8 @@
-export type CertificationRanking = {
+export interface RankingResponse {
   id: number;
   name: string;
-  provider: string;
-  score: number;
-  area: string;
-  roles: string[];
-  badges: string[];
-};
+  vendor: string;
+  level: string;
+  category: string;
+  total_jobs: number;
+}

@@ -1,31 +1,51 @@
 import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
-import { WeightConfigModal, defaultWeights, WeightConfig } from "./components/Header/WeightConfigModal";
+import {
+  WeightConfigModal,
+  defaultWeights,
+  WeightConfig,
+} from "./components/Header/WeightConfigModal";
 import { Period } from "./components/Header/PeriodSelector";
 
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
-import { useRankingData } from "./hooks/useRankingData";
 
-import AiChatView from "@/pages/dashboards/components/AiChat/AiChatView";
+import { useRankingData } from "./hooks/useRankingData";
 
 /* =========================================================
    Breadcrumbs
 ========================================================= */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
-  { title: "Ranking de Certificaciones", href: "/dashboard/ranking-certificaciones" },
+  {
+    title: "Ranking de Certificaciones",
+    href: "/dashboard/ranking-certificaciones",
+  },
 ];
 
+type PageProps = {
+  ranking: any[];
+  kpis: any;
+  meta: any;
+};
+
 export default function RankingCertificacionesPage() {
-  const { data, kpis } = useRankingData();
+  /* =========================
+     DATOS DESDE BACKEND (INERTIA)
+  ========================= */
+  const { ranking, kpis, meta } = usePage<PageProps>().props;
+
+  /* =========================
+     Normalización de datos
+  ========================= */
+  const { data } = useRankingData(ranking);
 
   /* =========================
      Header state
@@ -34,11 +54,6 @@ export default function RankingCertificacionesPage() {
   const [weights, setWeights] = useState<WeightConfig>(defaultWeights);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
-  /* =========================
-     Chat
-  ========================= */
-  const [isChatOpen] = useState(true);
-
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Ranking de Certificaciones | Observatorio ISIL" />
@@ -46,21 +61,19 @@ export default function RankingCertificacionesPage() {
       <DashboardProvider>
         {/* ===== CONTENEDOR GENERAL ===== */}
         <div className="bg-background px-6 py-6">
-
           {/* ===== LAYOUT 2 COLUMNAS ===== */}
           <div className="flex gap-6 items-start">
-
             {/* ==============================
                 COLUMNA IZQUIERDA (DASHBOARD)
             ============================== */}
             <div className="flex-1 min-w-0 space-y-6">
-
               {/* ===== HEADER ===== */}
               <RankingHeader
                 period={period}
                 onPeriodChange={setPeriod}
                 weights={weights}
                 onEditWeights={() => setIsWeightModalOpen(true)}
+                meta={meta}
               />
 
               {/* ===== KPIs ===== */}
@@ -73,10 +86,7 @@ export default function RankingCertificacionesPage() {
               <RankingList items={data} />
             </div>
 
-            {/* ==============================
-                COLUMNA DERECHA (CHAT VERA)
-            ============================== */}
-
+            {/* 👉 Chat VERA vendrá luego */}
           </div>
         </div>
 
