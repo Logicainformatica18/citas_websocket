@@ -5,13 +5,28 @@ import { X, BookOpen } from 'lucide-react';
 
 type SimpleItem = { id: number; name: string };
 
+type CertificationPivot = {
+    relevance_level: string;
+    weight: number;
+};
+
+type Certification = {
+    id: number;
+    name: string;
+    relevance_level?: string;
+    weight?: number;
+    pivot?: CertificationPivot;
+};
+
 type Course = {
     id?: number;
     name: string;
     languages: SimpleItem[];
     technologies: SimpleItem[];
     methodologies: SimpleItem[];
+    certifications?: Certification[]; // 👈 NUEVO
 };
+
 
 type Props = {
     open: boolean;
@@ -21,7 +36,9 @@ type Props = {
     languages: SimpleItem[];
     technologies: SimpleItem[];
     methodologies: SimpleItem[];
+    certifications: SimpleItem[]; // 👈 NUEVO
 };
+
 
 export default function CourseModal({
     open,
@@ -31,33 +48,48 @@ export default function CourseModal({
     languages,
     technologies,
     methodologies,
+    certifications, // 👈 FALTABA
 }: Props) {
-    const [form, setForm] = useState({
-        name: '',
-        languageIds: [] as number[],
-        technologyIds: [] as number[],
-        methodologyIds: [] as number[],
-    });
+
+ const [form, setForm] = useState({
+    name: '',
+    languageIds: [] as number[],
+    technologyIds: [] as number[],
+    methodologyIds: [] as number[],
+    certifications: [] as {
+        id: number;
+        relevance_level: string;
+        weight: number;
+    }[],
+});
+
 
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (itemToEdit) {
-            setForm({
-                name: itemToEdit.name,
-                languageIds: itemToEdit.languages.map((l) => l.id),
-                technologyIds: itemToEdit.technologies.map((t) => t.id),
-                methodologyIds: itemToEdit.methodologies.map((m) => m.id),
-            });
-        } else {
-            setForm({
-                name: '',
-                languageIds: [],
-                technologyIds: [],
-                methodologyIds: [],
-            });
-        }
-    }, [itemToEdit]);
+   useEffect(() => {
+    if (itemToEdit) {
+        setForm({
+            name: itemToEdit.name,
+            languageIds: itemToEdit.languages.map((l) => l.id),
+            technologyIds: itemToEdit.technologies.map((t) => t.id),
+            methodologyIds: itemToEdit.methodologies.map((m) => m.id),
+            certifications: itemToEdit.certifications?.map((c) => ({
+                id: c.id,
+                relevance_level: c.pivot?.relevance_level ?? 'intermediate',
+                weight: c.pivot?.weight ?? 1.0,
+            })) ?? [],
+        });
+    } else {
+        setForm({
+            name: '',
+            languageIds: [],
+            technologyIds: [],
+            methodologyIds: [],
+            certifications: [],
+        });
+    }
+}, [itemToEdit]);
+
 
     const toggleArrayValue = (arr: number[], id: number) =>
         arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
@@ -70,12 +102,14 @@ export default function CourseModal({
 
         setLoading(true);
         try {
-            const payload = {
-                name: form.name,
-                languages: form.languageIds,
-                technologies: form.technologyIds,
-                methodologies: form.methodologyIds,
-            };
+         const payload = {
+    name: form.name,
+    languages: form.languageIds,
+    technologies: form.technologyIds,
+    methodologies: form.methodologyIds,
+    certifications: form.certifications, // 👈 NUEVO
+};
+
 
             let res;
             if (itemToEdit?.id) {
@@ -242,6 +276,79 @@ export default function CourseModal({
           {m.name}
         </button>
       ))}
+  </div>
+</div>
+{/* CERTIFICACIONES */}
+<div>
+  <label className="block text-sm font-medium mb-2">Certificaciones</label>
+
+  <div className="space-y-2">
+    {certifications.map((c) => {
+      const selected = form.certifications.find((x) => x.id === c.id);
+
+      return (
+        <div
+          key={c.id}
+          className="flex items-center gap-2 p-2 rounded border border-gray-300 dark:border-gray-700"
+        >
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() =>
+              setForm((prev) => ({
+                ...prev,
+                certifications: selected
+                  ? prev.certifications.filter((x) => x.id !== c.id)
+                  : [
+                      ...prev.certifications,
+                      { id: c.id, relevance_level: 'intermediate', weight: 1.0 },
+                    ],
+              }))
+            }
+          />
+
+          <span className="flex-1 text-sm">{c.name}</span>
+
+          {selected && (
+            <>
+              <select
+                value={selected.relevance_level}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    certifications: prev.certifications.map((x) =>
+                      x.id === c.id ? { ...x, relevance_level: e.target.value } : x
+                    ),
+                  }))
+                }
+                className="px-2 py-1 rounded border text-sm"
+              >
+                <option value="introductory">Intro</option>
+                <option value="intermediate">Intermedio</option>
+                <option value="advanced">Avanzado</option>
+              </select>
+
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={selected.weight}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    certifications: prev.certifications.map((x) =>
+                      x.id === c.id ? { ...x, weight: Number(e.target.value) } : x
+                    ),
+                  }))
+                }
+                className="w-20 px-2 py-1 rounded border text-sm"
+              />
+            </>
+          )}
+        </div>
+      );
+    })}
   </div>
 </div>
 

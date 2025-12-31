@@ -10,13 +10,26 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Cursos', href: '/courses' }];
 
 type SimpleItem = { id: number; name: string };
 
+type CertificationPivot = {
+  relevance_level: string;
+  weight: number;
+};
+
+type Certification = {
+  id: number;
+  name: string;
+  pivot: CertificationPivot;
+};
+
 type Course = {
   id: number;
   name: string;
   languages: SimpleItem[];
   technologies: SimpleItem[];
   methodologies: SimpleItem[];
+  certifications: Certification[]; // 👈 NUEVO
 };
+
 
 type Pagination<T> = {
   data: T[];
@@ -27,17 +40,20 @@ type Pagination<T> = {
 };
 
 export default function CoursesIndex() {
-  const {
-    courses: initialPagination,
-    languages,
-    technologies,
-    methodologies,
-  } = usePage<{
-    courses: Pagination<Course>;
-    languages: SimpleItem[];
-    technologies: SimpleItem[];
-    methodologies: SimpleItem[];
-  }>().props;
+const {
+  courses: initialPagination,
+  languages,
+  technologies,
+  methodologies,
+  certifications, // 👈 AGREGADO
+} = usePage<{
+  courses: Pagination<Course>;
+  languages: SimpleItem[];
+  technologies: SimpleItem[];
+  methodologies: SimpleItem[];
+  certifications: SimpleItem[]; // 👈 TIPADO
+}>().props;
+
 
   const [items, setItems] = useState<Course[]>([]);
   const [pagination, setPagination] = useState<Pagination<Course>>(initialPagination);
@@ -205,6 +221,8 @@ export default function CoursesIndex() {
               <th className="px-4 py-2 text-left">Lenguajes</th>
               <th className="px-4 py-2 text-left">Tecnologías</th>
               <th className="px-4 py-2 text-left">Metodologías</th>
+              <th className="px-4 py-2 text-left">Certificaciones</th>
+
             </tr>
           </thead>
 
@@ -306,13 +324,35 @@ export default function CoursesIndex() {
                     "-"
                   )}
                 </td>
+                {/* CERTIFICACIONES */}
+<td className="px-4 py-2">
+  {item.certifications?.length ? (
+    <div className="flex flex-wrap gap-1">
+      {item.certifications.map((c) => (
+        <span
+          key={c.id}
+          className="px-2 py-0.5
+            bg-purple-100 text-purple-700
+            dark:bg-purple-900/30 dark:text-purple-300
+            border border-purple-400/30
+            rounded text-xs"
+        >
+          {c.name}
+        </span>
+      ))}
+    </div>
+  ) : (
+    "-"
+  )}
+</td>
+
               </tr>
             ))}
 
             {items.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+               colSpan={8}
                   className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
                 >
                   No hay cursos para mostrar.
@@ -378,27 +418,29 @@ export default function CoursesIndex() {
 
     {/* MODAL */}
     {showModal && (
-      <CourseModal
-        open={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setEditItem(null);
-        }}
-        onSaved={(saved) => {
-          const idx = items.findIndex((i) => i.id === saved.id);
-          if (idx >= 0) {
-            const next = [...items];
-            next[idx] = saved;
-            setItems(next);
-          } else {
-            setItems([saved, ...items]);
-          }
-        }}
-        itemToEdit={editItem}
-        languages={languages}
-        technologies={technologies}
-        methodologies={methodologies}
-      />
+<CourseModal
+  open={showModal}
+  onClose={() => {
+    setShowModal(false);
+    setEditItem(null);
+  }}
+  onSaved={(saved) => {
+    const idx = items.findIndex((i) => i.id === saved.id);
+    if (idx >= 0) {
+      const next = [...items];
+      next[idx] = saved;
+      setItems(next);
+    } else {
+      setItems([saved, ...items]);
+    }
+  }}
+  itemToEdit={editItem}
+  languages={languages}
+  technologies={technologies}
+  methodologies={methodologies}
+  certifications={certifications} // 👈 NUEVO
+/>
+
     )}
   </AppLayout>
 );

@@ -39,4 +39,10 @@ class Course extends Model
             ->withPivot('semester', 'is_mandatory')
             ->withTimestamps();
     }
+        public function certifications()
+    {
+        return $this->belongsToMany(Certification::class, 'certification_course')
+            ->withPivot('relevance_level', 'weight')
+            ->withTimestamps();
+    }
 }

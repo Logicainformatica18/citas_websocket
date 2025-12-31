@@ -8,14 +8,23 @@ use App\Models\Technology;
 use App\Models\Methodology;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Models\Certification;
+
 
 class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        $courses = Course::with(['languages', 'technologies', 'methodologies'])
-            ->orderBy('id', 'desc')
-            ->paginate(10);
+    $courses = Course::with([
+    'languages',
+    'technologies',
+    'methodologies',
+    'certifications' // 👈 NUEVO
+])
+->orderBy('id', 'desc')
+->paginate(10);
+
+$certifications = Certification::orderBy('name')->get();
 
         $languages = Language::all();
         $technologies = Technology::all();
@@ -35,6 +44,8 @@ class CourseController extends Controller
             'languages' => $languages,
             'technologies' => $technologies,
             'methodologies' => $methodologies,
+            'certifications' => $certifications,
+
         ]);
     }
 public function listAll()
@@ -48,31 +59,88 @@ public function listAll()
         'courses' => $courses,
     ]);
 }
-    public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'languages' => 'array',
-            'languages.*' => 'integer|exists:languages,id',
-            'technologies' => 'array',
-            'technologies.*' => 'integer|exists:technologies,id',
-            'methodologies' => 'array',
-            'methodologies.*' => 'integer|exists:methodologies,id',
-        ]);
+public function store(Request $request)
+{
+    /* =========================
+       Validación
+    ========================= */
+    $request->validate([
+        'name' => 'required|string|max:255',
 
-        $course = Course::create($request->only(['name']));
+        'languages' => 'array',
+        'languages.*' => 'integer|exists:languages,id',
 
-        // Sincronizamos relaciones
-        $course->languages()->sync($request->languages ?? []);
-        $course->technologies()->sync($request->technologies ?? []);
-        $course->methodologies()->sync($request->methodologies ?? []);
+        'technologies' => 'array',
+        'technologies.*' => 'integer|exists:technologies,id',
 
-        return response()->json(['message' => '✅ Curso creado', 'course' => $course->load(['languages', 'technologies', 'methodologies'])]);
+        'methodologies' => 'array',
+        'methodologies.*' => 'integer|exists:methodologies,id',
+
+        // 🔹 Certificaciones con pivot
+        'certifications' => 'array',
+        'certifications.*.id' => 'required|exists:certifications,id',
+        'certifications.*.relevance_level' => 'nullable|in:introductory,intermediate,advanced',
+        'certifications.*.weight' => 'nullable|numeric|min:0|max:1',
+    ]);
+
+    /* =========================
+       Crear curso
+    ========================= */
+    $course = Course::create($request->only(['name']));
+
+    /* =========================
+       Sync relaciones simples
+    ========================= */
+    $course->languages()->sync($request->languages ?? []);
+    $course->technologies()->sync($request->technologies ?? []);
+    $course->methodologies()->sync($request->methodologies ?? []);
+
+    /* =========================
+       Sync certificaciones (pivot avanzado)
+    ========================= */
+    if ($request->filled('certifications')) {
+        $syncData = [];
+
+        foreach ($request->certifications as $cert) {
+            $syncData[$cert['id']] = [
+                'relevance_level' => $cert['relevance_level'] ?? 'intermediate',
+                'weight' => $cert['weight'] ?? 1.0,
+            ];
+        }
+
+        $course->certifications()->sync($syncData);
     }
+
+    /* =========================
+       Respuesta
+    ========================= */
+    return response()->json([
+        'message' => '✅ Curso creado',
+        'course' => $course->load([
+            'languages',
+            'technologies',
+            'methodologies',
+            'certifications',
+        ]),
+    ]);
+}
+
 
 public function show($id)
 {
-    $course = Course::with(['languages', 'technologies', 'methodologies'])->findOrFail($id);
+$course = Course::with([
+    'languages',
+    'technologies',
+    'methodologies',
+    'certifications' // 👈 NUEVO
+])->findOrFail($id);
+$selectedCertifications = $course->certifications->map(fn ($c) => [
+    'id' => $c->id,
+    'name' => $c->name,
+    'relevance_level' => $c->pivot->relevance_level,
+    'weight' => $c->pivot->weight,
+]);
+
 
     // 🧠 IDs asociados
     $selectedLangs = $course->languages->pluck('id')->toArray();
@@ -99,6 +167,9 @@ public function show($id)
         'languages' => $languages,
         'technologies' => $technologies,
         'methodologies' => $methodologies,
+        'certifications' => Certification::orderBy('name')->get(),
+'selected_certifications' => $selectedCertifications,
+
     ]);
 }
 
@@ -124,6 +195,12 @@ public function search(Request $request)
                 $sub->where('methodologies.id', $request->methodology_id);
             });
         })
+        ->when($request->filled('certification_id'), function ($q) use ($request) {
+    $q->whereHas('certifications', function ($sub) use ($request) {
+        $sub->where('certifications.id', $request->certification_id);
+    });
+})
+
         ->orderBy('name', 'asc')
         ->paginate(10);
 
@@ -141,29 +218,77 @@ public function search(Request $request)
     ]);
 }
 
-    public function update(Request $request, $id)
-    {
-        $course = Course::findOrFail($id);
+public function update(Request $request, $id)
+{
+    $course = Course::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'languages' => 'array',
-            'languages.*' => 'integer|exists:languages,id',
-            'technologies' => 'array',
-            'technologies.*' => 'integer|exists:technologies,id',
-            'methodologies' => 'array',
-            'methodologies.*' => 'integer|exists:methodologies,id',
-        ]);
+    /* =========================
+       Validación
+    ========================= */
+    $request->validate([
+        'name' => 'required|string|max:255',
 
-        $course->update($request->only(['name']));
+        'languages' => 'array',
+        'languages.*' => 'integer|exists:languages,id',
 
-        // Actualizamos relaciones
-        $course->languages()->sync($request->languages ?? []);
-        $course->technologies()->sync($request->technologies ?? []);
-        $course->methodologies()->sync($request->methodologies ?? []);
+        'technologies' => 'array',
+        'technologies.*' => 'integer|exists:technologies,id',
 
-        return response()->json(['message' => '✅ Curso actualizado', 'course' => $course->load(['languages', 'technologies', 'methodologies'])]);
+        'methodologies' => 'array',
+        'methodologies.*' => 'integer|exists:methodologies,id',
+
+        // 🔹 NUEVO: certificaciones con pivot
+        'certifications' => 'array',
+        'certifications.*.id' => 'required|exists:certifications,id',
+        'certifications.*.relevance_level' => 'nullable|in:introductory,intermediate,advanced',
+        'certifications.*.weight' => 'nullable|numeric|min:0|max:1',
+    ]);
+
+    /* =========================
+       Update base
+    ========================= */
+    $course->update($request->only(['name']));
+
+    /* =========================
+       Sync relaciones simples
+    ========================= */
+    $course->languages()->sync($request->languages ?? []);
+    $course->technologies()->sync($request->technologies ?? []);
+    $course->methodologies()->sync($request->methodologies ?? []);
+
+    /* =========================
+       Sync certificaciones (pivot avanzado)
+    ========================= */
+    if ($request->filled('certifications')) {
+        $syncData = [];
+
+        foreach ($request->certifications as $cert) {
+            $syncData[$cert['id']] = [
+                'relevance_level' => $cert['relevance_level'] ?? 'intermediate',
+                'weight' => $cert['weight'] ?? 1.0,
+            ];
+        }
+
+        $course->certifications()->sync($syncData);
+    } else {
+        // si no mandan certificaciones, las limpiamos
+        $course->certifications()->detach();
     }
+
+    /* =========================
+       Respuesta
+    ========================= */
+    return response()->json([
+        'message' => '✅ Curso actualizado',
+        'course' => $course->load([
+            'languages',
+            'technologies',
+            'methodologies',
+            'certifications',
+        ]),
+    ]);
+}
+
 
     public function destroy($id)
     {

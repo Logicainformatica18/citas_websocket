@@ -62,4 +62,11 @@ class Certification extends Model
     {
         return trim(preg_replace('/\s+/', ' ', strtoupper($name)));
     }
+    public function courses()
+{
+    return $this->belongsToMany(Course::class, 'certification_course')
+        ->withPivot('relevance_level', 'weight')
+        ->withTimestamps();
+}
+
 }
