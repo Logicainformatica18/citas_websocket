@@ -19,7 +19,6 @@ import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 
 import { useRankingData } from "./hooks/useRankingData";
-import Pagination from "./components/Pagination";
 
 /* =========================================================
    Breadcrumbs
@@ -33,23 +32,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 type PageProps = {
-  ranking: any[];
+  ranking: {
+    data: any[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    prev_page_url?: string | null;
+    next_page_url?: string | null;
+  };
   kpis: any;
   meta: any;
 };
 
-const ITEMS_PER_PAGE = 8;
-
 export default function RankingCertificacionesPage() {
   /* =========================
-     DATOS DESDE BACKEND
+     DATOS DESDE BACKEND (Inertia)
   ========================= */
   const { ranking, kpis, meta } = usePage<PageProps>().props;
 
   /* =========================
-     NORMALIZACIÓN
+     NORMALIZACIÓN (solo data)
   ========================= */
-  const { data } = useRankingData(ranking);
+  const { data } = useRankingData(ranking.data);
 
   /* =========================
      HEADER STATE
@@ -68,18 +72,6 @@ export default function RankingCertificacionesPage() {
     setSelectedCert(cert);
     setOpenJobsModal(true);
   };
-
-  /* =========================
-     PAGINACIÓN
-  ========================= */
-  const [page, setPage] = useState(1);
-
-  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
-
-  const paginatedData = data.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
-  );
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -108,18 +100,11 @@ export default function RankingCertificacionesPage() {
               {/* ===== FILTROS ===== */}
               <RankingFilters />
 
-              {/* ===== RANKING (GRID 2 COLS) ===== */}
+              {/* ===== RANKING (PAGINADO BACKEND) ===== */}
               <RankingList
-                items={paginatedData}
+                items={data}
+                pagination={ranking}
                 onSelectCertification={handleOpenJobs}
-                startRank={(page - 1) * ITEMS_PER_PAGE}
-              />
-
-              {/* ===== PAGINACIÓN ===== */}
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                onChange={setPage}
               />
             </div>
           </div>

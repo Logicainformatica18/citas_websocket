@@ -2,57 +2,69 @@ import { Badge } from "@/components/ui/badge";
 import {
   BarChart3,
   Database,
-  FileText,
   Sparkles,
   Settings2,
 } from "lucide-react";
-import {
-  PeriodSelector,
-  Period,
-  getPeriodDisplayText,
-  periodVacancyCounts,
-} from "./PeriodSelector";
+import { router, usePage } from "@inertiajs/react";
 import { WeightConfig } from "./WeightConfigModal";
 
 interface HeaderProps {
-  period: Period;
-  onPeriodChange: (period: Period) => void;
+  meta: {
+    year: number;
+    period: "s1" | "s2";
+    periodo_label: string;
+    vacantes_analizadas: number;
+  };
   weights: WeightConfig;
   onEditWeights: () => void;
 }
 
 export function Header({
-  period,
-  onPeriodChange,
+  meta,
   weights,
   onEditWeights,
 }: HeaderProps) {
-  const vacancyCount = periodVacancyCounts[period];
-  const periodText = getPeriodDisplayText(period);
+  const { filters } = usePage().props as any;
+
+  const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
+    router.get(
+      "/dashboard/ranking-certificaciones",
+      {
+        category: filters?.category ?? [],
+        career: filters?.career ?? [],
+        year: params.year ?? meta.year,
+        period: params.period ?? meta.period,
+      },
+      {
+        preserveState: true,
+        replace: true,
+      }
+    );
+  };
 
   return (
-     <header
+    <header
       className="
         relative
         overflow-hidden
         border-b
         bg-[#E6F7FD]
         dark:bg-[#0A2540]
-        px-4 sm:px-6 lg:px-8   /* 👈 PADDING LATERAL */
+        px-4 sm:px-6 lg:px-8
       "
     >
-      {/* ===== ISIL BACKGROUND ===== */}
+      {/* ===== BACKGROUND ===== */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-[#00B6E8]/30 blur-3xl" />
         <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-[#1CBCE8]/20 blur-3xl" />
       </div>
 
-      {/* ===== CONTENIDO ===== */}
+      {/* ===== CONTENT ===== */}
       <div className="relative mx-auto max-w-7xl py-10 md:py-14">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
 
           {/* ================= LEFT ================= */}
-          <div className="space-y-5 max-w-3xl">
+          <div className="space-y-6 max-w-3xl">
             {/* Title */}
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B6E8] shadow-lg">
@@ -71,37 +83,140 @@ export function Header({
 
             {/* Description */}
             <p className="text-[15px] leading-relaxed text-[#0A2540]/80 dark:text-gray-300">
-              Análisis automatizado de las certificaciones tecnológicas más
-              demandadas, basado en datos reales del mercado laboral y tendencias
-              globales.
+              Análisis automatizado de certificaciones tecnológicas más demandadas,
+              basado en ofertas laborales reales y datos verificados.
             </p>
 
-            {/* Period + badges */}
-            <div className="flex flex-wrap items-center gap-3">
-              <PeriodSelector value={period} onChange={onPeriodChange} />
 
-              <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
-                <Database className="h-3 w-3 text-[#00B6E8]" />
-                {vacancyCount.toLocaleString()}+ vacantes analizadas
-              </Badge>
+{/* ===== CONTROLES DE PERÍODO ===== */}
+<div className="flex flex-wrap items-end gap-8">
 
-              <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
-                <FileText className="h-3 w-3 text-[#00B6E8]" />
-                5 reportes internacionales
-              </Badge>
+  {/* ===== AÑO ===== */}
+  <div className="flex flex-col gap-2">
+    <span className="text-xs font-semibold text-[#005F7A]">
+      Año de análisis
+    </span>
 
-              <Badge className="gap-1.5 border border-[#00B6E8] bg-[#E6F7FD] text-[#005F7A]">
-                <Sparkles className="h-3 w-3 text-[#00B6E8]" />
-                Actualizado automáticamente
-              </Badge>
-            </div>
+    <div
+      className="
+        relative
+        group
+        rounded-xl
+        border
+        bg-white
+        shadow-sm
+        transition-all
+        hover:border-[#00B6E8]
+        hover:shadow-md
+        hover:-translate-y-[1px]
+      "
+    >
+      <select
+        value={meta.year}
+        onChange={(e) => onChange({ year: Number(e.target.value) })}
+        className="
+          w-[120px]
+          appearance-none
+          bg-transparent
+          px-4
+          py-2
+          text-sm
+          font-semibold
+          text-[#0A2540]
+          cursor-pointer
+          focus:outline-none
+        "
+      >
+        {[2024, 2025, 2026].map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
+
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#00B6E8] opacity-70 group-hover:opacity-100 transition">
+        ⌄
+      </span>
+    </div>
+  </div>
+
+  {/* ===== SEMESTRE (MISMO DISEÑO, MEJOR UX) ===== */}
+  <div className="relative flex flex-col gap-2">
+    <span className="text-xs font-semibold text-[#005F7A]">
+      Semestre
+    </span>
+
+    <div
+      className="
+        flex
+        rounded-xl
+        border
+        bg-white
+        shadow-sm
+        overflow-hidden
+        transition-all
+        hover:border-[#00B6E8]
+        hover:shadow-md
+        hover:-translate-y-[1px]
+      "
+    >
+      {[
+        { value: "s1", label: "Ene – Jun" },
+        { value: "s2", label: "Jul – Dic" },
+      ].map((s) => {
+        const active = meta.period === s.value;
+
+        return (
+          <button
+            key={s.value}
+            onClick={() => onChange({ period: s.value as "s1" | "s2" })}
+            className={`
+              px-6
+              py-2
+              text-sm
+              font-semibold
+              transition-all
+              ${
+                active
+                  ? "bg-[#00B6E8] text-white shadow-inner"
+                  : "text-[#005F7A] hover:bg-[#E6F7FD]"
+              }
+            `}
+          >
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+
+    {/* Hint sin desalinear */}
+    <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 whitespace-nowrap">
+      Haz clic para cambiar el período
+    </span>
+  </div>
+
+  {/* ===== BADGES ===== */}
+  <div className="flex flex-wrap items-center gap-3">
+    <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+      <Database className="h-3 w-3 text-[#00B6E8]" />
+      {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
+    </Badge>
+
+    <Badge className="gap-1.5 border border-[#00B6E8] bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] transition">
+      <Sparkles className="h-3 w-3 text-[#00B6E8]" />
+      Datos reales por período
+    </Badge>
+  </div>
+</div>
+
+
 
             {/* Active period */}
             <p className="text-sm text-[#0A2540]/70 dark:text-gray-400">
               <span className="font-semibold text-[#0A2540] dark:text-white">
                 Periodo activo:
               </span>{" "}
-              {periodText}
+              {meta.periodo_label}
             </p>
           </div>
 
@@ -152,8 +267,7 @@ export function Header({
             </p>
 
             <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-              Los puntajes se calculan considerando únicamente los datos del
-              período seleccionado.
+              Los cálculos se realizan únicamente con datos del período seleccionado.
             </p>
 
             <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
