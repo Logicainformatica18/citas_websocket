@@ -5,10 +5,10 @@ import { useState } from "react";
 
 import { FileText, FileSearch, Table2, BarChart3, Hourglass } from "lucide-react";
 
-import PartSummary from "@/Pages/Pdf/Components/PartSummary";
-import PartPages from "@/Pages/Pdf/Components/PartPages";
-import PartTables from "@/Pages/Pdf/Components/PartTables";
-import PartGraphs from "@/Pages/Pdf/Components/PartGraphs";
+import PartSummary from "@/pages/pdf/Components/PartSummary";
+import PartPages from "@/pages/pdf/Components/PartPages";
+import PartTables from "@/pages/pdf/Components/PartTables";
+import PartGraphs from "@/pages/pdf/Components/PartGraphs";
 
 interface Props {
     source: any;

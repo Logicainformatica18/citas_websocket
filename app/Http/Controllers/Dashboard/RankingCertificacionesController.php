@@ -156,4 +156,31 @@ class RankingCertificacionesController extends Controller
             ]
         );
     }
+    public function jobsByCertification(Request $request, int $certificationId)
+{
+    $perPage = $request->get('per_page', 10);
+
+    $jobs = DB::table('job_offers as j')
+        ->join('certification_job as cj', 'cj.job_offer_id', '=', 'j.id')
+        ->join('certifications as c', 'c.id', '=', 'cj.certification_id')
+        ->where('c.id', $certificationId)
+        ->select(
+            'j.id',
+            'j.title',
+            'j.company',
+            'j.location',
+            'j.country',
+            'j.modality',
+            'j.seniority',
+            'j.salary_min',
+            'j.salary_max',
+            'j.source',
+            'j.published_at'
+        )
+        ->orderByDesc('j.published_at')
+        ->paginate($perPage);
+
+    return response()->json($jobs);
+}
+
 }

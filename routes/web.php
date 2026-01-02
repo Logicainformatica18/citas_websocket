@@ -51,6 +51,10 @@ Route::middleware(['auth'])->group(function () {
     )->name('dashboard.ranking.certificaciones');
 
 });
+Route::get(
+    '/dashboard/ranking-certificaciones/{certification}/jobs',
+    [RankingCertificacionesController::class, 'jobsByCertification']
+)->name('ranking.certifications.jobs');
 
 
 Route::middleware('web')->group(function () {

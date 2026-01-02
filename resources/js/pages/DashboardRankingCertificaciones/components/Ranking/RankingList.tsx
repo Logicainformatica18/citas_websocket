@@ -1,14 +1,20 @@
 import CertificationCard from "./CertificationCard";
 import { CertificationRanking } from "../../types/ranking";
 
-export default function RankingList({ items }: { items: CertificationRanking[] }) {
+type Props = {
+  items: CertificationRanking[];
+  onSelectCertification: (cert: CertificationRanking) => void;
+};
+
+export default function RankingList({ items, onSelectCertification }: Props) {
   return (
     <div className="space-y-4">
       {items.map((item, index) => (
         <CertificationCard
           key={item.id}
           rank={index + 1}
-          {...item}
+          data={item}
+          onClick={() => onSelectCertification(item)}
         />
       ))}
     </div>

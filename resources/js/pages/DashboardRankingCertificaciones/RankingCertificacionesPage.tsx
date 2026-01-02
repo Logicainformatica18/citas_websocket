@@ -17,6 +17,8 @@ import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
 
+import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
+
 import { useRankingData } from "./hooks/useRankingData";
 
 /* =========================================================
@@ -38,21 +40,32 @@ type PageProps = {
 
 export default function RankingCertificacionesPage() {
   /* =========================
-     DATOS DESDE BACKEND (INERTIA)
+     DATOS DESDE BACKEND
   ========================= */
   const { ranking, kpis, meta } = usePage<PageProps>().props;
 
   /* =========================
-     Normalización de datos
+     NORMALIZACIÓN
   ========================= */
   const { data } = useRankingData(ranking);
 
   /* =========================
-     Header state
+     HEADER STATE
   ========================= */
   const [period, setPeriod] = useState<Period>("s1");
   const [weights, setWeights] = useState<WeightConfig>(defaultWeights);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+
+  /* =========================
+     MODAL OFERTAS LABORALES
+  ========================= */
+  const [openJobsModal, setOpenJobsModal] = useState(false);
+  const [selectedCert, setSelectedCert] = useState<any>(null);
+
+  const handleOpenJobs = (cert: any) => {
+    setSelectedCert(cert);
+    setOpenJobsModal(true);
+  };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -61,10 +74,9 @@ export default function RankingCertificacionesPage() {
       <DashboardProvider>
         {/* ===== CONTENEDOR GENERAL ===== */}
         <div className="bg-background px-6 py-6">
-          {/* ===== LAYOUT 2 COLUMNAS ===== */}
           <div className="flex gap-6 items-start">
             {/* ==============================
-                COLUMNA IZQUIERDA (DASHBOARD)
+                COLUMNA IZQUIERDA
             ============================== */}
             <div className="flex-1 min-w-0 space-y-6">
               {/* ===== HEADER ===== */}
@@ -83,12 +95,21 @@ export default function RankingCertificacionesPage() {
               <RankingFilters />
 
               {/* ===== RANKING ===== */}
-              <RankingList items={data} />
+              <RankingList
+                items={data}
+                onSelectCertification={handleOpenJobs}
+              />
             </div>
-
-            {/* 👉 Chat VERA vendrá luego */}
           </div>
         </div>
+
+        {/* ===== MODAL OFERTAS ===== */}
+        <CertificationJobsModal
+          open={openJobsModal}
+          onClose={() => setOpenJobsModal(false)}
+          certificationId={selectedCert?.id}
+          certificationName={selectedCert?.name}
+        />
 
         {/* ===== MODAL DE PONDERACIONES ===== */}
         <WeightConfigModal

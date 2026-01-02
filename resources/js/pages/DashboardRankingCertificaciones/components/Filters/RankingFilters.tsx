@@ -3,12 +3,23 @@ import { router, usePage } from "@inertiajs/react";
 export default function RankingFilters() {
   const { filters } = usePage().props as any;
 
-  const onChange = (params: any) => {
+  const onChange = (params: { category?: string; career?: string }) => {
     router.get(
       "/dashboard/ranking-certificaciones",
       {
-        category: params.category ?? filters?.category,
-        career: params.career ?? filters?.career,
+        category:
+          params.category !== undefined
+            ? params.category
+              ? [params.category]
+              : []
+            : filters?.category ?? [],
+
+        career:
+          params.career !== undefined
+            ? params.career
+              ? [params.career]
+              : []
+            : filters?.career ?? [],
       },
       {
         preserveState: true,
@@ -23,7 +34,7 @@ export default function RankingFilters() {
           Área tecnológica
       ========================= */}
       <select
-        value={filters?.category ?? ""}
+        value={filters?.category?.[0] ?? ""}
         onChange={(e) => onChange({ category: e.target.value })}
         className="border rounded-lg px-4 py-2"
       >
@@ -39,7 +50,7 @@ export default function RankingFilters() {
           Carrera ISIL
       ========================= */}
       <select
-        value={filters?.career ?? ""}
+        value={filters?.career?.[0] ?? ""}
         onChange={(e) => onChange({ career: e.target.value })}
         className="border rounded-lg px-4 py-2"
       >
