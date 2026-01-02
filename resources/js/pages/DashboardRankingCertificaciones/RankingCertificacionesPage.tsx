@@ -16,10 +16,10 @@ import { Period } from "./components/Header/PeriodSelector";
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
-
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 
 import { useRankingData } from "./hooks/useRankingData";
+import Pagination from "./components/Pagination";
 
 /* =========================================================
    Breadcrumbs
@@ -37,6 +37,8 @@ type PageProps = {
   kpis: any;
   meta: any;
 };
+
+const ITEMS_PER_PAGE = 8;
 
 export default function RankingCertificacionesPage() {
   /* =========================
@@ -67,6 +69,18 @@ export default function RankingCertificacionesPage() {
     setOpenJobsModal(true);
   };
 
+  /* =========================
+     PAGINACIÓN
+  ========================= */
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+
+  const paginatedData = data.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  );
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Ranking de Certificaciones | Observatorio ISIL" />
@@ -76,7 +90,7 @@ export default function RankingCertificacionesPage() {
         <div className="bg-background px-6 py-6">
           <div className="flex gap-6 items-start">
             {/* ==============================
-                COLUMNA IZQUIERDA
+                COLUMNA PRINCIPAL
             ============================== */}
             <div className="flex-1 min-w-0 space-y-6">
               {/* ===== HEADER ===== */}
@@ -94,16 +108,24 @@ export default function RankingCertificacionesPage() {
               {/* ===== FILTROS ===== */}
               <RankingFilters />
 
-              {/* ===== RANKING ===== */}
+              {/* ===== RANKING (GRID 2 COLS) ===== */}
               <RankingList
-                items={data}
+                items={paginatedData}
                 onSelectCertification={handleOpenJobs}
+                startRank={(page - 1) * ITEMS_PER_PAGE}
+              />
+
+              {/* ===== PAGINACIÓN ===== */}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onChange={setPage}
               />
             </div>
           </div>
         </div>
 
-        {/* ===== MODAL OFERTAS ===== */}
+        {/* ===== MODAL OFERTAS LABORALES ===== */}
         <CertificationJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}

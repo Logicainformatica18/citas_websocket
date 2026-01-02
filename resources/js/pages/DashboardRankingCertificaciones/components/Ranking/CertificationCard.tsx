@@ -6,45 +6,120 @@ type Props = {
   onClick?: () => void;
 };
 
+/* =========================================
+   Colores por ranking
+========================================= */
+const rankColors: Record<number, string> = {
+  1: "bg-gradient-to-br from-[#F59E0B] to-[#D97706] text-white", // Oro
+  2: "bg-gradient-to-br from-[#9CA3AF] to-[#6B7280] text-white", // Plata
+  3: "bg-gradient-to-br from-[#CD7F32] to-[#A16207] text-white", // Bronce
+};
+
+const defaultRankColor =
+  "bg-gray-200 text-gray-600";
+
 export default function CertificationCard({ rank, data, onClick }: Props) {
   return (
     <div
       onClick={onClick}
       className="
+        group
         cursor-pointer
-        rounded-xl
+        rounded-2xl
         border
-        p-5
         bg-white
-        hover:shadow-md
-        hover:border-[#1CBCE8]
+        p-6
         transition
+        duration-300
+        hover:shadow-lg
+        hover:border-[#1CBCE8]
+        relative
+        overflow-hidden
       "
     >
-      <div className="flex justify-between items-center">
-        {/* =====================
-            INFO PRINCIPAL
-        ===================== */}
-        <div>
-          <h3 className="text-base font-semibold">
-            #{rank} {data.name}
-          </h3>
+      {/* Barra superior decorativa */}
+      <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
 
-          <p className="text-sm text-gray-500">
-            {data.vendor} · Nivel {data.level}
+      <div className="flex justify-between items-center gap-6">
+        {/* =====================
+            INFO IZQUIERDA
+        ===================== */}
+        <div className="flex-1 space-y-1">
+          {/* Ranking + Nombre */}
+          <div className="flex items-center gap-3">
+            <span
+              className={`
+                flex items-center justify-center
+                w-10 h-10
+                rounded-xl
+                font-bold
+                text-sm
+                ${
+                  rankColors[rank] ?? defaultRankColor
+                }
+              `}
+            >
+              #{rank}
+            </span>
+
+            <h3 className="text-base font-semibold uppercase tracking-wide">
+              {data.name}
+            </h3>
+          </div>
+
+          {/* Vendor + Nivel */}
+          <p className="text-xs text-gray-500 uppercase tracking-wider">
+            {data.vendor} · NIVEL {data.level}
           </p>
+
+          {/* Categoría */}
+          {data.category && (
+            <div className="flex items-center gap-2 pt-2 text-xs text-gray-600 uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
+              {data.category}
+            </div>
+          )}
+
+          {/* Roles (opcional) */}
+          {data.roles && data.roles.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {data.roles.slice(0, 2).map((role) => (
+                <span
+                  key={role}
+                  className="
+                    rounded-full
+                    border
+                    px-3 py-1
+                    text-xs
+                    uppercase
+                    tracking-wide
+                    text-gray-600
+                    bg-gray-50
+                  "
+                >
+                  {role}
+                </span>
+              ))}
+
+              {data.roles.length > 2 && (
+                <span className="text-xs text-gray-400 uppercase px-2 py-1">
+                  +{data.roles.length - 2} MÁS
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* =====================
-            VACANTES
+            VACANTES (FOCO)
         ===================== */}
-        <div className="text-right">
-          <p className="text-2xl font-bold text-[#1CBCE8]">
+        <div className="flex flex-col items-end">
+          <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
             {data.total_jobs}
-          </p>
-          <p className="text-xs text-gray-500">
-            vacantes
-          </p>
+          </span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
+            VACANTES
+          </span>
         </div>
       </div>
     </div>

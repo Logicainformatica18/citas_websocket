@@ -156,14 +156,20 @@ class RankingCertificacionesController extends Controller
             ]
         );
     }
-    public function jobsByCertification(Request $request, int $certificationId)
+public function jobsByCertification(Request $request, int $certificationId)
 {
-    $perPage = $request->get('per_page', 10);
+    // ===============================
+    // 1. Parámetros controlados
+    // ===============================
+    $perPage = min((int) $request->get('per_page', 10), 50); // límite de seguridad
+    $page    = (int) $request->get('page', 1);
 
+    // ===============================
+    // 2. Query base (LIVIANA)
+    // ===============================
     $jobs = DB::table('job_offers as j')
         ->join('certification_job as cj', 'cj.job_offer_id', '=', 'j.id')
-        ->join('certifications as c', 'c.id', '=', 'cj.certification_id')
-        ->where('c.id', $certificationId)
+        ->where('cj.certification_id', $certificationId)
         ->select(
             'j.id',
             'j.title',
@@ -171,16 +177,25 @@ class RankingCertificacionesController extends Controller
             'j.location',
             'j.country',
             'j.modality',
-            'j.seniority',
             'j.salary_min',
             'j.salary_max',
             'j.source',
-            'j.published_at'
+            'j.published_at',
+            'j.url' // 👈 URL original
         )
         ->orderByDesc('j.published_at')
-        ->paginate($perPage);
+        ->paginate(
+            $perPage,
+            ['*'],
+            'page',
+            $page
+        );
 
+    // ===============================
+    // 3. Respuesta JSON paginada
+    // ===============================
     return response()->json($jobs);
 }
+
 
 }

@@ -6,13 +6,25 @@ type Props = {
   onSelectCertification: (cert: CertificationRanking) => void;
 };
 
-export default function RankingList({ items, onSelectCertification }: Props) {
+export default function RankingList({
+  items,
+  onSelectCertification,
+  startRank = 0,
+}: Props) {
   return (
-    <div className="space-y-4">
+    <div
+      className="
+        grid
+        grid-cols-1
+        md:grid-cols-2
+        gap-6
+        w-full
+      "
+    >
       {items.map((item, index) => (
         <CertificationCard
           key={item.id}
-          rank={index + 1}
+          rank={startRank + index + 1}
           data={item}
           onClick={() => onSelectCertification(item)}
         />
@@ -20,3 +32,4 @@ export default function RankingList({ items, onSelectCertification }: Props) {
     </div>
   );
 }
+
