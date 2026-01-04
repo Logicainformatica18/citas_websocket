@@ -224,7 +224,10 @@ class RunAllJobs extends Command
 // 'greenhouse:certification --company=duolingo',
 // 'greenhouse:certification --company=figma',
 // 'greenhouse:certification --company=reddit',
-'jobicy:certifications'
+// 'jobicy:certifications',
+// 'reed:certifications',
+// 'remoteok:certifications',
+// 'remotive:certifications'
 
 ];
 
