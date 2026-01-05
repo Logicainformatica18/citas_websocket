@@ -207,7 +207,7 @@ class RunAllJobs extends Command
  'adzuna:certifications --country=nz --pages=1',
     'arbeitnow:certification',
  'computrabajo:certifications',
- 'getonboard:certifications'
+ 'getonboard:certifications',
 
  'greenhouse:certification --company=cloudflare',
 'greenhouse:certification --company=stripe',
