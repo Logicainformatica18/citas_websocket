@@ -75,6 +75,7 @@ export function useAiChatLogic() {
     const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
     const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
+    const [savingTrainingId, setSavingTrainingId] = useState<number | null>(null);
     // Persistencia
     useEffect(() => localStorage.setItem("veraForceNew", JSON.stringify(forceNew)), [forceNew]);
     useEffect(() => localStorage.setItem("veraVoiceEnabled", JSON.stringify(voiceEnabled)), [voiceEnabled]);
@@ -445,6 +446,7 @@ if (data.topic && data.result) {
         } finally {
             setLoading(false);
             setTypingText("");
+
         }
     };
 
@@ -525,14 +527,17 @@ if (data.topic && data.result) {
         () => (localStorage.getItem("veraMode") as "chat" | "train") || "chat"
     );
     useEffect(() => localStorage.setItem("veraMode", mode), [mode]);
-    const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
-        try {
-            const res = await axios.post("/api/ai/training/finalize", {
-                sql_training_id,
-                prompt,
-                voice_enabled: voiceEnabled,
-                save: true,
-            });
+  const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
+    try {
+        setSavingTrainingId(sql_training_id); // ⏳ activa spinner
+
+        const res = await axios.post("/api/ai/training/finalize", {
+            sql_training_id,
+            prompt,
+            voice_enabled: voiceEnabled,
+            save: true,
+        });
+
 
             const { training_id, ai_response, excel_path, voice_url } = res.data;
 
@@ -576,6 +581,9 @@ if (data.topic && data.result) {
                 "💥 Error al guardar el entrenamiento.";
             setMessages((prev) => [...prev, { from: "error", text: msg }]);
         }
+        finally {
+        setSavingTrainingId(null); // ✅ AQUÍ SE APAGA EL SPINNER
+    }
     };
 
     const handleGenerateChart = async (trainingId: number, chartType: string) => {
@@ -693,6 +701,8 @@ if (data.topic && data.result) {
         stopAudio,
         isAudioPlaying,
         handleGenerateChart,
+        savingTrainingId,
+
     };
 
 }

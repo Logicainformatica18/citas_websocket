@@ -43,12 +43,52 @@ class AiQueryController extends Controller
 $semanticHints = <<<HINTS
 📘 CONTEXTO SEMÁNTICO (Observatorio ISIL):
 
-- Las **carreras** (careers) tienen **cursos** (courses) a través de la tabla intermedia `career_course`.
-- Los **cursos** enseñan **lenguajes**, **tecnologías** o **metodologías** mediante tablas pivote (`course_language`, `course_technology`, `course_methodology`).
-- Los **lenguajes** (languages) tienen su nombre en `languages.name`.
-- Las **métricas laborales de lenguajes** (language_metrics) se relacionan con `languages` mediante `language_metrics.language_id = languages.id`.
-- Si la pregunta menciona un lenguaje específico (por ejemplo “Python”), **debes filtrar usando `languages.name = 'Python'`** y conectar con las métricas laborales así:
+⚠️ REGLA FUNDAMENTAL DE FUENTES DE DATOS:
+
+1️⃣ TABLAS PIVOT (*_job) → FUENTE PRIMARIA DE DEMANDA REAL
+Usa estas tablas cuando la pregunta implique:
+- conteos
+- rankings
+- “cuántos empleos”
+- “más demandados”
+- “ofertas que piden X”
+
+Relaciones clave:
+- languages → language_job → job_offers
+- technologies → technology_job → job_offers
+- methodologies → methodology_job → job_offers
+- certifications → certification_job → job_offers
+- competencies → competency_job_offer → job_offers
+
+Ejemplo correcto:
+- “¿Cuántas ofertas piden Python?”
+→ COUNT(*) desde language_job JOIN languages JOIN job_offers
+
+2️⃣ TABLAS METRICS (*_metrics) → AGREGADOS HISTÓRICOS
+Usa estas tablas SOLO si la pregunta menciona:
+- evolución
+- tendencia
+- crecimiento
+- histórico
+- comparación temporal
+- run_date, año, mes
+
+Ejemplo:
+- “Evolución de la demanda de Python en 2024”
+→ language_metrics filtrando por language_id y fechas
+
+3️⃣ FILTRO POR NOMBRE
+Cuando se mencione un elemento específico:
+- Filtra SIEMPRE por:
+  - languages.name
+  - technologies.name
+  - methodologies.name
+  - certifications.name
+  - competencies.name
+
+⚠️ NO uses tablas *_metrics para conteos actuales salvo que el usuario lo pida explícitamente.
 HINTS;
+
 
         // 4️⃣ Prompt con esquema + contexto
         $prompt = <<<PROMPT
@@ -71,6 +111,7 @@ Tu tarea es generar una consulta SQL **válida, segura y optimizada** en base al
 - Si no se especifica el campo exacto, elige el más lógico dentro del esquema.
 - Si hay duda, prioriza claridad y compatibilidad con MariaDB.
 - Si se menciona un lenguaje (ej. "Python"), búscalo en languages.name y conéctalo con language_metrics.language_id.
+- Para conteos, rankings o demanda actual, prioriza tablas *_job sobre *_metrics.
 
 ===========================
 🧠 PREGUNTA DEL USUARIO

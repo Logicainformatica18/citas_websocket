@@ -16,7 +16,15 @@ import {
 import { useAiChatLogic } from "./useAiChatLogic";
 import ChartSelector from "./ChartSelector";
 
-export default function AiChatView({ docked = false }: { docked?: boolean }) {
+interface AiChatViewProps {
+  embedded?: boolean;
+}
+
+
+
+export default function AiChatView({ embedded = false }: AiChatViewProps) {
+
+
 
     const logic = useAiChatLogic();
     const [visible, setVisible] = useState(true);
@@ -93,16 +101,17 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
     }, [resizing]);
 
     // ⚙️ Control externo global (sin eventos duplicados)
-    useEffect(() => {
-        if (docked) return; // ⛔ no control externo cuando está dockeado
+  useEffect(() => {
+  if (embedded) return;
 
-        window.vera = {
-            open: () => setVisible(true),
-            close: () => setVisible(false),
-            toggle: () => setVisible((v) => !v),
-            isVisible: () => visible,
-        };
-    }, [visible, docked]);
+  window.vera = {
+    open: () => setVisible(true),
+    close: () => setVisible(false),
+    toggle: () => setVisible((v) => !v),
+    isVisible: () => visible,
+  };
+}, [visible, embedded]);
+
 
     const fetchSuggestions = async (query: string) => {
         try {
@@ -120,39 +129,31 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
 
 
     return (
-        <div
-            className={`
-    ${docked
-                    ? "relative w-full h-full flex flex-col"
-                    : "fixed bottom-4 right-4 z-50 flex flex-col"}
-    transition-all duration-300 ease-in-out
-    ${!docked && !visible ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"}
-
+<div
+  className={`
+    flex flex-col w-full h-full
     bg-white dark:bg-[#202123]
-    border border-[#A7E5F6] dark:border-[#3f4144]
-    rounded-xl
+    ${embedded
+      ? "relative rounded-none border-l border-[#D9EEF5] dark:border-gray-700"
+      : "fixed bottom-4 right-4 z-50 rounded-xl border shadow-xl"}
+    transition-all
+    ${!embedded && !visible ? "opacity-0 scale-90 pointer-events-none" : ""}
   `}
-            style={
-                docked
-                    ? {} // ⬅️ dockeado: el layout manda
-                    : {
-                        width: logic.chatSize.width,
-                        height: logic.chatSize.height,
-                        boxShadow: "0 8px 25px rgba(0,0,0,0.4)",
-                    }
-            }
-        >
+>
 
 
-            {/* HEADER */}
-            {/* HEADER */}
-            <div
-                className="
+
+
+
+<div
+  className="
     flex justify-between items-center px-4 py-2
     bg-[#ECFAFD] dark:bg-[#343541]
     border-b border-[#A7E5F6] dark:border-[#3f4144]
   "
-            >
+>
+
+
                 <div className="flex items-center gap-2 font-semibold text-sm cursor-default">
                     <span className="text-gray-900 dark:text-gray-200">🤖 VERA</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -160,18 +161,15 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
                     </span>
                 </div>
 
-                {!docked && (
-                    <button
-                        onClick={() => setVisible(false)}
-                        className="
-        text-gray-500 hover:text-gray-900
-        dark:text-gray-400 dark:hover:text-white
-        transition
-      "
-                    >
-                        <X size={16} />
-                    </button>
-                )}
+               {!embedded && (
+  <button
+    onClick={() => setVisible(false)}
+    className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+  >
+    <X size={16} />
+  </button>
+)}
+
             </div>
 
 
@@ -238,26 +236,40 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
                                 />
                             </div>
                         )}
-
                         {/* 💾 Botón de guardar entrenamiento */}
-                        {m.saveIntent && (
-                            <button
-                                onClick={() =>
-                                    logic.handleSaveTraining(
-                                        m.saveIntent.sql_training_id,
-                                        m.saveIntent.prompt
-                                    )
-                                }
-                                className="
-            mt-3 self-start
-            bg-green-600 hover:bg-green-700
-            text-white px-3 py-1.5
-            rounded-md text-sm transition
-          "
-                            >
-                                💾 Guardar entrenamiento
-                            </button>
-                        )}
+                     {m.saveIntent && (
+  <button
+    onClick={() =>
+      logic.handleSaveTraining(
+        m.saveIntent.sql_training_id,
+        m.saveIntent.prompt
+      )
+    }
+    disabled={logic.savingTrainingId === m.saveIntent.sql_training_id}
+    className="
+      mt-3 self-start
+      flex items-center gap-2
+      px-3 py-1.5
+      rounded-md text-sm font-medium
+      bg-green-600 hover:bg-green-700
+      text-white
+      disabled:opacity-60 disabled:cursor-not-allowed
+      transition
+    "
+  >
+    {logic.savingTrainingId === m.saveIntent.sql_training_id ? (
+      <>
+        <span
+          className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"
+        />
+        Guardando...
+      </>
+    ) : (
+      <>💾 Guardar entrenamiento</>
+    )}
+  </button>
+)}
+
 
                         {/* 📊 Nuevo bloque: botones de tipo de gráfico */}
                         {m.showChartOption && (
@@ -386,14 +398,16 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
 
 
 
-            <div
-                className="
+    <div
+  className="
     px-3 py-3
     bg-[#ECFAFD] dark:bg-[#40414f]
     border-t border-[#A7E5F6] dark:border-[#3f4144]
     flex items-center gap-2
   "
-            >
+>
+
+
                 {/* Adjuntar */}
                 <label
                     className="
@@ -540,7 +554,8 @@ export default function AiChatView({ docked = false }: { docked?: boolean }) {
 
 
             {/* 🟦 Esquina de redimensionamiento */}
-            {!docked && (
+           {!embedded && (
+
                 <div
                     onMouseDown={startResize}
                     className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-transparent"

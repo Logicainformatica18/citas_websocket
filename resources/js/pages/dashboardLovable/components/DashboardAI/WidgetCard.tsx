@@ -71,7 +71,15 @@ import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
 
+     console.log("SUMMARY DEBUG", {
+    widgetSummary: widget.summary,
+    dataSourceSummary: widget.data_source?.summary,
+    fullWidget: widget,
+  });
+
+
     const theme = useLovableChartTheme();
+const isDark = theme.mode === "dark";
 
     const defaultColors = {
         bg: "#1e293b",     // fondo por defecto
@@ -104,6 +112,13 @@ const savedOptions =
 const savedActiveLabels: string[] =
   savedOptions?.filters?.activeLabels || [];
 
+  // 🧠 Summary normalizado (backend-agnostic)
+const resolvedSummary =
+  widget.summary ||
+  widget.data_source?.summary ||
+  "";
+
+const summary = widget.data_source?.summary;
 
 
     const handleDelete = async () => {
@@ -370,18 +385,29 @@ useEffect(() => {
         >
 
 
-            <h3
-                className="text-sm font-semibold tracking-wide mb-1"
-                style={{
-                    color: theme.text,
-                    textTransform: "uppercase",
-                }}
-            >
-                {widget.title}
-            </h3>
-            <p className="text-xs mb-3" style={{ color: "#4FB3D9" }}>
+          <h3
+  className="text-sm font-semibold tracking-wide mb-1"
+  style={{
+    color: theme.text,
+    textTransform: "uppercase",
+  }}
+>
+  {widget.title}
+</h3>
 
-            </p>
+{resolvedSummary && (
+  <p
+    className="text-xs mb-3 leading-snug"
+    style={{
+      color: "#4FB3D9",
+      maxWidth: "95%",
+    }}
+  >
+    {resolvedSummary}
+  </p>
+
+)}
+
 
 
 
@@ -642,206 +668,118 @@ useEffect(() => {
   onClick={() => {
     setMenuOpen(false);
 
+    const isDark =
+      document.documentElement.classList.contains("dark") ||
+      document.body.classList.contains("dark");
+
+    let selectedType = widget.chart_type; // 🔥 estado local del modal
+
     Swal.fire({
-      // 🔹 Popup más compacto
-      padding: "22px 26px",
-      background: "#F8FCFE",
-
-
-
+      title: "Cambiar tipo de gráfico",
+      background: isDark ? "#0B1220" : "#F8FCFE",
+      color: isDark ? "#E5F3F9" : "#0A4E61",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#1CBCE8",
+      cancelButtonColor: isDark ? "#334155" : "#CBD5E1",
 
       html: `
-        <!-- Contador -->
-        <div style="
-          margin:6px 0 10px;
-          font-size:13px;
-          color:#0A4E61;
-          text-align:center;
-        ">
-          Seleccionados:
-          <b>${activeLabels.length}</b> / ${categoryLabels.length}
-        </div>
-
-        <!-- Acciones rápidas -->
-        <div style="
-          display:flex;
-          gap:8px;
-          justify-content:center;
-          margin-bottom:12px;
-        ">
-          <button
-            id="selectAll"
-            style="
-              background:#ECFAFD;
-              color:#0A4E61;
-              border:1px solid #A7E5F6;
-              border-radius:999px;
-              padding:5px 12px;
-              font-size:13px;
-              cursor:pointer;
-            "
-          >
-            ✔ Todos
-          </button>
-
-          <button
-            id="selectNone"
-            style="
-              background:#F8FAFC;
-              color:#64748B;
-              border:1px solid #E2E8F0;
-              border-radius:999px;
-              padding:5px 12px;
-              font-size:13px;
-              cursor:pointer;
-            "
-          >
-            ✖ Ninguno
-          </button>
-        </div>
-
-        <!-- Lista de categorías -->
-        <div
+        <div id="isil-chart-selector"
           style="
-            max-height:240px;
-            overflow:auto;
             display:grid;
-            grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
-            gap:8px 14px;
-            text-align:left;
-            padding:2px;
+            grid-template-columns:repeat(3,1fr);
+            gap:16px;
+            margin-top:18px;
           "
         >
-          ${categoryLabels
-            .map((label) => {
-              const color = colorMap[label] || "#CBD5E1";
-
-              return `
-                <label
-                  style="
-                    display:flex;
-                    align-items:center;
-                    gap:10px;
-                    padding:8px 10px;
-                    border-radius:10px;
-                    cursor:pointer;
-                    border:1px solid #E2E8F0;
-                    background:#FFFFFF;
-                  "
-                >
-                  <input
-                    type="checkbox"
-                    value="${label}"
-                    ${activeLabels.includes(label) ? "checked" : ""}
-                  />
-
-                  <span
-                    style="
-                      width:12px;
-                      height:12px;
-                      background:${color};
-                      border-radius:4px;
-                      flex-shrink:0;
-                    "
-                  ></span>
-
-                  <span style="
-                    font-size:14px;
-                    color:#0A4E61;
-                    white-space:nowrap;
-                  ">
-                    ${label}
-                  </span>
-                </label>
-              `;
-            })
+          ${[
+            { id: "bar", label: "Barras", icon: "📊" },
+            { id: "line", label: "Líneas", icon: "📈" },
+            { id: "pie", label: "Circular", icon: "🥧" },
+          ]
+            .map(
+              (t) => `
+              <div
+                class="isil-chart-option ${selectedType === t.id ? "active" : ""}"
+                data-value="${t.id}"
+                style="
+                  cursor:pointer;
+                  padding:18px 12px;
+                  border-radius:16px;
+                  text-align:center;
+                  border:2px solid ${
+                    selectedType === t.id
+                      ? "#1CBCE8"
+                      : isDark ? "#1E293B" : "#E2E8F0"
+                  };
+                  background:${
+                    selectedType === t.id
+                      ? isDark ? "#0E7490" : "#ECFAFD"
+                      : isDark ? "#020617" : "#FFFFFF"
+                  };
+                  color:${isDark ? "#E5F3F9" : "#0A4E61"};
+                  transition:all .2s ease;
+                "
+              >
+                <div style="font-size:28px">${t.icon}</div>
+                <strong>${t.label}</strong>
+              </div>
+            `
+            )
             .join("")}
         </div>
       `,
 
-      showCancelButton: true,
-    //  showDenyButton: true,
-      confirmButtonText: "Aplicar",
-
-      cancelButtonText: "Cancelar",
-
-      customClass: {
-        actions: "isil-swal-actions",
-      },
-
       didOpen: () => {
-        document.getElementById("selectAll")?.addEventListener("click", () => {
-          document
-            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
-            .forEach((cb) => (cb.checked = true));
-        });
+        const options = document.querySelectorAll(".isil-chart-option");
 
-        document.getElementById("selectNone")?.addEventListener("click", () => {
-          document
-            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
-            .forEach((cb) => (cb.checked = false));
+        options.forEach((el) => {
+          el.addEventListener("click", () => {
+            selectedType = el.getAttribute("data-value");
+
+            options.forEach((o) => {
+              o.classList.remove("active");
+              o.style.borderColor = isDark ? "#1E293B" : "#E2E8F0";
+              o.style.background = isDark ? "#020617" : "#FFFFFF";
+            });
+
+            el.classList.add("active");
+            el.style.borderColor = "#1CBCE8";
+            el.style.background = isDark ? "#0E7490" : "#ECFAFD";
+          });
         });
       },
 
-      preConfirm: () => {
-        return Array.from(
-          document.querySelectorAll<HTMLInputElement>(
-            "input[type=checkbox]:checked"
-          )
-        ).map((el) => el.value);
-      },
-  }).then(async (res) => {
-  if (!Array.isArray(res.value)) return;
+      preConfirm: () => selectedType,
+    }).then(async (res) => {
+      if (!res.isConfirmed || !res.value) return;
 
-  // 🟢 1️⃣ APLICAR (solo vista)
-  if (res.isConfirmed) {
-    setActiveLabels(res.value);
-
-    Swal.fire({
-      icon: "info",
-      title: "Filtro aplicado",
-      text: "Puedes guardar los cambios si deseas que sean permanentes.",
-      confirmButtonText: "Guardar cambios",
-      showCancelButton: true,
-      cancelButtonText: "Cerrar",
-      confirmButtonColor: "#1CBCE8",
-    }).then(async (saveRes) => {
-      if (!saveRes.isConfirmed) return;
-
-      // 💾 2️⃣ GUARDAR (persistente)
       try {
-        await saveWidgetFilters(widget.id, res.value);
+        await updateWidget(widget.id, { chart_type: res.value });
+        widget.chart_type = res.value;
 
         Swal.fire({
           icon: "success",
-          title: "Cambios guardados",
-          text: "El filtro quedó persistente para este widget.",
-          confirmButtonColor: "#1CBCE8",
+          title: "Gráfico actualizado",
+          text: "Tipo de gráfico cambiado correctamente.",
+          timer: 1600,
+          showConfirmButton: false,
+          background: isDark ? "#0B1220" : "#F8FCFE",
+          color: isDark ? "#E5F3F9" : "#0A4E61",
         });
       } catch {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "No se pudo guardar el filtro.",
-        });
+        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
       }
     });
-  }
-});
-
-
   }}
-  className="
-    block w-full text-left px-3 py-2
-    hover:bg-[#ECFAFD]
-    text-[#1CBCE8]
-    text-sm
-    rounded-md
-    transition
-  "
+  className="block w-full text-left px-3 py-2 text-purple-400 text-sm hover:bg-gray-700 rounded-md"
 >
-  🎛️ Filtrar
+  🔁 Cambiar tipo
 </button>
+
+
+
 
 
 
@@ -899,44 +837,237 @@ useEffect(() => {
                         >
                             🎨 Editar colores
                         </button>
+<button
+  onClick={() => {
+    setMenuOpen(false);
 
-                        <button
-                            onClick={() => {
-                                setMenuOpen(false);
-                                Swal.fire({
-                                    title: "📊 Cambiar tipo de gráfico",
-                                    html: `
-              <select id="chartType" class="swal2-select" style="width:100%;background-color:#0f172a;color:#f1f5f9;border-radius:8px;border:1px solid #475569;padding:10px;">
-                <option value="bar" ${widget.chart_type === "bar" ? "selected" : ""}>Barras</option>
-                <option value="line" ${widget.chart_type === "line" ? "selected" : ""}>Líneas</option>
-                <option value="pie" ${widget.chart_type === "pie" ? "selected" : ""}>Circular</option>
-              </select>
-            `,
-                                    background: "#0f172a",
-                                    color: "#f1f5f9",
-                                    showCancelButton: true,
-                                    confirmButtonText: "Guardar",
-                                    cancelButtonText: "Cancelar",
-                                    confirmButtonColor: "#2563eb",
-                                    cancelButtonColor: "#475569",
-                                    preConfirm: () => document.getElementById("chartType").value,
-                                }).then(async (result) => {
-                                    if (result.isConfirmed) {
-                                        const newType = result.value;
-                                        try {
-                                            await updateWidget(widget.id, { chart_type: newType });
-                                            widget.chart_type = newType;
-                                            Swal.fire("✅ Actualizado", "El tipo de gráfico ha sido cambiado.", "success");
-                                        } catch (err) {
-                                            Swal.fire("❌ Error", "No se pudo actualizar el tipo de gráfico.", "error");
-                                        }
-                                    }
-                                });
-                            }}
-                            className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-purple-400 text-sm"
-                        >
-                            🔁 Cambiar tipo
-                        </button>
+    Swal.fire({
+      padding: "22px 26px",
+      background: theme.mode === "dark" ? "#0B1220" : "#F8FCFE",
+      color: theme.mode === "dark" ? "#E5F3F9" : "#0A4E61",
+
+      html: `
+        <div style="text-align:center;font-size:13px;margin-bottom:10px;">
+          Seleccionados:
+          <b>${activeLabels.length}</b> / ${categoryLabels.length}
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;">
+          <button id="selectAll"
+            style="background:#ECFAFD;color:#0A4E61;border:1px solid #A7E5F6;
+                   border-radius:999px;padding:5px 12px;cursor:pointer;">
+            ✔ Todos
+          </button>
+
+          <button id="selectNone"
+            style="background:#F8FAFC;color:#64748B;border:1px solid #E2E8F0;
+                   border-radius:999px;padding:5px 12px;cursor:pointer;">
+            ✖ Ninguno
+          </button>
+        </div>
+
+        <div style="
+          max-height:240px;
+          overflow:auto;
+          display:grid;
+          grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+          gap:8px 14px;
+        ">
+          ${categoryLabels.map(label => {
+            const color = colorMap[label] || "#CBD5E1";
+            return `
+              <label style="
+                display:flex;
+                align-items:center;
+                gap:8px;
+                padding:6px 8px;
+                border-radius:10px;
+                border:1px solid #E2E8F0;
+                cursor:pointer;
+              ">
+                <input type="checkbox"
+                  value="${label}"
+                  ${activeLabels.includes(label) ? "checked" : ""}
+                />
+                <span style="width:10px;height:10px;
+                             background:${color};
+                             border-radius:3px;"></span>
+                <span style="font-size:13px;">${label}</span>
+              </label>
+            `;
+          }).join("")}
+        </div>
+      `,
+
+      showCancelButton: true,
+      confirmButtonText: "Aplicar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#1CBCE8",
+
+      didOpen: () => {
+        document.getElementById("selectAll")?.addEventListener("click", () => {
+          document
+            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+            .forEach(cb => cb.checked = true);
+        });
+
+        document.getElementById("selectNone")?.addEventListener("click", () => {
+          document
+            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+            .forEach(cb => cb.checked = false);
+        });
+      },
+
+      preConfirm: () =>
+        Array.from(
+          document.querySelectorAll<HTMLInputElement>(
+            "input[type=checkbox]:checked"
+          )
+        ).map(el => el.value),
+    }).then(async res => {
+      if (!Array.isArray(res.value)) return;
+
+      // 🟢 Aplicar visual
+      setActiveLabels(res.value);
+
+      const save = await Swal.fire({
+        icon: "info",
+        title: "Filtro aplicado",
+        text: "¿Deseas guardar el filtro para este widget?",
+        showCancelButton: true,
+        confirmButtonText: "Guardar",
+        cancelButtonText: "Solo aplicar",
+        confirmButtonColor: "#1CBCE8",
+      });
+
+      if (save.isConfirmed) {
+        await saveWidgetFilters(widget.id, res.value);
+        Swal.fire("Guardado", "Filtro persistente aplicado.", "success");
+      }
+    });
+  }}
+  className="block w-full text-left px-3 py-2
+             text-sm rounded-md
+             text-[#1CBCE8]
+             hover:bg-[#ECFAFD]"
+>
+  🎛️ Filtrar
+</button>
+
+                          {/* <button
+  onClick={() => {
+    setMenuOpen(false);
+
+    const isDark =
+      document.documentElement.classList.contains("dark") ||
+      document.body.classList.contains("dark");
+
+    let selectedType = widget.chart_type; // 🔥 estado local del modal
+
+    Swal.fire({
+      title: "Cambiar tipo de gráfico",
+      background: isDark ? "#0B1220" : "#F8FCFE",
+      color: isDark ? "#E5F3F9" : "#0A4E61",
+      showCancelButton: true,
+      confirmButtonText: "Guardar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#1CBCE8",
+      cancelButtonColor: isDark ? "#334155" : "#CBD5E1",
+
+      html: `
+        <div id="isil-chart-selector"
+          style="
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:16px;
+            margin-top:18px;
+          "
+        >
+          ${[
+            { id: "bar", label: "Barras", icon: "📊" },
+            { id: "line", label: "Líneas", icon: "📈" },
+            { id: "pie", label: "Circular", icon: "🥧" },
+          ]
+            .map(
+              (t) => `
+              <div
+                class="isil-chart-option ${selectedType === t.id ? "active" : ""}"
+                data-value="${t.id}"
+                style="
+                  cursor:pointer;
+                  padding:18px 12px;
+                  border-radius:16px;
+                  text-align:center;
+                  border:2px solid ${
+                    selectedType === t.id
+                      ? "#1CBCE8"
+                      : isDark ? "#1E293B" : "#E2E8F0"
+                  };
+                  background:${
+                    selectedType === t.id
+                      ? isDark ? "#0E7490" : "#ECFAFD"
+                      : isDark ? "#020617" : "#FFFFFF"
+                  };
+                  color:${isDark ? "#E5F3F9" : "#0A4E61"};
+                  transition:all .2s ease;
+                "
+              >
+                <div style="font-size:28px">${t.icon}</div>
+                <strong>${t.label}</strong>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      `,
+
+      didOpen: () => {
+        const options = document.querySelectorAll(".isil-chart-option");
+
+        options.forEach((el) => {
+          el.addEventListener("click", () => {
+            selectedType = el.getAttribute("data-value");
+
+            options.forEach((o) => {
+              o.classList.remove("active");
+              o.style.borderColor = isDark ? "#1E293B" : "#E2E8F0";
+              o.style.background = isDark ? "#020617" : "#FFFFFF";
+            });
+
+            el.classList.add("active");
+            el.style.borderColor = "#1CBCE8";
+            el.style.background = isDark ? "#0E7490" : "#ECFAFD";
+          });
+        });
+      },
+
+      preConfirm: () => selectedType,
+    }).then(async (res) => {
+      if (!res.isConfirmed || !res.value) return;
+
+      try {
+        await updateWidget(widget.id, { chart_type: res.value });
+        widget.chart_type = res.value;
+
+        Swal.fire({
+          icon: "success",
+          title: "Gráfico actualizado",
+          text: "Tipo de gráfico cambiado correctamente.",
+          timer: 1600,
+          showConfirmButton: false,
+          background: isDark ? "#0B1220" : "#F8FCFE",
+          color: isDark ? "#E5F3F9" : "#0A4E61",
+        });
+      } catch {
+        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
+      }
+    });
+  }}
+  className="block w-full text-left px-3 py-2 text-purple-400 text-sm hover:bg-gray-700 rounded-md"
+>
+  🔁 Cambiar tipo
+</button> */}
+
                     </div>
                 )}
             </div>

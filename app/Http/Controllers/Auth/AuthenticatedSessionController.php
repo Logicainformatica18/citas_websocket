@@ -34,7 +34,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
-        return redirect('dashboard');
+        return redirect('/dashboard_vera');
     }
 
     /**
@@ -215,7 +215,7 @@ Log::info('SESSION FINAL', [
     'session_id' => session()->getId(),
 ]);
 
- return redirect()->intended('/dashboard');
+ return redirect()->intended('/dashboard_vera');
 
 }
 

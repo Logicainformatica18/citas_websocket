@@ -64,7 +64,7 @@ export function AppSidebar() {
                 />
 
                 <SidebarMenu>
-                    <MenuItem href="/dashboard" icon={<BarChart3 className={`w-5 h-5 ${isilBlue}`} />} label="Dashboard" />
+                    <MenuItem href="/dashboard_vera" icon={<BarChart3 className={`w-5 h-5 ${isilBlue}`} />} label="Dashboard" />
                     <MenuItem href="/syllabus" icon={<FileText className={`w-5 h-5 ${isilBlue}`} />} label="Syllabus" />
                 </SidebarMenu>
 

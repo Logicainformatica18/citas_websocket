@@ -95,20 +95,20 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
 
 
-Route::get('/dashboard/lovable', function () {
+Route::get('/dashboard_vera', function () {
     return Inertia::render('dashboardLovable/DashboardLovable');
 })->name('dashboard.lovable');
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
     // USERS
-    Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch')->middleware('permission:administrar');
-    Route::post('/users', [UserController::class, 'store'])->middleware('permission:administrar');
-    Route::get('/users', [UserController::class, 'index'])->name('users.index')->middleware('permission:administrar');
-    Route::delete('/users/{id}', [UserController::class, 'destroy'])->middleware('permission:administrar');
-    Route::put('/users/{id}', [UserController::class, 'update'])->middleware('permission:administrar');
-    Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:administrar');
-    Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles'])->middleware('permission:administrar');
+    Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch');
+    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::put('/users/{id}/sync-roles', [UserController::class, 'syncRoles']);
 
     // ROLES
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
@@ -119,25 +119,25 @@ Route::get('/dashboard/lovable', function () {
     Route::delete('/roles/{id}', [RoleController::class, 'destroy'])->name('roles.destroy');
 
     // SCRAPINGS
-    Route::get('/scrapings/fetch', [ScrapingController::class, 'fetchPaginated'])->name('scrapings.fetch')->middleware('permission:administrar');
-    Route::post('/scrapings', [ScrapingController::class, 'store'])->middleware('permission:administrar');
-    Route::get('/scrapings', [ScrapingController::class, 'index'])->name('scrapings.index')->middleware('permission:administrar');
-    Route::delete('/scrapings/{id}', [ScrapingController::class, 'destroy'])->middleware('permission:administrar');
-    Route::put('/scrapings/{id}', [ScrapingController::class, 'update'])->middleware('permission:administrar');
-    Route::get('/scrapings/{id}', [ScrapingController::class, 'show'])->middleware('permission:administrar');
+    Route::get('/scrapings/fetch', [ScrapingController::class, 'fetchPaginated'])->name('scrapings.fetch');
+    Route::post('/scrapings', [ScrapingController::class, 'store']);
+    Route::get('/scrapings', [ScrapingController::class, 'index'])->name('scrapings.index');
+    Route::delete('/scrapings/{id}', [ScrapingController::class, 'destroy']);
+    Route::put('/scrapings/{id}', [ScrapingController::class, 'update']);
+    Route::get('/scrapings/{id}', [ScrapingController::class, 'show']);
 
     // SCRAPING FIELDS (ahora con jerarquía parent_id)
-    Route::get('/scrapings/{scraping}/fields/fetch', [ScrapingFieldController::class, 'fetchPaginated'])->name('scraping_fields.fetch')->middleware('permission:administrar');
-    Route::post('/scrapings/{scraping}/fields', [ScrapingFieldController::class, 'store'])->middleware('permission:administrar');
-    Route::get('/scrapings/{scraping}/fields', [ScrapingFieldController::class, 'index'])->name('scraping_fields.index')->middleware('permission:administrar');
-    Route::delete('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'destroy'])->middleware('permission:administrar');
-    Route::put('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'update'])->middleware('permission:administrar');
-    Route::get('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'show'])->middleware('permission:administrar');
+    Route::get('/scrapings/{scraping}/fields/fetch', [ScrapingFieldController::class, 'fetchPaginated'])->name('scraping_fields.fetch');
+    Route::post('/scrapings/{scraping}/fields', [ScrapingFieldController::class, 'store']);
+    Route::get('/scrapings/{scraping}/fields', [ScrapingFieldController::class, 'index'])->name('scraping_fields.index');
+    Route::delete('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'destroy']);
+    Route::put('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'update']);
+    Route::get('/scrapings/{scraping}/fields/{id}', [ScrapingFieldController::class, 'show']);
 
     Route::post('scrapings/{scraping}/backups/bulk', [BackupController::class, 'storeMany'])
         ->name('backups.storeMany');
     // RUN SCRAPING
-    Route::post('/scrapings/{id}/run', [ScrapingController::class, 'run'])->name('scrapings.run')->middleware('permission:administrar');
+    Route::post('/scrapings/{id}/run', [ScrapingController::class, 'run'])->name('scrapings.run');
 
     Route::prefix('scrapings/{scraping}')->group(function () {
         Route::get('backups', [BackupController::class, 'index'])->name('backups.index');
@@ -156,85 +156,85 @@ Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel'
 
     Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
         ->name('job_offers.fetch')
-        ->middleware('permission:administrar');
+        ;
 
     Route::post('/job-offers', [JobOfferController::class, 'store'])
         ->name('job_offers.store')
-        ->middleware('permission:administrar');
+        ;
 
     Route::get('/job-offers', [JobOfferController::class, 'index'])
         ->name('job_offers.index')
-        ->middleware('permission:administrar');
+        ;
 
     Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
         ->name('job_offers.destroy')
-        ->middleware('permission:administrar');
+        ;
 
     Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
         ->name('job_offers.update')
-        ->middleware('permission:administrar');
+        ;
 
     Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
         ->name('job_offers.show')
-        ->middleware('permission:administrar');
+        ;
 
     Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
         ->name('job_offers.bulkDelete')
-        ->middleware('permission:administrar');
+        ;
 
 
     Route::post('/job-offers/import', [JobOfferController::class, 'import'])
         ->name('job-offers.import')
-        ->middleware('permission:administrar');
+        ;
 Route::get('/courses/search', [CourseController::class, 'search'])->name('courses.search');
 
     Route::get('/courses/fetch', [CourseController::class, 'index'])
         ->name('courses.fetch')
-        ->middleware('permission:administrar');
+        ;
 
     Route::post('/courses', [CourseController::class, 'store'])
-        ->middleware('permission:administrar');
+        ;
 
     Route::get('/courses', [CourseController::class, 'index'])
         ->name('courses.index')
-        ->middleware('permission:administrar');
+        ;
 
     Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
-        ->middleware('permission:administrar');
+        ;
 
     Route::put('/courses/{id}', [CourseController::class, 'update'])
-        ->middleware('permission:administrar');
+        ;
 
     Route::get('/courses/{id}', [CourseController::class, 'show'])
-        ->middleware('permission:administrar');
+        ;
 
 
     Route::get('/syllabus', [SyllabusController::class, 'index'])
         ->name('syllabus.index')
-        ->middleware(['auth', 'permission:administrar']);
+        ;
 
     Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
         ->name('syllabus.fetch')
-        ->middleware(['auth', 'permission:administrar']);
+        ;
 
     // 📂 Subir sílabo (upload)
-    Route::post('/syllabus/upload', [SyllabusController::class, 'store'])->middleware(['auth', 'permission:administrar']);
+    Route::post('/syllabus/upload', [SyllabusController::class, 'store']);
 
     Route::get('/syllabus/{id}', [SyllabusController::class, 'show'])
         ->name('syllabus.show')
-        ->middleware(['auth', 'permission:administrar']);
+        ;
 
     Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
         ->name('syllabus.destroy')
-        ->middleware(['auth', 'permission:administrar']);
+        ;
 
     Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
         ->name('syllabus.bulkDelete')
-        ->middleware(['auth', 'permission:administrar']);
+        ;
 
 
     // Rutas para el Dashboard AI
-    Route::prefix('dashboard/ai')->middleware('permission:administrar')->group(function () {
+    Route::prefix('dashboard/ai')->group(function () {
         // Chat principal del dashboard IA
         Route::post('/chat', [DashboardAIController::class, 'chat'])->name('dashboard_ai.chat');
 

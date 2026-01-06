@@ -221,12 +221,13 @@ const DashboardLovableWidgets = forwardRef<
                 cols={12}
                 rowHeight={76}
                 width={gridWidth || 1200}
-                margin={[12, 18]}          // 👈 más aire vertical
+                margin={[12, 8]}          // 👈 más aire vertical
                 isDraggable
                 isResizable
                 draggableHandle=".drag-handle"
- 
- 
+ compactType={null}      // 🔥 CLAVE
+  preventCollision={true} // 🔥 recomendado
+
                 /* 🔥 ESTE ES EL BLOQUE CLAVE 🔥 */
                 onLayoutChange={(newLayout) => {
                     newLayout.forEach((l) => {

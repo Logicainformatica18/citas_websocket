@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 class DashboardWidgetController extends Controller
 {
-    public function index(Request $request)
+public function index(Request $request)
 {
     $dashboardId = $request->get('dashboard_id', 1);
 
@@ -16,11 +16,35 @@ class DashboardWidgetController extends Controller
         ->where('dashboard_id', $dashboardId)
         ->orderBy('id')
         ->get()
-        ->map(function ($w) {
-            $w->data_source = json_decode($w->data_source, true);
-            $w->colors = json_decode($w->colors, true);
-            return $w;
-        });
+       ->map(function ($w) {
+
+    $dataSource = json_decode($w->data_source ?? '{}', true) ?? [];
+
+    // 🔥 FALLBACK DE SUMMARY
+    if (
+        empty($dataSource['summary']) &&
+        !empty($dataSource['sql_training_id'])
+    ) {
+        $summary = DB::table('sqltrainings')
+            ->where('id', $dataSource['sql_training_id'])
+            ->value('summary');
+
+        if ($summary) {
+            $dataSource['summary'] = $summary;
+        }
+    }
+
+    $w->data_source = array_merge([
+        'type' => null,
+        'rows' => [],
+        'summary' => '',
+    ], $dataSource);
+
+    $w->colors = json_decode($w->colors ?? '{}', true) ?? [];
+    $w->options = json_decode($w->options ?? '{}', true) ?? [];
+
+    return $w;
+});
 
     return response()->json([
         'dashboard_id' => $dashboardId,
@@ -28,165 +52,87 @@ class DashboardWidgetController extends Controller
     ]);
 }
 
+
 public function storeFromTraining(Request $request)
 {
-    Log::info('🟢 [storeFromTraining] Iniciando creación de gráfico', [
-        'payload' => $request->all()
-    ]);
-
     try {
-        // ============================================================
-        // ✅ 1️⃣ Validación de parámetros
-        // ============================================================
         $validated = $request->validate([
             'training_id' => 'required|integer|exists:aitrainings,id',
             'chart_type'  => 'required|string',
         ]);
-        Log::info('✅ Validación OK', $validated);
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        Log::warning('⚠️ Error de validación', ['errors' => $e->errors()]);
-        return response()->json([
-            'error' => 'Datos inválidos.',
-            'details' => $e->errors(),
-        ], 400);
-    }
 
-    try {
-        // ============================================================
-        // 🧠 2️⃣ Obtener el entrenamiento
-        // ============================================================
+        // 1️⃣ Entrenamiento
         $training = DB::table('aitrainings')->find($validated['training_id']);
-
-        if (!$training) {
-            return response()->json(['error' => 'Entrenamiento no encontrado.'], 404);
+        if (!$training || !$training->sql_training_id) {
+            return response()->json(['error' => 'Entrenamiento inválido'], 400);
         }
 
-        Log::info('✅ Entrenamiento encontrado', [
-            'training_id' => $training->id,
-            'sql_training_id' => $training->sql_training_id,
-        ]);
-
-        // ============================================================
-        // 🧩 3️⃣ Verificar que tenga SQL asociada y válida
-        // ============================================================
-        if (!$training->sql_training_id) {
-            return response()->json([
-                'error' => 'El entrenamiento no tiene una SQL asociada (sql_training_id nulo).'
-            ], 400);
+        // 2️⃣ SQL Training
+        $sqlTraining = DB::table('sqltrainings')->find($training->sql_training_id);
+        if (!$sqlTraining || $sqlTraining->test_status !== 'ok') {
+            return response()->json(['error' => 'SQL no validada'], 400);
         }
 
-        $sqlTraining = DB::table('sqltrainings')
-            ->where('id', $training->sql_training_id)
-            ->first();
+        $query   = $sqlTraining->sql_validated ?? $sqlTraining->sql_generated;
+        $summary = trim($sqlTraining->summary ?? '');
 
-        if (!$sqlTraining) {
-            return response()->json(['error' => 'SQL vinculada no encontrada.'], 404);
-        }
-
-        if ($sqlTraining->test_status !== 'ok') {
-            return response()->json(['error' => 'La SQL vinculada no está validada.'], 400);
+        if (!$query) {
+            return response()->json(['error' => 'SQL vacía'], 400);
         }
 
-        $query = $sqlTraining->sql_validated ?? $sqlTraining->sql_generated;
+        // 3️⃣ Ejecutar SQL
+        $rows = DB::select($query);
 
-        if (empty($query)) {
-            return response()->json(['error' => 'No se encontró una consulta SQL válida.'], 400);
-        }
+        $cleanRows = collect($rows)->map(function ($row) {
+            $out = [];
+            foreach ($row as $k => $v) {
+                if (is_numeric($v)) $out[$k] = (float) $v;
+                elseif (is_null($v)) $out[$k] = 0;
+                elseif (is_bool($v)) $out[$k] = $v ? 1 : 0;
+                elseif (is_string($v)) $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
+                else $out[$k] = $v;
+            }
+            return $out;
+        })->values()->toArray();
 
-        // ============================================================
-        // 🧮 4️⃣ Ejecutar la consulta SQL
-        // ============================================================
-        try {
-            $rows = DB::select($query);
-            // ============================================================
-// 🧹 4.1️⃣ Sanear los datos antes de guardar
-// ============================================================
-$cleanRows = collect($rows)->map(function ($row) {
-    $sanitized = [];
-    foreach ($row as $key => $value) {
-        // ✅ Si es numérico en string, lo convierte a float
-        if (is_numeric($value)) {
-            $sanitized[$key] = (float) $value;
-        }
-        // ✅ Si es nulo, lo reemplaza por 0 o cadena vacía
-        elseif (is_null($value)) {
-            $sanitized[$key] = 0;
-        }
-        // ✅ Si es booleano, lo convierte explícitamente
-        elseif (is_bool($value)) {
-            $sanitized[$key] = $value ? 1 : 0;
-        }
-        // ✅ Si es texto, limpia espacios y caracteres invisibles
-        elseif (is_string($value)) {
-            $sanitized[$key] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $value));
-        } else {
-            $sanitized[$key] = $value;
-        }
-    }
-    return $sanitized;
-})->values()->toArray();
-
-        } catch (\Throwable $e) {
-            Log::error('💥 Error ejecutando SQL', [
-                'error' => $e->getMessage(),
-                'sql' => $query,
-            ]);
-            return response()->json([
-                'error' => 'Error al ejecutar SQL: ' . $e->getMessage(),
-            ], 500);
-        }
-
-        // ============================================================
-        // 🧱 5️⃣ Crear widget en dashboard
-        // ============================================================
+        // 4️⃣ Crear Widget (SUMMARY EN COLUMNA)
         $widgetId = DB::table('dashboard_widgets')->insertGetId([
             'dashboard_id'   => 1,
             'ai_training_id' => $training->id,
-            'title'          => $training->prompt, // 👈 ahora siempre usa el prompt correcto
+            'title'          => $training->prompt,
+            'summary'        => $summary, // ✅ AQUÍ ESTÁ LA CLAVE
             'chart_type'     => $validated['chart_type'],
             'data_source'    => json_encode([
                 'type' => 'sql',
                 'sql_training_id' => $training->sql_training_id,
                 'sql_query' => $query,
-              'rows' => $cleanRows, // 👈 usa los datos saneados
+                'rows' => $cleanRows,
             ], JSON_UNESCAPED_UNICODE),
             'colors' => json_encode([
                 'primary' => '#1E88E5',
-                'secondary' => '#90CAF9'
+                'secondary' => '#90CAF9',
             ]),
             'position_x' => 0,
             'position_y' => 0,
-            'width'      => 4,
-            'height'     => 3,
+            'width'  => 4,
+            'height' => 3,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        Log::info('✅ Widget creado correctamente', [
-            'widget_id' => $widgetId,
-            'training_id' => $training->id,
-        ]);
-
-        // ============================================================
-        // 🎯 6️⃣ Respuesta final al frontend
-        // ============================================================
         return response()->json([
-            'message' => '📊 Gráfico generado correctamente.',
-            'widget_id' => $widgetId,
-            'training_prompt' => $training->prompt,
-            'rows' => $rows,
+            'message'   => '📊 Widget creado correctamente',
+            'widget_id'=> $widgetId,
+            'summary'  => $summary,
         ]);
 
     } catch (\Throwable $e) {
-        Log::error('💥 Error inesperado en storeFromTraining', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return response()->json([
-            'error' => 'Error inesperado: ' . $e->getMessage(),
-        ], 500);
+        Log::error('💥 storeFromTraining', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'Error inesperado'], 500);
     }
 }
+
+
 
 public function store(Request $request)
 {

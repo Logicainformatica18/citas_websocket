@@ -7,7 +7,7 @@ export default function ChartSelector({ trainingId, chartTypes }) {
   const [successMsg, setSuccessMsg] = useState("");
 
   const handleCreateChart = async () => {
-    if (!selected) return alert("Selecciona un tipo de gráfico.");
+    if (!selected) return;
     setSaving(true);
     try {
       const res = await axios.post("/api/ai/dashboard-widgets/from-training", {
@@ -24,18 +24,49 @@ export default function ChartSelector({ trainingId, chartTypes }) {
   };
 
   return (
-    <div className="mt-3 p-4 rounded-lg bg-[#2e2e3a] text-white border border-gray-600 shadow-md">
+    <div
+      className="
+        mt-3
+        rounded-xl
+        border border-[#D9EEF5]
+        bg-white dark:bg-[#202123]
+        p-4
+        space-y-3
+      "
+    >
       {successMsg ? (
-        <p className="text-green-400 font-medium">{successMsg}</p>
+        <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+          {successMsg}
+        </div>
       ) : (
         <>
-          <p className="mb-2">📈 Elige el tipo de gráfico para visualizar los datos:</p>
+          {/* Título */}
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+            📊 Elige el tipo de gráfico
+          </div>
+
+          {/* Subtítulo */}
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Selecciona cómo deseas visualizar los datos obtenidos
+          </div>
+
+          {/* Select */}
           <select
-            className="w-full p-2 text-black rounded"
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
+            className="
+              w-full
+              rounded-lg
+              px-3 py-2
+              text-sm
+              bg-white dark:bg-[#202123]
+              text-gray-900 dark:text-gray-200
+              border border-[#A7E5F6] dark:border-[#3f4144]
+              focus:outline-none
+              focus:ring-2 focus:ring-[#1CBCE8]
+            "
           >
-            <option value="">-- Selecciona tipo de gráfico --</option>
+            <option value="">— Selecciona tipo de gráfico —</option>
             {chartTypes.map((ct) => (
               <option key={ct.slug} value={ct.slug}>
                 {ct.name}
@@ -43,10 +74,23 @@ export default function ChartSelector({ trainingId, chartTypes }) {
             ))}
           </select>
 
+          {/* Botón */}
           <button
             onClick={handleCreateChart}
             disabled={!selected || saving}
-            className="mt-3 w-full px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            className="
+              w-full
+              mt-2
+              rounded-lg
+              py-2
+              text-sm font-medium
+              text-white
+              bg-[#1CBCE8]
+              hover:bg-[#17a7cf]
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              transition
+            "
           >
             {saving ? "Creando gráfico..." : "Crear gráfico"}
           </button>

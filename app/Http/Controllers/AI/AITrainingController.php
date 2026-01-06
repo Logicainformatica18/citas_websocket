@@ -267,7 +267,10 @@ public function index(Request $request)
                 'technology_metrics',
                 'methodology_metrics',
                 'job_offers',
-                'cities'
+                'cities',
+                   'language_job',
+    'technology_job',
+    'certification_job',
             ];
 
             $schemaData = DB::select("
@@ -283,6 +286,18 @@ public function index(Request $request)
             $schemaText = collect($schemaData)
                 ->map(fn($t) => "{$t->table_name}({$t->columns})")
                 ->implode("\n");
+$schemaText .= "
+
+🔗 Relaciones laborales reales (mercado actual):
+language_job.language_id → languages.id
+language_job.job_offer_id → job_offers.id
+
+technology_job.technology_id → technologies.id
+technology_job.job_offer_id → job_offers.id
+
+certification_job.certification_id → certifications.id
+certification_job.job_offer_id → job_offers.id
+";
 
             $schemaText .= "\n\n🔗 Relaciones clave:
 career_course.career_id → careers.id
@@ -307,17 +322,17 @@ job_offers.country → cities.country
             //     ->get(['query_text', 'sql_validated'])
             //     ->map(fn($h, $i) => "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$h->sql_validated}\n")
             //     ->implode("\n");
-          $historyExamples = DB::table('sqltrainings')
-    ->where('test_status', 'ok')
-    ->whereNotNull('sql_validated')
-    ->orderByDesc('id')
-    ->limit(5)
-    ->get(['query_text', 'sql_validated'])
-    ->map(function ($h, $i) {
-        $cleanSql = preg_replace('/\b[a-z_]*\.id,?\s*/i', '', $h->sql_validated);
-        return "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$cleanSql}\n";
-    })
-    ->implode("\n");
+    //       $historyExamples = DB::table('sqltrainings')
+    // ->where('test_status', 'ok')
+    // ->whereNotNull('sql_validated')
+    // ->orderByDesc('id')
+    // ->limit(5)
+    // ->get(['query_text', 'sql_validated'])
+    // ->map(function ($h, $i) {
+    //     $cleanSql = preg_replace('/\b[a-z_]*\.id,?\s*/i', '', $h->sql_validated);
+    //     return "🧩 Ejemplo " . ($i + 1) . ":\nUsuario pidió: {$h->query_text}\nSQL usada: {$cleanSql}\n";
+    // })
+    // ->implode("\n");
 
 
 
@@ -338,12 +353,28 @@ Tienes acceso al siguiente esquema y relaciones entre tablas:
 3. Evita funciones no soportadas o incompatibles con MariaDB.
 4. Si no puedes construir una consulta válida, devuelve únicamente `NO_MATCH`.
 
-⚙️ **Reglas semánticas del Observatorio ISIL:**
-- "Más demandadas", "más solicitadas", "más requeridas", "más populares" se refieren al campo **`jobs_found_count`**.
-- Agrupa siempre por el identificador y nombre de la tabla principal (ejemplo: `GROUP BY t.id, t.name`).
-- Usa **SUM(jobs_found_count)** para calcular la demanda total.
-- Ordena con `ORDER BY jobs_found_count DESC LIMIT 10`.
+⚙️ **Reglas semánticas del Observatorio ISIL (ACTUALIZADAS):**
 
+- Si el usuario pregunta por **demanda laboral real**, **vacantes**, **ofertas**, **mercado laboral** o **conteo actual**:
+  - NO uses *_metrics.
+  - Usa tablas pivote de relación laboral:
+    - language_job
+    - technology_job
+    - certification_job
+  - La demanda se calcula con:
+    COUNT(DISTINCT job_offers.id)
+
+- Si el usuario pregunta por **tendencias**, **ranking histórico**, **evolución**, **comparativa global**:
+  - Usa *_metrics (language_metrics, technology_metrics, etc.)
+  - Usa SUM(jobs_found_count) o AVG según corresponda.
+
+- Regla de oro:
+  👉 *_job = mercado real
+  👉 *_metrics = análisis agregado / histórico
+
+- Agrupa siempre por el identificador y nombre de la tabla principal (ejemplo: `GROUP BY t.id, t.name`).
+ 
+ 
 ⚙️ **Selección de tabla según contexto:**
 - Si el usuario menciona *tecnologías, herramientas, frameworks, lenguajes de programación, stacks o software*, usa la tabla `technology_metrics` y une con `technologies`.
 - Si menciona *lenguajes, idiomas o programming languages*, usa `language_metrics` y une con `languages`.
@@ -370,14 +401,13 @@ Tienes acceso al siguiente esquema y relaciones entre tablas:
 - Los campos `id` pueden usarse internamente en `GROUP BY` o `JOIN`, pero no deben mostrarse en la salida final.
 
 Ejemplos previos:
-{$historyExamples}
-
+ 
 PROMPT;
 
 \Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
     'user_prompt' => $prompt,
     'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
-    'examples_text' => mb_substr($historyExamples, 0, 2000), // ejemplos de SQL previos
+     
     'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
 ]);
 
@@ -593,80 +623,73 @@ public function finalizeTraining(Request $request)
         return response()->json(['error' => 'SQL no validada o inexistente.'], 400);
     }
 
-    $prompt = $request->input('prompt');
+    $prompt       = $request->input('prompt');
     $voiceEnabled = filter_var($request->input('voice_enabled', false), FILTER_VALIDATE_BOOLEAN);
     $saveTraining = filter_var($request->input('save', false), FILTER_VALIDATE_BOOLEAN);
-    $limit = $request->input('limit');
+    $limit        = $request->input('limit');
 
     try {
-        // ============================================================
-        // 📊 1️⃣ Ejecutar SQL real en lugar de usar last_test_output
-        // ============================================================
-    $rawSql = trim((string) $sqlTraining->sql_validated ?? '');
+        /* ============================================================
+           1️⃣ Ejecutar SQL real
+        ============================================================ */
+        $rawSql = trim((string) $sqlTraining->sql_validated);
 
-if ($rawSql === '' || !str_starts_with(strtoupper($rawSql), 'SELECT')) {
-    return response()->json(['error' => 'El SQL del entrenamiento está vacío o no es una SELECT.'], 400);
-}
+        if ($rawSql === '' || !str_starts_with(strtoupper($rawSql), 'SELECT')) {
+            return response()->json(['error' => 'SQL inválido o no es SELECT.'], 400);
+        }
 
+        if (preg_match('/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|EXEC|CREATE|REPLACE|MERGE)\b/i', $rawSql)) {
+            return response()->json(['error' => '❌ Operación SQL no permitida.'], 400);
+        }
 
+        $results = DataSanitizer::cleanCollection(
+            collect(DB::select($rawSql)),
+            ['company' => fn ($v) => $v && $v !== '0' ? trim($v) : 'Sin nombre']
+        )->toArray();
 
-  if (preg_match('/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|EXEC|CREATE|REPLACE|MERGE)\b/i', $rawSql)) {
-    return response()->json(['error' => '❌ Se detectó una operación SQL no permitida.'], 400);
-}
-
-
-
- $rawSql = (string) ($sqlTraining->sql_validated ?? '');
-$rawSql = trim(str_replace(["\n", "\r"], ' ', $rawSql));
-
-if (!is_string($rawSql) || $rawSql === '') {
-    return response()->json(['error' => 'SQL inválido o vacío.'], 400);
-}
-
-// Ejecutar directamente sin DB::raw()
-$results = DataSanitizer::cleanCollection(collect(DB::select($rawSql)), [
-    'company' => fn($v) => $v && $v !== '0' ? trim($v) : 'Sin nombre',
-])->toArray();
-
-
-
-if (empty($results) || collect($results)->isEmpty()) {
-    return response()->json(['error' => 'La consulta no devolvió resultados válidos.'], 400);
-}
-
+        if (empty($results)) {
+            return response()->json(['error' => 'La consulta no devolvió resultados.'], 400);
+        }
 
         if ($limit !== null) {
             $results = array_slice($results, 0, (int) $limit);
         }
 
-        // ============================================================
-        // 💾 2️⃣ Exportar resultados a Excel (.xlsx)
-        // ============================================================
-        $filename = "observatorio_result_" . now()->format('Ymd_His') . ".xlsx";
+        /* ============================================================
+           2️⃣ Exportar Excel
+        ============================================================ */
+        $filename     = "observatorio_result_" . now()->format('Ymd_His') . ".xlsx";
         $relativePath = "sql_results/{$filename}";
 
-        Excel::store(new ArrayExport($results, [
-            'title' => 'Resultados del Observatorio ISIL',
-            'created_at' => now()->format('d/m/Y H:i'),
-        ]), $relativePath, 'public');
+        Excel::store(
+            new ArrayExport($results, [
+                'title' => 'Resultados del Observatorio ISIL',
+                'created_at' => now()->format('d/m/Y H:i'),
+            ]),
+            $relativePath,
+            'public'
+        );
 
         $excelPath = asset("storage/{$relativePath}");
 
-        // ============================================================
-        // 🧠 3️⃣ Generar explicación con OpenAI (IA dinámica)
-        // ============================================================
+        /* ============================================================
+           3️⃣ Generar TEXTO CORTO (summary para card)
+        ============================================================ */
         $contextPrompt = "
-Eres **VERA**, la analista de datos institucional del Observatorio Tecnológico ISIL**.
+Eres VERA, analista del Observatorio ISIL.
 
-Debes analizar los siguientes datos en JSON y explicar qué revelan, en el contexto de empleabilidad tecnológica y demanda laboral.
+Genera una descripción MUY BREVE (máx. 12 palabras) para un gráfico de dashboard.
 
-JSON de entrada:
-" . json_encode($results, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "
+Datos:
+" . json_encode($results, JSON_UNESCAPED_UNICODE) . "
 
-Instrucciones:
-- No hables de SQL ni de consultas.
-- Describe los patrones, tendencias o jerarquías.
-- Si detectas rankings, explica por qué esos elementos son los más importantes.
+Reglas:
+- Máximo 12 palabras
+- Una sola frase
+- Sin números largos
+- Sin porcentajes
+- Sin fechas
+- Estilo ejecutivo
 ";
 
         $res = Http::withToken(env('OPENAI_API_KEY'))->post(
@@ -676,41 +699,42 @@ Instrucciones:
                 'messages' => [
                     ['role' => 'system', 'content' => 'Eres VERA, analista institucional del Observatorio ISIL.'],
                     ['role' => 'user', 'content' => $contextPrompt],
-                    ['role' => 'user', 'content' => "Prompt original del usuario: {$prompt}"],
                 ],
-                'temperature' => 0.45,
-                'max_tokens' => 300,
+                'temperature' => 0.3,
+                'max_tokens' => 50,
             ]
         );
 
         if (!$res->ok()) {
-            Log::error('💥 Error HTTP OpenAI (finalize)', [
-                'status' => $res->status(),
-                'body' => $res->body(),
-            ]);
-            return response()->json(['error' => 'Error al conectar con OpenAI'], 500);
+            return response()->json(['error' => 'Error al generar resumen IA'], 500);
         }
 
-        $aiResponse = trim($res->json('choices.0.message.content') ?? 'No se pudo generar explicación contextual.');
+        $summaryText = trim($res->json('choices.0.message.content'));
 
-        // ============================================================
-        // 🔊 4️⃣ Generar voz si está activado
-        // ============================================================
+        /* ============================================================
+           4️⃣ Guardar SUMMARY en sqltrainings (CLAVE 🔑)
+        ============================================================ */
+        DB::table('sqltrainings')->where('id', $sqlTraining->id)->update([
+            'summary'    => $summaryText,
+            'updated_at'=> now(),
+        ]);
+
+        /* ============================================================
+           5️⃣ Voz (opcional)
+        ============================================================ */
         $voiceUrl = null;
-        if ($voiceEnabled && !empty($aiResponse)) {
+        if ($voiceEnabled && $summaryText) {
             try {
-                $voiceRes = Http::post(route('api.ai.voice.speak'), ['text' => $aiResponse]);
-                if ($voiceRes->ok() && isset($voiceRes->json()['url'])) {
-                    $voiceUrl = $voiceRes->json()['url'];
+                $voiceRes = Http::post(route('api.ai.voice.speak'), ['text' => $summaryText]);
+                if ($voiceRes->ok()) {
+                    $voiceUrl = $voiceRes->json()['url'] ?? null;
                 }
-            } catch (\Throwable $e) {
-                Log::warning('⚠️ Error generando voz para análisis', ['error' => $e->getMessage()]);
-            }
+            } catch (\Throwable $e) {}
         }
 
-        // ============================================================
-        // 💽 5️⃣ Guardar entrenamiento (solo contexto, no JSON)
-        // ============================================================
+        /* ============================================================
+           6️⃣ Guardar entrenamiento completo (opcional)
+        ============================================================ */
         $trainingId = null;
         if ($saveTraining) {
             $trainingId = DB::table('aitrainings')->insertGetId([
@@ -718,12 +742,11 @@ Instrucciones:
                 'prompt' => $prompt,
                 'interpreter' => 'AITrainingController@finalizeTraining',
                 'component' => 'vera-training',
-                'description' => 'Análisis dinámico de resultados del Observatorio ISIL.',
-                'explanation_prompt' => $contextPrompt,
+                'description' => $summaryText, // 🔥 reutilizable
                 'cached_response' => json_encode([
-                    'explanation' => $aiResponse,
-                    'excel' => $excelPath,
-                    'voice' => $voiceUrl,
+                    'summary' => $summaryText,
+                    'excel'   => $excelPath,
+                    'voice'   => $voiceUrl,
                 ], JSON_UNESCAPED_UNICODE),
                 'sql_training_id' => $sqlTraining->id,
                 'is_trained' => 1,
@@ -733,31 +756,26 @@ Instrucciones:
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-
-            Log::info('✅ Entrenamiento vinculado correctamente', [
-                'ai_training_id' => $trainingId,
-                'sql_training_id' => $sqlTraining->id
-            ]);
         }
 
-        // ============================================================
-        // ✅ 6️⃣ Respuesta final al frontend
-        // ============================================================
+        /* ============================================================
+           7️⃣ Respuesta FINAL
+        ============================================================ */
         return response()->json([
-            'training_id' => $trainingId,
+            'training_id'     => $trainingId,
             'sql_training_id' => $sqlTraining->id,
-            'ai_response' => $aiResponse,
-            'excel_path' => $excelPath,
-            'voice_url' => $voiceUrl,
+            'summary'         => $summaryText, // 👈 PARA EL CARD
+            'excel_path'      => $excelPath,
+            'voice_url'       => $voiceUrl,
             'message' => $saveTraining
-                ? '🎓 Entrenamiento y análisis guardados correctamente.'
-                : '💡 Análisis generado correctamente (sin guardar).',
+                ? '🎓 Entrenamiento guardado con resumen.'
+                : '💡 Resumen generado correctamente.',
         ]);
 
     } catch (\Throwable $e) {
-        Log::error('💥 Error finalizando análisis observatorio', ['error' => $e->getMessage()]);
+        Log::error('💥 Error finalizeTraining', ['error' => $e->getMessage()]);
         return response()->json([
-            'error' => 'Error al finalizar análisis observatorio.',
+            'error' => 'Error al finalizar análisis.',
             'details' => $e->getMessage(),
         ], 500);
     }
