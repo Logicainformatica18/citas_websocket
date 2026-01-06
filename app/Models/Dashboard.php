@@ -11,13 +11,27 @@ class Dashboard extends Model
 
     protected $fillable = [
         'title',
+        'slug',          // 👈 CLAVE para navegación por URL
         'description',
         'layout_type',
         'is_default',
     ];
 
+    /* =====================================================
+       Relaciones
+    ===================================================== */
     public function widgets()
     {
         return $this->hasMany(DashboardWidget::class);
+    }
+
+    /* =====================================================
+       Helpers útiles (opcional pero recomendado)
+    ===================================================== */
+
+    // URL directa del dashboard
+    public function getUrlAttribute(): string
+    {
+        return route('dashboard.show', $this->slug);
     }
 }

@@ -66,6 +66,103 @@ const LOVABLE_DEFAULT_PALETTE = [
 ];
 
 import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
+const humanizeMetric = (key?: string) => {
+  if (!key) return "";
+
+  return key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+const PieTooltip = ({ active, payload, theme, metricKey }) => {
+  if (!active || !payload?.length) return null;
+
+  const item = payload[0];
+  const percent = (item.percent * 100).toFixed(1);
+
+  return (
+    <div
+      style={{
+        background: theme.tooltipBg,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 12,
+        padding: "10px 14px",
+        color: theme.text,
+        boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+        fontSize: 13,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {item.name}
+      </div>
+
+      <div style={{ color: item.color }}>
+        {humanizeMetric(metricKey)}:{" "}
+        <strong>{item.value}</strong>
+      </div>
+
+      <div style={{ opacity: 0.75 }}>
+        {percent}%
+      </div>
+    </div>
+  );
+};
+
+const UniversalTooltip = ({ active, payload, label, metricKey, theme }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div
+      style={{
+        background: theme.tooltipBg,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 12,
+        padding: "10px 14px",
+        color: theme.text,
+        boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+        fontSize: 13,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {label}
+      </div>
+
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color || "#38BDF8" }}>
+          {humanizeMetric(metricKey)}:{" "}
+          <strong>{p.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DynamicBarTooltip = ({ active, payload, label, metricKey }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div
+      style={{
+        background: "#020617",
+        border: "1px solid #334155",
+        borderRadius: 12,
+        padding: "10px 14px",
+        color: "#E5F3F9",
+        boxShadow: "0 10px 25px rgba(0,0,0,0.45)",
+        fontSize: 13,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {label}
+      </div>
+
+      <div style={{ color: "#38BDF8" }}>
+        {humanizeMetric(metricKey)}:{" "}
+        <strong>{payload[0].value}</strong>
+      </div>
+    </div>
+  );
+};
 
 
 
@@ -461,15 +558,20 @@ useEffect(() => {
                                     />
 
 
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: theme.tooltipBg,
-                                            border: `1px solid ${theme.border}`,
-                                            color: theme.text,
-                                            borderRadius: 10,
-                                            boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                                        }}
-                                    />
+               <Tooltip
+  content={(props) => (
+    <UniversalTooltip
+      {...props}
+      metricKey={numericKeys[0]}
+      theme={theme}
+    />
+  )}
+  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+/>
+
+
+
+
 
                                     <Bar dataKey={numericKeys[0]} radius={[6, 6, 0, 0]}>
                                         {filteredData.map((_, index) => (
@@ -558,13 +660,16 @@ useEffect(() => {
                                 tickLine={false}
                             />
 
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: theme.tooltipBg,
-                                    border: `1px solid ${theme.border}`,
-                                    color: theme.text,
-                                }}
-                            />
+                          <Tooltip
+  content={(props) => (
+    <UniversalTooltip
+      {...props}
+      metricKey={numericKeys[0]}
+      theme={theme}
+    />
+  )}
+/>
+
                             <Legend wrapperStyle={{ color: theme.text }} />
                             {numericKeys.map((key, i) => (
                                 <Line
@@ -581,44 +686,45 @@ useEffect(() => {
                     </ResponsiveContainer>
                 )}
 
-                {widget.chart_type === "pie" && (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={filteredData}
+              {widget.chart_type === "pie" && (
+  <ResponsiveContainer width="100%" height="100%">
+    <PieChart>
+      <Pie
+        data={filteredData}
+        dataKey={numericKeys[0]}
+        nameKey={categoryKey}
+        cx="35%"
+        cy="50%"
+        outerRadius="80%"
+      >
+        {filteredData.map((entry, index) => (
+          <Cell
+            key={`pie-${entry[categoryKey]}-${index}`}
+            fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
+          />
+        ))}
+      </Pie>
 
-                                dataKey={numericKeys[0] || "value"}
-                                nameKey={categoryKey}
-                                cx="35%"
-                                cy="50%"
-                                outerRadius="80%"
-                                // 👇 Label solo con porcentaje
-                                label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
-                            >
-                                {filteredData.map((entry, index) => (
-                                    <Cell
-                                        key={`pie-${entry[categoryKey]}-${index}`} // 🔥 clave estable
-                                        fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
-                                    />
-                                ))}
+      <Tooltip
+        content={(props) => (
+          <PieTooltip
+            {...props}
+            metricKey={numericKeys[0]}
+            theme={theme}
+          />
+        )}
+      />
 
-                            </Pie>
+      <Legend
+        layout="vertical"
+        align="right"
+        verticalAlign="middle"
+        wrapperStyle={{ color: theme.text }}
+      />
+    </PieChart>
+  </ResponsiveContainer>
+)}
 
-                            <Tooltip
-                                formatter={(value: number, name: string, props: any) => {
-                                    const total = normalizedData.reduce(
-                                        (sum, item) => sum + item[numericKeys[0] || "value"],
-                                        0
-                                    );
-                                    const percent = ((value / total) * 100).toFixed(1) + "%";
-                                    return [`${value} (${percent})`, name];
-                                }}
-                            />
-
-                            <Legend layout="vertical" align="right" verticalAlign="middle" />
-                        </PieChart>
-                    </ResponsiveContainer>
-                )}
 
 
 

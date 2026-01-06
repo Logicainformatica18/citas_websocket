@@ -451,7 +451,11 @@ Route::prefix('tech-positions')->group(function () {
         ->name('tech_positions.toggle');
 });
 
-
+Route::prefix('dashboard')->group(function () {
+    Route::get('/', [DashboardController::class, 'index']);
+    Route::get('/{slug}', [DashboardController::class, 'show']);
+    Route::post('/', [DashboardController::class, 'store']);
+});
 });
 
 

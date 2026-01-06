@@ -42,6 +42,34 @@ const ISIL_CHART_PALETTE = [
     "#0369A1",
     "#075985",
 ];
+const DarkTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const row = payload[0].payload;
+
+  return (
+    <div
+      style={{
+        background: "#020617",
+        border: "1px solid #334155",
+        color: "#E5E7EB",
+        padding: "10px 14px",
+        borderRadius: "10px",
+        boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+        fontSize: "13px",
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {label}
+      </div>
+
+      <div style={{ color: "#38BDF8" }}>
+        demanda: <strong>{row[numericKeys[0]]}</strong>
+      </div>
+    </div>
+  );
+};
+
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
 console.log(
@@ -64,6 +92,7 @@ console.log(
             grid: "#0A4E61",
         },
     };
+const [hovered, setHovered] = useState(null);
 
 
     const isDark = document.documentElement.classList.contains("dark");
@@ -83,6 +112,7 @@ console.log(
             ? JSON.parse(widget.colors)
             : widget.colors || {}),
     });
+
 
 
     const handleDelete = async () => {
@@ -359,49 +389,22 @@ console.log(
                         {/* 🧩 Gráfico principal */}
                         <div style={{ flex: 1, minHeight: "240px" }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={filteredData}
+                               <BarChart
+  data={filteredData}
+  margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+  onMouseMove={(state) => {
+    if (state?.activePayload?.length) {
+      setHovered({
+        label: state.activeLabel,
+        value: state.activePayload[0].value,
+        x: state.chartX,
+        y: state.chartY,
+      });
+    }
+  }}
+  onMouseLeave={() => setHovered(null)}
+>
 
-                                    margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
-                                >
-                                    <CartesianGrid
-                                        stroke={colors.grid}
-                                        strokeDasharray="2 6"
-                                        vertical={false}
-                                    />
-
-                                  <XAxis
-  dataKey={categoryKey}
-  tick={{ fill: colors.text, fontSize: 12 }}
-  axisLine={false}
-  tickLine={false}
-/>
-
-
-                                    <YAxis
-                                        stroke={colors.text}
-                                        tick={{ fill: colors.text, fontSize: 12 }}
-                                        axisLine={false}
-                                    />
-
-
-
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: colors.bg,
-                                            border: `1px solid ${colors.border}`,
-                                            color: colors.text,
-                                        }}
-                                    />
-
-                                <Bar dataKey={numericKeys[0] || "value"}>
-  {normalizedData.map((entry, index) => (
-    <Cell fill={ISIL_CHART_PALETTE[index % ISIL_CHART_PALETTE.length]} />
-  ))}
-</Bar>
-
-
-                                </BarChart>
                             </ResponsiveContainer>
                         </div>
 
@@ -492,6 +495,7 @@ console.log(
 
 
                     </ResponsiveContainer>
+                    
                 )}
 
                 {widget.chart_type === "pie" && (
@@ -517,16 +521,10 @@ console.log(
                                 ))}
                             </Pie>
 
-                            <Tooltip
-                                formatter={(value: number, name: string, props: any) => {
-                                    const total = normalizedData.reduce(
-                                        (sum, item) => sum + item[numericKeys[0] || "value"],
-                                        0
-                                    );
-                                    const percent = ((value / total) * 100).toFixed(1) + "%";
-                                    return [`${value} (${percent})`, name];
-                                }}
-                            />
+                           <Tooltip
+  content={<DarkTooltip />}
+  cursor={{ fill: "rgba(255,255,255,0.05)" }}
+/>
 
                             <Legend layout="vertical" align="right" verticalAlign="middle" />
                         </PieChart>
