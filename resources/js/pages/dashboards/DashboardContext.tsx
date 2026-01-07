@@ -19,6 +19,10 @@ type DashboardContextType = {
     instruction?: any
   ) => void;
 
+  /** 🧠 DASHBOARD ACTIVO (🔥 FALTABA) */
+  activeDashboard: any | null;
+  setActiveDashboard: (d: any) => void;
+
   /** 🔄 REFRESH DASHBOARD */
   refreshKey: number;
   isRefreshing: boolean;
@@ -26,12 +30,13 @@ type DashboardContextType = {
   stopRefreshing: () => void;
 };
 
+
 const DashboardContext = createContext<DashboardContextType | undefined>(
   undefined
 );
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-    
+
   /** ===== DATA IA ===== */
   const [data, setData] = useState<DashboardData>({
     results: null,
@@ -40,6 +45,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     component: null,
     topic: null,
   });
+/** 🧠 DASHBOARD ACTIVO */
+const [activeDashboard, setActiveDashboard] = useState<any | null>(null);
 
   /** ===== REFRESH STATE ===== */
   const [refreshKey, setRefreshKey] = useState(0);
@@ -71,7 +78,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       value={{
         data,
         updateDashboard,
-
+  activeDashboard,        // 🔥
+    setActiveDashboard,     // 🔥
         refreshKey,
         isRefreshing,
         refreshDashboard,

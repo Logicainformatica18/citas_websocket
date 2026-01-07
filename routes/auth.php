@@ -78,8 +78,8 @@ Route::middleware('auth')->group(function () {
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     // 🔄 ACTUALIZAR PASSWORD
-    Route::put('password', [PasswordController::class, 'update'])
-        ->name('password.update');
+    // Route::put('password', [PasswordController::class, 'update'])
+    //     ->name('password.update');
 
     // 🚪 LOGOUT LOCAL
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])

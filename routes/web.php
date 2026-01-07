@@ -42,7 +42,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use Inertia\Inertia;
 use App\Http\Controllers\Dashboard\RankingCertificacionesController;
-
+use App\Http\Controllers\AI\DashboardWidgetController;
 Route::middleware(['auth'])->group(function () {
 
     Route::get(
@@ -87,12 +87,35 @@ Route::get('/__auth-debug', function () {
 });
 
 
-
-Route::get('/', function () {
-    return redirect("dashboard");
-});
+ Route::get('/', function () {
+    return redirect('/dashboard');
+ });
 
 Route::middleware(['auth'])->group(function () {
+
+Route::prefix('dashboard')->group(function () {
+
+        Route::get('/', [DashboardController::class, 'index'])
+            ->name('dashboard.index');
+
+        Route::get('/{slug}', [DashboardController::class, 'show'])
+            ->name('dashboard.show');
+
+        Route::post('/', [DashboardController::class, 'store'])
+            ->name('dashboard.store');
+    });
+Route::prefix('dashboard')->group(function () {
+
+    Route::get('/widgets', [DashboardWidgetController::class, 'index']);
+    Route::post('/widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
+    Route::put('/widgets/{id}', [DashboardWidgetController::class, 'update']);
+    Route::delete('/widgets/{id}', [DashboardWidgetController::class, 'destroy']);
+    Route::post('/widgets/reorder', [DashboardWidgetController::class, 'reorder']);
+    Route::post('/widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
+    Route::put('/widgets/{id}/filters', [DashboardWidgetController::class, 'saveFilters']);
+
+});
+
 
 
 Route::get('/dashboard_vera', function () {
@@ -451,11 +474,7 @@ Route::prefix('tech-positions')->group(function () {
         ->name('tech_positions.toggle');
 });
 
-Route::prefix('dashboard')->group(function () {
-    Route::get('/', [DashboardController::class, 'index']);
-    Route::get('/{slug}', [DashboardController::class, 'show']);
-    Route::post('/', [DashboardController::class, 'store']);
-});
+
 });
 
 

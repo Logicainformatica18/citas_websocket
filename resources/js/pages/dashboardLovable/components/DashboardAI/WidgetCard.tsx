@@ -168,11 +168,7 @@ const DynamicBarTooltip = ({ active, payload, label, metricKey }) => {
 
 export default function WidgetCard({ widget, onColorChange, onDelete }) {
 
-     console.log("SUMMARY DEBUG", {
-    widgetSummary: widget.summary,
-    dataSourceSummary: widget.data_source?.summary,
-    fullWidget: widget,
-  });
+
 
 
     const theme = useLovableChartTheme();

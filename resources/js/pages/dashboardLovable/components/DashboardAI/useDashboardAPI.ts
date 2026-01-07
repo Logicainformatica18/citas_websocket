@@ -1,64 +1,91 @@
 import axios from "axios";
 
-export async function fetchWidgets() {
-  const res = await axios.get("/api/ai/dashboard-widgets?dashboard_id=1");
+/* ======================================================
+   📊 WIDGETS – API (OBLIGATORIO dashboardId)
+====================================================== */
+
+export async function fetchWidgets(setActiveDashboard?: (d: any) => void) {
+  const res = await axios.get('/api/ai/dashboards/1/widgets');
+
+  if (setActiveDashboard && res.data.dashboard) {
+    setActiveDashboard(res.data.dashboard); // 🔥 AQUÍ
+  }
+
   return res.data.widgets;
 }
 
-export async function reorderWidgets(widgets: any[]) {
-  return axios.post("/api/ai/dashboard-widgets/reorder", { widgets });
+
+export async function reorderWidgets(
+  dashboardId: number,
+  widgets: any[]
+) {
+  return axios.post(
+    `/api/ai/dashboards/${dashboardId}/widgets/reorder`,
+    { widgets }
+  );
 }
 
-export async function updateWidget(id: number, data: any) {
-  return axios.put(`/api/ai/dashboard-widgets/${id}`, data);
+export async function updateWidget(
+  dashboardId: number,
+  widgetId: number,
+  data: any
+) {
+  return axios.put(
+    `/api/ai/dashboards/${dashboardId}/widgets/${widgetId}`,
+    data
+  );
 }
 
-export async function deleteWidget(id: number) {
-  return axios.delete(`/api/ai/dashboard-widgets/${id}`);
+export async function deleteWidget(
+  dashboardId: number,
+  widgetId: number
+) {
+  return axios.delete(
+    `/api/ai/dashboards/${dashboardId}/widgets/${widgetId}`
+  );
 }
 
-/**
- * 📋 Obtener todas las secciones del dashboard
- */
-export async function fetchSections(dashboardId = 1) {
-  const res = await axios.get(`/api/ai/dashboard-sections/${dashboardId}`);
-  return res.data.sections;
+export async function updateWidgetColor(
+  dashboardId: number,
+  widgetId: number,
+  color: string,
+  field: "primary" | "bg" | "text" | "border" = "primary"
+) {
+  return axios.patch(
+    `/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/color`,
+    { color, field }
+  );
 }
 
-/**
- * ➕ Crear nueva sección
- */
-export async function createSection(data: any) {
-  return axios.post("/api/ai/dashboard-sections", data);
-}
-
-/**
- * ✏️ Actualizar sección (título, descripción, posición, etc.)
- */
-export async function updateSection(id: number, data: any) {
-  return axios.post(`/api/ai/dashboard-sections/${id}/update`, data);
-}
-
-/**
- * 🗑️ Eliminar sección
- */
-export async function deleteSection(id: number) {
-  return axios.delete(`/api/ai/dashboard-sections/${id}`);
-}
-export async function segmentWidget(widgetId: number, filters: Record<string, any>) {
-  const res = await axios.post(`/api/ai/dashboard-widgets/${widgetId}/segment`, { filters });
-  return res.data;
-}
-/**
- * 💾 Guardar filtros del widget (persistencia)
- */
 export async function saveWidgetFilters(
+  dashboardId: number,
   widgetId: number,
   activeLabels: string[]
 ) {
-  return axios.put(`/api/ai/dashboard-widgets/${widgetId}/filters`, {
-    filters: {
-      activeLabels,
-    },
-  });
+  return axios.post(
+    `/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/filters`,
+    { filters: { activeLabels } }
+  );
+}
+
+export async function createWidgetFromTraining(
+  dashboardId: number,
+  training_id: number,
+  chart_type: string
+) {
+  return axios.post(
+    `/api/ai/dashboards/${dashboardId}/widgets/from-training`,
+    { training_id, chart_type }
+  );
+}
+
+export async function segmentWidget(
+  widgetId: number,
+  filters: Record<string, any>
+) {
+  const res = await axios.post(
+    `/api/ai/dashboard-widgets/${widgetId}/segment`,
+    { filters }
+  );
+  return res.data;
 }

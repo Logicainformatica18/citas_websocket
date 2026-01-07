@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use App\Models\Dashboard;
 
 class DashboardController extends Controller
@@ -20,12 +18,12 @@ class DashboardController extends Controller
         $dashboard = Dashboard::where('is_default', 1)->first()
             ?? Dashboard::orderBy('id')->first();
 
+        // Si no existe ninguno, crear el inicial
         if (!$dashboard) {
-            // Si no existe ninguno, crea uno
             $dashboard = Dashboard::create([
-                'title'       => 'Dashboard Principal',
-                'slug'        => 'dashboard-principal',
-                'is_default'  => 1,
+                'title'      => 'Dashboard Principal',
+                'slug'       => 'dashboard-principal',
+                'is_default' => 1,
             ]);
         }
 
@@ -34,21 +32,23 @@ class DashboardController extends Controller
 
     /* =====================================================
        2️⃣ SHOW
-       → Muestra un dashboard específico
+       → Muestra un dashboard específico con sus widgets
     ===================================================== */
     public function show(string $slug)
     {
+        // Lista para tabs
         $dashboards = Dashboard::orderBy('created_at')->get();
 
+        // Dashboard activo
         $dashboard = Dashboard::where('slug', $slug)->firstOrFail();
 
-        $widgets = DB::table('dashboard_widgets')
-            ->where('dashboard_id', $dashboard->id)
+        // Widgets SOLO de este dashboard (regla de oro)
+        $widgets = $dashboard->widgets()
             ->orderBy('position_y')
             ->orderBy('position_x')
             ->get();
 
-        return Inertia::render('dashboards/Dashboard', [
+        return Inertia::render('dashboardLovable/DashboardLovable', [
             'dashboards'      => $dashboards,
             'activeDashboard' => $dashboard,
             'widgets'         => $widgets,
@@ -66,10 +66,10 @@ class DashboardController extends Controller
         ]);
 
         $slug = Str::slug($request->title);
-
-        // Evitar colisiones de slug
         $originalSlug = $slug;
         $i = 1;
+
+        // Evitar colisiones de slug
         while (Dashboard::where('slug', $slug)->exists()) {
             $slug = "{$originalSlug}-{$i}";
             $i++;

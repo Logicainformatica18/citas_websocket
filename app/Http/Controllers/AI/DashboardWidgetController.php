@@ -5,52 +5,68 @@ namespace App\Http\Controllers\AI;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Dashboard;
 use Illuminate\Support\Facades\Log;
 class DashboardWidgetController extends Controller
 {
 public function index(Request $request)
 {
-    $dashboardId = $request->get('dashboard_id', 1);
+    // 1️⃣ Obtener dashboard activo (default o primero)
+    $dashboard = Dashboard::where('is_default', 1)->first()
+        ?? Dashboard::orderBy('id')->first();
 
-    $widgets = DB::table('dashboard_widgets')
-        ->where('dashboard_id', $dashboardId)
-        ->orderBy('id')
-        ->get()
-       ->map(function ($w) {
-
-    $dataSource = json_decode($w->data_source ?? '{}', true) ?? [];
-
-    // 🔥 FALLBACK DE SUMMARY
-    if (
-        empty($dataSource['summary']) &&
-        !empty($dataSource['sql_training_id'])
-    ) {
-        $summary = DB::table('sqltrainings')
-            ->where('id', $dataSource['sql_training_id'])
-            ->value('summary');
-
-        if ($summary) {
-            $dataSource['summary'] = $summary;
-        }
+    if (!$dashboard) {
+        return response()->json([
+            'widgets' => [],
+        ]);
     }
 
-    $w->data_source = array_merge([
-        'type' => null,
-        'rows' => [],
-        'summary' => '',
-    ], $dataSource);
+    // 2️⃣ Obtener widgets SOLO de ese dashboard
+    $widgets = DB::table('dashboard_widgets')
+        ->where('dashboard_id', $dashboard->id)
+        ->orderBy('position_y')
+        ->orderBy('position_x')
+        ->get()
+        ->map(function ($w) {
 
-    $w->colors = json_decode($w->colors ?? '{}', true) ?? [];
-    $w->options = json_decode($w->options ?? '{}', true) ?? [];
+            $dataSource = json_decode($w->data_source ?? '{}', true) ?? [];
 
-    return $w;
-});
+            // 🔥 fallback summary
+            if (
+                empty($dataSource['summary']) &&
+                !empty($dataSource['sql_training_id'])
+            ) {
+                $summary = DB::table('sqltrainings')
+                    ->where('id', $dataSource['sql_training_id'])
+                    ->value('summary');
+
+                if ($summary) {
+                    $dataSource['summary'] = $summary;
+                }
+            }
+
+            $w->data_source = array_merge([
+                'type' => null,
+                'rows' => [],
+                'summary' => '',
+            ], $dataSource);
+
+            $w->colors  = json_decode($w->colors ?? '{}', true) ?? [];
+            $w->options = json_decode($w->options ?? '{}', true) ?? [];
+
+            return $w;
+        });
 
     return response()->json([
-        'dashboard_id' => $dashboardId,
+        'dashboard' => [
+            'id'    => $dashboard->id,
+            'title' => $dashboard->title,
+            'slug'  => $dashboard->slug,
+        ],
         'widgets' => $widgets,
     ]);
 }
+
 
 
 public function storeFromTraining(Request $request)
@@ -61,13 +77,23 @@ public function storeFromTraining(Request $request)
             'chart_type'  => 'required|string',
         ]);
 
-        // 1️⃣ Entrenamiento
+        // 1️⃣ Resolver dashboard activo
+        $dashboard = Dashboard::where('is_default', 1)->first()
+            ?? Dashboard::orderBy('id')->first();
+
+        if (!$dashboard) {
+            return response()->json([
+                'error' => 'No existe un dashboard activo'
+            ], 400);
+        }
+
+        // 2️⃣ Entrenamiento
         $training = DB::table('aitrainings')->find($validated['training_id']);
         if (!$training || !$training->sql_training_id) {
             return response()->json(['error' => 'Entrenamiento inválido'], 400);
         }
 
-        // 2️⃣ SQL Training
+        // 3️⃣ SQL Training
         $sqlTraining = DB::table('sqltrainings')->find($training->sql_training_id);
         if (!$sqlTraining || $sqlTraining->test_status !== 'ok') {
             return response()->json(['error' => 'SQL no validada'], 400);
@@ -80,7 +106,7 @@ public function storeFromTraining(Request $request)
             return response()->json(['error' => 'SQL vacía'], 400);
         }
 
-        // 3️⃣ Ejecutar SQL
+        // 4️⃣ Ejecutar SQL
         $rows = DB::select($query);
 
         $cleanRows = collect($rows)->map(function ($row) {
@@ -89,140 +115,236 @@ public function storeFromTraining(Request $request)
                 if (is_numeric($v)) $out[$k] = (float) $v;
                 elseif (is_null($v)) $out[$k] = 0;
                 elseif (is_bool($v)) $out[$k] = $v ? 1 : 0;
-                elseif (is_string($v)) $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
-                else $out[$k] = $v;
+                elseif (is_string($v)) {
+                    $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
+                } else {
+                    $out[$k] = $v;
+                }
             }
             return $out;
         })->values()->toArray();
 
-        // 4️⃣ Crear Widget (SUMMARY EN COLUMNA)
+        // 5️⃣ Crear widget
         $widgetId = DB::table('dashboard_widgets')->insertGetId([
-            'dashboard_id'   => 1,
+            'dashboard_id'   => $dashboard->id,
             'ai_training_id' => $training->id,
             'title'          => $training->prompt,
-            'summary'        => $summary, // ✅ AQUÍ ESTÁ LA CLAVE
+            'summary'        => $summary,
             'chart_type'     => $validated['chart_type'],
             'data_source'    => json_encode([
-                'type' => 'sql',
+                'type'            => 'sql',
                 'sql_training_id' => $training->sql_training_id,
-                'sql_query' => $query,
-                'rows' => $cleanRows,
+                'sql_query'       => $query,
+                'rows'            => $cleanRows,
             ], JSON_UNESCAPED_UNICODE),
             'colors' => json_encode([
-                'primary' => '#1E88E5',
+                'primary'   => '#1E88E5',
                 'secondary' => '#90CAF9',
             ]),
             'position_x' => 0,
             'position_y' => 0,
-            'width'  => 4,
-            'height' => 3,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'width'      => 4,
+            'height'     => 3,
+            'created_at'=> now(),
+            'updated_at'=> now(),
         ]);
 
         return response()->json([
             'message'   => '📊 Widget creado correctamente',
-            'widget_id'=> $widgetId,
-            'summary'  => $summary,
+            'widget_id' => $widgetId,
         ]);
 
     } catch (\Throwable $e) {
-        Log::error('💥 storeFromTraining', ['error' => $e->getMessage()]);
-        return response()->json(['error' => 'Error inesperado'], 500);
+        Log::error('💥 storeFromTraining', [
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'error' => 'Error inesperado al crear el widget'
+        ], 500);
+    }
+}
+
+public function store(Request $request, int $dashboard)
+{
+    Log::info('🧱 [DashboardSection@store] HIT', [
+        'dashboard_param' => $dashboard,
+        'payload' => $request->all(),
+    ]);
+
+    // 1️⃣ Verificar dashboard
+    $exists = DB::table('dashboards')->where('id', $dashboard)->exists();
+
+    Log::info('🧱 [DashboardSection@store] Dashboard exists?', [
+        'dashboard_id' => $dashboard,
+        'exists' => $exists,
+    ]);
+
+    if (!$exists) {
+        Log::warning('❌ Dashboard no válido', [
+            'dashboard_id' => $dashboard,
+        ]);
+
+        return response()->json([
+            'error' => 'Dashboard no válido'
+        ], 404);
+    }
+
+    // 2️⃣ Validación
+    try {
+        $validated = $request->validate([
+            'title'    => 'required|string|max:255',
+            'position' => 'nullable|integer|min:0',
+            'height'   => 'nullable|integer|min:1',
+            'colors'   => 'nullable|array',
+        ]);
+
+        Log::info('✅ [DashboardSection@store] Payload validado', [
+            'validated' => $validated,
+        ]);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+
+        Log::error('❌ [DashboardSection@store] VALIDATION FAILED', [
+            'errors' => $e->errors(),
+            'payload' => $request->all(),
+        ]);
+
+        // re-lanzar para que Laravel devuelva 422 normal
+        throw $e;
+    }
+
+    // 3️⃣ Colores por defecto
+    $defaultColors = [
+        'bg'     => '#0f172a',
+        'text'   => '#60a5fa',
+        'border' => '#1e293b',
+    ];
+
+    // 4️⃣ Insert
+    try {
+        $id = DB::table('dashboard_sections')->insertGetId([
+            'dashboard_id' => $dashboard,
+            'title'        => $validated['title'],
+            'position'     => $validated['position'] ?? 0,
+            'height'       => $validated['height'] ?? 1,
+            'colors'       => json_encode(
+                $validated['colors'] ?? $defaultColors,
+                JSON_UNESCAPED_UNICODE
+            ),
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        Log::info('✅ [DashboardSection@store] Sección creada', [
+            'section_id' => $id,
+            'dashboard_id' => $dashboard,
+        ]);
+
+        return response()->json([
+            'message' => '✅ Sección creada correctamente',
+            'section' => DB::table('dashboard_sections')->find($id),
+        ], 201);
+
+    } catch (\Throwable $e) {
+
+        Log::error('💥 [DashboardSection@store] ERROR INSERTANDO', [
+            'exception' => $e,
+            'message' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'error' => 'Error creando la sección'
+        ], 500);
     }
 }
 
 
 
-public function store(Request $request)
+public function update(Request $request, int $dashboard, int $widget)
 {
-    $validated = $request->validate([
-        'dashboard_id' => 'required|integer|exists:dashboards,id',
-        'type' => 'required|string|in:chart,heading,divider',
-        'title' => 'nullable|string|max:255',
-        'chart_type' => 'nullable|string',
-        'text' => 'nullable|string',
-        'group_id' => 'nullable|integer|exists:dashboard_widgets,id',
-        'data_source' => 'nullable|json',
-        'colors' => 'nullable|json',
-        'primary_color' => 'nullable|string|max:10',
-        'position_x' => 'nullable|integer',
-        'position_y' => 'nullable|integer',
-        'width' => 'nullable|integer',
-        'height' => 'nullable|integer',
-    ]);
+    $row = DB::table('dashboard_widgets')
+        ->where('id', $widget)
+        ->where('dashboard_id', $dashboard)
+        ->first();
 
-    $id = DB::table('dashboard_widgets')->insertGetId(array_merge($validated, [
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]));
-
-    return response()->json(['message' => '✅ Widget creado correctamente.', 'id' => $id]);
-}
-public function update(Request $request, $id)
-{
-    $widget = DB::table('dashboard_widgets')->find($id);
-    if (!$widget) {
-        return response()->json(['error' => 'Widget no encontrado.'], 404);
+    if (!$row) {
+        return response()->json([
+            'error' => 'Widget no encontrado en este dashboard.',
+        ], 404);
     }
 
     $data = $request->validate([
-        'title' => 'nullable|string',
+        'title'      => 'nullable|string|max:255',
         'chart_type' => 'nullable|string',
-        'colors' => 'nullable',
+        'colors'     => 'nullable',
         'position_x' => 'nullable|integer',
         'position_y' => 'nullable|integer',
-        'width' => 'nullable|integer',
-        'height' => 'nullable|integer',
+        'width'      => 'nullable|integer',
+        'height'     => 'nullable|integer',
     ]);
 
-    // 🧩 Mezclar colores nuevos con existentes
     if (isset($data['colors'])) {
-        $existingColors = json_decode($widget->colors, true) ?? [
-            'bg' => '#1e293b',
-            'text' => '#e2e8f0',
-            'border' => '#334155',
-            'primary' => '#1E88E5',
-        ];
-
+        $existingColors = json_decode($row->colors, true) ?? [];
         $newColors = is_string($data['colors'])
             ? json_decode($data['colors'], true)
             : $data['colors'];
 
-        // 🔄 Fusión de ambas configuraciones
-        $mergedColors = array_merge($existingColors, $newColors ?? []);
-
-        $data['colors'] = json_encode($mergedColors, JSON_UNESCAPED_UNICODE);
+        $data['colors'] = json_encode(
+            array_merge($existingColors, $newColors ?? []),
+            JSON_UNESCAPED_UNICODE
+        );
     }
 
     $data['updated_at'] = now();
 
-    DB::table('dashboard_widgets')->where('id', $id)->update($data);
+    DB::table('dashboard_widgets')
+        ->where('id', $widget)
+        ->update($data);
 
-    return response()->json(['message' => '✅ Widget actualizado correctamente']);
+    return response()->json([
+        'message' => '✅ Widget actualizado correctamente',
+    ]);
 }
 
 
-public function destroy($id)
+
+public function destroy(int $dashboardId, int $id)
 {
-    $widget = DB::table('dashboard_widgets')->find($id);
+    // 1️⃣ Verificar que el widget exista y pertenezca al dashboard
+    $widget = DB::table('dashboard_widgets')
+        ->where('id', $id)
+        ->where('dashboard_id', $dashboardId)
+        ->first();
 
     if (!$widget) {
-        return response()->json(['error' => '❌ Widget no encontrado.'], 404);
+        return response()->json([
+            'error' => '❌ Widget no encontrado en este dashboard.',
+        ], 404);
     }
 
-    // Si es un bloque heading, eliminar también sus hijos
+    // 2️⃣ Si es un bloque heading, eliminar también sus hijos
     if ($widget->type === 'heading') {
-        DB::table('dashboard_widgets')->where('group_id', $id)->delete();
+        DB::table('dashboard_widgets')
+            ->where('group_id', $id)
+            ->where('dashboard_id', $dashboardId)
+            ->delete();
     }
 
-    DB::table('dashboard_widgets')->where('id', $id)->delete();
+    // 3️⃣ Eliminar el widget
+    DB::table('dashboard_widgets')
+        ->where('id', $id)
+        ->delete();
 
-    return response()->json(['message' => '🗑️ Widget eliminado correctamente.']);
+    return response()->json([
+        'message' => '🗑️ Widget eliminado correctamente.',
+    ]);
 }
-public function reorder(Request $request)
+
+public function reorder(Request $request, int $dashboardId)
 {
     $widgets = $request->input('widgets', []);
+
     if (!is_array($widgets)) {
         return response()->json(['error' => 'Formato inválido.'], 422);
     }
@@ -230,23 +352,31 @@ public function reorder(Request $request)
     foreach ($widgets as $w) {
         if (!isset($w['i'])) continue;
 
-        // 🧱 Si es una sección (id tipo "section-3")
+        /**
+         * 🧱 SECCIÓN (ej: section-3)
+         */
         if (str_starts_with($w['i'], 'section-')) {
-            $sectionId = str_replace('section-', '', $w['i']);
+            $sectionId = (int) str_replace('section-', '', $w['i']);
+
             DB::table('dashboard_sections')
                 ->where('id', $sectionId)
+                ->where('dashboard_id', $dashboardId)
                 ->update([
-                    'position' => $w['y'] ?? 0,
-                    'width'    => $w['w'] ?? 12,
-                    'height'   => $w['h'] ?? 1,
+                    'position'   => $w['y'] ?? 0,
+                    'width'      => $w['w'] ?? 12,
+                    'height'     => $w['h'] ?? 1,
                     'updated_at' => now(),
                 ]);
+
             continue;
         }
 
-        // 📊 Si es un widget normal
+        /**
+         * 📊 WIDGET NORMAL
+         */
         DB::table('dashboard_widgets')
             ->where('id', $w['i'])
+            ->where('dashboard_id', $dashboardId)
             ->update([
                 'position_x' => $w['x'] ?? 0,
                 'position_y' => $w['y'] ?? 0,
@@ -256,60 +386,78 @@ public function reorder(Request $request)
             ]);
     }
 
-    return response()->json(['message' => '✅ Reordenado correctamente'], 200);
+    return response()->json([
+        'message' => '✅ Reordenado correctamente',
+    ], 200);
 }
 
 
-public function updateColor(Request $request, $id)
+public function updateColor(Request $request, int $dashboardId, int $id)
 {
     try {
+        // 1️⃣ Validar payload
         $validated = $request->validate([
             'color' => 'required|string|max:20',
-            'field' => 'nullable|string|in:primary,bg,text,border', // 👈 ahora puedes actualizar cualquiera
+            'field' => 'nullable|string|in:primary,bg,text,border',
         ]);
 
-        $widget = DB::table('dashboard_widgets')->find($id);
+        // 2️⃣ Buscar widget dentro del dashboard
+        $widget = DB::table('dashboard_widgets')
+            ->where('id', $id)
+            ->where('dashboard_id', $dashboardId)
+            ->first();
 
         if (!$widget) {
-            return response()->json(['error' => 'Widget no encontrado.'], 404);
+            return response()->json([
+                'error' => 'Widget no encontrado en este dashboard.',
+            ], 404);
         }
 
+        // 3️⃣ Colores existentes (fallback)
         $existingColors = json_decode($widget->colors, true) ?? [
-            'bg' => '#1e293b',
-            'text' => '#e2e8f0',
-            'border' => '#334155',
+            'bg'      => '#1e293b',
+            'text'    => '#e2e8f0',
+            'border'  => '#334155',
             'primary' => '#1E88E5',
         ];
 
-        $field = $validated['field'] ?? 'primary'; // por defecto cambia el color principal
+        // 4️⃣ Campo a actualizar
+        $field = $validated['field'] ?? 'primary';
         $existingColors[$field] = $validated['color'];
 
+        // 5️⃣ Guardar
         DB::table('dashboard_widgets')
             ->where('id', $id)
             ->update([
-                'colors' => json_encode($existingColors, JSON_UNESCAPED_UNICODE),
+                'colors'     => json_encode($existingColors, JSON_UNESCAPED_UNICODE),
                 'updated_at' => now(),
             ]);
 
         return response()->json([
             'message' => "🎨 Color de '{$field}' actualizado correctamente.",
-            'colors' => $existingColors,
+            'colors'  => $existingColors,
         ]);
+
     } catch (\Throwable $e) {
         Log::error('💥 Error actualizando color de widget', [
-            'id' => $id,
-            'error' => $e->getMessage(),
+            'dashboard_id' => $dashboardId,
+            'widget_id'    => $id,
+            'error'        => $e->getMessage(),
         ]);
-        return response()->json(['error' => 'Error al actualizar color.'], 500);
+
+        return response()->json([
+            'error' => 'Error al actualizar color.',
+        ], 500);
     }
 }
 
-public function saveFilters(Request $request, $id)
+public function saveFilters(Request $request, int $dashboardId, int $id)
 {
     try {
         Log::info('🧩 [saveFilters] Inicio', [
-            'widget_id' => $id,
-            'payload' => $request->all(),
+            'dashboard_id' => $dashboardId,
+            'widget_id'    => $id,
+            'payload'      => $request->all(),
         ]);
 
         // 1️⃣ Validar payload
@@ -323,19 +471,25 @@ public function saveFilters(Request $request, $id)
             'validated' => $validated,
         ]);
 
-        // 2️⃣ Buscar widget
-        $widget = DB::table('dashboard_widgets')->find($id);
+        // 2️⃣ Buscar widget dentro del dashboard
+        $widget = DB::table('dashboard_widgets')
+            ->where('id', $id)
+            ->where('dashboard_id', $dashboardId)
+            ->first();
 
         if (!$widget) {
-            Log::warning('⚠️ [saveFilters] Widget no encontrado', [
-                'widget_id' => $id,
+            Log::warning('⚠️ [saveFilters] Widget no encontrado en dashboard', [
+                'dashboard_id' => $dashboardId,
+                'widget_id'    => $id,
             ]);
 
-            return response()->json(['error' => 'Widget no encontrado'], 404);
+            return response()->json([
+                'error' => 'Widget no encontrado en este dashboard',
+            ], 404);
         }
 
         Log::info('📦 [saveFilters] Widget encontrado', [
-            'id' => $widget->id,
+            'id'          => $widget->id,
             'options_raw' => $widget->options,
         ]);
 
@@ -349,7 +503,8 @@ public function saveFilters(Request $request, $id)
             'existingOptions' => $existingOptions,
         ]);
 
-        // 4️⃣ Mezclar filtros UX
+        // 4️⃣ Mezclar filtros UX (asegurar estructura)
+        $existingOptions['filters'] = $existingOptions['filters'] ?? [];
         $existingOptions['filters']['activeLabels'] =
             $validated['filters']['activeLabels'];
 
@@ -358,15 +513,15 @@ public function saveFilters(Request $request, $id)
         ]);
 
         // 5️⃣ Guardar en BD
-        $updatedRows = DB::table('dashboard_widgets')
+        DB::table('dashboard_widgets')
             ->where('id', $id)
             ->update([
-                'options' => json_encode($existingOptions, JSON_UNESCAPED_UNICODE),
-                'updated_at' => now(),
+                'options'     => json_encode($existingOptions, JSON_UNESCAPED_UNICODE),
+                'updated_at'  => now(),
             ]);
 
-        Log::info('💾 [saveFilters] Resultado UPDATE', [
-            'updated_rows' => $updatedRows,
+        Log::info('💾 [saveFilters] Filtros guardados correctamente', [
+            'widget_id' => $id,
         ]);
 
         return response()->json([
@@ -376,9 +531,10 @@ public function saveFilters(Request $request, $id)
 
     } catch (\Throwable $e) {
         Log::error('💥 [saveFilters] Error guardando filtros del widget', [
-            'widget_id' => $id,
-            'exception' => $e,
-            'message' => $e->getMessage(),
+            'dashboard_id' => $dashboardId,
+            'widget_id'    => $id,
+            'exception'    => $e,
+            'message'      => $e->getMessage(),
         ]);
 
         return response()->json([

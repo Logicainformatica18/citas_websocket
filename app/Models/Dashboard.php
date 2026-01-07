@@ -11,7 +11,7 @@ class Dashboard extends Model
 
     protected $fillable = [
         'title',
-        'slug',          // 👈 CLAVE para navegación por URL
+        'slug',
         'description',
         'layout_type',
         'is_default',

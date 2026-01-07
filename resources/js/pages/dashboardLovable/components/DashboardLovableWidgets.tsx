@@ -6,7 +6,10 @@ import {
     forwardRef,
     useImperativeHandle,
 } from "react";
-import GridLayout from "react-grid-layout";
+import GridLayout, { WidthProvider } from "react-grid-layout";
+
+const ReactGridLayout = WidthProvider(GridLayout);
+
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -22,9 +25,7 @@ import { useDashboard } from "@/pages/dashboards/DashboardContext";
 
 const MySwal = withReactContent(Swal);
 
-/* =========================================================
-Types
-========================================================= */
+
 type Section = {
     id: number;
     title: string;
@@ -63,13 +64,13 @@ const DashboardLovableWidgets = forwardRef<
 
     // 🔄 REFRESH GLOBAL
     const { refreshKey, stopRefreshing } = useDashboard();
+    const { activeDashboard, setActiveDashboard } = useDashboard();
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [gridWidth, setGridWidth] = useState<number | null>(null);
+ 
 
-    /* ======================================================
-       ➕ CREAR SECCIÓN (LLAMADO DESDE HEADER)
-    ====================================================== */
+
     const handleAddSection = async () => {
         console.log("🟢 addSection ejecutado");
 
@@ -96,15 +97,29 @@ const DashboardLovableWidgets = forwardRef<
                 ) + 1;
 
         try {
-            await axios.post("/api/ai/dashboard-sections", {
-                dashboard_id: 1,
-                title,
-                position: nextY,
-                height: 1,
-            });
+    if (!activeDashboard?.id) {
+  Swal.fire("Error", "Dashboard no listo aún", "warning");
+  return;
+}
 
-            const res = await axios.get("/api/ai/dashboard-sections/1");
-            setSections(res.data.sections || []);
+await axios.post(
+  `/api/ai/dashboards/${activeDashboard.id}/sections`,
+  {
+    title,
+    position: nextY,
+    height: 1,
+  }
+);
+
+
+
+
+           const res = await axios.get(
+  `/api/ai/dashboards/${activeDashboard.id}/sections`
+);
+
+setSections(res.data.sections || []);
+
 
             MySwal.fire("✅ Sección creada", "", "success");
         } catch (e) {
@@ -159,8 +174,7 @@ const DashboardLovableWidgets = forwardRef<
     }, [sections, widgets]);
 
 
-    const layout = useMemo(() => items.map((i) => i.layout), [items]);
-
+ 
     /* ===============================
         Auto width
     =============================== */
@@ -180,34 +194,30 @@ const DashboardLovableWidgets = forwardRef<
     /* ===============================
         Load data (refresh)
     =============================== */
-    useEffect(() => {
-        setLoading(true);
+ useEffect(() => {
+  setLoading(true);
 
-        Promise.all([
-            axios.get("/api/ai/dashboard-sections/1"),
-            fetchWidgets(),
-        ]).then(([sectionsRes, widgetsRes]) => {
-            setSections(sectionsRes.data.sections || []);
+  fetchWidgets(setActiveDashboard)
+    .then((widgetsRes: any) => {
+      setWidgets(widgetsRes || []);
+    })
+    .catch(console.error);
+}, [refreshKey]);
 
-            const safeWidgets = Array.isArray(widgetsRes)
-                ? widgetsRes.map((w: any) => ({
-                    ...w,
-                    data_source:
-                        typeof w.data_source === "string"
-                            ? JSON.parse(w.data_source)
-                            : w.data_source,
-                    colors:
-                        typeof w.colors === "string"
-                            ? JSON.parse(w.colors)
-                            : w.colors,
-                }))
-                : [];
+ useEffect(() => {
+  if (!activeDashboard?.id) return;
 
-            setWidgets(safeWidgets);
-            setLoading(false);
-            stopRefreshing();
-        });
-    }, [refreshKey]);
+  axios
+    .get(`/api/ai/dashboards/${activeDashboard.id}/sections`)
+    .then((res) => {
+      setSections(res.data.sections || []);
+    })
+    .finally(() => {
+      setLoading(false);
+      stopRefreshing();
+    });
+}, [activeDashboard?.id]);
+
 
     if (loading) return <div className="animate-pulse">Cargando…</div>;
 
@@ -216,54 +226,87 @@ const DashboardLovableWidgets = forwardRef<
     =============================== */
     return (
         <div ref={containerRef} className="w-full min-w-0 relative">
-            <GridLayout
-                layout={layout}
-                cols={12}
-                rowHeight={76}
-                width={gridWidth || 1200}
-                margin={[12, 8]}          // 👈 más aire vertical
-                isDraggable
-                isResizable
-                draggableHandle=".drag-handle"
- compactType={null}      // 🔥 CLAVE
-  preventCollision={true} // 🔥 recomendado
+ <ReactGridLayout
+  cols={12}
+  rowHeight={76}
+  width={gridWidth || 1200}
+  margin={[1, 1]}
+  isDraggable
+  isResizable
+  draggableHandle=".drag-handle"
+  compactType={null}
+  preventCollision={true}
 
-                /* 🔥 ESTE ES EL BLOQUE CLAVE 🔥 */
-                onLayoutChange={(newLayout) => {
-                    newLayout.forEach((l) => {
-                        // =========================
-                        // 🧱 SECCIONES
-                        // =========================
-                        if (l.i.startsWith("section-")) {
-                            const sectionId = Number(l.i.replace("section-", ""));
+  onDragStop={(newLayout) => {
+    if (!activeDashboard?.id) return;
 
-                            axios.post(`/api/ai/dashboard-sections/${sectionId}/update`, {
-                                position: l.y,
-                                height: l.h,
-                                width: l.w,   // 👈 GUARDA ANCHO
-                            });
-                        }
+    newLayout.forEach((l) => {
+      // 🧱 SECCIÓN
+      if (l.i.startsWith("section-")) {
+        const sectionId = l.i.replace("section-", "");
 
-                        // =========================
-                        // 📊 WIDGETS
-                        // =========================
-                        else {
-                            const widget = widgets.find((w) => String(w.id) === l.i);
-                            if (!widget) return;
+        axios.post(
+          `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}/update`,
+          {
+            position: l.y,
+            height: l.h,
+          }
+        );
 
-                            axios.put(`/api/ai/dashboard-widgets/${widget.id}`, {
-                                position_x: l.x,
-                                position_y: l.y,
-                                width: l.w,
-                                height: l.h,
-                            });
-                        }
-                    });
-                }}
-            >
+        return;
+      }
+
+      // 📊 WIDGET
+      axios.put(
+        `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+        {
+          position_x: l.x,
+          position_y: l.y,
+          width: l.w,
+          height: l.h,
+        }
+      );
+    });
+  }}
+
+  onResizeStop={(newLayout) => {
+    if (!activeDashboard?.id) return;
+
+    newLayout.forEach((l) => {
+      // 🧱 SECCIÓN
+      if (l.i.startsWith("section-")) {
+        const sectionId = l.i.replace("section-", "");
+
+        axios.post(
+          `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}/update`,
+          {
+            height: l.h,
+          }
+        );
+
+        return;
+      }
+
+      // 📊 WIDGET
+      axios.put(
+        `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+        {
+          width: l.w,
+          height: l.h,
+        }
+      );
+    });
+  }}
+>
+
+
+
+
 
                 {items.map((item) => (
-                    <div key={item.key}>
+                    <div key={item.key}
+                        data-grid={item.layout}   // 🔥 ESTO ES LO QUE FALTABA
+                    >
                         {item.type === "section" ? (
                             <SectionCard
                                 section={item.data}
@@ -334,11 +377,12 @@ const DashboardLovableWidgets = forwardRef<
                             />
                         ) : (
                             <WidgetCard widget={item.data} />
+
                         )}
 
                     </div>
                 ))}
-            </GridLayout>
+            </ReactGridLayout>
         </div>
     );
 });
