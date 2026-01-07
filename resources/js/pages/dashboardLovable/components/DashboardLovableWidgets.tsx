@@ -49,6 +49,14 @@ Ref API
 export type DashboardLovableWidgetsRef = {
     addSection: () => void;
 };
+const normalizeVerticalLayout = (layout: any[]) => {
+  return [...layout]
+    .sort((a, b) => a.y - b.y)
+    .map((item, index) => ({
+      ...item,
+      y: index * item.h, // snap vertical limpio
+    }));
+};
 
 
 /* =========================================================
@@ -143,18 +151,22 @@ setSections(res.data.sections || []);
             ...sections.map((s) => ({
                 key: `section-${s.id}`,
                 type: "section" as const,
-                layout: {
-                    i: `section-${s.id}`,
-                    x: 0,
-                    y: s.position ?? 0,
+               layout: {
+  i: `section-${s.id}`,
+  x: 0,
+  y: s.position ?? 0,
 
-                    w: 12,                    // ✅ PERMITE ANCHO
-                    h: s.height ?? 1,
+  w: 12,
+  h: s.height ?? 1,
 
-                    static: false,
-                    isResizable: true,
-                    resizeHandles: ["e", "w", "s"], // ✅ horizontal + vertical
-                },
+  minH: 1,          // 🔥 CLAVE: permite achicar
+  maxH: 10,         // opcional (control)
+
+  static: false,
+  isResizable: true,
+  resizeHandles: ["s"], // 👈 solo vertical (correcto para secciones)
+},
+
                 data: s,
             })),
             ...widgets.map((w, index) => ({
@@ -230,73 +242,79 @@ setSections(res.data.sections || []);
   cols={12}
   rowHeight={76}
   width={gridWidth || 1200}
-  margin={[1, 1]}
+  margin={[1, 5]}
   isDraggable
   isResizable
   draggableHandle=".drag-handle"
-  compactType={null}
-  preventCollision={true}
+ compactType="vertical"
+  preventCollision={false}
+ 
+verticalCompact={true}
+ 
+allowOverlap={false}   // 🔥 CLAVE
+onDragStop={(newLayout) => {
+  if (!activeDashboard?.id) return;
 
-  onDragStop={(newLayout) => {
-    if (!activeDashboard?.id) return;
+  const normalized = normalizeVerticalLayout(newLayout);
 
-    newLayout.forEach((l) => {
-      // 🧱 SECCIÓN
-      if (l.i.startsWith("section-")) {
-        const sectionId = l.i.replace("section-", "");
+  normalized.forEach((l) => {
+    // 🧱 SECCIÓN
+    if (l.i.startsWith("section-")) {
+      const sectionId = l.i.replace("section-", "");
 
-        axios.post(
-          `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}/update`,
-          {
-            position: l.y,
-            height: l.h,
-          }
-        );
-
-        return;
-      }
-
-      // 📊 WIDGET
       axios.put(
-        `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+        `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
         {
-          position_x: l.x,
-          position_y: l.y,
-          width: l.w,
+          position: l.y,
           height: l.h,
         }
       );
-    });
-  }}
+      return;
+    }
 
-  onResizeStop={(newLayout) => {
-    if (!activeDashboard?.id) return;
-
-    newLayout.forEach((l) => {
-      // 🧱 SECCIÓN
-      if (l.i.startsWith("section-")) {
-        const sectionId = l.i.replace("section-", "");
-
-        axios.post(
-          `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}/update`,
-          {
-            height: l.h,
-          }
-        );
-
-        return;
+    // 📊 WIDGET
+    axios.put(
+      `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+      {
+        position_x: l.x,
+        position_y: l.y,
+        width: l.w,
+        height: l.h,
       }
+    );
+  });
+}}
 
-      // 📊 WIDGET
+
+ onResizeStop={(newLayout) => {
+  if (!activeDashboard?.id) return;
+
+  newLayout.forEach((l) => {
+    // 🧱 SECCIÓN
+    if (l.i.startsWith("section-")) {
+      const sectionId = l.i.replace("section-", "");
+
       axios.put(
-        `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+        `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
         {
-          width: l.w,
           height: l.h,
         }
       );
-    });
-  }}
+
+      return;
+    }
+
+    // 📊 WIDGET
+    axios.put(
+      `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+      {
+        width: l.w,
+        height: l.h,
+      }
+    );
+  });
+}}
+
 >
 
 
@@ -328,10 +346,11 @@ setSections(res.data.sections || []);
                                     if (!title) return;
 
                                     try {
-                                        await axios.post(
-                                            `/api/ai/dashboard-sections/${section.id}/update`,
-                                            { title }
-                                        );
+                                       axios.put(
+  `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`,
+  { title }
+);
+
 
                                         // 🔄 actualizar estado local
                                         setSections((prev) =>
@@ -346,34 +365,36 @@ setSections(res.data.sections || []);
                                     }
                                 }}
 
-                                /* 🗑️ ELIMINAR */
-                                onDelete={async (section) => {
-                                    const result = await MySwal.fire({
-                                        title: "¿Eliminar sección?",
-                                        text: "Esta acción no se puede deshacer",
-                                        icon: "warning",
-                                        showCancelButton: true,
-                                        confirmButtonText: "Eliminar",
-                                        cancelButtonText: "Cancelar",
-                                    });
+                               
+                               /* 🗑️ ELIMINAR */
+onDelete={async (section) => {
+  const result = await MySwal.fire({
+    title: "¿Eliminar sección?",
+    text: "Esta acción no se puede deshacer",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Eliminar",
+    cancelButtonText: "Cancelar",
+  });
 
-                                    if (!result.isConfirmed) return;
+  if (!result.isConfirmed) return;
 
-                                    try {
-                                        await axios.delete(
-                                            `/api/ai/dashboard-sections/${section.id}`
-                                        );
+  try {
+    await axios.delete(
+      `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`
+    );
 
-                                        // 🔄 eliminar del estado local
-                                        setSections((prev) =>
-                                            prev.filter((s) => s.id !== section.id)
-                                        );
+    // 🔄 eliminar del estado local
+    setSections((prev) =>
+      prev.filter((s) => s.id !== section.id)
+    );
 
-                                        MySwal.fire("🗑️ Eliminada", "", "success");
-                                    } catch (e) {
-                                        MySwal.fire("Error", "No se pudo eliminar la sección", "error");
-                                    }
-                                }}
+    MySwal.fire("🗑️ Eliminada", "", "success");
+  } catch (e) {
+    MySwal.fire("Error", "No se pudo eliminar la sección", "error");
+  }
+}}
+
                             />
                         ) : (
                             <WidgetCard widget={item.data} />

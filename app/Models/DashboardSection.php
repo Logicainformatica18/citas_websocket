@@ -9,13 +9,19 @@ class DashboardSection extends Model
 {
     use HasFactory;
 
+    protected $table = 'dashboard_sections';
+
     protected $fillable = [
         'dashboard_id',
         'title',
         'description',
         'position',
-        'width',
         'height',
+        'colors', //  
+    ];
+
+    protected $casts = [
+        'colors' => 'array', //  
     ];
 
     public function dashboard()
@@ -25,6 +31,6 @@ class DashboardSection extends Model
 
     public function widgets()
     {
-        return $this->hasMany(DashboardWidget::class, 'group_id'); // para agrupar gráficos bajo la sección
+        return $this->hasMany(DashboardWidget::class, 'group_id');
     }
 }
