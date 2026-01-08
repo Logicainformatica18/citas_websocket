@@ -20,23 +20,29 @@ const defaultRankColor =
 
 export default function CertificationCard({ rank, data, onClick }: Props) {
   return (
-    <div
-      onClick={onClick}
-      className="
-        group
-        cursor-pointer
-        rounded-2xl
-        border
-        bg-white
-        p-6
-        transition
-        duration-300
-        hover:shadow-lg
-        hover:border-[#1CBCE8]
-        relative
-        overflow-hidden
-      "
-    >
+ <div
+  onClick={onClick}
+  className="
+    group
+    cursor-pointer
+    rounded-2xl
+    border
+    bg-white
+    p-6
+    relative
+    overflow-hidden
+
+    transition-all
+    duration-300
+    hover:shadow-xl
+    hover:-translate-y-[2px]
+    hover:border-[#1CBCE8]
+
+    dark:bg-[#0F2A3A]
+    dark:border-[#1E3A4A]
+  "
+>
+
       {/* Barra superior decorativa */}
       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
 
@@ -62,19 +68,22 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
               #{rank}
             </span>
 
-            <h3 className="text-base font-semibold uppercase tracking-wide">
+         <h3 className="text-base font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">
+
               {data.name}
             </h3>
           </div>
 
           {/* Vendor + Nivel */}
-          <p className="text-xs text-gray-500 uppercase tracking-wider">
+         <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-slate-300">
+
             {data.vendor} · NIVEL {data.level}
           </p>
 
           {/* Categoría */}
           {data.category && (
-            <div className="flex items-center gap-2 pt-2 text-xs text-gray-600 uppercase tracking-widest">
+         <div className="flex items-center gap-2 pt-2 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
+
               <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
               {data.category}
             </div>
@@ -84,19 +93,22 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
           {data.roles && data.roles.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-2">
               {data.roles.slice(0, 2).map((role) => (
-                <span
-                  key={role}
-                  className="
-                    rounded-full
-                    border
-                    px-3 py-1
-                    text-xs
-                    uppercase
-                    tracking-wide
-                    text-gray-600
-                    bg-gray-50
-                  "
-                >
+               <span
+  className="
+    rounded-full
+    border
+    px-3 py-1
+    text-xs
+    uppercase
+    tracking-wide
+    text-gray-700
+    bg-gray-50
+    dark:bg-[#123A52]
+    dark:text-slate-300
+    dark:border-[#1E3A4A]
+  "
+>
+
                   {role}
                 </span>
               ))}

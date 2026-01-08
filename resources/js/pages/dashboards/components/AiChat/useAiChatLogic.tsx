@@ -39,7 +39,7 @@ export function useAiChatLogic() {
     const { updateDashboard } = useDashboard();
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
+  const { activeDashboard } = useDashboard();
     // Estados persistentes
     const [forceNew, setForceNew] = useState<boolean>(
         () => JSON.parse(localStorage.getItem("veraForceNew") || "false")
@@ -593,10 +593,16 @@ if (data.topic && data.result) {
                 { from: "ai", text: "📊 Generando gráfico con los datos del entrenamiento..." },
             ]);
 
-            const res = await axios.post("/api/ai/dashboard-widgets/from-training", {
-                training_id: trainingId,
-                chart_type: chartType,
-            });
+
+
+const res = await axios.post(
+  `/api/ai/dashboards/${activeDashboard.id}/widgets/from-training`,
+  {
+    training_id: trainingId,
+    chart_type: chartType,
+  }
+);
+
 
             const { message, widget_id } = res.data;
 

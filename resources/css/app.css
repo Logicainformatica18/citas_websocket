@@ -226,3 +226,12 @@
 .isil-swal-actions {
   margin-top: 14px !important;
 }
+
+.dark .recharts-text,
+.dark .recharts-legend-item-text,
+.dark .recharts-tooltip-label,
+.dark .recharts-tooltip-item,
+.dark .recharts-default-tooltip {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}

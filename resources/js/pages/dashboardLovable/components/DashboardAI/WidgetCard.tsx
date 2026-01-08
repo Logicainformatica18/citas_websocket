@@ -18,11 +18,10 @@ import {
 import ColorControl from "./ColorControl";
 import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
 import {
-  updateWidget,
-  segmentWidget,
-  saveWidgetFilters,
+    updateWidget,
+    segmentWidget,
+    saveWidgetFilters,
 } from "./useDashboardAPI";
-
 
 
 // 🧩 Librerías para exportación
@@ -42,6 +41,42 @@ const LOVABLE_ISIL_SCALE = [
     "#A7EDF9",
     "#C7F5FC",
 ];
+const BALANCED_PIE_BASE = [
+  "#38BDF8", // azul
+  "#4ADE80", // verde
+  "#FACC15", // amarillo
+  "#A78BFA", // violeta
+  "#FCA5A5", // rojo suave
+  "#22D3EE", // cian
+  "#FDBA74", // naranja suave
+  "#60A5FA", // azul profundo
+  "#34D399", // verde agua
+];
+
+const generateSoftPieColors = (
+  palette: string[],
+  count: number
+) => {
+  return Array.from(
+    { length: count },
+    (_, i) => palette[i % palette.length]
+  );
+};
+
+
+
+const SOFT_PIE_PALETTE = [
+    "#7DD3FC", // azul claro
+    "#38BDF8", // azul
+    "#A5F3FC", // celeste
+    "#4ADE80", // verde
+    "#FACC15", // amarillo
+    "#C084FC", // violeta
+    "#FCA5A5", // rojo suave
+    "#FDBA74", // naranja suave
+    "#94A3B8", // gris azulado
+];
+
 const LOVABLE_DEFAULT_PALETTE = [
     "#1CBCE8",
     "#38BDF8",
@@ -67,112 +102,116 @@ const LOVABLE_DEFAULT_PALETTE = [
 
 import { useLovableChartTheme } from "@/hooks/useLovableChartTheme";
 const humanizeMetric = (key?: string) => {
-  if (!key) return "";
+    if (!key) return "";
 
-  return key
-    .replace(/_/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+    return key
+        .replace(/_/g, " ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
 };
-const PieTooltip = ({ active, payload, theme, metricKey }) => {
-  if (!active || !payload?.length) return null;
+const PieTooltip = ({ active, payload, theme, metricKey, total }) => {
+    if (!active || !payload?.length || total <= 0) return null;
 
-  const item = payload[0];
-  const percent = (item.percent * 100).toFixed(1);
+    const item = payload[0];
+    const percent = ((item.value / total) * 100).toFixed(1);
 
-  return (
-    <div
-      style={{
-        background: theme.tooltipBg,
-        border: `1px solid ${theme.border}`,
-        borderRadius: 12,
-        padding: "10px 14px",
-        color: theme.text,
-        boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
-        fontSize: 13,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-        {item.name}
-      </div>
+    return (
+        <div
+            style={{
+                background: theme.tooltipBg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: 12,
+                padding: "10px 14px",
+                color: theme.text,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+                fontSize: 13,
+            }}
+        >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                {item.name}
+            </div>
 
-      <div style={{ color: item.color }}>
-        {humanizeMetric(metricKey)}:{" "}
-        <strong>{item.value}</strong>
-      </div>
+            <div style={{ color: item.color }}>
+                {humanizeMetric(metricKey)}: <strong>{item.value}</strong>
+            </div>
 
-      <div style={{ opacity: 0.75 }}>
-        {percent}%
-      </div>
-    </div>
-  );
+            <div style={{ opacity: 0.75 }}>
+                {percent}%
+            </div>
+        </div>
+    );
 };
+
 
 const UniversalTooltip = ({ active, payload, label, metricKey, theme }) => {
-  if (!active || !payload?.length) return null;
+    if (!active || !payload?.length) return null;
 
-  return (
-    <div
-      style={{
-        background: theme.tooltipBg,
-        border: `1px solid ${theme.border}`,
-        borderRadius: 12,
-        padding: "10px 14px",
-        color: theme.text,
-        boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
-        fontSize: 13,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-        {label}
-      </div>
+    return (
+        <div
+            style={{
+                background: theme.tooltipBg,
+                border: `1px solid ${theme.border}`,
+                borderRadius: 12,
+                padding: "10px 14px",
+                color: theme.text,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+                fontSize: 13,
+            }}
+        >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                {label}
+            </div>
 
-      {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color || "#38BDF8" }}>
-          {humanizeMetric(metricKey)}:{" "}
-          <strong>{p.value}</strong>
+            {payload.map((p, i) => (
+                <div key={i} style={{ color: p.color || "#38BDF8" }}>
+                    {humanizeMetric(metricKey)}:{" "}
+                    <strong>{p.value}</strong>
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  );
+    );
 };
 
 const DynamicBarTooltip = ({ active, payload, label, metricKey }) => {
-  if (!active || !payload?.length) return null;
+    if (!active || !payload?.length) return null;
 
-  return (
-    <div
-      style={{
-        background: "#020617",
-        border: "1px solid #334155",
-        borderRadius: 12,
-        padding: "10px 14px",
-        color: "#E5F3F9",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.45)",
-        fontSize: 13,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-        {label}
-      </div>
+    return (
+        <div
+            style={{
+                background: "#020617",
+                border: "1px solid #334155",
+                borderRadius: 12,
+                padding: "10px 14px",
+                color: "#E5F3F9",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.45)",
+                fontSize: 13,
+            }}
+        >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                {label}
+            </div>
 
-      <div style={{ color: "#38BDF8" }}>
-        {humanizeMetric(metricKey)}:{" "}
-        <strong>{payload[0].value}</strong>
-      </div>
-    </div>
-  );
+            <div style={{ color: "#38BDF8" }}>
+                {humanizeMetric(metricKey)}:{" "}
+                <strong>{payload[0].value}</strong>
+            </div>
+        </div>
+    );
 };
 
 
 
-export default function WidgetCard({ widget, onColorChange, onDelete }) {
-
+export default function WidgetCard({
+    widget,
+    dashboardId,
+    onColorChange,
+    onDelete,
+}) {
 
 
 
     const theme = useLovableChartTheme();
-const isDark = theme.mode === "dark";
+    const isDark = theme.mode === "dark";
 
     const defaultColors = {
         bg: "#1e293b",     // fondo por defecto
@@ -195,23 +234,23 @@ const isDark = theme.mode === "dark";
     });
 
 
-// 🔒 Leer filtros guardados del widget (persistencia)
-// 🔒 Leer filtros guardados del widget (persistencia)
-const savedOptions =
-  typeof widget.options === "string"
-    ? JSON.parse(widget.options)
-    : widget.options;
+    // 🔒 Leer filtros guardados del widget (persistencia)
+    // 🔒 Leer filtros guardados del widget (persistencia)
+    const savedOptions =
+        typeof widget.options === "string"
+            ? JSON.parse(widget.options)
+            : widget.options;
 
-const savedActiveLabels: string[] =
-  savedOptions?.filters?.activeLabels || [];
+    const savedActiveLabels: string[] =
+        savedOptions?.filters?.activeLabels || [];
 
-  // 🧠 Summary normalizado (backend-agnostic)
-const resolvedSummary =
-  widget.summary ||
-  widget.data_source?.summary ||
-  "";
+    // 🧠 Summary normalizado (backend-agnostic)
+    const resolvedSummary =
+        widget.summary ||
+        widget.data_source?.summary ||
+        "";
 
-const summary = widget.data_source?.summary;
+    const summary = widget.data_source?.summary;
 
 
     const handleDelete = async () => {
@@ -228,13 +267,26 @@ const summary = widget.data_source?.summary;
         if (!result.isConfirmed) return;
 
         try {
-            await deleteWidget(widget.id);
-            Swal.fire("Eliminada", "La tarjeta fue eliminada correctamente", "success");
-            if (onDelete) onDelete(widget.id);
+            await deleteWidget(
+                Number(widget.dashboard_id),
+                Number(widget.id)
+            );
+
+            await Swal.fire(
+                "Eliminada",
+                "La tarjeta fue eliminada correctamente",
+                "success"
+            );
+
+            // 🔄 RECARGA TOTAL (la forma más segura)
+            window.location.reload();
+
         } catch (err) {
             Swal.fire("Error", "No se pudo eliminar la tarjeta", "error");
         }
     };
+
+
 
     useEffect(() => {
         if (widget.colors) {
@@ -346,24 +398,43 @@ const summary = widget.data_source?.summary;
     // 🎛️ Filtro dinámico de categorías
     const categoryLabels = normalizedData.map(d => d[categoryKey]);
 
-  const [activeLabels, setActiveLabels] = useState<string[]>(
-  savedActiveLabels.length ? savedActiveLabels : categoryLabels
-);
+    const [activeLabels, setActiveLabels] = useState<string[]>(
+        savedActiveLabels.length ? savedActiveLabels : categoryLabels
+    );
 
 
-useEffect(() => {
-  if (savedActiveLabels.length) {
-    setActiveLabels(savedActiveLabels);
-  } else {
-    setActiveLabels(categoryLabels);
-  }
-}, [JSON.stringify(categoryLabels)]);
+    useEffect(() => {
+        if (savedActiveLabels.length) {
+            setActiveLabels(savedActiveLabels);
+        } else {
+            setActiveLabels(categoryLabels);
+        }
+    }, [JSON.stringify(categoryLabels)]);
 
 
 
     const filteredData = normalizedData.filter(d =>
         activeLabels.includes(d[categoryKey])
     );
+    // 🧮 TOTAL REAL para porcentajes del PIE
+    const pieTotal = React.useMemo(() => {
+        if (!numericKeys.length) return 0;
+
+        return filteredData.reduce(
+            (sum, item) => sum + (Number(item[numericKeys[0]]) || 0),
+            0
+        );
+    }, [filteredData, numericKeys]);
+    // 🎨 Paleta dinámica HSL (colores infinitos, sin repetir)
+    const pieColors = React.useMemo(() => {
+  return generateSoftPieColors(
+    BALANCED_PIE_BASE,
+    filteredData.length,
+    isDark
+  );
+}, [filteredData.length, isDark]);
+
+
 
     // // 🧩 Log seguro (ya después del cálculo)
     // useEffect(() => {
@@ -471,35 +542,35 @@ useEffect(() => {
         <div
             className="p-5 pb-12 rounded-xl relative"
             style={{
-                backgroundColor: theme.cardBg,
-                border: `1px solid ${theme.border}`,
-                color: theme.text,          // 🔥 CLAVE
-            }}
+  backgroundColor: theme.cardBg,
+  border: `1px solid ${theme.border}`,
+}}
+
         >
 
 
-          <h3
-  className="text-sm font-semibold tracking-wide mb-1"
-  style={{
-    color: theme.text,
-    textTransform: "uppercase",
-  }}
->
-  {widget.title}
-</h3>
+            <h3
+                className="text-sm font-semibold tracking-wide mb-1"
+                style={{
+                    color: theme.text,
+                    textTransform: "uppercase",
+                }}
+            >
+                {widget.title}
+            </h3>
 
-{resolvedSummary && (
-  <p
-    className="text-xs mb-3 leading-snug"
-    style={{
-      color: "#4FB3D9",
-      maxWidth: "95%",
-    }}
-  >
-    {resolvedSummary}
-  </p>
+            {resolvedSummary && (
+                <p
+                    className="text-xs mb-3 leading-snug"
+                    style={{
+                        color: "#4FB3D9",
+                        maxWidth: "95%",
+                    }}
+                >
+                    {resolvedSummary}
+                </p>
 
-)}
+            )}
 
 
 
@@ -554,16 +625,16 @@ useEffect(() => {
                                     />
 
 
-               <Tooltip
-  content={(props) => (
-    <UniversalTooltip
-      {...props}
-      metricKey={numericKeys[0]}
-      theme={theme}
-    />
-  )}
-  cursor={{ fill: "rgba(255,255,255,0.04)" }}
-/>
+                                    <Tooltip
+                                        content={(props) => (
+                                            <UniversalTooltip
+                                                {...props}
+                                                metricKey={numericKeys[0]}
+                                                theme={theme}
+                                            />
+                                        )}
+                                        cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                                    />
 
 
 
@@ -656,15 +727,15 @@ useEffect(() => {
                                 tickLine={false}
                             />
 
-                          <Tooltip
-  content={(props) => (
-    <UniversalTooltip
-      {...props}
-      metricKey={numericKeys[0]}
-      theme={theme}
-    />
-  )}
-/>
+                            <Tooltip
+                                content={(props) => (
+                                    <UniversalTooltip
+                                        {...props}
+                                        metricKey={numericKeys[0]}
+                                        theme={theme}
+                                    />
+                                )}
+                            />
 
                             <Legend wrapperStyle={{ color: theme.text }} />
                             {numericKeys.map((key, i) => (
@@ -683,43 +754,101 @@ useEffect(() => {
                 )}
 
               {widget.chart_type === "pie" && (
-  <ResponsiveContainer width="100%" height="100%">
-    <PieChart>
-      <Pie
-        data={filteredData}
-        dataKey={numericKeys[0]}
-        nameKey={categoryKey}
-        cx="35%"
-        cy="50%"
-        outerRadius="80%"
-      >
-        {filteredData.map((entry, index) => (
-          <Cell
-            key={`pie-${entry[categoryKey]}-${index}`}
-            fill={LOVABLE_ISIL_SCALE[index % LOVABLE_ISIL_SCALE.length]}
-          />
-        ))}
-      </Pie>
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    {/* 📊 Gráfico */}
+    <div style={{ flex: 1, minHeight: 220 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={filteredData}
+            dataKey={numericKeys[0]}
+            nameKey={categoryKey}
+            cx="50%"
+            cy="50%"
+            innerRadius={55}
+            outerRadius={95}
+            paddingAngle={3}
+          >
+            {filteredData.map((entry, index) => (
+              <Cell
+                key={`pie-${entry[categoryKey]}-${index}`}
+                fill={pieColors[index]}
+                stroke={theme.cardBg}
+                strokeWidth={2}
+              />
+            ))}
+          </Pie>
 
-      <Tooltip
-        content={(props) => (
-          <PieTooltip
-            {...props}
-            metricKey={numericKeys[0]}
-            theme={theme}
+          <Tooltip
+            content={(props) => (
+              <PieTooltip
+                {...props}
+                metricKey={numericKeys[0]}
+                theme={theme}
+                total={pieTotal}
+              />
+            )}
           />
-        )}
-      />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
 
-      <Legend
-        layout="vertical"
-        align="right"
-        verticalAlign="middle"
-        wrapperStyle={{ color: theme.text }}
-      />
-    </PieChart>
-  </ResponsiveContainer>
+    {/* 🎨 Leyenda custom */}
+   <div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: "10px 18px",
+    paddingTop: 12,
+  }}
+>
+  {filteredData.map((entry, index) => {
+    const label = entry[categoryKey];
+    const color = pieColors[index];
+
+    return (
+    <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 13,
+color: theme.text,
+fill: theme.text,
+
+    fontWeight: 500,
+  }}
+>
+
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            backgroundColor: color,
+            boxShadow: isDark
+              ? "0 0 0 2px rgba(255,255,255,0.25)"
+              : "0 0 0 2px rgba(0,0,0,0.1)",
+          }}
+        />
+        {label}
+      </div>
+    );
+  })}
+</div>
+
+
+  </div>
 )}
+
 
 
 
@@ -766,27 +895,27 @@ useEffect(() => {
                         >
                             📄 Exportar PDF
                         </button>
-<button
-  onClick={() => {
-    setMenuOpen(false);
+                        <button
+                            onClick={() => {
+                                setMenuOpen(false);
 
-    const isDark =
-      document.documentElement.classList.contains("dark") ||
-      document.body.classList.contains("dark");
+                                const isDark =
+                                    document.documentElement.classList.contains("dark") ||
+                                    document.body.classList.contains("dark");
 
-    let selectedType = widget.chart_type; // 🔥 estado local del modal
+                                let selectedType = widget.chart_type; // 🔥 estado local del modal
 
-    Swal.fire({
-      title: "Cambiar tipo de gráfico",
-      background: isDark ? "#0B1220" : "#F8FCFE",
-      color: isDark ? "#E5F3F9" : "#0A4E61",
-      showCancelButton: true,
-      confirmButtonText: "Guardar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#1CBCE8",
-      cancelButtonColor: isDark ? "#334155" : "#CBD5E1",
+                                Swal.fire({
+                                    title: "Cambiar tipo de gráfico",
+                                    background: isDark ? "#0B1220" : "#F8FCFE",
+                                    color: isDark ? "#E5F3F9" : "#0A4E61",
+                                    showCancelButton: true,
+                                    confirmButtonText: "Guardar",
+                                    cancelButtonText: "Cancelar",
+                                    confirmButtonColor: "#1CBCE8",
+                                    cancelButtonColor: isDark ? "#334155" : "#CBD5E1",
 
-      html: `
+                                    html: `
         <div id="isil-chart-selector"
           style="
             display:grid;
@@ -796,12 +925,12 @@ useEffect(() => {
           "
         >
           ${[
-            { id: "bar", label: "Barras", icon: "📊" },
-            { id: "line", label: "Líneas", icon: "📈" },
-            { id: "pie", label: "Circular", icon: "🥧" },
-          ]
-            .map(
-              (t) => `
+                                            { id: "bar", label: "Barras", icon: "📊" },
+                                            { id: "line", label: "Líneas", icon: "📈" },
+                                            { id: "pie", label: "Circular", icon: "🥧" },
+                                        ]
+                                            .map(
+                                                (t) => `
               <div
                 class="isil-chart-option ${selectedType === t.id ? "active" : ""}"
                 data-value="${t.id}"
@@ -810,16 +939,14 @@ useEffect(() => {
                   padding:18px 12px;
                   border-radius:16px;
                   text-align:center;
-                  border:2px solid ${
-                    selectedType === t.id
-                      ? "#1CBCE8"
-                      : isDark ? "#1E293B" : "#E2E8F0"
-                  };
-                  background:${
-                    selectedType === t.id
-                      ? isDark ? "#0E7490" : "#ECFAFD"
-                      : isDark ? "#020617" : "#FFFFFF"
-                  };
+                  border:2px solid ${selectedType === t.id
+                                                        ? "#1CBCE8"
+                                                        : isDark ? "#1E293B" : "#E2E8F0"
+                                                    };
+                  background:${selectedType === t.id
+                                                        ? isDark ? "#0E7490" : "#ECFAFD"
+                                                        : isDark ? "#020617" : "#FFFFFF"
+                                                    };
                   color:${isDark ? "#E5F3F9" : "#0A4E61"};
                   transition:all .2s ease;
                 "
@@ -828,57 +955,57 @@ useEffect(() => {
                 <strong>${t.label}</strong>
               </div>
             `
-            )
-            .join("")}
+                                            )
+                                            .join("")}
         </div>
       `,
 
-      didOpen: () => {
-        const options = document.querySelectorAll(".isil-chart-option");
+                                    didOpen: () => {
+                                        const options = document.querySelectorAll(".isil-chart-option");
 
-        options.forEach((el) => {
-          el.addEventListener("click", () => {
-            selectedType = el.getAttribute("data-value");
+                                        options.forEach((el) => {
+                                            el.addEventListener("click", () => {
+                                                selectedType = el.getAttribute("data-value");
 
-            options.forEach((o) => {
-              o.classList.remove("active");
-              o.style.borderColor = isDark ? "#1E293B" : "#E2E8F0";
-              o.style.background = isDark ? "#020617" : "#FFFFFF";
-            });
+                                                options.forEach((o) => {
+                                                    o.classList.remove("active");
+                                                    o.style.borderColor = isDark ? "#1E293B" : "#E2E8F0";
+                                                    o.style.background = isDark ? "#020617" : "#FFFFFF";
+                                                });
 
-            el.classList.add("active");
-            el.style.borderColor = "#1CBCE8";
-            el.style.background = isDark ? "#0E7490" : "#ECFAFD";
-          });
-        });
-      },
+                                                el.classList.add("active");
+                                                el.style.borderColor = "#1CBCE8";
+                                                el.style.background = isDark ? "#0E7490" : "#ECFAFD";
+                                            });
+                                        });
+                                    },
 
-      preConfirm: () => selectedType,
-    }).then(async (res) => {
-      if (!res.isConfirmed || !res.value) return;
+                                    preConfirm: () => selectedType,
+                                }).then(async (res) => {
+                                    if (!res.isConfirmed || !res.value) return;
 
-      try {
-        await updateWidget(widget.id, { chart_type: res.value });
-        widget.chart_type = res.value;
+                                    try {
+                                        await updateWidget(widget.id, { chart_type: res.value });
+                                        widget.chart_type = res.value;
 
-        Swal.fire({
-          icon: "success",
-          title: "Gráfico actualizado",
-          text: "Tipo de gráfico cambiado correctamente.",
-          timer: 1600,
-          showConfirmButton: false,
-          background: isDark ? "#0B1220" : "#F8FCFE",
-          color: isDark ? "#E5F3F9" : "#0A4E61",
-        });
-      } catch {
-        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
-      }
-    });
-  }}
-  className="block w-full text-left px-3 py-2 text-purple-400 text-sm hover:bg-gray-700 rounded-md"
->
-  🔁 Cambiar tipo
-</button>
+                                        Swal.fire({
+                                            icon: "success",
+                                            title: "Gráfico actualizado",
+                                            text: "Tipo de gráfico cambiado correctamente.",
+                                            timer: 1600,
+                                            showConfirmButton: false,
+                                            background: isDark ? "#0B1220" : "#F8FCFE",
+                                            color: isDark ? "#E5F3F9" : "#0A4E61",
+                                        });
+                                    } catch {
+                                        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
+                                    }
+                                });
+                            }}
+                            className="block w-full text-left px-3 py-2 text-purple-400 text-sm hover:bg-gray-700 rounded-md"
+                        >
+                            🔁 Cambiar tipo
+                        </button>
 
 
 
@@ -939,16 +1066,16 @@ useEffect(() => {
                         >
                             🎨 Editar colores
                         </button>
-<button
-  onClick={() => {
-    setMenuOpen(false);
+                        <button
+                            onClick={() => {
+                                setMenuOpen(false);
 
-    Swal.fire({
-      padding: "22px 26px",
-      background: theme.mode === "dark" ? "#0B1220" : "#F8FCFE",
-      color: theme.mode === "dark" ? "#E5F3F9" : "#0A4E61",
+                                Swal.fire({
+                                    padding: "22px 26px",
+                                    background: theme.mode === "dark" ? "#0B1220" : "#F8FCFE",
+                                    color: theme.mode === "dark" ? "#E5F3F9" : "#0A4E61",
 
-      html: `
+                                    html: `
         <div style="text-align:center;font-size:13px;margin-bottom:10px;">
           Seleccionados:
           <b>${activeLabels.length}</b> / ${categoryLabels.length}
@@ -976,8 +1103,8 @@ useEffect(() => {
           gap:8px 14px;
         ">
           ${categoryLabels.map(label => {
-            const color = colorMap[label] || "#CBD5E1";
-            return `
+                                        const color = colorMap[label] || "#CBD5E1";
+                                        return `
               <label style="
                 display:flex;
                 align-items:center;
@@ -997,66 +1124,66 @@ useEffect(() => {
                 <span style="font-size:13px;">${label}</span>
               </label>
             `;
-          }).join("")}
+                                    }).join("")}
         </div>
       `,
 
-      showCancelButton: true,
-      confirmButtonText: "Aplicar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#1CBCE8",
+                                    showCancelButton: true,
+                                    confirmButtonText: "Aplicar",
+                                    cancelButtonText: "Cancelar",
+                                    confirmButtonColor: "#1CBCE8",
 
-      didOpen: () => {
-        document.getElementById("selectAll")?.addEventListener("click", () => {
-          document
-            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
-            .forEach(cb => cb.checked = true);
-        });
+                                    didOpen: () => {
+                                        document.getElementById("selectAll")?.addEventListener("click", () => {
+                                            document
+                                                .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+                                                .forEach(cb => cb.checked = true);
+                                        });
 
-        document.getElementById("selectNone")?.addEventListener("click", () => {
-          document
-            .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
-            .forEach(cb => cb.checked = false);
-        });
-      },
+                                        document.getElementById("selectNone")?.addEventListener("click", () => {
+                                            document
+                                                .querySelectorAll<HTMLInputElement>("input[type=checkbox]")
+                                                .forEach(cb => cb.checked = false);
+                                        });
+                                    },
 
-      preConfirm: () =>
-        Array.from(
-          document.querySelectorAll<HTMLInputElement>(
-            "input[type=checkbox]:checked"
-          )
-        ).map(el => el.value),
-    }).then(async res => {
-      if (!Array.isArray(res.value)) return;
+                                    preConfirm: () =>
+                                        Array.from(
+                                            document.querySelectorAll<HTMLInputElement>(
+                                                "input[type=checkbox]:checked"
+                                            )
+                                        ).map(el => el.value),
+                                }).then(async res => {
+                                    if (!Array.isArray(res.value)) return;
 
-      // 🟢 Aplicar visual
-      setActiveLabels(res.value);
+                                    // 🟢 Aplicar visual
+                                    setActiveLabels(res.value);
 
-      const save = await Swal.fire({
-        icon: "info",
-        title: "Filtro aplicado",
-        text: "¿Deseas guardar el filtro para este widget?",
-        showCancelButton: true,
-        confirmButtonText: "Guardar",
-        cancelButtonText: "Solo aplicar",
-        confirmButtonColor: "#1CBCE8",
-      });
+                                    const save = await Swal.fire({
+                                        icon: "info",
+                                        title: "Filtro aplicado",
+                                        text: "¿Deseas guardar el filtro para este widget?",
+                                        showCancelButton: true,
+                                        confirmButtonText: "Guardar",
+                                        cancelButtonText: "Solo aplicar",
+                                        confirmButtonColor: "#1CBCE8",
+                                    });
 
-      if (save.isConfirmed) {
-        await saveWidgetFilters(widget.id, res.value);
-        Swal.fire("Guardado", "Filtro persistente aplicado.", "success");
-      }
-    });
-  }}
-  className="block w-full text-left px-3 py-2
+                                    if (save.isConfirmed) {
+                                        await saveWidgetFilters(widget.id, res.value);
+                                        Swal.fire("Guardado", "Filtro persistente aplicado.", "success");
+                                    }
+                                });
+                            }}
+                            className="block w-full text-left px-3 py-2
              text-sm rounded-md
              text-[#1CBCE8]
              hover:bg-[#ECFAFD]"
->
-  🎛️ Filtrar
-</button>
+                        >
+                            🎛️ Filtrar
+                        </button>
 
-                          {/* <button
+                        {/* <button
   onClick={() => {
     setMenuOpen(false);
 

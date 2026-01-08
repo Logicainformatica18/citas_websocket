@@ -7,7 +7,18 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 */
+use App\Http\Controllers\AI\DashboardAIController;
+use App\Http\Controllers\AI\AITrainingController;
 
+Route::prefix('ai')->group(function () {
+    Route::post('/training/start', [AITrainingController::class, 'startTraining']);
+    Route::post('/training/test', [AITrainingController::class, 'testSql']);
+    Route::post('/training/finalize', [AITrainingController::class, "finalizeTraining"]);
+});
+Route::prefix('ai')->group(function () {
+    Route::get('/suggestions', [DashboardAIController::class, 'suggestions']);
+      Route::post('/chat', [DashboardAIController::class, 'chat']);
+});
 require __DIR__.'/api/auth.php';
 
 Route::middleware('auth:sanctum')->group(function () {
