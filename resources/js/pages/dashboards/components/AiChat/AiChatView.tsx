@@ -13,6 +13,7 @@ import {
     Volume2,
     Database,
 } from "lucide-react";
+import { MessageCircle} from "lucide-react"
 import { useAiChatLogic } from "./useAiChatLogic";
 import ChartSelector from "./ChartSelector";
 
@@ -309,16 +310,19 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
 
 
 
-            <div
-                className="
-    px-4 py-3
-    border-t border-[#A7E5F6] dark:border-[#3f4144]
-    bg-[#ECFAFD] dark:bg-[#343541]
-    text-sm text-gray-700 dark:text-gray-300
-    space-y-3
-  "
-            >
-                {/* FILA 1 → MODO */}
+        {/* <div
+  className={`
+    px-3 py-2 border-t transition-colors
+    ${
+      logic.mode === "train"
+        ? "bg-[#ECFDF3] border-[#9FE3BF]"
+        : "bg-[#ECFAFD] border-[#A7E5F6]"
+    }
+    dark:bg-[#40414f] dark:border-[#3f4144]
+  `}
+>
+
+
                 <div className="flex items-center gap-2">
                     <Database size={16} className="text-[#1CBCE8]" />
                     <select
@@ -338,7 +342,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
                     </select>
                 </div>
 
-                {/* FILA 2 → ACCIONES */}
+
                 <div className="grid grid-cols-2 gap-2">
                     <button
                         onClick={() => logic.setForceNew(!logic.forceNew)}
@@ -365,7 +369,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
                     </button>
                 </div>
 
-                {/* FILA 3 → CONTROLES DE VOZ */}
+
                 {logic.voiceEnabled && (
                     <div className="grid grid-cols-2 gap-2">
                         <button
@@ -393,167 +397,171 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
                         </button>
                     </div>
                 )}
-            </div>
+            </div> */}
 
 
-
-
-    <div
-  className="
-    px-3 py-3
-    bg-[#ECFAFD] dark:bg-[#40414f]
-    border-t border-[#A7E5F6] dark:border-[#3f4144]
-    flex items-center gap-2
-  "
+<div
+  className={`
+    border-t px-4 py-4
+    ${
+      logic.mode === "train"
+        ? "bg-[#ECFDF3] border-[#9FE3BF]"
+        : "bg-[#ECFAFD] border-[#A7E5F6]"
+    }
+    dark:bg-[#40414f] dark:border-[#3f4144]
+  `}
 >
-
-
-                {/* Adjuntar */}
-                <label
-                    className="
-      shrink-0
-      cursor-pointer p-2 rounded-lg
-      bg-white dark:bg-[#565869]
-      hover:bg-[#D5F3FB] dark:hover:bg-[#6b6d7b]
-      flex items-center justify-center
+  {/* ================= GRID CONTENEDOR ================= */}
+  <div
+    className="
+      grid grid-cols-[40px_1fr_40px_40px]
+      grid-rows-[auto_auto]
+      gap-x-3 gap-y-3
+      items-center
     "
-                >
-                    <Paperclip size={16} className="text-gray-700 dark:text-gray-200" />
-                    <input
-                        type="file"
-                        hidden
-                        onChange={(e) =>
-                            e.target.files?.[0] && logic.handleFileUpload(e.target.files[0])
-                        }
-                    />
-                </label>
+  >
+    {/* ================= VOZ (ARRIBA IZQUIERDA) ================= */}
+    <button
+      onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
+      className={`
+        col-start-1 row-start-1
+        w-10 h-10
+        flex items-center justify-center
+        rounded-lg border cursor-pointer transition
+        ${
+          logic.voiceEnabled
+            ? "bg-green-600 text-white border-green-600"
+            : "bg-white border-[#A7E5F6] hover:bg-[#D5F3FB]"
+        }
+      `}
+      title="Voz"
+    >
+      <Volume2 size={18} />
+    </button>
 
-                {/* Texto */}
-    <input
-  value={logic.input}
-  onChange={(e) => {
-    const value = e.target.value;
-    logic.handleInputChange(value);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (value.trim().length >= 2) {
-      debounceRef.current = setTimeout(
-        () => fetchSuggestions(value),
-        300
-      );
-    } else {
-      setShowSuggestions(false);
-    }
-  }}
-  onKeyDown={(e) => {
-    if (e.key === "Enter") {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
+    {/* ================= MODO (ARRIBA DERECHA) ================= */}
+    <button
+      onClick={() =>
+        logic.setMode(logic.mode === "chat" ? "train" : "chat")
       }
-      setShowSuggestions(false);
-      logic.handleSend();
-    }
-  }}
-  className="
-    flex-1
-    text-sm px-4 py-2 rounded-full
-    bg-white dark:bg-[#202123]
-    text-gray-900 dark:text-gray-100
-    placeholder-gray-500
-    border border-[#A7E5F6] dark:border-[#3f4144]
-    focus:outline-none focus:ring-2 focus:ring-[#1CBCE8]
-  "
-  placeholder={
-    logic.mode === "train"
-      ? "Describe la consulta que quieres enseñar a VERA..."
-      : "Escribe tu mensaje..."
-  }
-  autoComplete="off"
-  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-/>
+      className={`
+        col-start-4 row-start-1
+        justify-self-end
+        px-4 py-2 rounded-full text-sm
+        border cursor-pointer transition
+        ${
+          logic.mode === "train"
+            ? "bg-[#1CBCE8] text-white border-[#1CBCE8]"
+            : "bg-white text-[#1CBCE8] border-[#1CBCE8] hover:bg-[#D5F3FB]"
+        }
+      `}
+    >
+      {logic.mode === "train" ? "Conversar" : "Entrenar con datos"}
+    </button>
 
-                {showSuggestions && (
-                    <div
-                        className="
-      absolute bottom-14 left-3 right-3
-      bg-white dark:bg-[#202123]
-      border border-[#A7E5F6] dark:border-[#3f4144]
-      rounded-lg shadow-lg
-      z-50
-      max-h-[220px] overflow-y-auto
-    "
-                    >
-                        {suggestions.length > 0 ? (
-                            suggestions.map((sug) => (
-                                <div
-                                    key={sug.id}
-                                    onMouseDown={(e) => {
-                                        e.preventDefault(); // ⛔ evita blur
-                                        logic.handleInputChange(sug.prompt);
-                                        setShowSuggestions(false);
-                                        logic.handleSend(sug.prompt, sug.id);
-                                    }}
-                                    className="
-            px-4 py-2 text-sm cursor-pointer
-            hover:bg-[#D5F3FB] dark:hover:bg-[#2a2b2f]
-          "
-                                >
-                                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                                        {sug.prompt}
-                                    </div>
-                                    {sug.description && (
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            {sug.description}
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <div className="p-3 text-sm text-gray-500">
-                                No hay coincidencias
-                            </div>
-                        )}
-                    </div>
-                )}
+    {/* ================= ADJUNTAR (ABAJO IZQUIERDA) ================= */}
+    <label
+      className="
+        col-start-1 row-start-2
+        w-10 h-10
+        flex items-center justify-center
+        rounded-lg border bg-white
+        border-[#A7E5F6]
+        hover:bg-[#D5F3FB]
+        cursor-pointer
+      "
+      title="Adjuntar archivo"
+    >
+      <Paperclip size={18} />
+      <input
+        type="file"
+        hidden
+        onChange={(e) =>
+          e.target.files?.[0] && logic.handleFileUpload(e.target.files[0])
+        }
+      />
+    </label>
 
-                {/* Mic */}
-                <button
-                    onClick={logic.recording ? logic.stopRecording : logic.startRecording}
-                    className={
-                        logic.recording
-                            ? "shrink-0 p-2 rounded-lg bg-red-600 text-white"
-                            : "shrink-0 p-2 rounded-lg bg-white dark:bg-[#565869] text-gray-700 dark:text-gray-100 hover:bg-[#D5F3FB] dark:hover:bg-[#6b6d7b]"
-                    }
-                >
-                    {logic.recording ? <Square size={16} /> : <Mic size={16} />}
-                </button>
+    {/* ================= TEXTAREA CENTRAL ================= */}
+    <textarea
+      rows={2}
+      value={logic.input}
+      onChange={(e) => {
+        logic.handleInputChange(e.target.value);
+        e.target.style.height = "auto";
+        e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          logic.handleSend();
+        }
+      }}
+      className={`
+        col-start-2 col-span-1 row-start-2
+        resize-none
+        px-4 py-3
+        rounded-2xl text-sm border
+        min-h-[56px] max-h-[140px]
+        ${
+          logic.mode === "train"
+            ? "bg-[#E6F8EE] border-[#9FE3BF]"
+            : "bg-white border-[#A7E5F6]"
+        }
+        focus:outline-none focus:ring-2 focus:ring-[#1CBCE8]
+      `}
+      placeholder={
+        logic.mode === "train"
+          ? "Describe la consulta que quieres enseñar a VERA…"
+          : "Escribe tu mensaje…"
+      }
+    />
 
-                {/* Enviar */}
-                <button
-                    onClick={() => {
-                        // 🔴 LIMPIA AUTOCOMPLETADO AQUÍ
-                        if (debounceRef.current) {
-                            clearTimeout(debounceRef.current);
-                            debounceRef.current = null;
-                        }
-                        setShowSuggestions(false);
+    {/* ================= MIC (ABAJO DERECHA - 1) ================= */}
+    <button
+      onClick={logic.recording ? logic.stopRecording : logic.startRecording}
+      className={`
+        col-start-3 row-start-2
+        w-10 h-10
+        flex items-center justify-center
+        rounded-lg border cursor-pointer transition
+        ${
+          logic.recording
+            ? "bg-red-600 text-white border-red-600"
+            : "bg-white border-[#A7E5F6] hover:bg-[#D5F3FB]"
+        }
+      `}
+      title="Grabar voz"
+    >
+      {logic.recording ? <Square size={18} /> : <Mic size={18} />}
+    </button>
 
-                        logic.handleSend();
-                    }}
-                    disabled={logic.loading || !logic.input.trim()}
-                    className="..."
-                >
-                    <Send size={16} />
-                </button>
+    {/* ================= ENVIAR (ABAJO DERECHA - 2) ================= */}
+    <button
+      onClick={logic.handleSend}
+      disabled={!logic.input.trim()}
+      className="
+        col-start-4 row-start-2
+        w-10 h-10
+        flex items-center justify-center
+        rounded-lg
+        bg-[#1CBCE8] text-white
+        hover:bg-[#17a8cf]
+        disabled:opacity-50 disabled:cursor-not-allowed
+        cursor-pointer
+      "
+      title="Enviar"
+    >
+      <Send size={18} />
+    </button>
+  </div>
+</div>
 
-            </div>
 
 
 
 
-            {/* 🟦 Esquina de redimensionamiento */}
+
            {!embedded && (
 
                 <div

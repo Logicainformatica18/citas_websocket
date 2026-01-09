@@ -11,7 +11,7 @@ interface DashboardHeaderProps {
 }
 
 export default function DashboardHeader({
-  activeDashboard = "Dashboard Principal",
+  activeDashboard = "DASHBOARD Vera AI",
   dashboards = ["Dashboard Principal", "Dashboard 2"],
   onChangeDashboard,
   onCreateDashboard,
