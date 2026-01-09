@@ -6,7 +6,7 @@ import { Link } from '@inertiajs/react';
 import { LogOut, Settings, Moon, Sun, Monitor } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-
+import { router } from '@inertiajs/react';
 // -------------------------------
 // 🎨 Hook unificado de apariencia
 // -------------------------------
@@ -41,21 +41,17 @@ export function useAppearance() {
   }, []);
 
   // 🔁 Cambiar tema
-  const updateAppearance = useCallback(async (next: Appearance) => {
-    setAppearance(next);
-    applyTheme(next);
+const updateAppearance = useCallback((next: Appearance) => {
+  setAppearance(next);
+  applyTheme(next);
 
-    localStorage.setItem('appearance', next);
-    document.cookie = `appearance=${next};path=/;max-age=${365 * 24 * 60 * 60}`;
+  localStorage.setItem('appearance', next);
+  document.cookie = `appearance=${next};path=/;max-age=${365 * 24 * 60 * 60}`;
 
-    // 🗄️ Sincroniza con backend (para el usuario autenticado)
-    try {
-      await axios.post('/user/appearance', { theme: next });
-      console.log('✅ Tema sincronizado en backend:', next);
-    } catch (err) {
-      console.warn('⚠️ No se pudo guardar en backend:', err);
-    }
-  }, []);
+  // 🔄 Recarga la página actual (Inertia)
+  router.reload({ preserveScroll: true });
+}, []);
+
 
   return { appearance, updateAppearance, initialized } as const;
 }

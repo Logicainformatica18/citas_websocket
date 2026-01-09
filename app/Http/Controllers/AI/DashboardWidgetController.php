@@ -68,6 +68,80 @@ public function index(Request $request)
 }
 
 
+public function refresh(int $dashboardId, int $widgetId)
+{
+    // 1️⃣ Buscar widget
+    $widget = DB::table('dashboard_widgets')
+        ->where('id', $widgetId)
+        ->where('dashboard_id', $dashboardId)
+        ->first();
+
+    if (!$widget) {
+        return response()->json([
+            'error' => 'Widget no encontrado en este dashboard',
+        ], 404);
+    }
+
+    // 2️⃣ Leer data_source
+    $dataSource = json_decode($widget->data_source ?? '{}', true);
+
+    if (
+        empty($dataSource['sql_query']) &&
+        empty($dataSource['sql_training_id'])
+    ) {
+        return response()->json([
+            'error' => 'Este widget no tiene SQL para recalcular',
+        ], 400);
+    }
+
+    // 3️⃣ Resolver SQL
+    $query = $dataSource['sql_query'] ?? null;
+
+    if (!$query && !empty($dataSource['sql_training_id'])) {
+        $query = DB::table('sqltrainings')
+            ->where('id', $dataSource['sql_training_id'])
+            ->value('sql_validated');
+    }
+
+    if (!$query) {
+        return response()->json([
+            'error' => 'No se pudo resolver el SQL del widget',
+        ], 400);
+    }
+
+    // 4️⃣ Ejecutar SQL (🔥 AQUÍ ESTÁ LA MAGIA)
+    $rows = DB::select($query);
+
+    $cleanRows = collect($rows)->map(function ($row) {
+        $out = [];
+        foreach ($row as $k => $v) {
+            if (is_numeric($v)) $out[$k] = (float) $v;
+            elseif (is_null($v)) $out[$k] = 0;
+            elseif (is_bool($v)) $out[$k] = $v ? 1 : 0;
+            elseif (is_string($v)) {
+                $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
+            } else {
+                $out[$k] = $v;
+            }
+        }
+        return $out;
+    })->values()->toArray();
+
+    // 5️⃣ Reescribir rows
+    $dataSource['rows'] = $cleanRows;
+
+    DB::table('dashboard_widgets')
+        ->where('id', $widgetId)
+        ->update([
+            'data_source' => json_encode($dataSource, JSON_UNESCAPED_UNICODE),
+            'updated_at'  => now(),
+        ]);
+
+    return response()->json([
+        'message' => '🔁 Widget recalculado correctamente',
+        'rows'    => $cleanRows,
+    ]);
+}
 
 public function storeFromTraining(Request $request)
 {

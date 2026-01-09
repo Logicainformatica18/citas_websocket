@@ -215,6 +215,22 @@ setSections(res.data.sections || []);
     })
     .catch(console.error);
 }, [refreshKey]);
+useEffect(() => {
+  if (!activeDashboard?.id) return;
+
+  setLoading(true);
+
+  axios
+    .get(`/api/ai/dashboards/${activeDashboard.id}/widgets`)
+    .then((res) => {
+      setWidgets(res.data.widgets || []);
+    })
+    .catch(console.error)
+    .finally(() => {
+      setLoading(false);
+      stopRefreshing(); // 🔥 ESTO DESBLOQUEA EL BOTÓN
+    });
+}, [refreshKey]);
 
  useEffect(() => {
   if (!activeDashboard?.id) return;

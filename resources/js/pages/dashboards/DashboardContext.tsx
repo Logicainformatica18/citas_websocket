@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import axios from "axios";
 
 type DashboardData = {
   results: any;
@@ -64,10 +65,34 @@ const [activeDashboard, setActiveDashboard] = useState<any | null>(null);
   };
 
   /** ===== 🔄 REFRESH GLOBAL ===== */
-  const refreshDashboard = () => {
-    setIsRefreshing(true);
+const refreshDashboard = async () => {
+  if (!activeDashboard?.id) return;
+
+  setIsRefreshing(true);
+
+  try {
+    // 1️⃣ Traer widgets
+    const res = await axios.get(
+      `/api/ai/dashboards/${activeDashboard.id}/widgets`
+    );
+
+    const widgets = res.data.widgets || [];
+
+    // 2️⃣ Recalcular uno por uno (MISMO refresh)
+    for (const w of widgets) {
+      await axios.post(
+        `/api/ai/dashboards/${activeDashboard.id}/widgets/${w.id}/refresh`
+      );
+    }
+
+    // 3️⃣ Forzar reload visual
     setRefreshKey((k) => k + 1);
-  };
+
+  } finally {
+    setIsRefreshing(false);
+  }
+};
+
 
   const stopRefreshing = () => {
     setIsRefreshing(false);

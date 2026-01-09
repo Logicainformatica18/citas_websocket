@@ -810,39 +810,35 @@ export default function WidgetCard({
     paddingTop: 12,
   }}
 >
-  {filteredData.map((entry, index) => {
-    const label = entry[categoryKey];
-    const color = pieColors[index];
+ {filteredData.map((entry, index) => {
+  const label = entry[categoryKey];
+  const color = pieColors[index];
 
-    return (
+  return (
     <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 13,
-color: theme.text,
-fill: theme.text,
+      key={`pie-legend-${label}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 13,
+        color: theme.text,
+        fontWeight: 500,
+      }}
+    >
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          backgroundColor: color,
+        }}
+      />
+      {label}
+    </div>
+  );
+})}
 
-    fontWeight: 500,
-  }}
->
-
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            backgroundColor: color,
-            boxShadow: isDark
-              ? "0 0 0 2px rgba(255,255,255,0.25)"
-              : "0 0 0 2px rgba(0,0,0,0.1)",
-          }}
-        />
-        {label}
-      </div>
-    );
-  })}
 </div>
 
 
@@ -1033,7 +1029,7 @@ fill: theme.text,
                             🗑️ Eliminar
                         </button>
 
-                        <button
+                        {/* <button
                             onClick={async () => {
                                 setMenuOpen(false);
                                 Swal.fire({
@@ -1065,7 +1061,7 @@ fill: theme.text,
                             className="block w-full text-left px-3 py-2 hover:bg-gray-700 text-blue-400 text-sm"
                         >
                             🎨 Editar colores
-                        </button>
+                        </button> */}
                         <button
                             onClick={() => {
                                 setMenuOpen(false);

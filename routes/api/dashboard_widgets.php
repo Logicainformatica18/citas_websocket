@@ -14,4 +14,6 @@ Route::prefix('ai/dashboards/{dashboard}')->group(function () {
     Route::post('widgets/reorder', [DashboardWidgetController::class, 'reorder']);
     Route::patch('widgets/{widget}/color', [DashboardWidgetController::class, 'updateColor']);
     Route::post('widgets/{widget}/filters', [DashboardWidgetController::class, 'saveFilters']);
+      // 🔥 NUEVO: recalcular datos del widget
+    Route::post('widgets/{widget}/refresh', [DashboardWidgetController::class, 'refresh']);
 });
