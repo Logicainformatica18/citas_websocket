@@ -4,16 +4,19 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import {
-    Send,
-    X,
-    Paperclip,
-    Mic,
-    Square,
-    RefreshCw,
-    Volume2,
-    Database,
+  Send,
+  X,
+  Paperclip,
+  Mic,
+  Square,
+  RefreshCw,
+  Volume2,
+  Database,
+  Plus,
+  MessageCircle,
 } from "lucide-react";
-import { MessageCircle} from "lucide-react"
+
+
 import { useAiChatLogic } from "./useAiChatLogic";
 import ChartSelector from "./ChartSelector";
 
@@ -32,6 +35,8 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
     const [resizing, setResizing] = useState(false);
     const resizeRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
+
+
     type Suggestion = {
         id: number;
         prompt: string;
@@ -41,7 +46,8 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
 
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+const debounceRef = useRef<number | null>(null);
+
 
     // 🎨 Colores (adaptado a tema claro / oscuro estilo Lovable)
     const colorByRole = {
@@ -62,6 +68,31 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
         self-start
     `,
     };
+useEffect(() => {
+  if (suppressSuggestionsRef.current) {
+    suppressSuggestionsRef.current = false;
+    return;
+  }
+
+  if (!logic.input || logic.input.length < 3) {
+    setShowSuggestions(false);
+    return;
+  }
+
+  if (debounceRef.current) {
+    clearTimeout(debounceRef.current);
+  }
+
+  debounceRef.current = window.setTimeout(() => {
+    fetchSuggestions(logic.input);
+  }, 300);
+
+  return () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+  };
+}, [logic.input]);
 
 
     // 🧱 Redimensionamiento
@@ -84,7 +115,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
         const newHeight = Math.max(420, resizeRef.current.height + dy);
         logic.setChatSize({ width: newWidth, height: newHeight });
     };
-
+const [showActions, setShowActions] = useState(false);
     const stopResize = () => setResizing(false);
 
     useEffect(() => {
@@ -100,6 +131,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
             window.removeEventListener("mouseup", stopResize);
         };
     }, [resizing]);
+const suppressSuggestionsRef = useRef(false);
 
     // ⚙️ Control externo global (sin eventos duplicados)
   useEffect(() => {
@@ -128,6 +160,11 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
         }
     };
 
+const handleSendWrapped = () => {
+  suppressSuggestionsRef.current = true;
+  setShowSuggestions(false);
+  logic.handleSend();
+};
 
     return (
 <div
@@ -399,10 +436,9 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
                 )}
             </div> */}
 
-
 <div
   className={`
-    border-t px-4 py-4
+    border-t px-5 py-4 relative
     ${
       logic.mode === "train"
         ? "bg-[#ECFDF3] border-[#9FE3BF]"
@@ -411,98 +447,147 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
     dark:bg-[#40414f] dark:border-[#3f4144]
   `}
 >
-  {/* ================= GRID CONTENEDOR ================= */}
-  <div
-    className="
-      grid grid-cols-[40px_1fr_40px_40px]
-      grid-rows-[auto_auto]
-      gap-x-3 gap-y-3
-      items-center
-    "
-  >
-    {/* ================= VOZ (ARRIBA IZQUIERDA) ================= */}
-    <button
-      onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
-      className={`
-        col-start-1 row-start-1
-        w-10 h-10
-        flex items-center justify-center
-        rounded-lg border cursor-pointer transition
-        ${
-          logic.voiceEnabled
-            ? "bg-green-600 text-white border-green-600"
-            : "bg-white border-[#A7E5F6] hover:bg-[#D5F3FB]"
-        }
-      `}
-      title="Voz"
-    >
-      <Volume2 size={18} />
-    </button>
+  {/* ===============================
+      HEADER — MODO
+  =============================== */}
+  <div className="flex justify-end mb-3">
+<button
+  onClick={() =>
+    logic.setMode(logic.mode === "chat" ? "train" : "chat")
+  }
+  className={`
+    w-full
+    flex items-center justify-center gap-2
+    px-4 py-3
+    rounded-full
+    text-sm font-semibold
+    transition
+    cursor-pointer
+    ${
+      logic.mode === "chat"
+        ? "bg-[#1CBCE8] text-white hover:bg-[#17a8cf]"
+        : "bg-green-600 text-white hover:bg-green-700"
+    }
+  `}
+>
+  {logic.mode === "chat" ? (
+    <>
+      💬 Conversando
+    </>
+  ) : (
+    <>
+      🧠 Consultando datos
+    </>
+  )}
+</button>
 
-    {/* ================= MODO (ARRIBA DERECHA) ================= */}
-    <button
-      onClick={() =>
-        logic.setMode(logic.mode === "chat" ? "train" : "chat")
-      }
-      className={`
-        col-start-4 row-start-1
-        justify-self-end
-        px-4 py-2 rounded-full text-sm
-        border cursor-pointer transition
-        ${
-          logic.mode === "train"
-            ? "bg-[#1CBCE8] text-white border-[#1CBCE8]"
-            : "bg-white text-[#1CBCE8] border-[#1CBCE8] hover:bg-[#D5F3FB]"
-        }
-      `}
-    >
-      {logic.mode === "train" ? "Conversar" : "Entrenar con datos"}
-    </button>
 
-    {/* ================= ADJUNTAR (ABAJO IZQUIERDA) ================= */}
-    <label
-      className="
-        col-start-1 row-start-2
-        w-10 h-10
-        flex items-center justify-center
-        rounded-lg border bg-white
-        border-[#A7E5F6]
-        hover:bg-[#D5F3FB]
-        cursor-pointer
-      "
-      title="Adjuntar archivo"
-    >
-      <Paperclip size={18} />
-      <input
-        type="file"
-        hidden
-        onChange={(e) =>
-          e.target.files?.[0] && logic.handleFileUpload(e.target.files[0])
-        }
-      />
-    </label>
 
-    {/* ================= TEXTAREA CENTRAL ================= */}
+  </div>
+
+  {/* ===============================
+      INPUT
+  =============================== */}
+  <div className="relative">
+
+    {/* PANEL DE ACCIONES (CLICK) */}
+    {showActions && (
+      <div
+        className="
+          absolute bottom-full mb-3 left-4
+          flex gap-2
+          px-3 py-2
+          rounded-xl
+          bg-white border border-[#A7E5F6]
+          shadow-lg
+          animate-slide-up
+          z-20
+        "
+      >
+        {/* 🔊 Voz */}
+        <button
+          onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
+          className={`
+            w-10 h-10 rounded-full
+            flex items-center justify-center
+            border cursor-pointer
+            ${
+              logic.voiceEnabled
+                ? "bg-green-600 text-white border-green-600"
+                : "bg-white border-[#A7E5F6]"
+            }
+          `}
+          title="Voz"
+        >
+          <Volume2 size={16} />
+        </button>
+
+        {/* 🎤 Mic */}
+        <button
+          onClick={
+            logic.recording ? logic.stopRecording : logic.startRecording
+          }
+          className={`
+            w-10 h-10 rounded-full
+            flex items-center justify-center
+            border cursor-pointer
+            ${
+              logic.recording
+                ? "bg-red-600 text-white border-red-600"
+                : "bg-white border-[#A7E5F6]"
+            }
+          `}
+          title="Grabar"
+        >
+          {logic.recording ? <Square size={16} /> : <Mic size={16} />}
+        </button>
+
+        {/* 📎 Adjuntar */}
+        <label
+          className="
+            w-10 h-10 rounded-full
+            flex items-center justify-center
+            bg-white border border-[#A7E5F6]
+            cursor-pointer
+          "
+          title="Adjuntar archivo"
+        >
+          <Paperclip size={16} />
+          <input
+            type="file"
+            hidden
+            onChange={(e) =>
+              e.target.files?.[0] &&
+              logic.handleFileUpload(e.target.files[0])
+            }
+          />
+        </label>
+      </div>
+    )}
+
+    {/* TEXTAREA */}
     <textarea
       rows={2}
       value={logic.input}
       onChange={(e) => {
         logic.handleInputChange(e.target.value);
         e.target.style.height = "auto";
-        e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+        e.target.style.height =
+          Math.min(e.target.scrollHeight, 160) + "px";
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          logic.handleSend();
-        }
-      }}
+      onFocus={() => setShowActions(false)}
+     onKeyDown={(e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    handleSendWrapped();
+  }
+}}
+
       className={`
-        col-start-2 col-span-1 row-start-2
-        resize-none
-        px-4 py-3
+        w-full resize-none
+        px-5 py-4 pr-28
         rounded-2xl text-sm border
-        min-h-[56px] max-h-[140px]
+        min-h-[72px]
         ${
           logic.mode === "train"
             ? "bg-[#E6F8EE] border-[#9FE3BF]"
@@ -516,50 +601,79 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
           : "Escribe tu mensaje…"
       }
     />
+{showSuggestions && suggestions.length > 0 && (
+  <div
+    className="
+      absolute left-0 right-0 bottom-full mb-2
+      bg-white dark:bg-[#2a2b31]
+      border border-[#A7E5F6] dark:border-[#3f4144]
+      rounded-xl shadow-lg
+      max-h-48 overflow-y-auto
+      z-30
+    "
+  >
+    {suggestions.map((s) => (
+      <button
+        key={s.id}
+       onClick={() => {
+  suppressSuggestionsRef.current = true;
+  logic.handleInputChange(s.prompt);
+  setShowSuggestions(false);
+}}
 
-    {/* ================= MIC (ABAJO DERECHA - 1) ================= */}
-    <button
-      onClick={logic.recording ? logic.stopRecording : logic.startRecording}
-      className={`
-        col-start-3 row-start-2
-        w-10 h-10
-        flex items-center justify-center
-        rounded-lg border cursor-pointer transition
-        ${
-          logic.recording
-            ? "bg-red-600 text-white border-red-600"
-            : "bg-white border-[#A7E5F6] hover:bg-[#D5F3FB]"
-        }
-      `}
-      title="Grabar voz"
-    >
-      {logic.recording ? <Square size={18} /> : <Mic size={18} />}
-    </button>
+        className="
+          w-full text-left px-4 py-2
+          hover:bg-[#ECFAFD] dark:hover:bg-[#3a3b40]
+          text-sm text-gray-800 dark:text-gray-200
+          transition
+        "
+      >
+        <div className="font-medium">{s.prompt}</div>
+        {s.description && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {s.description}
+          </div>
+        )}
+      </button>
+    ))}
+  </div>
+)}
 
-    {/* ================= ENVIAR (ABAJO DERECHA - 2) ================= */}
+    {/* BOTÓN ACCIONES */}
     <button
-      onClick={logic.handleSend}
-      disabled={!logic.input.trim()}
+      onClick={() => setShowActions((v) => !v)}
+      title="Acciones"
       className="
-        col-start-4 row-start-2
+        absolute right-14 bottom-4
         w-10 h-10
+        rounded-full
         flex items-center justify-center
-        rounded-lg
-        bg-[#1CBCE8] text-white
-        hover:bg-[#17a8cf]
-        disabled:opacity-50 disabled:cursor-not-allowed
+        bg-white border border-[#A7E5F6]
         cursor-pointer
       "
-      title="Enviar"
     >
-      <Send size={18} />
+      <Plus size={16} />
+    </button>
+
+    {/* ENVIAR */}
+<button
+  onClick={handleSendWrapped}
+      disabled={!logic.input.trim()}
+      title="Enviar"
+      className="
+        absolute right-3 bottom-4
+        w-10 h-10
+        rounded-full
+        flex items-center justify-center
+        bg-[#1CBCE8] text-white
+        disabled:opacity-50
+        cursor-pointer
+      "
+    >
+      <Send size={16} />
     </button>
   </div>
 </div>
-
-
-
-
 
 
            {!embedded && (

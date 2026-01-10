@@ -525,12 +525,12 @@ public function updateColor(Request $request, int $dashboardId, int $id)
     }
 }
 
-public function saveFilters(Request $request, int $dashboardId, int $id)
+public function saveFilters(Request $request, int $dashboard, int $widget)
 {
     try {
         Log::info('🧩 [saveFilters] Inicio', [
-            'dashboard_id' => $dashboardId,
-            'widget_id'    => $id,
+            'dashboard_id' => $dashboard,
+            'widget_id'    => $widget,
             'payload'      => $request->all(),
         ]);
 
@@ -546,15 +546,15 @@ public function saveFilters(Request $request, int $dashboardId, int $id)
         ]);
 
         // 2️⃣ Buscar widget dentro del dashboard
-        $widget = DB::table('dashboard_widgets')
-            ->where('id', $id)
-            ->where('dashboard_id', $dashboardId)
+        $widgetRow = DB::table('dashboard_widgets')
+            ->where('id', $widget)
+            ->where('dashboard_id', $dashboard)
             ->first();
 
-        if (!$widget) {
+        if (!$widgetRow) {
             Log::warning('⚠️ [saveFilters] Widget no encontrado en dashboard', [
-                'dashboard_id' => $dashboardId,
-                'widget_id'    => $id,
+                'dashboard_id' => $dashboard,
+                'widget_id'    => $widget,
             ]);
 
             return response()->json([
@@ -563,21 +563,21 @@ public function saveFilters(Request $request, int $dashboardId, int $id)
         }
 
         Log::info('📦 [saveFilters] Widget encontrado', [
-            'id'          => $widget->id,
-            'options_raw' => $widget->options,
+            'id'          => $widgetRow->id,
+            'options_raw' => $widgetRow->options,
         ]);
 
         // 3️⃣ Leer OPTIONS actuales
         $existingOptions = [];
-        if (!empty($widget->options)) {
-            $existingOptions = json_decode($widget->options, true) ?? [];
+        if (!empty($widgetRow->options)) {
+            $existingOptions = json_decode($widgetRow->options, true) ?? [];
         }
 
         Log::info('🧠 [saveFilters] Options decodificados', [
             'existingOptions' => $existingOptions,
         ]);
 
-        // 4️⃣ Mezclar filtros UX (asegurar estructura)
+        // 4️⃣ Mezclar filtros UX (estructura segura)
         $existingOptions['filters'] = $existingOptions['filters'] ?? [];
         $existingOptions['filters']['activeLabels'] =
             $validated['filters']['activeLabels'];
@@ -588,14 +588,14 @@ public function saveFilters(Request $request, int $dashboardId, int $id)
 
         // 5️⃣ Guardar en BD
         DB::table('dashboard_widgets')
-            ->where('id', $id)
+            ->where('id', $widget)
             ->update([
                 'options'     => json_encode($existingOptions, JSON_UNESCAPED_UNICODE),
                 'updated_at'  => now(),
             ]);
 
         Log::info('💾 [saveFilters] Filtros guardados correctamente', [
-            'widget_id' => $id,
+            'widget_id' => $widget,
         ]);
 
         return response()->json([
@@ -605,8 +605,8 @@ public function saveFilters(Request $request, int $dashboardId, int $id)
 
     } catch (\Throwable $e) {
         Log::error('💥 [saveFilters] Error guardando filtros del widget', [
-            'dashboard_id' => $dashboardId,
-            'widget_id'    => $id,
+            'dashboard_id' => $dashboard,
+            'widget_id'    => $widget,
             'exception'    => $e,
             'message'      => $e->getMessage(),
         ]);
@@ -616,6 +616,7 @@ public function saveFilters(Request $request, int $dashboardId, int $id)
         ], 500);
     }
 }
+
 
 
 

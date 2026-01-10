@@ -9,10 +9,11 @@ export type Message = {
     text: string;
 
     // 🔹 Opcional: botones de guardar entrenamiento
-    saveIntent?: {
-        sql_training_id: number;
-        prompt: string;
-    };
+saveIntent?: {
+  sql_training_id: number;
+  prompt: string;
+};
+
 
     // 🔹 Opcional: selector de gráfico (usado tras ejecutar una consulta)
     chartSelector?: {
@@ -36,7 +37,8 @@ export type Suggestion = {
 };
 
 export function useAiChatLogic() {
-    const { updateDashboard } = useDashboard();
+const { updateDashboard, refreshDashboard } = useDashboard();
+
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const { activeDashboard } = useDashboard();
@@ -190,10 +192,12 @@ export function useAiChatLogic() {
                 // ===========================================
                 // 🧪 FASE 2: validar automáticamente el SQL
                 // ===========================================
-                const testRes = await axios.post("/api/ai/training/test", {
-                    sql_training_id: data.sql_training_id,
-                    sql_query: data.sql_generated,
-                });
+            const testRes = await axios.post("/api/ai/training/test", {
+  sql_training_id: data.sql_training_id,
+  sql_query: data.sql_generated,
+});
+
+
 
                 if (testRes.data.status === "ok") {
                     setMessages((prev) => [
@@ -218,31 +222,33 @@ export function useAiChatLogic() {
                     // 🎓 FASE 3: generar explicación + Excel + Voz (sin guardar aún)
                     // ===========================================
                     try {
-                        const finalizeRes = await axios.post("/api/ai/training/finalize", {
-                            sql_training_id: data.sql_training_id,
-                            prompt: textToSend,
-                            voice_enabled: voiceEnabled,
-                            save: false, // 👈 genera pero no guarda aún
-                        });
+                     const finalizeRes = await axios.post("/api/ai/training/finalize", {
+  sql_training_id: data.sql_training_id,
+  prompt: textToSend,
+  voice_enabled: voiceEnabled,
+  save: false,
+});
 
-                        const { message, ai_response, excel_path, voice_url } = finalizeRes.data;
+
+
+
+                      const { summary, excel_path, voice_url, training_id, sql_training_id } = finalizeRes.data;
 
                         // 🧠 1️⃣ Mostrar todos los mensajes generados
-                        const newMessages: Message[] = [
-                            { from: "ai", text: message },
-                            { from: "ai", text: ai_response },
-                            ...(excel_path ? [{ from: "ai", text: `📊 [Descargar resultados en Excel](${excel_path})` }] : []),
-                            ...(voice_url ? [{ from: "ai", text: `🔊 [Reproducir explicación en voz](${voice_url})` }] : []),
-                            {
-                                from: "ai",
-                                text: "💾 ¿Deseas guardar este entrenamiento?",
-                                saveIntent: {
-                                    sql_training_id: finalizeRes.data.sql_training_id ?? data.sql_training_id ?? 0,
-                                    prompt: textToSend,
-                                },
-                            },
+                     const newMessages: Message[] = [
+  { from: "ai", text: summary },
+  ...(excel_path ? [{ from: "ai", text: `📊 [Descargar Excel](${excel_path})` }] : []),
+  ...(voice_url ? [{ from: "ai", text: `🔊 [Escuchar resumen](${voice_url})` }] : []),
+  {
+    from: "ai",
+    text: "💾 ¿Deseas guardar este entrenamiento?",
+    saveIntent: {
+      sql_training_id,
+      prompt: textToSend,
+    },
+  },
+];
 
-                        ];
                         setMessages((prev) => [...prev, ...newMessages]);
 
 
@@ -363,7 +369,14 @@ export function useAiChatLogic() {
 
 // 🧠 Si backend devuelve respuesta estructurada (dashboard / entrenamiento ejecutado)
 if (data.topic && data.result) {
-    updateDashboard(data.result, data.topic, data.component ?? null);
+   updateDashboard(
+  data.result,
+  data.topic,
+  data.component ?? null,
+  {},
+  null
+);
+
 
     const newMessages: Message[] = [
         { from: "ai", text: `📘 **${data.prompt}**` },
@@ -527,64 +540,98 @@ if (data.topic && data.result) {
         () => (localStorage.getItem("veraMode") as "chat" | "train") || "chat"
     );
     useEffect(() => localStorage.setItem("veraMode", mode), [mode]);
-  const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
-    try {
-        setSavingTrainingId(sql_training_id); // ⏳ activa spinner
+const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
+  try {
+    setSavingTrainingId(sql_training_id);
 
-        const res = await axios.post("/api/ai/training/finalize", {
-            sql_training_id,
-            prompt,
-            voice_enabled: voiceEnabled,
-            save: true,
-        });
+    const res = await axios.post("/api/ai/training/finalize", {
+      sql_training_id,
+      prompt,
+      voice_enabled: voiceEnabled,
+      save: true,
+    });
+
+    const { training_id } = res.data;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "ai",
+        text: "💾 Entrenamiento guardado correctamente. Ahora puedes generar un gráfico.",
+        showChartOption: { training_id },
+      },
+    ]);
+  } catch {
+    setMessages((prev) => [
+      ...prev,
+      { from: "error", text: "💥 Error al guardar el entrenamiento." },
+    ]);
+  } finally {
+    setSavingTrainingId(null);
+  }
+};
 
 
-            const { training_id, ai_response, excel_path, voice_url } = res.data;
 
-            // ✅ Guarda el ID del entrenamiento para permitir generar gráfico
-            if (training_id) {
-                localStorage.setItem("veraLastTrainingId", training_id.toString());
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        from: "ai",
-                        text: "💾 Entrenamiento guardado correctamente. Ahora puedes generar un gráfico con estos datos.",
-                        showChartOption: { training_id },
-                    },
-                ]);
-            } else {
-                setMessages((prev) => [
-                    ...prev,
-                    { from: "ai", text: "💾 Entrenamiento guardado correctamente." },
-                ]);
-            }
+//   const handleSaveTraining = async (sql_training_id: number, prompt: string) => {
+//     try {
+//         setSavingTrainingId(sql_training_id); // ⏳ activa spinner
 
-            // 🔊 Reproduce voz una sola vez (sin duplicar mensajes)
-            if (voiceEnabled && (voice_url || ai_response)) {
-                try {
-                    let audioUrl = voice_url;
-                    if (!audioUrl && ai_response) {
-                        const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
-                        audioUrl = ttsRes.data?.url;
-                    }
-                    if (audioUrl) playAudio(audioUrl);
-                } catch (err) {
-                    console.warn("⚠️ Error reproduciendo voz al guardar:", err);
-                }
-            }
+//      await axios.post("/api/ai/training/finalize", {
+//   training_id: data.training_id ?? data.sql_training_id,
+//   prompt: textToSend,
+//   voice_enabled: voiceEnabled,
+//   save: false,
+// });
 
-        } catch (err: any) {
-            console.error("💥 Error guardando entrenamiento:", err);
-            const msg =
-                err.response?.data?.message ||
-                err.response?.data?.error ||
-                "💥 Error al guardar el entrenamiento.";
-            setMessages((prev) => [...prev, { from: "error", text: msg }]);
-        }
-        finally {
-        setSavingTrainingId(null); // ✅ AQUÍ SE APAGA EL SPINNER
-    }
-    };
+
+
+//             const { training_id, ai_response, excel_path, voice_url } = res.data;
+
+//             // ✅ Guarda el ID del entrenamiento para permitir generar gráfico
+//             if (training_id) {
+//                 localStorage.setItem("veraLastTrainingId", training_id.toString());
+//                 setMessages((prev) => [
+//                     ...prev,
+//                     {
+//                         from: "ai",
+//                         text: "💾 Entrenamiento guardado correctamente. Ahora puedes generar un gráfico con estos datos.",
+//                         showChartOption: { training_id },
+//                     },
+//                 ]);
+//             } else {
+//                 setMessages((prev) => [
+//                     ...prev,
+//                     { from: "ai", text: "💾 Entrenamiento guardado correctamente." },
+//                 ]);
+//             }
+
+//             // 🔊 Reproduce voz una sola vez (sin duplicar mensajes)
+//             if (voiceEnabled && (voice_url || ai_response)) {
+//                 try {
+//                     let audioUrl = voice_url;
+//                     if (!audioUrl && ai_response) {
+//                         const ttsRes = await axios.post("/api/ai/voice/speak", { text: ai_response });
+//                         audioUrl = ttsRes.data?.url;
+//                     }
+//                     if (audioUrl) playAudio(audioUrl);
+//                 } catch (err) {
+//                     console.warn("⚠️ Error reproduciendo voz al guardar:", err);
+//                 }
+//             }
+
+//         } catch (err: any) {
+//             console.error("💥 Error guardando entrenamiento:", err);
+//             const msg =
+//                 err.response?.data?.message ||
+//                 err.response?.data?.error ||
+//                 "💥 Error al guardar el entrenamiento.";
+//             setMessages((prev) => [...prev, { from: "error", text: msg }]);
+//         }
+//         finally {
+//         setSavingTrainingId(null); // ✅ AQUÍ SE APAGA EL SPINNER
+//     }
+//     };
 
     const handleGenerateChart = async (trainingId: number, chartType: string) => {
         try {
@@ -604,12 +651,16 @@ const res = await axios.post(
 );
 
 
-            const { message, widget_id } = res.data;
+           const { message, widget_id } = res.data;
 
-            setMessages(prev => [
-                ...prev,
-                { from: "ai", text: `${message} (Widget ID: ${widget_id})` },
-            ]);
+setMessages(prev => [
+  ...prev,
+  { from: "ai", text: message },
+]);
+
+// 🔥 CLAVE: refrescar dashboard para que aparezca el card
+await refreshDashboard();
+
         } catch (err: any) {
             console.error("💥 Error generando gráfico:", err);
             const msg =

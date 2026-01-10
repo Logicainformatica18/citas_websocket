@@ -84,9 +84,7 @@ export default function DashboardHeader({
       >
         {/* IZQUIERDA */}
         <div className="flex items-center gap-4">
-          <div className="bg-[#1CBCE8] text-white p-3 rounded-xl shadow-sm">
-            🤖
-          </div>
+
 
           <div>
             <h1 className="text-2xl font-bold text-[#0A4E61] dark:text-slate-100">
@@ -140,7 +138,7 @@ export default function DashboardHeader({
               size={16}
               className={isRefreshing ? "animate-spin" : ""}
             />
-            {isRefreshing ? "Actualizando..." : "Actualizar"}
+            {isRefreshing ? "Actualizando..." : ""}
           </button>
         </div>
       </div>

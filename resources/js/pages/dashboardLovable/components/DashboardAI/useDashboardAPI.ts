@@ -64,9 +64,17 @@ export async function saveWidgetFilters(
 ) {
   return axios.post(
     `/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/filters`,
-    { filters: { activeLabels } }
+    {
+      filters: {
+        activeLabels
+      }
+    }
   );
 }
+
+
+
+
 
 export async function createWidgetFromTraining(
   dashboardId: number,

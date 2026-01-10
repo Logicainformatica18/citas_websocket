@@ -18,6 +18,14 @@ Route::prefix('ai')->group(function () {
 Route::prefix('ai')->group(function () {
     Route::get('/suggestions', [DashboardAIController::class, 'suggestions']);
       Route::post('/chat', [DashboardAIController::class, 'chat']);
+        // 🎙️ Voz → texto (transcripción)
+    Route::post('voice/transcribe', [DashboardAIController::class, 'transcribe']);
+
+    // 🗣️ Texto → voz (TTS)
+    Route::post('voice/speak', [DashboardAIController::class, 'speak']);
+
+    // 📎 Análisis de archivos
+    Route::post('file/analyze', [DashboardAIController::class, 'analyzeFile']);
 });
 require __DIR__.'/api/auth.php';
 

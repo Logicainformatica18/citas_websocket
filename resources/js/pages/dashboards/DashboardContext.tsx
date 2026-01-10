@@ -12,13 +12,17 @@ type DashboardData = {
 type DashboardContextType = {
   /** Estado IA / VERA */
   data: DashboardData;
-  updateDashboard: (
-    results: any,
-    topic?: string | null,
-    component?: string | null,
-    aggregations?: Record<string, any>,
-    instruction?: any
-  ) => void;
+updateDashboard: (
+  results: any,
+  topic?: string | null,
+  component?: string | null,
+  aggregations?: Record<string, any>,
+  instruction?: any,
+  options?: { silent?: boolean }
+) => void;
+
+
+
 
   /** 🧠 DASHBOARD ACTIVO (🔥 FALTABA) */
   activeDashboard: any | null;
@@ -31,6 +35,7 @@ type DashboardContextType = {
   stopRefreshing: () => void;
 };
 
+ 
 
 const DashboardContext = createContext<DashboardContextType | undefined>(
   undefined
@@ -54,15 +59,24 @@ const [activeDashboard, setActiveDashboard] = useState<any | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   /** ===== ACTUALIZAR DASHBOARD IA ===== */
-  const updateDashboard = (
-    results: any,
-    topic?: string | null,
-    component?: string | null,
-    aggregations: Record<string, any> = {},
-    instruction?: any
-  ) => {
-    setData({ results, topic, component, aggregations, instruction });
-  };
+ const updateDashboard = (
+  results: any,
+  topic?: string | null,
+  component?: string | null,
+  aggregations: Record<string, any> = {},
+  instruction?: any,
+  options?: { silent?: boolean }
+) => {
+  // 🔕 actualización silenciosa
+  if (options?.silent) {
+    return;
+  }
+
+  setData({ results, topic, component, aggregations, instruction });
+};
+
+
+
 
   /** ===== 🔄 REFRESH GLOBAL ===== */
 const refreshDashboard = async () => {

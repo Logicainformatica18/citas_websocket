@@ -14,6 +14,7 @@ import {
     ResponsiveContainer,
     Cell, // 👈 importante para los colores aleatorios
 } from "recharts";
+import { router } from "@inertiajs/react";
 
 import ColorControl from "./ColorControl";
 import { FileSpreadsheet, FileDown, Trash2 } from "lucide-react";
@@ -455,7 +456,13 @@ export default function WidgetCard({
         if (onColorChange) onColorChange(widget.id, newColor);
 
         try {
-            await updateWidget(widget.id, { colors: JSON.stringify(newColors) });
+          await updateWidget(
+    Number(widget.dashboard_id),
+    Number(widget.id),
+    { colors: JSON.stringify(newColors) }
+);
+
+
 
             console.log("✅ Colores actualizados en backend:", newColors);
         } catch (err) {
@@ -977,26 +984,38 @@ export default function WidgetCard({
                                     },
 
                                     preConfirm: () => selectedType,
-                                }).then(async (res) => {
-                                    if (!res.isConfirmed || !res.value) return;
+                           }).then(async (res) => {
+    if (!res.isConfirmed || !res.value) return;
 
-                                    try {
-                                        await updateWidget(widget.id, { chart_type: res.value });
-                                        widget.chart_type = res.value;
+    try {
+        await updateWidget(
+            Number(widget.dashboard_id),
+            Number(widget.id),
+            { chart_type: res.value }
+        );
 
-                                        Swal.fire({
-                                            icon: "success",
-                                            title: "Gráfico actualizado",
-                                            text: "Tipo de gráfico cambiado correctamente.",
-                                            timer: 1600,
-                                            showConfirmButton: false,
-                                            background: isDark ? "#0B1220" : "#F8FCFE",
-                                            color: isDark ? "#E5F3F9" : "#0A4E61",
-                                        });
-                                    } catch {
-                                        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
-                                    }
-                                });
+        widget.chart_type = res.value;
+
+        Swal.fire({
+            icon: "success",
+            title: "Gráfico actualizado",
+            text: "Tipo de gráfico cambiado correctamente.",
+            timer: 1200,
+            showConfirmButton: false,
+        });
+
+        // 🔥 AGREGA ESTA LÍNEA
+        setTimeout(() => {
+          router.reload({ preserveScroll: true });
+
+        }, 1300);
+
+    } catch {
+        Swal.fire("Error", "No se pudo actualizar el gráfico", "error");
+    }
+});
+
+
                             }}
                             className="block w-full text-left px-3 py-2 text-purple-400 text-sm hover:bg-gray-700 rounded-md"
                         >
@@ -1165,10 +1184,17 @@ export default function WidgetCard({
                                         confirmButtonColor: "#1CBCE8",
                                     });
 
-                                    if (save.isConfirmed) {
-                                        await saveWidgetFilters(widget.id, res.value);
-                                        Swal.fire("Guardado", "Filtro persistente aplicado.", "success");
-                                    }
+                                   if (save.isConfirmed) {
+ await saveWidgetFilters(
+  Number(widget.dashboard_id), // 🔥 AQUÍ ESTÁ EL ID REAL
+  Number(widget.id),
+  res.value
+);
+
+
+    Swal.fire("Guardado", "Filtro persistente aplicado.", "success");
+}
+
                                 });
                             }}
                             className="block w-full text-left px-3 py-2
