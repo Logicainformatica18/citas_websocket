@@ -1,6 +1,6 @@
 import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
-import { Head, usePage } from "@inertiajs/react";
+import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
@@ -8,10 +8,8 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
 import {
   WeightConfigModal,
-  defaultWeights,
   WeightConfig,
 } from "./components/Header/WeightConfigModal";
-import { Period } from "./components/Header/PeriodSelector";
 
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
@@ -19,6 +17,8 @@ import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 
 import { useRankingData } from "./hooks/useRankingData";
+
+import Swal from "sweetalert2";
 
 /* =========================================================
    Breadcrumbs
@@ -31,6 +31,9 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ];
 
+/* =========================================================
+   Types desde Backend (Inertia)
+========================================================= */
 type PageProps = {
   ranking: {
     data: any[];
@@ -42,24 +45,26 @@ type PageProps = {
   };
   kpis: any;
   meta: any;
+  weights: {
+    laborWeight: number;
+    trendsWeight: number;
+  };
 };
 
 export default function RankingCertificacionesPage() {
   /* =========================
-     DATOS DESDE BACKEND (Inertia)
+     DATOS DESDE BACKEND
   ========================= */
-  const { ranking, kpis, meta } = usePage<PageProps>().props;
+  const { ranking, kpis, meta, weights } = usePage<PageProps>().props;
 
   /* =========================
-     NORMALIZACIÓN (solo data)
+     NORMALIZACIÓN DATA
   ========================= */
   const { data } = useRankingData(ranking.data);
 
   /* =========================
-     HEADER STATE
+     UI STATE
   ========================= */
-  const [period, setPeriod] = useState<Period>("s1");
-  const [weights, setWeights] = useState<WeightConfig>(defaultWeights);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
   /* =========================
@@ -71,6 +76,57 @@ export default function RankingCertificacionesPage() {
   const handleOpenJobs = (cert: any) => {
     setSelectedCert(cert);
     setOpenJobsModal(true);
+  };
+
+  /* =========================
+     GUARDAR PONDERACIONES (GLOBAL)
+  ========================= */
+  const handleSaveWeights = (newWeights: WeightConfig) => {
+    if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
+      Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
+      return;
+    }
+
+    Swal.fire({
+      title: "Aplicando metodología",
+      text: "Recalculando ranking global…",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    router.post(
+      "/dashboard/ranking-certificaciones/weights",
+      {
+        labor_weight: newWeights.laborWeight / 100,
+        trend_weight: newWeights.trendsWeight / 100,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          Swal.fire({
+            icon: "success",
+            title: "Metodología actualizada",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+
+          // 🔁 recarga parcial, no rompe nada
+          router.reload({
+            only: ["ranking", "weights", "meta", "kpis"],
+          });
+        },
+        onError: () => {
+          Swal.fire(
+            "Error",
+            "No se pudo aplicar la ponderación",
+            "error"
+          );
+        },
+      }
+    );
   };
 
   return (
@@ -87,9 +143,7 @@ export default function RankingCertificacionesPage() {
             <div className="flex-1 min-w-0 space-y-6">
               {/* ===== HEADER ===== */}
               <RankingHeader
-                period={period}
-                onPeriodChange={setPeriod}
-                weights={weights}
+                weights={weights} // 🔹 vienen del backend
                 onEditWeights={() => setIsWeightModalOpen(true)}
                 meta={meta}
               />
@@ -100,7 +154,7 @@ export default function RankingCertificacionesPage() {
               {/* ===== FILTROS ===== */}
               <RankingFilters />
 
-              {/* ===== RANKING (PAGINADO BACKEND) ===== */}
+              {/* ===== RANKING (BACKEND PAGINADO) ===== */}
               <RankingList
                 items={data}
                 pagination={ranking}
@@ -122,8 +176,8 @@ export default function RankingCertificacionesPage() {
         <WeightConfigModal
           open={isWeightModalOpen}
           onOpenChange={setIsWeightModalOpen}
-          weights={weights}
-          onSave={setWeights}
+          weights={weights}             // 🔹 estado real desde BD
+          onSave={handleSaveWeights}    // 🔹 guarda en backend
         />
       </DashboardProvider>
     </AppLayout>

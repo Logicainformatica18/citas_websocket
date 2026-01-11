@@ -93,6 +93,17 @@ Route::get('/__auth-debug', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+
+ Route::post(
+        'dashboard/ranking-certificaciones/weights',
+        [RankingCertificacionesController::class, 'storeWeights']
+    )->name('ranking.certifications.weights');
+
+
+
+
+
+
 Route::prefix('dashboard')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])

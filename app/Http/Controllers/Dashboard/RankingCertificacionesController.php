@@ -6,13 +6,78 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-
+use App\Models\Prueba;
 class RankingCertificacionesController extends Controller
 {
-  public function index(Request $request)
+    public function storeWeights(Request $request)
 {
     /* ==================================================
-       0. Año y periodo (default: S2 2025)
+       1. Validación
+    ================================================== */
+    $data = $request->validate([
+        'labor_weight' => 'required|numeric|min:0|max:1',
+        'trend_weight' => 'required|numeric|min:0|max:1',
+    ]);
+
+    if (round($data['labor_weight'] + $data['trend_weight'], 2) !== 1.00) {
+        return response()->json([
+            'message' => 'Las ponderaciones deben sumar 1.00',
+        ], 422);
+    }
+
+    /* ==================================================
+       2. Transacción segura
+    ================================================== */
+    DB::transaction(function () use ($data) {
+
+        // 🔹 Desactivar ponderación activa actual (contexto certifications)
+        Prueba::where('context', 'certifications')
+            ->where('is_active', 1)
+            ->update(['is_active' => 0]);
+
+        // 🔹 Crear nueva ponderación activa
+        Prueba::create([
+            'labor_weight' => $data['labor_weight'],
+            'trend_weight' => $data['trend_weight'],
+            'context'      => 'certifications',
+            'is_active'    => 1,
+            'applied_at'   => now(),
+            'updated_by'   => auth()->id(),
+        ]);
+    });
+
+    /* ==================================================
+       3. Respuesta
+    ================================================== */
+ return redirect()
+    ->route('dashboard.ranking.certificaciones')
+    ->with('success', 'Ponderaciones aplicadas correctamente');
+
+}
+    private function getTrendSubquery(int $year, string $period)
+{
+    $quarter = $period === 's1' ? 1 : 4; // tu convención real
+
+    return DB::table('certifications as c')
+        ->leftJoin('certification_course as cc', 'cc.certification_id', '=', 'c.id')
+        ->leftJoin('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+        ->leftJoin('technology_trend_technology as ttt', 'ttt.technology_id', '=', 'ct.technology_id')
+        ->leftJoin('technology_trends as tt', function ($join) use ($year, $quarter) {
+            $join->on('tt.id', '=', 'ttt.technology_trend_id')
+                 ->where('tt.year', $year)
+                 ->where('tt.quarter', $quarter);
+        })
+        ->select(
+            'c.id as certification_id',
+            DB::raw('SUM(tt.trend_score * ttt.confidence_score) as trend_raw')
+        )
+        ->groupBy('c.id');
+}
+
+public function index(Request $request)
+{
+    /* ==================================================
+       0. Parámetros base (año y período)
     ================================================== */
     $year   = (int) $request->get('year', 2025);
     $period = $request->get('period', 's2');
@@ -20,80 +85,21 @@ class RankingCertificacionesController extends Controller
     $range = $this->getPeriodRange($period, $year);
 
     /* ==================================================
-       1. Filtros recibidos (string o array)
+       0.1 PONDERACIÓN GLOBAL (DESDE BD)
+       👉 una sola activa para todos
     ================================================== */
-    $categories = $request->get('category', []);
-    $careers    = $request->get('career', []);
-
-    $categories = is_array($categories)
-        ? array_filter($categories)
-        : array_filter([$categories]);
-
-    $careers = is_array($careers)
-        ? array_filter($careers)
-        : array_filter([$careers]);
-
-    /* ==================================================
-       2. Query base del ranking (CON FECHAS)
-    ================================================== */
-    $rankingQuery = DB::table('certification_job as cj')
-        ->join('certifications as c', 'c.id', '=', 'cj.certification_id')
-        ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->select(
-            'c.id',
-            'c.name',
-            'c.vendor',
-            'c.level',
-            'c.category',
-            DB::raw('COUNT(DISTINCT cj.job_offer_id) as total_jobs')
-        );
-
-    /* ==================================================
-       3. Filtro por categorías tecnológicas
-    ================================================== */
-    if (!empty($categories)) {
-        $rankingQuery->whereIn('c.category', $categories);
+    try {
+        $activeWeights = Prueba::getActive('certifications');
+    } catch (\Throwable $e) {
+        // Fallback seguro si aún no hay ponderaciones
+        $activeWeights = null;
     }
 
-    /* ==================================================
-       4. Filtro por carreras ISIL
-    ================================================== */
-    if (!empty($careers)) {
-        $careerMap = [
-            'architecture' => ['data'],
-            'cyber'        => ['security', 'cloud'],
-            'data_ai'      => ['ai', 'data'],
-            'cloud'        => ['cloud'],
-            'software'     => ['cloud', 'ai', 'data'],
-            'networks'     => ['networking', 'cloud'],
-            'information_systems' => ['cloud', 'data'],
-            'systems_engineering' => ['cloud', 'ai', 'data'],
-            'it' => ['cloud', 'data'],
-        ];
-
-        $careerCategories = collect($careers)
-            ->flatMap(fn ($career) => $careerMap[$career] ?? [])
-            ->unique()
-            ->values()
-            ->toArray();
-
-        if (!empty($careerCategories)) {
-            $rankingQuery->whereIn('c.category', $careerCategories);
-        }
-    }
+    $laborWeight = (float) ($activeWeights?->labor_weight ?? 0.70);
+    $trendWeight = (float) ($activeWeights?->trend_weight ?? 0.30);
 
     /* ==================================================
-       5. Ejecutar ranking (PAGINADO)
-    ================================================== */
-    $ranking = $rankingQuery
-        ->groupBy('c.id', 'c.name', 'c.vendor', 'c.level', 'c.category')
-        ->orderByDesc('total_jobs')
-        ->paginate(4)
-        ->withQueryString();
-
-    /* ==================================================
-       6. Vacantes analizadas reales (GLOBAL)
+       Vacantes analizadas reales (GLOBAL)
     ================================================== */
     $totalVacantesAnalizadas = DB::table('certification_job as cj')
         ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
@@ -102,65 +108,107 @@ class RankingCertificacionesController extends Controller
         ->count('cj.job_offer_id');
 
     /* ==================================================
-       7. KPIs (basados en página actual)
+       1. Subquery: DEMANDA LABORAL
     ================================================== */
-    $rankingCollection = collect($ranking->items());
-    $topCertification  = $rankingCollection->first();
+    $laborSub = DB::table('certification_job as cj')
+        ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
+        ->whereBetween('j.published_at', [$range['start'], $range['end']])
+        ->select(
+            'cj.certification_id',
+            DB::raw('COUNT(DISTINCT cj.job_offer_id) as offers')
+        )
+        ->groupBy('cj.certification_id');
 
-    $altaDemanda = $rankingCollection->take(10)->count();
-
-    $altaProyeccion = $rankingCollection
-        ->filter(fn ($r) => in_array($r->category, ['cloud', 'ai', 'data']))
-        ->take(12)
-        ->count();
-
-    $areaDestacada = $rankingCollection
-        ->groupBy('category')
-        ->map(fn ($items) => $items->sum('total_jobs'))
-        ->sortDesc()
-        ->keys()
-        ->first();
+    $maxLabor = DB::query()
+        ->fromSub($laborSub, 'x')
+        ->selectRaw('MAX(offers) as max_offers')
+        ->value('max_offers') ?: 1;
 
     /* ==================================================
-       8. Render
+       2. Subquery: TENDENCIAS TECNOLÓGICAS
+    ================================================== */
+    $trendSub = $this->getTrendSubquery($year, $period);
+
+    $maxTrend = DB::query()
+        ->fromSub($trendSub, 't')
+        ->selectRaw('MAX(trend_raw) as max_trend')
+        ->value('max_trend') ?: 1;
+
+    /* ==================================================
+       3. Query FINAL del ranking
+    ================================================== */
+    $ranking = DB::table('certifications as c')
+        ->leftJoinSub($laborSub, 'labor', 'labor.certification_id', '=', 'c.id')
+        ->leftJoinSub($trendSub, 'trend', 'trend.certification_id', '=', 'c.id')
+        ->select(
+            'c.id',
+            'c.name',
+            'c.vendor',
+            'c.level',
+            'c.category',
+
+            DB::raw('COALESCE(labor.offers, 0) as total_jobs'),
+
+            DB::raw("
+                ROUND(
+                    (COALESCE(labor.offers,0) / {$maxLabor}) * 100,
+                    1
+                ) as labor_score
+            "),
+
+            DB::raw("
+                ROUND(
+                    (COALESCE(trend.trend_raw,0) / {$maxTrend}) * 100,
+                    1
+                ) as trend_score
+            "),
+
+            DB::raw("
+                ROUND(
+                    (
+                        ((COALESCE(labor.offers,0) / {$maxLabor}) * 100 * {$laborWeight})
+                      + ((COALESCE(trend.trend_raw,0) / {$maxTrend}) * 100 * {$trendWeight})
+                    ),
+                    1
+                ) as final_score
+            ")
+        )
+        ->orderByDesc('final_score')
+        ->paginate(4)
+        ->withQueryString();
+
+    /* ==================================================
+       4. Render (frontend NO pierde nada)
     ================================================== */
     return Inertia::render(
         'DashboardRankingCertificaciones/RankingCertificacionesPage',
         [
             'ranking' => $ranking,
 
-            'kpis' => [
-                'top_certification' => $topCertification ? [
-                    'name'   => $topCertification->name,
-                    'vendor' => $topCertification->vendor,
-                    'jobs'   => $topCertification->total_jobs,
-                ] : null,
-
-                'alta_demanda'    => $altaDemanda,
-                'alta_proyeccion' => $altaProyeccion,
-                'area_destacada'  => $areaDestacada,
+            // 🔹 filtros siguen siendo solo navegación
+            'filters' => [
+                'year'   => $year,
+                'period' => $period,
             ],
 
-            'filters' => [
-                'category' => array_values($categories),
-                'career'   => array_values($careers),
-                'year'     => $year,
-                'period'   => $period,
+            // 🔹 pesos globales (solo lectura)
+            'weights' => [
+                'laborWeight'  => round($laborWeight * 100, 1),
+                'trendsWeight' => round($trendWeight * 100, 1),
             ],
 
             'meta' => [
                 'year'   => $year,
                 'period' => $period,
                 'periodo_label' => $period === 's1'
-                    ? "Semestre 1 – Enero a Junio $year"
-                    : "Semestre 2 – Julio a Diciembre $year",
+                    ? "Semestre 1 – Enero a Junio {$year}"
+                    : "Semestre 2 – Julio a Diciembre {$year}",
                 'vacantes_analizadas' => $totalVacantesAnalizadas,
                 'actualizado' => now()->toDateTimeString(),
             ],
         ]
     );
 }
-
 public function jobsByCertification(Request $request, int $certificationId)
 {
     // ===============================
