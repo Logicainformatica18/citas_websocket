@@ -5,6 +5,7 @@ import { CertificationRanking } from "../../types/ranking";
 type Pagination = {
   current_page: number;
   last_page: number;
+  per_page?: number;
   prev_page_url?: string | null;
   next_page_url?: string | null;
 };
@@ -20,21 +21,23 @@ export default function RankingList({
   pagination,
   onSelectCertification,
 }: Props) {
+  const perPage = pagination.per_page ?? items.length;
+
   return (
     <>
-      {/* GRID */}
+      {/* ================= GRID ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {items.map((item, index) => (
           <CertificationCard
             key={item.id}
-            rank={(pagination.current_page - 1) *  pagination.last_page + index + 1}
+            rank={(pagination.current_page - 1) * perPage + index + 1}
             data={item}
             onClick={() => onSelectCertification?.(item)}
           />
         ))}
       </div>
 
-      {/* PAGINACIÓN UX */}
+      {/* ================= PAGINACIÓN ================= */}
       <Paginator
         currentPage={pagination.current_page}
         lastPage={pagination.last_page}

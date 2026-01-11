@@ -1,4 +1,4 @@
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 
 type Props = {
   currentPage: number;
@@ -14,6 +14,9 @@ export default function Paginator({
   nextUrl,
 }: Props) {
   const maxVisible = 5;
+
+  // 🔑 filtros actuales desde Inertia
+  const { filters } = usePage().props as any;
 
   const getPages = () => {
     const pages: number[] = [];
@@ -34,6 +37,20 @@ export default function Paginator({
 
   const pages = getPages();
 
+  const goToPage = (page: number) => {
+    router.get(
+      "/dashboard/ranking-certificaciones",
+      {
+        ...filters, // 🔥 CLAVE: preserva áreas, carreras, año, período, etc.
+        page,
+      },
+      {
+        preserveState: true,
+        replace: true,
+      }
+    );
+  };
+
   return (
     <div className="flex items-center justify-center gap-2 mt-8">
       {/* ← ANTERIOR */}
@@ -45,10 +62,14 @@ export default function Paginator({
         ←
       </button>
 
-      {/* 1 */}
+      {/* 1 … */}
       {pages[0] > 1 && (
         <>
-          <PageButton page={1} active={currentPage === 1} />
+          <PageButton
+            page={1}
+            active={currentPage === 1}
+            onClick={goToPage}
+          />
           <span className="px-1 text-gray-400">…</span>
         </>
       )}
@@ -59,6 +80,7 @@ export default function Paginator({
           key={page}
           page={page}
           active={page === currentPage}
+          onClick={goToPage}
         />
       ))}
 
@@ -66,7 +88,11 @@ export default function Paginator({
       {pages[pages.length - 1] < lastPage && (
         <>
           <span className="px-1 text-gray-400">…</span>
-          <PageButton page={lastPage} active={currentPage === lastPage} />
+          <PageButton
+            page={lastPage}
+            active={currentPage === lastPage}
+            onClick={goToPage}
+          />
         </>
       )}
 
@@ -82,22 +108,21 @@ export default function Paginator({
   );
 }
 
+/* =====================================================
+   PageButton
+===================================================== */
 function PageButton({
   page,
   active,
+  onClick,
 }: {
   page: number;
   active: boolean;
+  onClick: (page: number) => void;
 }) {
   return (
     <button
-      onClick={() =>
-        router.get(
-          `/dashboard/ranking-certificaciones?page=${page}`,
-          {},
-          { preserveState: true }
-        )
-      }
+      onClick={() => onClick(page)}
       className={`
         min-w-[36px]
         px-3 py-2

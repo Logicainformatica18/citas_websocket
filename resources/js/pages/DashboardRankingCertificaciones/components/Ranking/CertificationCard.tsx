@@ -20,14 +20,14 @@ const defaultRankColor = "bg-gray-200 text-gray-600";
 
 export default function CertificationCard({ rank, data, onClick }: Props) {
   /* =========================================
-     BLINDAJE DE DATOS (MUY IMPORTANTE)
+     BLINDAJE DE DATOS
   ========================================= */
   const finalScore = Number(data.final_score ?? 0);
   const laborScore = Number(data.labor_score ?? 0);
   const trendScore = Number(data.trend_score ?? 0);
   const totalJobs  = Number(data.total_jobs ?? 0);
 
-  /* Etiqueta semántica opcional */
+  /* Etiqueta semántica */
   const scoreLabel =
     finalScore >= 70 ? "Alta" :
     finalScore >= 40 ? "Media" :
@@ -37,21 +37,11 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
     <div
       onClick={onClick}
       className="
-        group
-        cursor-pointer
-        rounded-2xl
-        border
-        bg-white
-        p-6
-        relative
-        overflow-hidden
-        transition-all
-        duration-300
-        hover:shadow-xl
-        hover:-translate-y-[2px]
+        group cursor-pointer rounded-2xl border bg-white p-6
+        relative overflow-hidden transition-all duration-300
+        hover:shadow-xl hover:-translate-y-[2px]
         hover:border-[#1CBCE8]
-        dark:bg-[#0F2A3A]
-        dark:border-[#1E3A4A]
+        dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
       "
     >
       {/* Barra decorativa */}
@@ -64,11 +54,8 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
           <div className="flex items-center gap-3">
             <span
               className={`
-                flex items-center justify-center
-                w-10 h-10
-                rounded-xl
-                font-bold
-                text-sm
+                flex items-center justify-center w-10 h-10 rounded-xl
+                font-bold text-sm
                 ${rankColors[rank] ?? defaultRankColor}
               `}
             >
@@ -95,10 +82,10 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
 
           {/* ================= SCORES ================= */}
           <div className="pt-4 space-y-3">
-            {/* Score Final */}
+            {/* Score Final (detalle) */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Score final
+                Resultado ponderado
               </span>
 
               <div className="flex items-center gap-2">
@@ -114,7 +101,7 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
             {/* Barra Score Final */}
             <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[#1CBCE8] to-[#38BDF8] transition-all duration-500"
+                className="h-full bg-gradient-to-r from-[#1CBCE8] to-[#38BDF8]"
                 style={{ width: `${finalScore}%` }}
               />
             </div>
@@ -123,35 +110,44 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
             <div className="grid grid-cols-2 gap-4 pt-2">
               {/* Laboral */}
               <div>
-                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase">
-                  <Briefcase className="h-3 w-3" />
-                  Laboral
+                <div className="flex items-center justify-between text-xs uppercase text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Briefcase className="h-3 w-3" />
+                    Laboral
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    {totalJobs.toLocaleString()} vacantes
+                  </span>
                 </div>
+
                 <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
                   <div
-                    className="h-full bg-[#22C55E] transition-all duration-500"
+                    className="h-full bg-[#22C55E]"
                     style={{ width: `${laborScore}%` }}
                   />
                 </div>
+
                 <span className="text-[11px] text-gray-500">
-                  {laborScore.toFixed(1)}
+                  Score laboral: {laborScore.toFixed(1)}
                 </span>
               </div>
 
               {/* Tendencias */}
               <div>
-                <div className="flex items-center gap-1 text-xs text-gray-500 uppercase">
+                <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
                   <TrendingUp className="h-3 w-3" />
                   Tendencias
                 </div>
+
                 <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
                   <div
-                    className="h-full bg-[#A855F7] transition-all duration-500"
+                    className="h-full bg-[#A855F7]"
                     style={{ width: `${trendScore}%` }}
                   />
                 </div>
+
                 <span className="text-[11px] text-gray-500">
-                  {trendScore.toFixed(1)}
+                  Score tendencias: {trendScore.toFixed(1)}
                 </span>
               </div>
             </div>
@@ -159,12 +155,13 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
         </div>
 
         {/* ================= RIGHT ================= */}
-        <div className="flex flex-col items-end justify-start">
+        {/* 🔥 RESULTADO FINAL PONDERADO */}
+        <div className="flex flex-col items-end justify-start text-right">
           <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
-            {totalJobs}
+            {finalScore.toFixed(1)}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
-            Vacantes
+            Resultado final
           </span>
         </div>
       </div>
