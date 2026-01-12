@@ -43,7 +43,35 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use Inertia\Inertia;
 use App\Http\Controllers\Dashboard\RankingCertificacionesController;
 use App\Http\Controllers\AI\DashboardWidgetController;
+use App\Http\Controllers\Dashboard\RankingTecnologiasController;
+
 Route::middleware(['auth'])->group(function () {
+
+Route::get(
+    'dashboard/ranking/technologies/{technology}/jobs',
+    [RankingTecnologiasController::class, 'jobsByTechnology']
+)->name('dashboard.ranking.technologies.jobs');
+
+Route::prefix('dashboard/ranking')->middleware(['auth'])->group(function () {
+
+    /* =========================================
+       RANKING DE TECNOLOGÍAS
+    ========================================= */
+
+    // 📊 Vista principal del ranking
+    Route::get('technologies', [RankingTecnologiasController::class, 'index'])
+        ->name('dashboard.ranking.technologies');
+
+    // ⚖️ Guardar ponderaciones (laboral / tendencias)
+    Route::post('technologies/weights', [RankingTecnologiasController::class, 'storeWeights'])
+        ->name('dashboard.ranking.technologies.weights');
+
+});
+
+
+
+
+
 
     Route::get(
         '/dashboard/ranking-certificaciones',
