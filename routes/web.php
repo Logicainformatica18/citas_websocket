@@ -45,40 +45,7 @@ use App\Http\Controllers\Dashboard\RankingCertificacionesController;
 use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\Dashboard\RankingTecnologiasController;
 
-Route::middleware(['auth'])->group(function () {
 
-Route::get(
-    'dashboard/ranking/technologies/{technology}/jobs',
-    [RankingTecnologiasController::class, 'jobsByTechnology']
-)->name('dashboard.ranking.technologies.jobs');
-
-Route::prefix('dashboard/ranking')->middleware(['auth'])->group(function () {
-
-    /* =========================================
-       RANKING DE TECNOLOGÍAS
-    ========================================= */
-
-    // 📊 Vista principal del ranking
-    Route::get('technologies', [RankingTecnologiasController::class, 'index'])
-        ->name('dashboard.ranking.technologies');
-
-    // ⚖️ Guardar ponderaciones (laboral / tendencias)
-    Route::post('technologies/weights', [RankingTecnologiasController::class, 'storeWeights'])
-        ->name('dashboard.ranking.technologies.weights');
-
-});
-
-
-
-
-
-
-    Route::get(
-        '/dashboard/ranking-certificaciones',
-        [RankingCertificacionesController::class, 'index']
-    )->name('dashboard.ranking.certificaciones');
-
-});
 Route::get(
     '/dashboard/ranking-certificaciones/{certification}/jobs',
     [RankingCertificacionesController::class, 'jobsByCertification']
@@ -96,33 +63,71 @@ Route::middleware('web')->group(function () {
         AuthenticatedSessionController::class,
         'samlCallback'
     ]);
-Route::get('/logout', [AuthenticatedSessionController::class, 'logout'])
-  ->name('logout');
+    Route::get('/logout', [AuthenticatedSessionController::class, 'logout'])
+        ->name('logout');
 });
 
 
-Route::get('/__auth-debug', function () {
-    return response()->json([
-        'auth_check' => auth()->check(),
-        'auth_id' => auth()->id(),
-        'guard' => config('auth.defaults.guard'),
-        'session_id' => session()->getId(),
-        'session_driver' => config('session.driver'),
-        'session_cookie' => config('session.cookie'),
-        'session_domain' => config('session.domain'),
-        'user' => auth()->user(),
-    ]);
-});
+// Route::get('/__auth-debug', function () {
+//     return response()->json([
+//         'auth_check' => auth()->check(),
+//         'auth_id' => auth()->id(),
+//         'guard' => config('auth.defaults.guard'),
+//         'session_id' => session()->getId(),
+//         'session_driver' => config('session.driver'),
+//         'session_cookie' => config('session.cookie'),
+//         'session_domain' => config('session.domain'),
+//         'user' => auth()->user(),
+//     ]);
+// });
 
 
- Route::get('/', function () {
+
+Route::get('/', function () {
     return redirect('/dashboard');
- });
+});
+
+        // 📊 Vista principal del ranking
+
 
 Route::middleware(['auth'])->group(function () {
 
+  Route::get(
+        '/dashboard/ranking/technologies',
+        [RankingTecnologiasController::class, 'index']
+    )->name('dashboard.ranking.technologies');
 
- Route::post(
+
+  Route::get(
+        'dashboard/ranking/technologies/{technology}/jobs',
+        [RankingTecnologiasController::class, 'jobsByTechnology']
+    )->name('dashboard.ranking.technologies.jobs');
+
+    Route::prefix('dashboard/ranking')->middleware(['auth'])->group(function () {
+
+        /* =========================================
+           RANKING DE TECNOLOGÍAS
+        ========================================= */
+
+
+
+        // ⚖️ Guardar ponderaciones (laboral / tendencias)
+        Route::post('technologies/weights', [RankingTecnologiasController::class, 'storeWeights'])
+            ->name('dashboard.ranking.technologies.weights');
+
+    });
+
+
+
+
+
+
+    Route::get(
+        '/dashboard/ranking-certificaciones',
+        [RankingCertificacionesController::class, 'index']
+    )->name('dashboard.ranking.certificaciones');
+
+    Route::post(
         'dashboard/ranking-certificaciones/weights',
         [RankingCertificacionesController::class, 'storeWeights']
     )->name('ranking.certifications.weights');
@@ -132,34 +137,33 @@ Route::middleware(['auth'])->group(function () {
 
 
 
-Route::prefix('dashboard')->group(function () {
+    Route::prefix('dashboard')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])
             ->name('dashboard.index');
 
-        Route::get('/{slug}', [DashboardController::class, 'show'])
-            ->name('dashboard.show');
+
 
         Route::post('/', [DashboardController::class, 'store'])
             ->name('dashboard.store');
     });
-Route::prefix('dashboard')->group(function () {
+    Route::prefix('dashboard')->group(function () {
 
-    Route::get('/widgets', [DashboardWidgetController::class, 'index']);
-    Route::post('/widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
-    Route::put('/widgets/{id}', [DashboardWidgetController::class, 'update']);
-    Route::delete('/widgets/{id}', [DashboardWidgetController::class, 'destroy']);
-    Route::post('/widgets/reorder', [DashboardWidgetController::class, 'reorder']);
-    Route::post('/widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
-    Route::put('/widgets/{id}/filters', [DashboardWidgetController::class, 'saveFilters']);
+        Route::get('/widgets', [DashboardWidgetController::class, 'index']);
+        Route::post('/widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
+        Route::put('/widgets/{id}', [DashboardWidgetController::class, 'update']);
+        Route::delete('/widgets/{id}', [DashboardWidgetController::class, 'destroy']);
+        Route::post('/widgets/reorder', [DashboardWidgetController::class, 'reorder']);
+        Route::post('/widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
+        Route::put('/widgets/{id}/filters', [DashboardWidgetController::class, 'saveFilters']);
 
-});
+    });
 
 
 
-Route::get('/dashboard_vera', function () {
-    return Inertia::render('dashboardLovable/DashboardLovable');
-})->name('dashboard.lovable');
+    Route::get('/dashboard_vera', function () {
+        return Inertia::render('dashboardLovable/DashboardLovable');
+    })->name('dashboard.lovable');
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
@@ -209,90 +213,90 @@ Route::get('/dashboard_vera', function () {
         Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
     });
 
-Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
-    ->name('job-offers.show');
+    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
+        ->name('job-offers.show');
 
-Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel']);
+    Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel']);
 
 
 
     Route::get('/job-offers/fetch', [JobOfferController::class, 'fetchPaginated'])
         ->name('job_offers.fetch')
-        ;
+    ;
 
     Route::post('/job-offers', [JobOfferController::class, 'store'])
         ->name('job_offers.store')
-        ;
+    ;
 
     Route::get('/job-offers', [JobOfferController::class, 'index'])
         ->name('job_offers.index')
-        ;
+    ;
 
     Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
         ->name('job_offers.destroy')
-        ;
+    ;
 
     Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
         ->name('job_offers.update')
-        ;
+    ;
 
     Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
         ->name('job_offers.show')
-        ;
+    ;
 
     Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])
         ->name('job_offers.bulkDelete')
-        ;
+    ;
 
 
     Route::post('/job-offers/import', [JobOfferController::class, 'import'])
         ->name('job-offers.import')
-        ;
-Route::get('/courses/search', [CourseController::class, 'search'])->name('courses.search');
+    ;
+    Route::get('/courses/search', [CourseController::class, 'search'])->name('courses.search');
 
     Route::get('/courses/fetch', [CourseController::class, 'index'])
         ->name('courses.fetch')
-        ;
+    ;
 
     Route::post('/courses', [CourseController::class, 'store'])
-        ;
+    ;
 
     Route::get('/courses', [CourseController::class, 'index'])
         ->name('courses.index')
-        ;
+    ;
 
     Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
-        ;
+    ;
 
     Route::put('/courses/{id}', [CourseController::class, 'update'])
-        ;
+    ;
 
     Route::get('/courses/{id}', [CourseController::class, 'show'])
-        ;
+    ;
 
 
     Route::get('/syllabus', [SyllabusController::class, 'index'])
         ->name('syllabus.index')
-        ;
+    ;
 
     Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
         ->name('syllabus.fetch')
-        ;
+    ;
 
     // 📂 Subir sílabo (upload)
     Route::post('/syllabus/upload', [SyllabusController::class, 'store']);
 
     Route::get('/syllabus/{id}', [SyllabusController::class, 'show'])
         ->name('syllabus.show')
-        ;
+    ;
 
     Route::delete('/syllabus/{id}', [SyllabusController::class, 'destroy'])
         ->name('syllabus.destroy')
-        ;
+    ;
 
     Route::post('/syllabus/bulk-delete', [SyllabusController::class, 'bulkDelete'])
         ->name('syllabus.bulkDelete')
-        ;
+    ;
 
 
     // Rutas para el Dashboard AI
@@ -334,28 +338,28 @@ Route::get('/courses/search', [CourseController::class, 'search'])->name('course
     });
 
     Route::prefix('languages')->group(function () {
-    Route::get('/', [LanguageController::class, 'index'])->name('languages.index');
-    Route::get('/fetch', [LanguageController::class, 'fetchPaginated'])->name('languages.fetch');
-    Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
-    Route::put('/{id}', [LanguageController::class, 'update'])->name('languages.update');
-    Route::delete('/{id}', [LanguageController::class, 'destroy'])->name('languages.destroy');
-});
-Route::prefix('technologies')->group(function () {
-    Route::get('/', [TechnologyController::class, 'index'])->name('technologies.index');
-    Route::get('/fetch', [TechnologyController::class, 'fetchPaginated'])->name('technologies.fetch');
-    Route::post('/', [TechnologyController::class, 'store'])->name('technologies.store');
-    Route::put('/{id}', [TechnologyController::class, 'update'])->name('technologies.update');
-    Route::delete('/{id}', [TechnologyController::class, 'destroy'])->name('technologies.destroy');
-});
+        Route::get('/', [LanguageController::class, 'index'])->name('languages.index');
+        Route::get('/fetch', [LanguageController::class, 'fetchPaginated'])->name('languages.fetch');
+        Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
+        Route::put('/{id}', [LanguageController::class, 'update'])->name('languages.update');
+        Route::delete('/{id}', [LanguageController::class, 'destroy'])->name('languages.destroy');
+    });
+    Route::prefix('technologies')->group(function () {
+        Route::get('/', [TechnologyController::class, 'index'])->name('technologies.index');
+        Route::get('/fetch', [TechnologyController::class, 'fetchPaginated'])->name('technologies.fetch');
+        Route::post('/', [TechnologyController::class, 'store'])->name('technologies.store');
+        Route::put('/{id}', [TechnologyController::class, 'update'])->name('technologies.update');
+        Route::delete('/{id}', [TechnologyController::class, 'destroy'])->name('technologies.destroy');
+    });
 
 
-Route::prefix('methodologies')->group(function () {
-    Route::get('/', [MethodologyController::class, 'index'])->name('methodologies.index');
-    Route::get('/fetch', [MethodologyController::class, 'fetchPaginated'])->name('methodologies.fetch');
-    Route::post('/', [MethodologyController::class, 'store'])->name('methodologies.store');
-    Route::put('/{id}', [MethodologyController::class, 'update'])->name('methodologies.update');
-    Route::delete('/{id}', [MethodologyController::class, 'destroy'])->name('methodologies.destroy');
-});
+    Route::prefix('methodologies')->group(function () {
+        Route::get('/', [MethodologyController::class, 'index'])->name('methodologies.index');
+        Route::get('/fetch', [MethodologyController::class, 'fetchPaginated'])->name('methodologies.fetch');
+        Route::post('/', [MethodologyController::class, 'store'])->name('methodologies.store');
+        Route::put('/{id}', [MethodologyController::class, 'update'])->name('methodologies.update');
+        Route::delete('/{id}', [MethodologyController::class, 'destroy'])->name('methodologies.destroy');
+    });
 
     Route::apiResource('career-courses', CareerCourseController::class)->only(['index', 'update', 'destroy']);
     Route::post('/careers/{career}/sync-courses', [CareerController::class, 'syncCourses']);
@@ -365,160 +369,163 @@ Route::prefix('methodologies')->group(function () {
 
     Route::post('/job-offers/import/upload', [JobOfferImportController::class, 'upload']);
     Route::post('/job-offers/import/process', [JobOfferImportController::class, 'process']);
-        // 🔹 Exportaciones (Excel o PDF)
+    // 🔹 Exportaciones (Excel o PDF)
     Route::get('/ai/city-demand/export', [CityDemandAIController::class, 'export']);
 
 
     Route::post('/ocr/dni/local', [DniOcrController::class, 'extractLocal']);
-Route::post('/ocr/dni/gcs', [DniOcrController::class, 'extractFromGCS']);
+    Route::post('/ocr/dni/gcs', [DniOcrController::class, 'extractFromGCS']);
 
 
 
-Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->group(function () {
-    Route::get('/', 'index');
-    Route::post('/', 'store');
-    Route::get('/{id}', 'show');
-    Route::put('/{id}', 'update');
-    Route::delete('/{id}', 'destroy');
-    Route::post('/{id}/toggle-active', 'toggleActive');
-    Route::post('/{id}/toggle-ai', 'toggleAI');
-    Route::post('/{id}/duplicate', 'duplicate');
-});
+    Route::prefix('admin/ai-trainings')->controller(AITrainingController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::get('/{id}', 'show');
+        Route::put('/{id}', 'update');
+        Route::delete('/{id}', 'destroy');
+        Route::post('/{id}/toggle-active', 'toggleActive');
+        Route::post('/{id}/toggle-ai', 'toggleAI');
+        Route::post('/{id}/duplicate', 'duplicate');
+    });
 
 
 
-Route::patch('/technologies/{id}/toggle', [TechnologyController::class, 'toggle']);
-Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController::class, 'toggle'])
-    ->name('languages.toggle');
+    Route::patch('/technologies/{id}/toggle', [TechnologyController::class, 'toggle']);
+    Route::patch('/languages/{id}/toggle', [\App\Http\Controllers\LanguageController::class, 'toggle'])
+        ->name('languages.toggle');
 
-// 🚦 Activar / desactivar (switch)
+    // 🚦 Activar / desactivar (switch)
     Route::patch('methodologies/{id}/toggle', [MethodologyController::class, 'toggle'])->name('methodologies.toggle');
 
 
 
-/*
-|--------------------------------------------------------------------------
-| 📄 PDF DOCUMENTS (AGRUPADO CORRECTAMENTE)
-|--------------------------------------------------------------------------
-*/
-/*
-|--------------------------------------------------------------------------
-| 📄 PDF DOCUMENTS (MOVER AL INICIO PARA EVITAR COLISIONES)
-|--------------------------------------------------------------------------
-*/
+    /*
+    |--------------------------------------------------------------------------
+    | 📄 PDF DOCUMENTS (AGRUPADO CORRECTAMENTE)
+    |--------------------------------------------------------------------------
+    */
+    /*
+    |--------------------------------------------------------------------------
+    | 📄 PDF DOCUMENTS (MOVER AL INICIO PARA EVITAR COLISIONES)
+    |--------------------------------------------------------------------------
+    */
 
 
 
 
 
-Route::prefix('scraping-sources')->group(function () {
-    Route::get('/', [ScrapingSourceController::class, 'index'])->name('scraping_sources.index');
-    Route::get('/fetch', [ScrapingSourceController::class, 'fetch'])->name('scraping_sources.fetch');
-    Route::get('/{id}', [ScrapingSourceController::class, 'show']);
-Route::get('/{id}/parts', [ScrapingSourceController::class, 'parts'])
-    ->name('scraping_sources.parts');
-    Route::get('/{id}/pending-count', [ScrapingSourceController::class, 'pendingCount']);
+    Route::prefix('scraping-sources')->group(function () {
+        Route::get('/', [ScrapingSourceController::class, 'index'])->name('scraping_sources.index');
+        Route::get('/fetch', [ScrapingSourceController::class, 'fetch'])->name('scraping_sources.fetch');
+        Route::get('/{id}', [ScrapingSourceController::class, 'show']);
+        Route::get('/{id}/parts', [ScrapingSourceController::class, 'parts'])
+            ->name('scraping_sources.parts');
+        Route::get('/{id}/pending-count', [ScrapingSourceController::class, 'pendingCount']);
 
 
-    Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
-    Route::put('/{id}', [ScrapingSourceController::class, 'update'])->name('scraping_sources.update');
-    Route::delete('/{id}', [ScrapingSourceController::class, 'destroy'])->name('scraping_sources.destroy');
-    Route::post('/{id}/process', [ScrapingSourceController::class, 'process'])
-    ->name('scraping_sources.process');
+        Route::post('/', [ScrapingSourceController::class, 'store'])->name('scraping_sources.store');
+        Route::put('/{id}', [ScrapingSourceController::class, 'update'])->name('scraping_sources.update');
+        Route::delete('/{id}', [ScrapingSourceController::class, 'destroy'])->name('scraping_sources.destroy');
+        Route::post('/{id}/process', [ScrapingSourceController::class, 'process'])
+            ->name('scraping_sources.process');
 
 
 
-    Route::post('/{id}/extract-links', [ScrapingSourceController::class, 'extractLinks']);
-Route::post('/{id}/process-data', [ScrapingSourceController::class, 'processData']);
-});
-Route::get('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'show'])
-    ->name('pdf.parts.show');
-Route::delete('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'destroy'])
-    ->name('pdf.parts.destroy');
+        Route::post('/{id}/extract-links', [ScrapingSourceController::class, 'extractLinks']);
+        Route::post('/{id}/process-data', [ScrapingSourceController::class, 'processData']);
+    });
+    Route::get('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'show'])
+        ->name('pdf.parts.show');
+    Route::delete('/pdf/parts/{partId}', [PdfDocumentPartController::class, 'destroy'])
+        ->name('pdf.parts.destroy');
 
 
     Route::prefix('scraping-sources/{id}/parts')->group(function () {
-    Route::post('/', [PdfDocumentPartController::class, 'store']); // subir partes (LOTE)
+        Route::post('/', [PdfDocumentPartController::class, 'store']); // subir partes (LOTE)
+    });
+
+    Route::prefix('parts')->group(function () {
+        Route::get('{partId}', [PdfDocumentPartController::class, 'show']); // ver detalle
+        Route::post('{partId}/reprocess', [PdfDocumentPartController::class, 'reprocess']);
+        Route::delete('{partId}', [PdfDocumentPartController::class, 'destroy']);
+    });
+
+
+    Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])
+        ->name('scraping.results.index');
+
+    Route::get('/scraping/results/{id}', [ScrapingWebResultController::class, 'show'])
+        ->name('scraping.results.show');
+
+
+
+    Route::prefix('competencies')->group(function () {
+        Route::get('/', [CompetencyController::class, 'index'])->name('competencies.index');
+        Route::get('/fetch', [CompetencyController::class, 'fetchPaginated']);
+        Route::post('/', [CompetencyController::class, 'store']);
+        Route::put('/{id}', [CompetencyController::class, 'update']);
+        Route::delete('/{id}', [CompetencyController::class, 'destroy']);
+        Route::patch('/{id}/toggle', [CompetencyController::class, 'toggle']);
+    });
+    // Web Results
+    Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])->name('scraping.results.index');
+    Route::get('/scraping/{source}/results/fetch', [ScrapingWebResultController::class, 'fetch']);
+
+    Route::post('/scraping/{source}/results/process-all', [ScrapingWebResultController::class, 'processAll']);
+
+    Route::delete('/scraping/results/{id}', [ScrapingWebResultController::class, 'destroy']);
+    Route::put('/scraping/results/{id}', [ScrapingWebResultController::class, 'update']);
+    Route::post('/scraping/result/{id}/process', [ScrapingWebResultController::class, 'processOne']);
+
+
+
+
+
+    Route::prefix('topics-ia')->group(function () {
+
+
+        Route::get('/', [TopicsIAController::class, 'index'])
+            ->name('topics.index');
+        Route::get('/fetch', [TopicsIAController::class, 'fetchPaginated'])
+            ->name('topics.fetch');
+        Route::post('/', [TopicsIAController::class, 'store'])
+            ->name('topics.store');
+        Route::put('/{id}', [TopicsIAController::class, 'update'])
+            ->name('topics.update');
+        Route::delete('/{id}', [TopicsIAController::class, 'destroy'])
+            ->name('topics.destroy');
+        Route::patch('/{id}/toggle', [TopicsIAController::class, 'toggle'])
+            ->name('topics.toggle');
+        Route::patch('/{id}/reactivate', [TopicsIAController::class, 'reactivate'])
+            ->name('topics.reactivate');
+    });
+
+
+    Route::prefix('tech-positions')->group(function () {
+        Route::get('/', [TechPositionController::class, 'index'])
+            ->name('tech_positions.index');
+        Route::get('/fetch', [TechPositionController::class, 'fetchPaginated'])
+            ->name('tech_positions.fetch');
+        Route::post('/', [TechPositionController::class, 'store'])
+            ->name('tech_positions.store');
+        Route::put('/{id}', [TechPositionController::class, 'update'])
+            ->name('tech_positions.update');
+        Route::delete('/{id}', [TechPositionController::class, 'destroy'])
+            ->name('tech_positions.destroy');
+        Route::patch('/{id}/toggle', [TechPositionController::class, 'toggle'])
+            ->name('tech_positions.toggle');
+    });
+
+  Route::get('/{slug}', [DashboardController::class, 'show'])
+            ->name('dashboard.show');
 });
 
-Route::prefix('parts')->group(function () {
-    Route::get('{partId}', [PdfDocumentPartController::class, 'show']); // ver detalle
-    Route::post('{partId}/reprocess', [PdfDocumentPartController::class, 'reprocess']);
-    Route::delete('{partId}', [PdfDocumentPartController::class, 'destroy']);
+
+
+Route::get('/__probe', function () {
+    dd('WEB ROUTES FUNCIONAN');
 });
-
-
-Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])
-     ->name('scraping.results.index');
-
-Route::get('/scraping/results/{id}', [ScrapingWebResultController::class, 'show'])
-     ->name('scraping.results.show');
-
-
-
-Route::prefix('competencies')->group(function () {
-    Route::get('/', [CompetencyController::class, 'index'])->name('competencies.index');
-    Route::get('/fetch', [CompetencyController::class, 'fetchPaginated']);
-    Route::post('/', [CompetencyController::class, 'store']);
-    Route::put('/{id}', [CompetencyController::class, 'update']);
-    Route::delete('/{id}', [CompetencyController::class, 'destroy']);
-    Route::patch('/{id}/toggle', [CompetencyController::class, 'toggle']);
-});
-// Web Results
-Route::get('/scraping/{source}/results', [ScrapingWebResultController::class, 'index'])->name('scraping.results.index');
-Route::get('/scraping/{source}/results/fetch', [ScrapingWebResultController::class, 'fetch']);
-
-Route::post('/scraping/{source}/results/process-all', [ScrapingWebResultController::class, 'processAll']);
-
-Route::delete('/scraping/results/{id}', [ScrapingWebResultController::class, 'destroy']);
-Route::put('/scraping/results/{id}', [ScrapingWebResultController::class, 'update']);
-Route::post('/scraping/result/{id}/process', [ScrapingWebResultController::class, 'processOne']);
-
-
-
-
-
-Route::prefix('topics-ia')->group(function () {
-
-
-    Route::get('/', [TopicsIAController::class, 'index'])
-        ->name('topics.index');
-    Route::get('/fetch', [TopicsIAController::class, 'fetchPaginated'])
-        ->name('topics.fetch');
-    Route::post('/', [TopicsIAController::class, 'store'])
-        ->name('topics.store');
-    Route::put('/{id}', [TopicsIAController::class, 'update'])
-        ->name('topics.update');
-    Route::delete('/{id}', [TopicsIAController::class, 'destroy'])
-        ->name('topics.destroy');
-    Route::patch('/{id}/toggle', [TopicsIAController::class, 'toggle'])
-        ->name('topics.toggle');
-    Route::patch('/{id}/reactivate', [TopicsIAController::class, 'reactivate'])
-        ->name('topics.reactivate');
-});
-
-
-Route::prefix('tech-positions')->group(function () {
-    Route::get('/', [TechPositionController::class, 'index'])
-        ->name('tech_positions.index');
-    Route::get('/fetch', [TechPositionController::class, 'fetchPaginated'])
-        ->name('tech_positions.fetch');
-    Route::post('/', [TechPositionController::class, 'store'])
-        ->name('tech_positions.store');
-    Route::put('/{id}', [TechPositionController::class, 'update'])
-        ->name('tech_positions.update');
-    Route::delete('/{id}', [TechPositionController::class, 'destroy'])
-        ->name('tech_positions.destroy');
-    Route::patch('/{id}/toggle', [TechPositionController::class, 'toggle'])
-        ->name('tech_positions.toggle');
-});
-
-
-});
-
-
-
-
 require __DIR__ . '/settings.php';
 
 require __DIR__ . '/auth.php';

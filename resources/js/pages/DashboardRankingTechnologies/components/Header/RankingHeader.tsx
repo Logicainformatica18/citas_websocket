@@ -1,0 +1,156 @@
+import { Badge } from "@/components/ui/badge";
+import {
+  Cpu,
+  Database,
+  Sparkles,
+  Settings2,
+} from "lucide-react";
+
+type Props = {
+  weights: {
+    laborWeight: number;
+    trendsWeight: number;
+  };
+  meta: {
+    year: number;
+    period: string;
+    periodo_label?: string;
+    vacantes_analizadas?: number;
+    actualizado?: string;
+  };
+  onEditWeights: () => void;
+};
+
+export function Header({ weights, meta, onEditWeights }: Props) {
+  return (
+    <header
+      className="
+        relative
+        overflow-hidden
+        border-b
+        bg-[#E6F7FD]
+        dark:bg-[#0A2540]
+        px-4 sm:px-6 lg:px-8
+      "
+    >
+      {/* ===== BACKGROUND DECORATION ===== */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-[#1CBCE8]/30 blur-3xl" />
+        <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-[#00B6E8]/20 blur-3xl" />
+      </div>
+
+      {/* ===== CONTENT ===== */}
+      <div className="relative mx-auto max-w-7xl py-10 md:py-14">
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+
+          {/* ================= LEFT ================= */}
+          <div className="space-y-6 max-w-3xl">
+            {/* Title */}
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1CBCE8] shadow-lg">
+                <Cpu className="h-6 w-6 text-white" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-[#005F7A] dark:text-[#7DD3FC]">
+                  Observatorio Tecnológico ISIL
+                </p>
+
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
+                  Ranking de Tecnologías
+                </h1>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+              Análisis de tecnologías más relevantes del mercado laboral,
+              combinando demanda real en ofertas de empleo y señales de
+              tendencia tecnológica.
+            </p>
+
+            {/* ===== META INFO ===== */}
+            <div className="flex flex-wrap items-center gap-3">
+              {meta.vacantes_analizadas !== undefined && (
+                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+                  <Database className="h-3 w-3 text-[#1CBCE8]" />
+                  {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
+                </Badge>
+              )}
+
+              <Badge className="gap-1.5 border border-[#1CBCE8] bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] transition">
+                <Sparkles className="h-3 w-3 text-[#1CBCE8]" />
+                Datos reales por período
+              </Badge>
+            </div>
+
+            {/* Active period */}
+            <p className="text-sm text-[#0A2540]/70 dark:text-gray-400">
+              <span className="font-semibold text-[#0A2540] dark:text-white">
+                Periodo activo:
+              </span>{" "}
+              {meta.periodo_label ??
+                `Periodo ${meta.period?.toUpperCase()} ${meta.year}`}
+            </p>
+          </div>
+
+          {/* ================= RIGHT ================= */}
+          <button
+            onClick={onEditWeights}
+            className="
+              group
+              w-full
+              max-w-sm
+              rounded-2xl
+              border border-[#1CBCE8]/40
+              bg-white
+              p-5
+              text-left
+              shadow-xl
+              transition-all
+              hover:border-[#1CBCE8]
+              hover:shadow-2xl
+              dark:bg-[#102C3C]
+            "
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#1CBCE8]">
+                Metodología de cálculo
+              </p>
+              <Settings2 className="h-4 w-4 text-[#1CBCE8] opacity-60 group-hover:opacity-100" />
+            </div>
+
+            <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+              <p>
+                <span className="font-bold text-[#1CBCE8]">
+                  {weights.laborWeight}%
+                </span>{" "}
+                Demanda laboral
+              </p>
+              <p>
+                <span className="font-bold text-[#1CBCE8]">
+                  {weights.trendsWeight}%
+                </span>{" "}
+                Tendencias tecnológicas
+              </p>
+            </div>
+
+            <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+              Score = ({weights.laborWeight / 100} × Laboral) + (
+              {weights.trendsWeight / 100} × Tendencias)
+            </p>
+
+            <p className="mt-3 border-t border-[#1CBCE8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+              Los cálculos se realizan únicamente con datos del período
+              seleccionado.
+            </p>
+
+            <p className="mt-3 text-xs font-semibold text-[#1CBCE8] group-hover:underline">
+              Haz clic para ajustar ponderaciones
+            </p>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}

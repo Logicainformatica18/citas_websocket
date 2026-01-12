@@ -13,10 +13,10 @@ import {
 
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
-import RankingList from "./components/Ranking/RankingList";
+import TechnologyRankingList from "./components/Ranking/TechnologyRankingList";
 import TechnologyJobsModal from "./components/Ranking/TechnologyJobsModal";
 
-import { useRankingData } from "./hooks/useRankingData";
+//import { useRankingData } from "./hooks/useRankingData";
 
 import Swal from "sweetalert2";
 
@@ -60,7 +60,7 @@ export default function RankingTechnologiesPage() {
   /* =========================
      NORMALIZACIÓN DATA
   ========================= */
-  const { data } = useRankingData(ranking.data);
+  //const { data } = useRankingData(ranking.data);
 
   /* =========================
      UI STATE
@@ -79,7 +79,7 @@ export default function RankingTechnologiesPage() {
   };
 
   /* =========================
-     GUARDAR PONDERACIONES (GLOBAL)
+     GUARDAR PONDERACIONES
   ========================= */
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
@@ -92,9 +92,7 @@ export default function RankingTechnologiesPage() {
       text: "Recalculando ranking de tecnologías…",
       allowOutsideClick: false,
       allowEscapeKey: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+      didOpen: () => Swal.showLoading(),
     });
 
     router.post(
@@ -154,11 +152,11 @@ export default function RankingTechnologiesPage() {
               <RankingFilters />
 
               {/* ===== RANKING ===== */}
-              <RankingList
-                items={data}
-                pagination={ranking}
-                onSelectTechnology={handleOpenJobs}
-              />
+            <TechnologyRankingList
+  items={ranking.data}
+  pagination={ranking}
+  onSelectTechnology={handleOpenJobs}
+/>
             </div>
           </div>
         </div>

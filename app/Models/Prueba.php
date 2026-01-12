@@ -47,18 +47,21 @@ class Prueba  extends Model
 
     /* =====================================================
        MÉTODOS DE DOMINIO
-    ===================================================== */
+    ====================================================public static function getActive(string $context = 'certifications'): self
+= */
 
     /**
      * Obtener la ponderación activa para un contexto
      */
-    public static function getActive(string $context = 'certifications'): self
+public static function getActive(string $context = 'certifications'): ?self
+
     {
         return static::query()
             ->context($context)
             ->active()
             ->orderByDesc('id')
-            ->firstOrFail();
+            ->first();
+
     }
 
     /**

@@ -2,7 +2,7 @@ import { Dialog } from "@headlessui/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { X } from "lucide-react";
-import JobOfferCard from "./JobOfferCard";
+//import JobOfferCard from "./JobOfferCard";
 
 type Job = {
   id: number;
@@ -107,13 +107,13 @@ export default function TechnologyJobsModal({
               </p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {jobs.map((job, index) => (
+                {/* {jobs.map((job, index) => (
                   <JobOfferCard
                     key={job.id}
                     index={(page - 1) * 10 + index}
                     job={job}
                   />
-                ))}
+                ))} */}
               </div>
             )}
           </div>

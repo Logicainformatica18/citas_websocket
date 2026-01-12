@@ -1,4 +1,4 @@
-import TechnologyCard from "../Ranking/TechnologyCard";
+import TechnologyCard from "./TechnologyCard";
 import Paginator from "../Pagination/Paginator";
 import { TechnologyRanking } from "../../types/technologyRanking";
 
