@@ -9,21 +9,14 @@ use App\Models\Dashboard;
 use Illuminate\Support\Facades\Log;
 class DashboardWidgetController extends Controller
 {
-public function index(Request $request)
+public function index(int $dashboard)
 {
-    // 1️⃣ Obtener dashboard activo (default o primero)
-    $dashboard = Dashboard::where('is_default', 1)->first()
-        ?? Dashboard::orderBy('id')->first();
-
-    if (!$dashboard) {
-        return response()->json([
-            'widgets' => [],
-        ]);
-    }
+    // 1️⃣ Resolver dashboard EXPLÍCITO (desde la ruta)
+    $dashboardModel = Dashboard::findOrFail($dashboard);
 
     // 2️⃣ Obtener widgets SOLO de ese dashboard
     $widgets = DB::table('dashboard_widgets')
-        ->where('dashboard_id', $dashboard->id)
+        ->where('dashboard_id', $dashboardModel->id)
         ->orderBy('position_y')
         ->orderBy('position_x')
         ->get()
@@ -46,8 +39,8 @@ public function index(Request $request)
             }
 
             $w->data_source = array_merge([
-                'type' => null,
-                'rows' => [],
+                'type'    => null,
+                'rows'    => [],
                 'summary' => '',
             ], $dataSource);
 
@@ -59,13 +52,14 @@ public function index(Request $request)
 
     return response()->json([
         'dashboard' => [
-            'id'    => $dashboard->id,
-            'title' => $dashboard->title,
-            'slug'  => $dashboard->slug,
+            'id'    => $dashboardModel->id,
+            'title' => $dashboardModel->title,
+            'slug'  => $dashboardModel->slug,
         ],
         'widgets' => $widgets,
     ]);
 }
+
 
 
 public function refresh(int $dashboardId, int $widgetId)
@@ -143,7 +137,105 @@ public function refresh(int $dashboardId, int $widgetId)
     ]);
 }
 
-public function storeFromTraining(Request $request)
+// public function storeFromTraining(Request $request)
+
+// {
+//     try {
+//         $validated = $request->validate([
+//             'training_id' => 'required|integer|exists:aitrainings,id',
+//             'chart_type'  => 'required|string',
+//         ]);
+
+//         // 1️⃣ Resolver dashboard activo
+//         $dashboard = Dashboard::where('is_default', 1)->first()
+//             ?? Dashboard::orderBy('id')->first();
+
+//         if (!$dashboard) {
+//             return response()->json([
+//                 'error' => 'No existe un dashboard activo'
+//             ], 400);
+//         }
+
+//         // 2️⃣ Entrenamiento
+//         $training = DB::table('aitrainings')->find($validated['training_id']);
+//         if (!$training || !$training->sql_training_id) {
+//             return response()->json(['error' => 'Entrenamiento inválido'], 400);
+//         }
+
+//         // 3️⃣ SQL Training
+//         $sqlTraining = DB::table('sqltrainings')->find($training->sql_training_id);
+//         if (!$sqlTraining || $sqlTraining->test_status !== 'ok') {
+//             return response()->json(['error' => 'SQL no validada'], 400);
+//         }
+
+//         $query   = $sqlTraining->sql_validated ?? $sqlTraining->sql_generated;
+//         $summary = trim($sqlTraining->summary ?? '');
+
+//         if (!$query) {
+//             return response()->json(['error' => 'SQL vacía'], 400);
+//         }
+
+//         // 4️⃣ Ejecutar SQL
+//         $rows = DB::select($query);
+
+//         $cleanRows = collect($rows)->map(function ($row) {
+//             $out = [];
+//             foreach ($row as $k => $v) {
+//                 if (is_numeric($v)) $out[$k] = (float) $v;
+//                 elseif (is_null($v)) $out[$k] = 0;
+//                 elseif (is_bool($v)) $out[$k] = $v ? 1 : 0;
+//                 elseif (is_string($v)) {
+//                     $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
+//                 } else {
+//                     $out[$k] = $v;
+//                 }
+//             }
+//             return $out;
+//         })->values()->toArray();
+
+//         // 5️⃣ Crear widget
+//         $widgetId = DB::table('dashboard_widgets')->insertGetId([
+//             'dashboard_id'   => $dashboard->id,
+//             'ai_training_id' => $training->id,
+//             'title'          => $training->prompt,
+//             'summary'        => $summary,
+//             'chart_type'     => $validated['chart_type'],
+//             'data_source'    => json_encode([
+//                 'type'            => 'sql',
+//                 'sql_training_id' => $training->sql_training_id,
+//                 'sql_query'       => $query,
+//                 'rows'            => $cleanRows,
+//             ], JSON_UNESCAPED_UNICODE),
+//             'colors' => json_encode([
+//                 'primary'   => '#1E88E5',
+//                 'secondary' => '#90CAF9',
+//             ]),
+//             'position_x' => 0,
+//             'position_y' => 0,
+//             'width'      => 4,
+//             'height'     => 3,
+//             'created_at'=> now(),
+//             'updated_at'=> now(),
+//         ]);
+
+//         return response()->json([
+//             'message'   => '📊 Widget creado correctamente',
+//             'widget_id' => $widgetId,
+//         ]);
+
+//     } catch (\Throwable $e) {
+//         Log::error('💥 storeFromTraining', [
+//             'error' => $e->getMessage(),
+//         ]);
+
+//         return response()->json([
+//             'error' => 'Error inesperado al crear el widget'
+//         ], 500);
+//     }
+// }
+
+
+public function storeFromTraining(Request $request, int $dashboard)
 {
     try {
         $validated = $request->validate([
@@ -151,15 +243,8 @@ public function storeFromTraining(Request $request)
             'chart_type'  => 'required|string',
         ]);
 
-        // 1️⃣ Resolver dashboard activo
-        $dashboard = Dashboard::where('is_default', 1)->first()
-            ?? Dashboard::orderBy('id')->first();
-
-        if (!$dashboard) {
-            return response()->json([
-                'error' => 'No existe un dashboard activo'
-            ], 400);
-        }
+        // 🔥 1️⃣ USAR EL DASHBOARD DE LA RUTA
+        $dashboardModel = Dashboard::findOrFail($dashboard);
 
         // 2️⃣ Entrenamiento
         $training = DB::table('aitrainings')->find($validated['training_id']);
@@ -173,34 +258,25 @@ public function storeFromTraining(Request $request)
             return response()->json(['error' => 'SQL no validada'], 400);
         }
 
-        $query   = $sqlTraining->sql_validated ?? $sqlTraining->sql_generated;
+        $query   = $sqlTraining->sql_validated;
         $summary = trim($sqlTraining->summary ?? '');
-
-        if (!$query) {
-            return response()->json(['error' => 'SQL vacía'], 400);
-        }
 
         // 4️⃣ Ejecutar SQL
         $rows = DB::select($query);
 
         $cleanRows = collect($rows)->map(function ($row) {
-            $out = [];
-            foreach ($row as $k => $v) {
-                if (is_numeric($v)) $out[$k] = (float) $v;
-                elseif (is_null($v)) $out[$k] = 0;
-                elseif (is_bool($v)) $out[$k] = $v ? 1 : 0;
-                elseif (is_string($v)) {
-                    $out[$k] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $v));
-                } else {
-                    $out[$k] = $v;
-                }
-            }
-            return $out;
+            return collect($row)->map(function ($v) {
+                if (is_numeric($v)) return (float) $v;
+                if (is_null($v)) return 0;
+                if (is_bool($v)) return $v ? 1 : 0;
+                if (is_string($v)) return trim($v);
+                return $v;
+            })->toArray();
         })->values()->toArray();
 
-        // 5️⃣ Crear widget
+        // 5️⃣ CREAR WIDGET EN EL DASHBOARD CORRECTO 🔥
         $widgetId = DB::table('dashboard_widgets')->insertGetId([
-            'dashboard_id'   => $dashboard->id,
+            'dashboard_id'   => $dashboardModel->id, // ✅ CLAVE
             'ai_training_id' => $training->id,
             'title'          => $training->prompt,
             'summary'        => $summary,
@@ -211,10 +287,6 @@ public function storeFromTraining(Request $request)
                 'sql_query'       => $query,
                 'rows'            => $cleanRows,
             ], JSON_UNESCAPED_UNICODE),
-            'colors' => json_encode([
-                'primary'   => '#1E88E5',
-                'secondary' => '#90CAF9',
-            ]),
             'position_x' => 0,
             'position_y' => 0,
             'width'      => 4,
@@ -229,13 +301,8 @@ public function storeFromTraining(Request $request)
         ]);
 
     } catch (\Throwable $e) {
-        Log::error('💥 storeFromTraining', [
-            'error' => $e->getMessage(),
-        ]);
-
-        return response()->json([
-            'error' => 'Error inesperado al crear el widget'
-        ], 500);
+        Log::error('💥 storeFromTraining', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'Error inesperado'], 500);
     }
 }
 

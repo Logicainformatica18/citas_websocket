@@ -1,19 +1,29 @@
 import { Plus, RefreshCw, LayoutGrid } from "lucide-react";
+import { router } from "@inertiajs/react";
 import { useDashboard } from "@/pages/dashboards/DashboardContext";
 
-interface DashboardHeaderProps {
-  activeDashboard?: string;
-  dashboards?: string[];
-  onChangeDashboard?: (name: string) => void;
-  onCreateDashboard?: () => void;
-  onAddSection?: () => void;
-  onOpenFilters?: () => void;
+/* ======================================================
+   TIPOS
+====================================================== */
+export interface Dashboard {
+  id: number;
+  title: string;
+  slug: string;
 }
 
+interface DashboardHeaderProps {
+  activeDashboard: Dashboard;
+  dashboards: Dashboard[];
+  onCreateDashboard?: () => void;
+  onAddSection?: () => void;
+}
+
+/* ======================================================
+   COMPONENTE
+====================================================== */
 export default function DashboardHeader({
-  activeDashboard = "DASHBOARD Vera AI",
-  dashboards = ["Dashboard Principal", "Dashboard 2"],
-  onChangeDashboard,
+  activeDashboard,
+  dashboards,
   onCreateDashboard,
   onAddSection,
 }: DashboardHeaderProps) {
@@ -21,18 +31,19 @@ export default function DashboardHeader({
 
   return (
     <div className="w-full space-y-4">
-
       {/* ======================================================
-          TABS SUPERIORES
+          TABS DE DASHBOARDS
       ====================================================== */}
       <div className="flex items-center gap-2 flex-wrap">
-        {dashboards.map((name) => {
-          const isActive = name === activeDashboard;
+        {dashboards.map((dashboard) => {
+          const isActive = dashboard.id === activeDashboard.id;
 
           return (
             <button
-              key={name}
-              onClick={() => onChangeDashboard?.(name)}
+              key={dashboard.id}
+              onClick={() =>
+                router.visit(`/dashboard/${dashboard.slug}`)
+              }
               className={`
                 flex items-center gap-2
                 px-4 py-2 rounded-xl text-sm font-medium
@@ -41,14 +52,17 @@ export default function DashboardHeader({
                   isActive
                     ? "bg-[#1CBCE8] text-white shadow-sm"
                     : `
-                      bg-[#ECFAFD] text-[#0A4E61] hover:bg-[#D5F3FB]
-                      dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700
+                      bg-[#ECFAFD] text-[#0A4E61]
+                      hover:bg-[#D5F3FB]
+                      dark:bg-slate-800
+                      dark:text-slate-200
+                      dark:hover:bg-slate-700
                     `
                 }
               `}
             >
               <LayoutGrid size={16} />
-              {name}
+              {dashboard.title}
             </button>
           );
         })}
@@ -76,19 +90,22 @@ export default function DashboardHeader({
       ====================================================== */}
       <div
         className="
-          flex flex-col md:flex-row md:items-center md:justify-between gap-4
-          bg-[#ECFAFD] border border-[#A7E5F6]
-          dark:bg-slate-900 dark:border-slate-700
-          rounded-2xl px-6 py-5
+          flex flex-col md:flex-row
+          md:items-center md:justify-between
+          gap-4
+          bg-[#ECFAFD]
+          border border-[#A7E5F6]
+          dark:bg-slate-900
+          dark:border-slate-700
+          rounded-2xl
+          px-6 py-5
         "
       >
         {/* IZQUIERDA */}
         <div className="flex items-center gap-4">
-
-
           <div>
             <h1 className="text-2xl font-bold text-[#0A4E61] dark:text-slate-100">
-              {activeDashboard}
+              {activeDashboard.title}
             </h1>
             <p className="text-sm text-[#4A7F8D] dark:text-slate-400">
               Vista creada automáticamente según tus consultas
@@ -100,7 +117,6 @@ export default function DashboardHeader({
             ACCIONES
         ================================================== */}
         <div className="flex flex-wrap items-center gap-2">
-
           {/* ➕ Nueva sección */}
           <button
             onClick={onAddSection}
@@ -118,7 +134,7 @@ export default function DashboardHeader({
             Nueva Sección
           </button>
 
-          {/* 🔄 Actualizar */}
+          {/* 🔄 Actualizar dashboard */}
           <button
             onClick={refreshDashboard}
             disabled={isRefreshing}
@@ -126,7 +142,8 @@ export default function DashboardHeader({
               flex items-center gap-2
               border border-[#A7E5F6]
               text-[#0A4E61]
-              dark:border-slate-700 dark:text-slate-200
+              dark:border-slate-700
+              dark:text-slate-200
               px-4 py-2.5 rounded-xl text-sm
               hover:bg-[#ECFAFD]
               dark:hover:bg-slate-800
@@ -138,7 +155,7 @@ export default function DashboardHeader({
               size={16}
               className={isRefreshing ? "animate-spin" : ""}
             />
-            {isRefreshing ? "Actualizando..." : ""}
+            {isRefreshing ? "Actualizando..." : "Actualizar"}
           </button>
         </div>
       </div>

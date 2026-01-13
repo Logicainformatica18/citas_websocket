@@ -4,15 +4,15 @@ import axios from "axios";
    📊 WIDGETS – API (OBLIGATORIO dashboardId)
 ====================================================== */
 
-export async function fetchWidgets(setActiveDashboard?: (d: any) => void) {
-  const res = await axios.get('/api/ai/dashboards/1/widgets');
+// export async function fetchWidgets(setActiveDashboard?: (d: any) => void) {
+//   const res = await axios.get('/api/ai/dashboards/1/widgets');
 
-  if (setActiveDashboard && res.data.dashboard) {
-    setActiveDashboard(res.data.dashboard); // 🔥 AQUÍ
-  }
+//   if (setActiveDashboard && res.data.dashboard) {
+//     setActiveDashboard(res.data.dashboard); // 🔥 AQUÍ
+//   }
 
-  return res.data.widgets;
-}
+//   return res.data.widgets;
+// }
 
 
 export async function reorderWidgets(

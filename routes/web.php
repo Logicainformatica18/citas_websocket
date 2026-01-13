@@ -87,18 +87,20 @@ Route::get('/', function () {
     return redirect('/dashboard');
 });
 
-        // 📊 Vista principal del ranking
+// 📊 Vista principal del ranking
 
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard/{slug}', [DashboardController::class, 'show'])
+        ->name('dashboard.show');
 
-  Route::get(
+    Route::get(
         '/dashboard/ranking/technologies',
         [RankingTecnologiasController::class, 'index']
     )->name('dashboard.ranking.technologies');
 
 
-  Route::get(
+    Route::get(
         'dashboard/ranking/technologies/{technology}/jobs',
         [RankingTecnologiasController::class, 'jobsByTechnology']
     )->name('dashboard.ranking.technologies.jobs');
@@ -147,17 +149,42 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [DashboardController::class, 'store'])
             ->name('dashboard.store');
     });
-    Route::prefix('dashboard')->group(function () {
+    Route::prefix('ai/dashboards/{dashboard}')->group(function () {
 
-        Route::get('/widgets', [DashboardWidgetController::class, 'index']);
-        Route::post('/widgets/from-training', [DashboardWidgetController::class, 'storeFromTraining']);
-        Route::put('/widgets/{id}', [DashboardWidgetController::class, 'update']);
-        Route::delete('/widgets/{id}', [DashboardWidgetController::class, 'destroy']);
-        Route::post('/widgets/reorder', [DashboardWidgetController::class, 'reorder']);
-        Route::post('/widgets/{id}/color', [DashboardWidgetController::class, 'updateColor']);
-        Route::put('/widgets/{id}/filters', [DashboardWidgetController::class, 'saveFilters']);
+        Route::get('widgets', [DashboardWidgetController::class, 'index']);
+
+        Route::post('widgets/from-training', [
+            DashboardWidgetController::class,
+            'storeFromTraining'
+        ]);
+
+        Route::put('widgets/{widget}', [
+            DashboardWidgetController::class,
+            'update'
+        ]);
+
+        Route::delete('widgets/{widget}', [
+            DashboardWidgetController::class,
+            'destroy'
+        ]);
+
+        Route::post('widgets/reorder', [
+            DashboardWidgetController::class,
+            'reorder'
+        ]);
+
+        Route::patch('widgets/{widget}/color', [
+            DashboardWidgetController::class,
+            'updateColor'
+        ]);
+
+        Route::post('widgets/{widget}/filters', [
+            DashboardWidgetController::class,
+            'saveFilters'
+        ]);
 
     });
+
 
 
 
@@ -517,8 +544,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('tech_positions.toggle');
     });
 
-  Route::get('/{slug}', [DashboardController::class, 'show'])
-            ->name('dashboard.show');
+    //   Route::get('/{slug}', [DashboardController::class, 'show'])
+//             ->name('dashboard.show');
 });
 
 

@@ -17,7 +17,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
 
-import { fetchWidgets } from "./DashboardAI/useDashboardAPI";
+// import { fetchWidgets } from "./DashboardAI/useDashboardAPI";
 import WidgetCard from "./DashboardAI/WidgetCard";
 
 // 🔄 CONTEXTO
@@ -76,7 +76,7 @@ const DashboardLovableWidgets = forwardRef<
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [gridWidth, setGridWidth] = useState<number | null>(null);
- 
+
 
 
     const handleAddSection = async () => {
@@ -186,7 +186,7 @@ setSections(res.data.sections || []);
     }, [sections, widgets]);
 
 
- 
+
     /* ===============================
         Auto width
     =============================== */
@@ -206,15 +206,6 @@ setSections(res.data.sections || []);
     /* ===============================
         Load data (refresh)
     =============================== */
- useEffect(() => {
-  setLoading(true);
-
-  fetchWidgets(setActiveDashboard)
-    .then((widgetsRes: any) => {
-      setWidgets(widgetsRes || []);
-    })
-    .catch(console.error);
-}, [refreshKey]);
 useEffect(() => {
   if (!activeDashboard?.id) return;
 
@@ -228,9 +219,10 @@ useEffect(() => {
     .catch(console.error)
     .finally(() => {
       setLoading(false);
-      stopRefreshing(); // 🔥 ESTO DESBLOQUEA EL BOTÓN
+      stopRefreshing();
     });
-}, [refreshKey]);
+}, [activeDashboard?.id, refreshKey]); // ✅ CLAVE
+
 
  useEffect(() => {
   if (!activeDashboard?.id) return;
@@ -264,9 +256,9 @@ useEffect(() => {
   draggableHandle=".drag-handle"
  compactType="vertical"
   preventCollision={false}
- 
+
 verticalCompact={true}
- 
+
 allowOverlap={false}   // 🔥 CLAVE
 onDragStop={(newLayout) => {
   if (!activeDashboard?.id) return;
@@ -381,7 +373,7 @@ onDragStop={(newLayout) => {
                                     }
                                 }}
 
-                               
+
                                /* 🗑️ ELIMINAR */
 onDelete={async (section) => {
   const result = await MySwal.fire({
