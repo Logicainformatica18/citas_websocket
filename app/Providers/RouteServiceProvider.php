@@ -22,6 +22,7 @@ class RouteServiceProvider extends ServiceProvider
             // 🧠 IA modular
             Route::prefix('ai')
                 ->middleware(['web', 'auth'])
+
                 ->group(function () {
                     // ✅ Carga correcta
                     require base_path('routes/ai/metrics.php');

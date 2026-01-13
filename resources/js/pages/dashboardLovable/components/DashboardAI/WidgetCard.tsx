@@ -683,7 +683,8 @@ export default function WidgetCard({
 
                                 return (
                                     <div
-                                        key={label}
+                                       key={`${label}-${index}`}
+
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
