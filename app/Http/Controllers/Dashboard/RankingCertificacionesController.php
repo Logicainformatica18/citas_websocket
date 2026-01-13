@@ -80,7 +80,9 @@ public function index(Request $request)
        0. Parámetros base
     ================================================== */
     $year   = (int) $request->get('year', 2025);
+
     $period = $request->get('period', 's2');
+$quarter = $period === 's1' ? 1 : 4;
 
     // 🔹 filtros multiselect
     $areas   = array_filter((array) $request->get('area', []));
@@ -202,6 +204,11 @@ public function index(Request $request)
                     ),1
                 ) as final_score
             ")
+
+
+
+
+
         )
         ->orderByDesc('final_score')
         ->paginate(4)

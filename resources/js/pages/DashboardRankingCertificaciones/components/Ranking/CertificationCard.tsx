@@ -1,5 +1,5 @@
 import { CertificationRanking } from "../../types/ranking";
-import { TrendingUp, Briefcase } from "lucide-react";
+import { TrendingUp, Briefcase, Sparkles } from "lucide-react";
 
 type Props = {
   rank: number;
@@ -19,6 +19,8 @@ const rankColors: Record<number, string> = {
 const defaultRankColor = "bg-gray-200 text-gray-600";
 
 export default function CertificationCard({ rank, data, onClick }: Props) {
+
+
   /* =========================================
      BLINDAJE DE DATOS
   ========================================= */
@@ -26,6 +28,7 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
   const laborScore = Number(data.labor_score ?? 0);
   const trendScore = Number(data.trend_score ?? 0);
   const totalJobs  = Number(data.total_jobs ?? 0);
+const isEmergent = Boolean(data.is_emergent_with_market);
 
   /* Etiqueta semántica */
   const scoreLabel =
@@ -165,6 +168,24 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
           </span>
         </div>
       </div>
+      {isEmergent && (
+  <div
+    className="
+      absolute bottom-3 right-3
+      flex items-center justify-center
+      w-9 h-9 rounded-full
+      bg-purple-100 text-purple-700
+      shadow-sm
+      ring-1 ring-purple-300
+      group-hover:scale-110 transition
+      dark:bg-purple-900/30 dark:text-purple-300
+    "
+    title="Certificación emergente con mercado (detectada por tendencias)"
+  >
+    <Sparkles className="w-4 h-4" />
+  </div>
+)}
+
     </div>
   );
 }

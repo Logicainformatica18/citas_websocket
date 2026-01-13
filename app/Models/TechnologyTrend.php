@@ -19,7 +19,8 @@ class TechnologyTrend extends Model
         'source_url',
         'source_title',
         'source_type',
-        'raw_data'
+        'raw_data',
+        'scanned_keywords'
     ];
 
     protected $casts = [

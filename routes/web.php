@@ -91,6 +91,18 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+
+ Route::get(
+        '/dashboard/ranking-certificaciones',
+        [RankingCertificacionesController::class, 'index']
+    )->name('dashboard.ranking.certificaciones');
+
+    Route::post(
+        'dashboard/ranking-certificaciones/weights',
+        [RankingCertificacionesController::class, 'storeWeights']
+    )->name('ranking.certifications.weights');
+
+
     Route::get('/dashboard/{slug}', [DashboardController::class, 'show'])
         ->name('dashboard.show');
 
@@ -124,15 +136,7 @@ Route::middleware(['auth'])->group(function () {
 
 
 
-    Route::get(
-        '/dashboard/ranking-certificaciones',
-        [RankingCertificacionesController::class, 'index']
-    )->name('dashboard.ranking.certificaciones');
-
-    Route::post(
-        'dashboard/ranking-certificaciones/weights',
-        [RankingCertificacionesController::class, 'storeWeights']
-    )->name('ranking.certifications.weights');
+   
 
 
 

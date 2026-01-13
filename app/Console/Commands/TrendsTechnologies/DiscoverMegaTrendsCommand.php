@@ -47,6 +47,11 @@ Return ONLY this JSON:
       \"topic_name\": \"...\",
       \"trend_score\": 20-100,
       \"regions\": [\"Global\", \"North America\", \"Europe\", \"Asia\"],
+      \"job_search_keywords\": [
+        \"keyword used in job postings\",
+        \"alternative keyword used in job postings\",
+        \"industry-standard term used in vacancies\"
+      ],
       \"source_links\": [
         {\"title\": \"Real article\", \"url\": \"https://...\"}
       ]
@@ -56,6 +61,7 @@ Return ONLY this JSON:
     {\"title\": \"Source title\", \"url\": \"https://...\"}
   ]
 }
+
 
 RULES:
 - Return a MINIMUM of 10 trends.
@@ -212,22 +218,24 @@ RULES:
                     );
                 }
 
-                TechnologyTrend::updateOrCreate(
-                    [
-                        'topic_name' => $t['topic_name'],
-                        'year'       => $year,
-                        'quarter'    => $quarter,
-                        'source_id'  => $source->id ?? 1
-                    ],
-                    [
-                        'topic_category' => $label,
-                        'trend_score'    => $t['trend_score'],
-                        'regions'        => json_encode($t['regions']),
-                        'source_url'     => $t['source_links'][0]['url'] ?? null,
-                        'source_title'   => $t['source_links'][0]['title'] ?? null,
-                        'raw_data'       => json_encode($t)
-                    ]
-                );
+               TechnologyTrend::updateOrCreate(
+    [
+        'topic_name' => $t['topic_name'],
+        'year'       => $year,
+        'quarter'    => $quarter,
+        'source_id'  => $source->id ?? 1
+    ],
+    [
+        'topic_category'   => $label,
+        'trend_score'      => $t['trend_score'],
+        'regions'          => json_encode($t['regions']),
+        'scanned_keywords' => json_encode($t['job_search_keywords'] ?? []),
+        'source_url'       => $t['source_links'][0]['url'] ?? null,
+        'source_title'     => $t['source_links'][0]['title'] ?? null,
+        'raw_data'         => json_encode($t)
+    ]
+);
+
 
                 $totalTrends++;
             }
