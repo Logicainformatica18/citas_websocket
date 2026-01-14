@@ -44,6 +44,8 @@ use Inertia\Inertia;
 use App\Http\Controllers\Dashboard\RankingCertificacionesController;
 use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\Dashboard\RankingTecnologiasController;
+use App\Http\Controllers\Dashboard\TrendingTechnologyController;
+use App\Http\Controllers\Dashboard\TrendingCertificationController;
 
 
 Route::get(
@@ -92,6 +94,15 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+Route::prefix('dashboard/ranking-certificaciones')->group(function () {
+
+    Route::get(
+        '/trending',
+        [RankingCertificacionesController::class, 'trendingCertifications']
+    )->name('dashboard.certifications.trending');
+
+});
+
  Route::get(
         '/dashboard/ranking-certificaciones',
         [RankingCertificacionesController::class, 'index']
@@ -136,7 +147,7 @@ Route::middleware(['auth'])->group(function () {
 
 
 
-   
+
 
 
 

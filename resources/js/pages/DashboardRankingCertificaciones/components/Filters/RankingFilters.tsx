@@ -5,29 +5,14 @@ import { ChevronDown, X } from "lucide-react";
 /* =====================================================
    Helpers
 ===================================================== */
-const formatArea = (v: string) =>
-  ({
-    cloud: "Cloud Computing",
-    ai: "Inteligencia Artificial",
-    data: "Data & Analytics",
-    security: "Ciberseguridad",
-    networks: "Redes",
-  }[v] ?? v);
-
-const formatCareer = (v: string) =>
-  ({
-    cloud: "Computación en la Nube",
-    data_ai: "Ciencia de Datos e IA",
-    cyber: "Ciberseguridad",
-    software: "Desarrollo de Software",
-    networks: "Redes y Comunicaciones",
-  }[v] ?? v);
+const formatArea = (v: string) => v;
 
 /* =====================================================
    Component
 ===================================================== */
 export default function RankingFilters() {
-  const { filters, availableAreas } = usePage().props as any;
+  const { filters, availableAreas, availableCareers } =
+    usePage().props as any;
 
   const [openArea, setOpenArea] = useState(false);
   const [openCareer, setOpenCareer] = useState(false);
@@ -56,21 +41,24 @@ export default function RankingFilters() {
   }, []);
 
   /* =========================================
-     Navegación CENTRALIZADA
-     (esto arregla la paginación)
+     Navegación (limpia filtros vacíos)
   ========================================= */
   const navigate = (next: Partial<typeof filters>, resetPage = false) => {
+    const payload: any = {
+      ...filters,
+      ...next,
+    };
+
+    if (!payload.area?.length) delete payload.area;
+    if (!payload.career?.length) delete payload.career;
+
     router.get(
       "/dashboard/ranking-certificaciones",
       {
-        ...filters,
-        ...next,
+        ...payload,
         ...(resetPage ? { page: 1 } : {}),
       },
-      {
-        preserveState: true,
-        replace: true,
-      }
+      { preserveState: true, replace: true }
     );
   };
 
@@ -82,7 +70,7 @@ export default function RankingFilters() {
           ? current.filter((v: string) => v !== value)
           : [...current, value],
       },
-      true // reset page
+      true
     );
   };
 
@@ -101,7 +89,7 @@ export default function RankingFilters() {
           COMBOS
       ========================= */}
       <div className="flex flex-wrap gap-4">
-        {/* ===== ÁREA TECNOLÓGICA ===== */}
+        {/* ===== ÁREA ===== */}
         <div ref={areaRef}>
           <Combo
             label="Área tecnológica"
@@ -109,8 +97,9 @@ export default function RankingFilters() {
             setOpen={setOpenArea}
             items={availableAreas}
             selected={filters.area ?? []}
-            onToggle={(v) => toggleValue("area", v)}
-            format={formatArea}
+            onToggle={(v: string) => toggleValue("area", v)}
+            getValue={(v: string) => v}
+            renderLabel={(v: string) => formatArea(v)}
           />
         </div>
 
@@ -120,22 +109,17 @@ export default function RankingFilters() {
             label="Carrera ISIL"
             open={openCareer}
             setOpen={setOpenCareer}
-            items={[
-              "cloud",
-              "data_ai",
-              "cyber",
-              "software",
-              "networks",
-            ]}
+            items={availableCareers}
             selected={filters.career ?? []}
-            onToggle={(v) => toggleValue("career", v)}
-            format={formatCareer}
+            onToggle={(slug: string) => toggleValue("career", slug)}
+            getValue={(c: any) => c.slug}
+            renderLabel={(c: any) => c.name}
           />
         </div>
       </div>
 
       {/* =========================
-          CHIPS ACTIVOS
+          CHIPS
       ========================= */}
       <div className="flex flex-wrap gap-2">
         {filters.area?.map((a: string) => (
@@ -146,13 +130,19 @@ export default function RankingFilters() {
           />
         ))}
 
-        {filters.career?.map((c: string) => (
-          <Chip
-            key={`career-${c}`}
-            label={`Carrera: ${formatCareer(c)}`}
-            onRemove={() => removeValue("career", c)}
-          />
-        ))}
+        {filters.career?.map((slug: string) => {
+          const career = availableCareers.find(
+            (c: any) => c.slug === slug
+          );
+
+          return (
+            <Chip
+              key={`career-${slug}`}
+              label={`Carrera: ${career?.name ?? slug}`}
+              onRemove={() => removeValue("career", slug)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -169,47 +159,63 @@ function Combo({
   items,
   selected,
   onToggle,
-  format,
+  getValue,
+  renderLabel,
 }: any) {
   return (
     <div className="relative w-64">
       <button
         onClick={() => setOpen(!open)}
         className="
-          w-full
-          rounded-xl
-          border
-          bg-white
-          px-4 py-2
-          text-left
-          flex items-center justify-between
+          w-full rounded-xl border px-4 py-2
+          text-left flex items-center justify-between
+          bg-white text-gray-700 border-gray-300
           hover:border-[#1CBCE8]
+          dark:bg-[#0F2A3A]
+          dark:text-slate-200
+          dark:border-[#1E3A4A]
         "
       >
-        <span className="text-sm text-gray-700">
-          {selected.length
-            ? `${selected.length} seleccionados`
-            : label}
+        <span className="text-sm">
+          {selected.length ? `${selected.length} seleccionados` : label}
         </span>
-        <ChevronDown className="h-4 w-4 text-gray-400" />
+        <ChevronDown className="h-4 w-4 text-gray-400 dark:text-slate-400" />
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border bg-white shadow-lg max-h-60 overflow-auto">
-          {items.map((item: string) => (
-            <label
-              key={item}
-              className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-sky-50 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(item)}
-                onChange={() => onToggle(item)}
-                className="accent-[#1CBCE8]"
-              />
-              {format(item)}
-            </label>
-          ))}
+        <div
+          className="
+            absolute z-20 mt-2 w-full
+            rounded-xl border shadow-lg
+            bg-white border-gray-200
+            dark:bg-[#0F2A3A]
+            dark:border-[#1E3A4A]
+            max-h-60 overflow-auto
+          "
+        >
+          {items.map((item: any) => {
+            const value = getValue(item);
+
+            return (
+              <label
+                key={value}
+                className="
+                  flex items-center gap-2 px-4 py-2 text-sm cursor-pointer
+                  hover:bg-sky-50
+                  dark:hover:bg-[#14384F]
+                  text-gray-700 dark:text-slate-200
+                "
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(value)}
+                  onChange={() => onToggle(value)}
+                  className="accent-[#1CBCE8]"
+                />
+                {renderLabel(item)}
+              </label>
+            );
+          })}
         </div>
       )}
     </div>
@@ -218,13 +224,20 @@ function Combo({
 
 function Chip({ label, onRemove }: any) {
   return (
-    <span className="
-      inline-flex items-center gap-2
-      rounded-full bg-sky-100
-      px-3 py-1 text-xs font-semibold text-sky-700
-    ">
+    <span
+      className="
+        inline-flex items-center gap-2
+        rounded-full px-3 py-1 text-xs font-semibold
+        bg-sky-100 text-sky-700
+        dark:bg-[#14384F]
+        dark:text-[#7DD3FC]
+      "
+    >
       {label}
-      <button onClick={onRemove}>
+      <button
+        onClick={onRemove}
+        className="hover:text-red-500 transition"
+      >
         <X className="h-3 w-3" />
       </button>
     </span>

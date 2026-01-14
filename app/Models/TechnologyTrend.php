@@ -33,4 +33,12 @@ class TechnologyTrend extends Model
     {
         return $this->belongsTo(ScrapingSource::class, 'source_id');
     }
+    public function jobs()
+{
+    return $this->hasMany(
+        TechnologyTrendJob::class,
+        'technology_trend_id'
+    );
+}
+
 }

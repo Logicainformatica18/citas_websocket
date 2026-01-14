@@ -146,5 +146,12 @@ public function certifications()
         'certification_id'
     )->withTimestamps();
 }
+public function trendLinks()
+{
+    return $this->hasMany(
+        TechnologyTrendJob::class,
+        'job_offer_id'
+    );
+}
 
 }

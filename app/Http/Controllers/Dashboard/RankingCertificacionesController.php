@@ -86,7 +86,15 @@ $quarter = $period === 's1' ? 1 : 4;
 
     // 🔹 filtros multiselect
     $areas   = array_filter((array) $request->get('area', []));
-    $careers = array_filter((array) $request->get('career', []));
+   $careers = $request->filled('career')
+    ? array_filter((array) $request->career)
+    : [];
+$availableCareers = DB::table('careers')
+    ->where('active', 1)
+    ->orderBy('name')
+    ->get(['id', 'name', 'slug']);
+
+
 
     $range = $this->getPeriodRange($period, $year);
 
@@ -164,24 +172,36 @@ $quarter = $period === 's1' ? 1 : 4;
     /* ==================================================
        FILTRO: CARRERAS (MAPEADAS)
     ================================================== */
-    if (!empty($careers)) {
-        $careerMap = [
-            'cloud'    => ['cloud'],
-            'data_ai'  => ['data', 'ai'],
-            'cyber'    => ['security', 'cloud'],
-            'software' => ['cloud', 'ai', 'data'],
-            'networks' => ['networks', 'cloud'],
-        ];
+    // if (!empty($careers)) {
+    //     $careerMap = [
+    //         'cloud'    => ['cloud'],
+    //         'data_ai'  => ['data', 'ai'],
+    //         'cyber'    => ['security', 'cloud'],
+    //         'software' => ['cloud', 'ai', 'data'],
+    //         'networks' => ['networks', 'cloud'],
+    //     ];
 
-        $mappedCategories = collect($careers)
-            ->flatMap(fn ($c) => $careerMap[$c] ?? [])
-            ->unique()
-            ->toArray();
+    //     $mappedCategories = collect($careers)
+    //         ->flatMap(fn ($c) => $careerMap[$c] ?? [])
+    //         ->unique()
+    //         ->toArray();
 
-        if (!empty($mappedCategories)) {
-            $query->whereIn('c.category', $mappedCategories);
-        }
-    }
+    //     if (!empty($mappedCategories)) {
+    //         $query->whereIn('c.category', $mappedCategories);
+    //     }
+    // }
+if ($request->filled('career')) {
+
+    $query->whereExists(function ($q) use ($careers) {
+        $q->select(DB::raw(1))
+          ->from('certification_course as cc')
+          ->join('career_course as crc', 'crc.course_id', '=', 'cc.course_id')
+          ->join('careers as ca', 'ca.id', '=', 'crc.career_id')
+          ->whereColumn('cc.certification_id', 'c.id')
+          ->whereIn('ca.slug', $careers);
+    });
+
+}
 
     /* ==================================================
        4. SELECT FINAL
@@ -230,6 +250,7 @@ $quarter = $period === 's1' ? 1 : 4;
             ],
 
             'availableAreas' => $availableAreas,
+            'availableCareers' => $availableCareers,
 
             'weights' => [
                 'laborWeight'  => round($laborWeight * 100, 1),
@@ -248,6 +269,119 @@ $quarter = $period === 's1' ? 1 : 4;
         ]
     );
 }
+private function baseCertificationRankingQuery(
+    int $year,
+    string $period,
+    float $laborWeight,
+    float $trendWeight
+) {
+    $quarter = $period === 's1' ? 1 : 4;
+
+    $laborSub = DB::table('certification_job as cj')
+        ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
+        ->whereYear('j.published_at', $year)
+        ->select(
+            'cj.certification_id',
+            DB::raw('COUNT(DISTINCT cj.job_offer_id) as offers')
+        )
+        ->groupBy('cj.certification_id');
+
+    $maxLabor = DB::query()
+        ->fromSub($laborSub, 'x')
+        ->selectRaw('MAX(offers)')
+        ->value('MAX(offers)') ?: 1;
+
+    $trendSub = $this->getTrendSubquery($year, $period);
+
+    $maxTrend = DB::query()
+        ->fromSub($trendSub, 't')
+        ->selectRaw('MAX(trend_raw)')
+        ->value('MAX(trend_raw)') ?: 1;
+
+    return DB::table('certifications as c')
+        ->leftJoinSub($laborSub, 'labor', 'labor.certification_id', '=', 'c.id')
+        ->leftJoinSub($trendSub, 'trend', 'trend.certification_id', '=', 'c.id')
+        ->select(
+            'c.id',
+            'c.name',
+            'c.vendor',
+            'c.level',
+            'c.category',
+            DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+            DB::raw("ROUND((COALESCE(labor.offers,0)/{$maxLabor})*100,1) as labor_score"),
+            DB::raw("ROUND((COALESCE(trend.trend_raw,0)/{$maxTrend})*100,1) as trend_score"),
+            DB::raw("
+                ROUND(
+                    (
+                        ((COALESCE(labor.offers,0)/{$maxLabor})*100*{$laborWeight})
+                      + ((COALESCE(trend.trend_raw,0)/{$maxTrend})*100*{$trendWeight})
+                    ),1
+                ) as final_score
+            ")
+        );
+}
+
+
+public function trendingCertifications(Request $request)
+{
+    $year   = (int) $request->get('year', now()->year);
+    $period = $request->get('period', 's2');
+    $quarter = $period === 's1' ? 1 : 4;
+
+    // 🔹 ponderaciones activas (las mismas del index)
+    $weights = Prueba::getActive('certifications');
+    $laborWeight = (float) ($weights?->labor_weight ?? 0.7);
+    $trendWeight = (float) ($weights?->trend_weight ?? 0.3);
+
+    $range = $this->getPeriodRange($period, $year);
+
+    $items = DB::table('technology_trends as tt')
+        ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
+        ->leftJoin('job_offers as j', function ($join) use ($range) {
+            $join->on('j.id', '=', 'ttj.job_offer_id')
+                 ->whereBetween('j.published_at', [$range['start'], $range['end']]);
+        })
+        ->where('tt.topic_category', 'like', 'Certificaciones%')
+        ->where('tt.year', $year)
+        ->where('tt.quarter', $quarter)
+        ->groupBy(
+            'tt.id',
+            'tt.topic_name',
+            'tt.topic_category',
+            'tt.trend_score'
+        )
+        ->select(
+            'tt.id as trend_id',
+            'tt.topic_name as name',
+            'tt.topic_category',
+            'tt.trend_score',
+            DB::raw('COUNT(DISTINCT ttj.job_offer_id) as job_offers'),
+            DB::raw("
+                ROUND(
+                    (
+                        (tt.trend_score * {$trendWeight})
+                      + (LOG(COUNT(DISTINCT ttj.job_offer_id) + 1) * 10 * {$laborWeight})
+                    ),
+                    1
+                ) as final_score
+            ")
+        )
+        ->havingRaw('job_offers > 0')
+        ->havingRaw('final_score > 0')
+        ->orderByDesc('final_score')
+        ->limit(8)
+        ->get();
+
+    return response()->json([
+        'year'   => $year,
+        'period'=> $period,
+        'items' => $items,
+        'empty' => $items->isEmpty(),
+    ]);
+}
+
+
+
 
 
 

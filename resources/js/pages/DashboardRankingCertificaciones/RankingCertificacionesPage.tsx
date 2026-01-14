@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
@@ -16,8 +16,12 @@ import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 
+import TrendingCertificationCard from "./components/Ranking/TrendingCertificationCard";
+import { TrendingCertification } from "./types/trending-certification";
+
 import { useRankingData } from "./hooks/useRankingData";
 
+import axios from "axios";
 import Swal from "sweetalert2";
 
 /* =========================================================
@@ -31,9 +35,6 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ];
 
-/* =========================================================
-   Types desde Backend (Inertia)
-========================================================= */
 type PageProps = {
   ranking: {
     data: any[];
@@ -44,7 +45,10 @@ type PageProps = {
     next_page_url?: string | null;
   };
   kpis: any;
-  meta: any;
+  meta: {
+    year: number;
+    period: string;
+  };
   weights: {
     laborWeight: number;
     trendsWeight: number;
@@ -52,23 +56,15 @@ type PageProps = {
 };
 
 export default function RankingCertificacionesPage() {
-  /* =========================
-     DATOS DESDE BACKEND
-  ========================= */
-  const { ranking, kpis, meta, weights } = usePage<PageProps>().props;
+  const { ranking, kpis, meta, weights } =
+    usePage<PageProps>().props;
 
-  /* =========================
-     NORMALIZACIÓN DATA
-  ========================= */
   const { data } = useRankingData(ranking.data);
 
-  /* =========================
-     UI STATE
-  ========================= */
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
   /* =========================
-     MODAL OFERTAS LABORALES
+     MODAL OFERTAS
   ========================= */
   const [openJobsModal, setOpenJobsModal] = useState(false);
   const [selectedCert, setSelectedCert] = useState<any>(null);
@@ -79,7 +75,36 @@ export default function RankingCertificacionesPage() {
   };
 
   /* =========================
-     GUARDAR PONDERACIONES (GLOBAL)
+     CERTIFICACIONES EN TENDENCIA
+  ========================= */
+  const [trending, setTrending] = useState<TrendingCertification[]>([]);
+  const [loadingTrending, setLoadingTrending] = useState(true);
+  const [hasTrendingData, setHasTrendingData] = useState(true);
+
+  useEffect(() => {
+    setLoadingTrending(true);
+
+    axios
+      .get("/dashboard/ranking-certificaciones/trending", {
+        params: {
+          year: meta.year,
+          period: meta.period,
+        },
+      })
+      .then(res => {
+        setTrending(res.data.items ?? []);
+        setHasTrendingData(!res.data.empty);
+      })
+      .finally(() => setLoadingTrending(false));
+  }, [
+    meta.year,
+    meta.period,
+    weights.laborWeight,
+    weights.trendsWeight,
+  ]);
+
+  /* =========================
+     GUARDAR PONDERACIONES
   ========================= */
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
@@ -91,10 +116,7 @@ export default function RankingCertificacionesPage() {
       title: "Aplicando metodología",
       text: "Recalculando ranking global…",
       allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+      didOpen: () => Swal.showLoading(),
     });
 
     router.post(
@@ -104,26 +126,17 @@ export default function RankingCertificacionesPage() {
         trend_weight: newWeights.trendsWeight / 100,
       },
       {
-        preserveScroll: true,
         onSuccess: () => {
           Swal.fire({
             icon: "success",
             title: "Metodología actualizada",
-            timer: 1500,
+            timer: 1400,
             showConfirmButton: false,
           });
 
-          // 🔁 recarga parcial, no rompe nada
           router.reload({
             only: ["ranking", "weights", "meta", "kpis"],
           });
-        },
-        onError: () => {
-          Swal.fire(
-            "Error",
-            "No se pudo aplicar la ponderación",
-            "error"
-          );
         },
       }
     );
@@ -134,27 +147,75 @@ export default function RankingCertificacionesPage() {
       <Head title="Ranking de Certificaciones | Observatorio ISIL" />
 
       <DashboardProvider>
-        {/* ===== CONTENEDOR GENERAL ===== */}
         <div className="bg-background px-6 py-6">
-          <div className="flex gap-6 items-start">
-            {/* ==============================
-                COLUMNA PRINCIPAL
-            ============================== */}
-            <div className="flex-1 min-w-0 space-y-6">
-              {/* ===== HEADER ===== */}
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-6">
+
+              {/* ================= HEADER ================= */}
               <RankingHeader
-                weights={weights} // 🔹 vienen del backend
+                weights={weights}
                 onEditWeights={() => setIsWeightModalOpen(true)}
                 meta={meta}
               />
 
-              {/* ===== KPIs ===== */}
+              {/* ================= KPIs ================= */}
               <KpiGrid items={kpis} />
 
-              {/* ===== FILTROS ===== */}
+              {/* ================= CERTIFICACIONES EN TENDENCIA ================= */}
+              <section className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Certificaciones en Tendencia
+                  </h2>
+
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
+                    Resumen de certificaciones con mayor proyección,
+                    calculado a partir de la demanda laboral y tendencias
+                    tecnológicas globales.
+                  </p>
+                </div>
+
+                {loadingTrending ? (
+                  <div className="text-sm text-gray-500">
+                    Cargando tendencias…
+                  </div>
+                ) : !hasTrendingData ? (
+                  <div className="
+                    rounded-lg border border-dashed
+                    border-slate-300 dark:border-slate-600
+                    p-4 text-sm text-slate-500
+                  ">
+                    No existen datos suficientes para mostrar certificaciones
+                    en tendencia en el período seleccionado.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {trending.map(cert => (
+                      <TrendingCertificationCard
+                        key={cert.id}
+                        data={cert}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* ================= DIVISOR SEMÁNTICO ================= */}
+              <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Ranking de Certificaciones
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
+                  Clasificación detallada de certificaciones según demanda
+                  laboral, tendencias tecnológicas y ponderaciones configuradas.
+                </p>
+              </div>
+
+              {/* ================= FILTROS ================= */}
               <RankingFilters />
 
-              {/* ===== RANKING (BACKEND PAGINADO) ===== */}
+              {/* ================= RANKING PRINCIPAL ================= */}
               <RankingList
                 items={data}
                 pagination={ranking}
@@ -164,7 +225,7 @@ export default function RankingCertificacionesPage() {
           </div>
         </div>
 
-        {/* ===== MODAL OFERTAS LABORALES ===== */}
+        {/* ================= MODAL OFERTAS ================= */}
         <CertificationJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}
@@ -172,12 +233,12 @@ export default function RankingCertificacionesPage() {
           certificationName={selectedCert?.name}
         />
 
-        {/* ===== MODAL DE PONDERACIONES ===== */}
+        {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal
           open={isWeightModalOpen}
           onOpenChange={setIsWeightModalOpen}
-          weights={weights}             // 🔹 estado real desde BD
-          onSave={handleSaveWeights}    // 🔹 guarda en backend
+          weights={weights}
+          onSave={handleSaveWeights}
         />
       </DashboardProvider>
     </AppLayout>
