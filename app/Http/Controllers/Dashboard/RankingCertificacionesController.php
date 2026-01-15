@@ -214,27 +214,32 @@ $trendsQuery = DB::table('technology_trends as tt')
         DB::raw('NULL as level'),
         'tt.topic_category as category',
 
-        // 👇 mercado laboral REAL
+        // total ofertas reales
         DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
 
-        // 👇 score laboral normalizado (como certificaciones)
+        // 👇 score laboral NORMALIZADO (0–100)
         DB::raw("
             ROUND(
+              LEAST(
                 (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
-                1
+                100
+              ),
+              1
             ) as labor_score
         "),
 
         DB::raw('tt.trend_score as trend_score'),
 
-        // 👇 misma fórmula 70/30
+        // 👇 resultado final también controlado
         DB::raw("
             ROUND(
-                (
-                    ((COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100 * {$laborWeight})
-                  + (tt.trend_score * {$trendWeight})
-                ),
-                1
+              (
+                LEAST(
+                  (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
+                  100
+                ) * {$laborWeight}
+              ) + (tt.trend_score * {$trendWeight}),
+              1
             ) as final_score
         ")
     );
