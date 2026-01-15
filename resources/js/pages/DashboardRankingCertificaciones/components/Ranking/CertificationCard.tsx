@@ -5,6 +5,7 @@ type Props = {
   rank: number;
   data: CertificationRanking;
   onClick?: () => void;
+  variant?: "certification" | "trend";
 };
 
 /* =========================================
@@ -18,8 +19,16 @@ const rankColors: Record<number, string> = {
 
 const defaultRankColor = "bg-gray-200 text-gray-600";
 
-export default function CertificationCard({ rank, data, onClick }: Props) {
-
+export default function CertificationCard({
+  rank,
+  data,
+  onClick,
+  variant = "certification",
+}: Props) {
+  /* =========================================
+     TIPO DE ITEM
+  ========================================= */
+  const isTrend = variant === "trend";
 
   /* =========================================
      BLINDAJE DE DATOS
@@ -28,7 +37,7 @@ export default function CertificationCard({ rank, data, onClick }: Props) {
   const laborScore = Number(data.labor_score ?? 0);
   const trendScore = Number(data.trend_score ?? 0);
   const totalJobs  = Number(data.total_jobs ?? 0);
-const isEmergent = Boolean(data.is_emergent_with_market);
+  const isEmergent = Boolean(data.is_emergent_with_market);
 
   /* Etiqueta semántica */
   const scoreLabel =
@@ -38,17 +47,29 @@ const isEmergent = Boolean(data.is_emergent_with_market);
 
   return (
     <div
-      onClick={onClick}
-      className="
-        group cursor-pointer rounded-2xl border bg-white p-6
+      onClick={!isTrend ? onClick : undefined}
+      className={`
+        group rounded-2xl border bg-white p-6
         relative overflow-hidden transition-all duration-300
-        hover:shadow-xl hover:-translate-y-[2px]
-        hover:border-[#1CBCE8]
+        ${!isTrend ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]" : "cursor-default opacity-95"}
         dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
-      "
+      `}
     >
       {/* Barra decorativa */}
       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
+
+      {/* BADGE TIPO (CLAVE PARA VER QUE SE JUNTAN) */}
+      {isTrend && (
+        <div className="
+          absolute top-3 right-3
+          rounded-full px-2 py-0.5
+          text-[11px] font-semibold uppercase
+          bg-amber-100 text-amber-800
+          dark:bg-amber-900/40 dark:text-amber-300
+        ">
+          Tendencia
+        </div>
+      )}
 
       <div className="flex justify-between gap-6">
         {/* ================= LEFT ================= */}
@@ -70,12 +91,14 @@ const isEmergent = Boolean(data.is_emergent_with_market);
             </h3>
           </div>
 
-          {/* Vendor + Nivel */}
-          <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-slate-300">
-            {data.vendor} · NIVEL {data.level}
-          </p>
+          {/* Vendor + Nivel (solo si existe) */}
+          {!isTrend && data.vendor && (
+            <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-slate-300">
+              {data.vendor} · NIVEL {data.level}
+            </p>
+          )}
 
-          {/* Categoría */}
+          {/* Categoría (si existe) */}
           {data.category && (
             <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
               <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
@@ -85,7 +108,7 @@ const isEmergent = Boolean(data.is_emergent_with_market);
 
           {/* ================= SCORES ================= */}
           <div className="pt-4 space-y-3">
-            {/* Score Final (detalle) */}
+            {/* Score Final */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Resultado ponderado
@@ -118,9 +141,12 @@ const isEmergent = Boolean(data.is_emergent_with_market);
                     <Briefcase className="h-3 w-3" />
                     Laboral
                   </span>
-                  <span className="text-[11px] text-gray-400">
-                    {totalJobs.toLocaleString()} vacantes
-                  </span>
+
+                  {!isTrend && (
+                    <span className="text-[11px] text-gray-400">
+                      {totalJobs.toLocaleString()} vacantes
+                    </span>
+                  )}
                 </div>
 
                 <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
@@ -158,7 +184,6 @@ const isEmergent = Boolean(data.is_emergent_with_market);
         </div>
 
         {/* ================= RIGHT ================= */}
-        {/* 🔥 RESULTADO FINAL PONDERADO */}
         <div className="flex flex-col items-end justify-start text-right">
           <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
             {finalScore.toFixed(1)}
@@ -168,24 +193,25 @@ const isEmergent = Boolean(data.is_emergent_with_market);
           </span>
         </div>
       </div>
-      {isEmergent && (
-  <div
-    className="
-      absolute bottom-3 right-3
-      flex items-center justify-center
-      w-9 h-9 rounded-full
-      bg-purple-100 text-purple-700
-      shadow-sm
-      ring-1 ring-purple-300
-      group-hover:scale-110 transition
-      dark:bg-purple-900/30 dark:text-purple-300
-    "
-    title="Certificación emergente con mercado (detectada por tendencias)"
-  >
-    <Sparkles className="w-4 h-4" />
-  </div>
-)}
 
+      {/* BADGE EMERGENTE (solo certificaciones) */}
+      {!isTrend && isEmergent && (
+        <div
+          className="
+            absolute bottom-3 right-3
+            flex items-center justify-center
+            w-9 h-9 rounded-full
+            bg-purple-100 text-purple-700
+            shadow-sm
+            ring-1 ring-purple-300
+            group-hover:scale-110 transition
+            dark:bg-purple-900/30 dark:text-purple-300
+          "
+          title="Certificación emergente con mercado (detectada por tendencias)"
+        >
+          <Sparkles className="w-4 h-4" />
+        </div>
+      )}
     </div>
   );
 }

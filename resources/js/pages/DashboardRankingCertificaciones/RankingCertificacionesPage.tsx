@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
@@ -16,12 +16,6 @@ import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 
-import TrendingCertificationCard from "./components/Ranking/TrendingCertificationCard";
-import { TrendingCertification } from "./types/trending-certification";
-
-import { useRankingData } from "./hooks/useRankingData";
-
-import axios from "axios";
 import Swal from "sweetalert2";
 
 /* =========================================================
@@ -59,53 +53,25 @@ export default function RankingCertificacionesPage() {
   const { ranking, kpis, meta, weights } =
     usePage<PageProps>().props;
 
-  const { data } = useRankingData(ranking.data);
-
-  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
-
   /* =========================
      MODAL OFERTAS
   ========================= */
   const [openJobsModal, setOpenJobsModal] = useState(false);
-  const [selectedCert, setSelectedCert] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
 
-  const handleOpenJobs = (cert: any) => {
-    setSelectedCert(cert);
+  const handleOpenJobs = (item: any) => {
+    // 👇 solo aplica para certificaciones
+    if (item.entity_type !== "certification") return;
+
+    setSelectedItem(item);
     setOpenJobsModal(true);
   };
 
   /* =========================
-     CERTIFICACIONES EN TENDENCIA
+     MODAL PONDERACIONES
   ========================= */
-  const [trending, setTrending] = useState<TrendingCertification[]>([]);
-  const [loadingTrending, setLoadingTrending] = useState(true);
-  const [hasTrendingData, setHasTrendingData] = useState(true);
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
-  useEffect(() => {
-    setLoadingTrending(true);
-
-    axios
-      .get("/dashboard/ranking-certificaciones/trending", {
-        params: {
-          year: meta.year,
-          period: meta.period,
-        },
-      })
-      .then(res => {
-        setTrending(res.data.items ?? []);
-        setHasTrendingData(!res.data.empty);
-      })
-      .finally(() => setLoadingTrending(false));
-  }, [
-    meta.year,
-    meta.period,
-    weights.laborWeight,
-    weights.trendsWeight,
-  ]);
-
-  /* =========================
-     GUARDAR PONDERACIONES
-  ========================= */
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
       Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
@@ -114,7 +80,7 @@ export default function RankingCertificacionesPage() {
 
     Swal.fire({
       title: "Aplicando metodología",
-      text: "Recalculando ranking global…",
+      text: "Actualizando ranking…",
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
@@ -161,63 +127,25 @@ export default function RankingCertificacionesPage() {
               {/* ================= KPIs ================= */}
               <KpiGrid items={kpis} />
 
-              {/* ================= CERTIFICACIONES EN TENDENCIA ================= */}
-              <section className="space-y-4">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    Certificaciones en Tendencia
-                  </h2>
-
-                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                    Resumen de certificaciones con mayor proyección,
-                    calculado a partir de la demanda laboral y tendencias
-                    tecnológicas globales.
-                  </p>
-                </div>
-
-                {loadingTrending ? (
-                  <div className="text-sm text-gray-500">
-                    Cargando tendencias…
-                  </div>
-                ) : !hasTrendingData ? (
-                  <div className="
-                    rounded-lg border border-dashed
-                    border-slate-300 dark:border-slate-600
-                    p-4 text-sm text-slate-500
-                  ">
-                    No existen datos suficientes para mostrar certificaciones
-                    en tendencia en el período seleccionado.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {trending.map(cert => (
-                      <TrendingCertificationCard
-                        key={cert.id}
-                        data={cert}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              {/* ================= DIVISOR SEMÁNTICO ================= */}
-              <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+              {/* ================= DESCRIPCIÓN ================= */}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Ranking de Certificaciones
+                  Ranking General de Certificaciones
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                  Clasificación detallada de certificaciones según demanda
-                  laboral, tendencias tecnológicas y ponderaciones configuradas.
+                  Clasificación unificada que integra certificaciones ISIL
+                  y certificaciones en tendencia global, ordenadas según
+                  la metodología seleccionada.
                 </p>
               </div>
 
               {/* ================= FILTROS ================= */}
               <RankingFilters />
 
-              {/* ================= RANKING PRINCIPAL ================= */}
+              {/* ================= RANKING ÚNICO ================= */}
               <RankingList
-                items={data}
+                items={ranking.data}
                 pagination={ranking}
                 onSelectCertification={handleOpenJobs}
               />
@@ -229,8 +157,8 @@ export default function RankingCertificacionesPage() {
         <CertificationJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}
-          certificationId={selectedCert?.id}
-          certificationName={selectedCert?.name}
+          certificationId={selectedItem?.certification_id}
+          certificationName={selectedItem?.name}
         />
 
         {/* ================= MODAL PONDERACIONES ================= */}

@@ -80,21 +80,18 @@ public function index(Request $request)
        0. Parámetros base
     ================================================== */
     $year   = (int) $request->get('year', 2025);
-
     $period = $request->get('period', 's2');
-$quarter = $period === 's1' ? 1 : 4;
+    $quarter = $period === 's1' ? 1 : 4;
 
-    // 🔹 filtros multiselect
     $areas   = array_filter((array) $request->get('area', []));
-   $careers = $request->filled('career')
-    ? array_filter((array) $request->career)
-    : [];
-$availableCareers = DB::table('careers')
-    ->where('active', 1)
-    ->orderBy('name')
-    ->get(['id', 'name', 'slug']);
+    $careers = $request->filled('career')
+        ? array_filter((array) $request->career)
+        : [];
 
-
+    $availableCareers = DB::table('careers')
+        ->where('active', 1)
+        ->orderBy('name')
+        ->get(['id', 'name', 'slug']);
 
     $range = $this->getPeriodRange($period, $year);
 
@@ -111,7 +108,7 @@ $availableCareers = DB::table('careers')
     $trendWeight = (float) ($activeWeights?->trend_weight ?? 0.30);
 
     /* ==================================================
-       ÁREAS TECNOLÓGICAS DESDE BD
+       ÁREAS DISPONIBLES
     ================================================== */
     $availableAreas = DB::table('certifications')
         ->whereNotNull('category')
@@ -120,7 +117,7 @@ $availableCareers = DB::table('careers')
         ->pluck('category');
 
     /* ==================================================
-       Vacantes analizadas reales
+       VACANTES ANALIZADAS
     ================================================== */
     $totalVacantesAnalizadas = DB::table('certification_job as cj')
         ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
@@ -129,7 +126,7 @@ $availableCareers = DB::table('careers')
         ->count('cj.job_offer_id');
 
     /* ==================================================
-       1. DEMANDA LABORAL
+       1. SUBQUERY DEMANDA LABORAL
     ================================================== */
     $laborSub = DB::table('certification_job as cj')
         ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
@@ -146,7 +143,7 @@ $availableCareers = DB::table('careers')
         ->value('MAX(offers)') ?: 1;
 
     /* ==================================================
-       2. TENDENCIAS TECNOLÓGICAS
+       2. SUBQUERY TENDENCIAS (CERTIFICACIONES)
     ================================================== */
     $trendSub = $this->getTrendSubquery($year, $period);
 
@@ -156,107 +153,148 @@ $availableCareers = DB::table('careers')
         ->value('MAX(trend_raw)') ?: 1;
 
     /* ==================================================
-       3. QUERY BASE
+       3. QUERY CERTIFICACIONES (BASE)
     ================================================== */
-    $query = DB::table('certifications as c')
+    $certificationsQuery = DB::table('certifications as c')
         ->leftJoinSub($laborSub, 'labor', 'labor.certification_id', '=', 'c.id')
         ->leftJoinSub($trendSub, 'trend', 'trend.certification_id', '=', 'c.id');
 
-    /* ==================================================
-       FILTRO: ÁREAS
-    ================================================== */
     if (!empty($areas)) {
-        $query->whereIn('c.category', $areas);
+        $certificationsQuery->whereIn('c.category', $areas);
     }
 
-    /* ==================================================
-       FILTRO: CARRERAS (MAPEADAS)
-    ================================================== */
-    // if (!empty($careers)) {
-    //     $careerMap = [
-    //         'cloud'    => ['cloud'],
-    //         'data_ai'  => ['data', 'ai'],
-    //         'cyber'    => ['security', 'cloud'],
-    //         'software' => ['cloud', 'ai', 'data'],
-    //         'networks' => ['networks', 'cloud'],
-    //     ];
+    if ($request->filled('career')) {
+        $certificationsQuery->whereExists(function ($q) use ($careers) {
+            $q->select(DB::raw(1))
+              ->from('certification_course as cc')
+              ->join('career_course as crc', 'crc.course_id', '=', 'cc.course_id')
+              ->join('careers as ca', 'ca.id', '=', 'crc.career_id')
+              ->whereColumn('cc.certification_id', 'c.id')
+              ->whereIn('ca.slug', $careers);
+        });
+    }
 
-    //     $mappedCategories = collect($careers)
-    //         ->flatMap(fn ($c) => $careerMap[$c] ?? [])
-    //         ->unique()
-    //         ->toArray();
-
-    //     if (!empty($mappedCategories)) {
-    //         $query->whereIn('c.category', $mappedCategories);
-    //     }
-    // }
-if ($request->filled('career')) {
-
-    $query->whereExists(function ($q) use ($careers) {
-        $q->select(DB::raw(1))
-          ->from('certification_course as cc')
-          ->join('career_course as crc', 'crc.course_id', '=', 'cc.course_id')
-          ->join('careers as ca', 'ca.id', '=', 'crc.career_id')
-          ->whereColumn('cc.certification_id', 'c.id')
-          ->whereIn('ca.slug', $careers);
-    });
-
-}
+    $certificationsQuery = $certificationsQuery->select(
+        DB::raw("'certification' as entity_type"),
+        'c.id',
+        'c.name',
+        'c.vendor',
+        'c.level',
+        'c.category',
+        DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+        DB::raw("ROUND((COALESCE(labor.offers,0)/{$maxLabor})*100,1) as labor_score"),
+        DB::raw("ROUND((COALESCE(trend.trend_raw,0)/{$maxTrend})*100,1) as trend_score"),
+        DB::raw("
+            ROUND(
+                (
+                    ((COALESCE(labor.offers,0)/{$maxLabor})*100*{$laborWeight})
+                  + ((COALESCE(trend.trend_raw,0)/{$maxTrend})*100*{$trendWeight})
+                ),1
+            ) as final_score
+        ")
+    );
 
     /* ==================================================
-       4. SELECT FINAL
+       4. QUERY TENDENCIAS (COMO ITEMS DE RANKING)
     ================================================== */
-    $ranking = $query
-        ->select(
-            'c.id',
-            'c.name',
-            'c.vendor',
-            'c.level',
-            'c.category',
-            DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-            DB::raw("ROUND((COALESCE(labor.offers,0)/{$maxLabor})*100,1) as labor_score"),
-            DB::raw("ROUND((COALESCE(trend.trend_raw,0)/{$maxTrend})*100,1) as trend_score"),
-            DB::raw("
-                ROUND(
-                    (
-                        ((COALESCE(labor.offers,0)/{$maxLabor})*100*{$laborWeight})
-                      + ((COALESCE(trend.trend_raw,0)/{$maxTrend})*100*{$trendWeight})
-                    ),1
-                ) as final_score
-            ")
+$trendsQuery = DB::table('technology_trends as tt')
+    ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
+    ->leftJoin('job_offers as j', function ($join) use ($range) {
+        $join->on('j.id', '=', 'ttj.job_offer_id')
+             ->whereBetween('j.published_at', [$range['start'], $range['end']]);
+    })
+    ->where('tt.year', $year)
+    ->where('tt.quarter', $quarter)
+    ->groupBy('tt.id', 'tt.topic_name', 'tt.topic_category', 'tt.trend_score')
+    ->select(
+        DB::raw("'trend' as entity_type"),
+        'tt.id as id',
+        'tt.topic_name as name',
+        DB::raw('NULL as vendor'),
+        DB::raw('NULL as level'),
+        'tt.topic_category as category',
+
+        // 👇 mercado laboral REAL
+        DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
+
+        // 👇 score laboral normalizado (como certificaciones)
+        DB::raw("
+            ROUND(
+                (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
+                1
+            ) as labor_score
+        "),
+
+        DB::raw('tt.trend_score as trend_score'),
+
+        // 👇 misma fórmula 70/30
+        DB::raw("
+            ROUND(
+                (
+                    ((COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100 * {$laborWeight})
+                  + (tt.trend_score * {$trendWeight})
+                ),
+                1
+            ) as final_score
+        ")
+    );
 
 
 
+    // $trendsQuery = DB::table('technology_trends as tt')
+    //     ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
+    //     ->leftJoin('job_offers as j', function ($join) use ($range) {
+    //         $join->on('j.id', '=', 'ttj.job_offer_id')
+    //              ->whereBetween('j.published_at', [$range['start'], $range['end']]);
+    //     })
+    //     ->where('tt.topic_category', 'like', 'Certificaciones%')
+    //     ->where('tt.year', $year)
+    //     ->where('tt.quarter', $quarter)
+    //     ->groupBy('tt.id', 'tt.topic_name', 'tt.topic_category', 'tt.trend_score')
+    //     ->select(
+    //         DB::raw("'trend' as entity_type"),
+    //         'tt.id as id',
+    //         'tt.topic_name as name',
+    //         DB::raw('NULL as vendor'),
+    //         DB::raw('NULL as level'),
+    //         'tt.topic_category as category',
+    //         DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
+    //         DB::raw('0 as labor_score'),
+    //         DB::raw('tt.trend_score as trend_score'),
+    //         DB::raw('tt.trend_score as final_score')
+    //     );
 
-
+    /* ==================================================
+       5. UNION + PAGINACIÓN
+    ================================================== */
+    $ranking = DB::query()
+        ->fromSub(
+            $certificationsQuery->unionAll($trendsQuery),
+            'ranking'
         )
         ->orderByDesc('final_score')
         ->paginate(4)
         ->withQueryString();
 
     /* ==================================================
-       5. Render
+       6. Render
     ================================================== */
     return Inertia::render(
         'DashboardRankingCertificaciones/RankingCertificacionesPage',
         [
             'ranking' => $ranking,
-
             'filters' => [
                 'year'   => $year,
                 'period' => $period,
                 'area'   => $areas,
                 'career' => $careers,
             ],
-
             'availableAreas' => $availableAreas,
             'availableCareers' => $availableCareers,
-
             'weights' => [
                 'laborWeight'  => round($laborWeight * 100, 1),
                 'trendsWeight' => round($trendWeight * 100, 1),
             ],
-
             'meta' => [
                 'year'   => $year,
                 'period' => $period,
@@ -269,6 +307,8 @@ if ($request->filled('career')) {
         ]
     );
 }
+
+
 private function baseCertificationRankingQuery(
     int $year,
     string $period,
