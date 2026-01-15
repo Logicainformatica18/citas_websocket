@@ -215,7 +215,7 @@ Log::info('SESSION FINAL', [
     'session_id' => session()->getId(),
 ]);
 
- return redirect()->intended('/dashboard_vera');
+ return redirect()->intended('/dashboard');
 
 }
 
