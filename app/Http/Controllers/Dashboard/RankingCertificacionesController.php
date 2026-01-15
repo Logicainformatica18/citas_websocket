@@ -82,7 +82,7 @@ public function index(Request $request)
     $year   = (int) $request->get('year', 2025);
     $period = $request->get('period', 's2');
     $quarter = $period === 's1' ? 1 : 4;
-
+$rankingType = $request->get('ranking_type', 'all');
     $areas   = array_filter((array) $request->get('area', []));
     $careers = $request->filled('career')
         ? array_filter((array) $request->career)
@@ -94,6 +94,7 @@ public function index(Request $request)
         ->get(['id', 'name', 'slug']);
 
     $range = $this->getPeriodRange($period, $year);
+    $trendCategory = $request->get('trend_category');
 
     /* ==================================================
        0.1 PONDERACIÓN GLOBAL
@@ -203,9 +204,22 @@ $trendsQuery = DB::table('technology_trends as tt')
         $join->on('j.id', '=', 'ttj.job_offer_id')
              ->whereBetween('j.published_at', [$range['start'], $range['end']]);
     })
+    ->where('tt.topic_category', 'like', 'Certificaciones%')
     ->where('tt.year', $year)
-    ->where('tt.quarter', $quarter)
-    ->groupBy('tt.id', 'tt.topic_name', 'tt.topic_category', 'tt.trend_score')
+    ->where('tt.quarter', $quarter);
+
+/* 🔥 FILTRO ESPECÍFICO DE CATEGORÍA */
+if ($rankingType === 'trend' && !empty($trendCategory)) {
+    $trendsQuery->where('tt.topic_category', $trendCategory);
+}
+
+$trendsQuery = $trendsQuery
+    ->groupBy(
+        'tt.id',
+        'tt.topic_name',
+        'tt.topic_category',
+        'tt.trend_score'
+    )
     ->select(
         DB::raw("'trend' as entity_type"),
         'tt.id as id',
@@ -213,11 +227,7 @@ $trendsQuery = DB::table('technology_trends as tt')
         DB::raw('NULL as vendor'),
         DB::raw('NULL as level'),
         'tt.topic_category as category',
-
-        // total ofertas reales
         DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
-
-        // 👇 score laboral NORMALIZADO (0–100)
         DB::raw("
             ROUND(
               LEAST(
@@ -227,10 +237,7 @@ $trendsQuery = DB::table('technology_trends as tt')
               1
             ) as labor_score
         "),
-
         DB::raw('tt.trend_score as trend_score'),
-
-        // 👇 resultado final también controlado
         DB::raw("
             ROUND(
               (
@@ -246,40 +253,32 @@ $trendsQuery = DB::table('technology_trends as tt')
 
 
 
-    // $trendsQuery = DB::table('technology_trends as tt')
-    //     ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
-    //     ->leftJoin('job_offers as j', function ($join) use ($range) {
-    //         $join->on('j.id', '=', 'ttj.job_offer_id')
-    //              ->whereBetween('j.published_at', [$range['start'], $range['end']]);
-    //     })
-    //     ->where('tt.topic_category', 'like', 'Certificaciones%')
-    //     ->where('tt.year', $year)
-    //     ->where('tt.quarter', $quarter)
-    //     ->groupBy('tt.id', 'tt.topic_name', 'tt.topic_category', 'tt.trend_score')
-    //     ->select(
-    //         DB::raw("'trend' as entity_type"),
-    //         'tt.id as id',
-    //         'tt.topic_name as name',
-    //         DB::raw('NULL as vendor'),
-    //         DB::raw('NULL as level'),
-    //         'tt.topic_category as category',
-    //         DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
-    //         DB::raw('0 as labor_score'),
-    //         DB::raw('tt.trend_score as trend_score'),
-    //         DB::raw('tt.trend_score as final_score')
-    //     );
+$rankingBase = DB::query()
+    ->fromSub(
+        $certificationsQuery->unionAll($trendsQuery),
+        'ranking'
+    );
 
-    /* ==================================================
-       5. UNION + PAGINACIÓN
-    ================================================== */
-    $ranking = DB::query()
-        ->fromSub(
-            $certificationsQuery->unionAll($trendsQuery),
-            'ranking'
-        )
-        ->orderByDesc('final_score')
-        ->paginate(4)
-        ->withQueryString();
+/* 👇 AQUÍ VA EL FILTRO (ESTE ES EL BLOQUE QUE FALTABA) */
+if ($rankingType !== 'all') {
+    $rankingBase->where('entity_type', $rankingType);
+}
+
+$ranking = $rankingBase
+    ->orderByDesc('final_score')
+    ->paginate(4)
+    ->withQueryString();
+
+$availableTrendCategories = DB::table('technology_trends')
+    ->whereNotNull('topic_category')
+    ->where('topic_category', 'like', 'Certificaciones%')
+    ->distinct()
+    ->orderBy('topic_category')
+    ->pluck('topic_category');
+
+if ($rankingType !== 'trend') {
+    $trendCategory = null;
+}
 
     /* ==================================================
        6. Render
@@ -288,14 +287,18 @@ $trendsQuery = DB::table('technology_trends as tt')
         'DashboardRankingCertificaciones/RankingCertificacionesPage',
         [
             'ranking' => $ranking,
-            'filters' => [
-                'year'   => $year,
-                'period' => $period,
-                'area'   => $areas,
-                'career' => $careers,
-            ],
+           'filters' => [
+    'year'          => $year,
+    'period'        => $period,
+    'area'          => $areas,
+    'career'        => $careers,
+    'ranking_type'  => $rankingType, // 🔥 CLAVE
+      'trend_category' => $trendCategory, // 🔥 ESTO FALTABA
+],
+
             'availableAreas' => $availableAreas,
             'availableCareers' => $availableCareers,
+                'availableTrendCategories' => $availableTrendCategories, // 🔥
             'weights' => [
                 'laborWeight'  => round($laborWeight * 100, 1),
                 'trendsWeight' => round($trendWeight * 100, 1),

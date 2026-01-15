@@ -59,17 +59,7 @@ export default function CertificationCard({
       <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
 
       {/* BADGE TIPO (CLAVE PARA VER QUE SE JUNTAN) */}
-      {isTrend && (
-        <div className="
-          absolute top-3 right-3
-          rounded-full px-2 py-0.5
-          text-[11px] font-semibold uppercase
-          bg-amber-100 text-amber-800
-          dark:bg-amber-900/40 dark:text-amber-300
-        ">
-          Tendencia
-        </div>
-      )}
+
 
       <div className="flex justify-between gap-6">
         {/* ================= LEFT ================= */}
@@ -212,6 +202,24 @@ export default function CertificationCard({
           <Sparkles className="w-4 h-4" />
         </div>
       )}
+      {/* BADGE ISIL (solo certificaciones, abajo) */}
+{!isTrend && (
+  <div className="pt-4 flex justify-end">
+    <span
+      className="
+        inline-flex items-center
+        rounded-full px-3 py-1
+        text-[11px] font-semibold uppercase tracking-widest
+        bg-sky-100 text-sky-700
+        dark:bg-[#14384F]
+        dark:text-[#7DD3FC]
+      "
+    >
+      ISIL
+    </span>
+  </div>
+)}
+
     </div>
   );
 }
