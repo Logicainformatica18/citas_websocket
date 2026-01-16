@@ -14,6 +14,7 @@ interface HeaderProps {
         period: "s1" | "s2";
         periodo_label: string;
         vacantes_analizadas: number;
+          reportes_analizados: number; // 👈 AÑADIR ESTO
     };
     weights: WeightConfig;
     onEditWeights: () => void;
@@ -213,18 +214,22 @@ export function Header({
                                     <Database className="h-3 w-3 text-[#00B6E8]" />
                                     {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
                                 </Badge>
-
-                                <Badge className="gap-1.5 border border-[#00B6E8] bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] transition">
+<Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+    <Sparkles className="h-3 w-3 text-[#00B6E8]" />
+    {meta.reportes_analizados.toLocaleString()} reportes analizados
+</Badge>
+                                
+                            </div>
+                            {/* <Badge className="gap-1.5 border border-[#00B6E8] bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] transition">
                                     <Sparkles className="h-3 w-3 text-[#00B6E8]" />
                                     Datos reales por período
-                                </Badge>
-                            </div>
+                                </Badge> */}
                         </div>
 
 
 
                         {/* Active period */}
-                        <p className="text-sm text-[#0A2540]/70 dark:text-gray-400">
+                        <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
                             <span className="font-semibold text-[#0A2540] dark:text-white">
                                 Periodo activo:
                             </span>{" "}
