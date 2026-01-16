@@ -4,23 +4,41 @@ import { usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Plus, Search, Edit, RefreshCcw , Sparkles } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  Search,
+  Edit,
+  RefreshCcw,
+  Sparkles,
+  Play,
+  Loader2,
+} from "lucide-react";
 import TopicModal from "./TopicModal";
 
-// ==============================================
-// Tipos
-// ==============================================
+/* ==============================================
+   Tipos
+============================================== */
 type TrendTopic = {
   id: number;
   topic_name: string;
   search_query: string;
+
+  intent: "certification" | "technology_trend" | "skill" | "workforce" | "mixed";
+  execution_mode?: "manual" | "scheduled";
+  last_run_status?: "idle" | "running" | "success" | "failed";
+  last_run_message?: string | null;
+
   category?: string | null;
   subcategory?: string | null;
   importance_weight: number;
+
   fail_count: number;
   success_count: number;
   last_fail_at?: string | null;
+  last_success_at?: string | null;
   created_at?: string;
+
   active: number; // 1 / 0
 };
 
@@ -32,58 +50,57 @@ type Pagination<T> = {
   prev_page_url?: string | null;
 };
 
-// ==============================================
-// Breadcrumbs
-// ==============================================
+/* ==============================================
+   Breadcrumbs
+============================================== */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Topics IA", href: "/topics-ia" },
 ];
 
-// ==============================================
-// Helper: formatear fecha
-// ==============================================
+/* ==============================================
+   Helper: fecha
+============================================== */
 function formatDate(dateString?: string | null): string {
   if (!dateString) return "-";
-  const date = new Date(dateString);
-  return isNaN(date.getTime())
+  const d = new Date(dateString);
+  return isNaN(d.getTime())
     ? "-"
-    : date.toLocaleDateString("es-PE", {
+    : d.toLocaleDateString("es-PE", {
         day: "numeric",
         month: "short",
         year: "numeric",
       });
 }
 
-// ==============================================
-// Componente principal
-// ==============================================
+/* ==============================================
+   Componente
+============================================== */
 export default function TopicsIndex() {
   const { topics: initialPagination } = usePage<{
     topics: Pagination<TrendTopic>;
   }>().props;
 
-  const [items, setItems] = useState<TrendTopic[]>(initialPagination.data);
-  const [pagination, setPagination] =
-    useState<Pagination<TrendTopic>>(initialPagination);
+  const [items, setItems] = useState(initialPagination.data);
+  const [pagination, setPagination] = useState(initialPagination);
 
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<TrendTopic | null>(null);
-  const [search, setSearch] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ==============================================
-  // Efecto: refrescar listado cuando cambian props
-  // ==============================================
+  /* ==============================================
+     Sync props
+  ============================================== */
   useEffect(() => {
     setItems(initialPagination.data);
     setPagination(initialPagination);
   }, [initialPagination]);
 
-  // ==============================================
-  // Efecto: búsqueda con debounce
-  // ==============================================
+  /* ==============================================
+     Search debounce
+  ============================================== */
   useEffect(() => {
-    const delay = setTimeout(() => {
+    const t = setTimeout(() => {
       const url =
         search.trim() === ""
           ? "/topics-ia/fetch"
@@ -92,329 +109,230 @@ export default function TopicsIndex() {
       fetchPage(url);
     }, 450);
 
-    return () => clearTimeout(delay);
+    return () => clearTimeout(t);
   }, [search]);
 
-  // ==============================================
-  // Normalizar paginación
-  // ==============================================
-  const normalizePagePayload = (payload: any): Pagination<TrendTopic> => {
-    const pager = payload ?? {};
-    return {
-      data: pager.data ?? [],
-      current_page: pager.current_page ?? 1,
-      last_page: pager.last_page ?? 1,
-      next_page_url: pager.next_page_url ?? null,
-      prev_page_url: pager.prev_page_url ?? null,
-    };
-  };
-
-  // ==============================================
-  // Fetch paginado
-  // ==============================================
+  /* ==============================================
+     Fetch
+  ============================================== */
   const fetchPage = async (url: string) => {
     try {
       setLoading(true);
       const res = await axios.get(url);
-      const norm = normalizePagePayload(res?.data);
-      setItems(norm.data);
-      setPagination(norm);
-    } catch (e) {
-      Swal.fire("Error", "No se pudo cargar la página.", "error");
+      setItems(res.data.data ?? []);
+      setPagination(res.data);
+    } catch {
+      Swal.fire("Error", "No se pudo cargar la información.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // ==============================================
-  // Eliminar Topic
-  // ==============================================
-  const removeOne = async (id: number, name: string) => {
-    const confirm = await Swal.fire({
-      title: `¿Eliminar el topic "${name}"?`,
-      text: "Esta acción no se puede deshacer.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-      background: document.documentElement.classList.contains("dark")
-        ? "#1e293b"
-        : "#fff",
-      color: document.documentElement.classList.contains("dark")
-        ? "#fff"
-        : "#000",
+  /* ==============================================
+     Ejecutar tendencia (🔥 NUEVO)
+  ============================================== */
+  const runTopic = async (topic: TrendTopic) => {
+    Swal.fire({
+      title: "Generando tendencias",
+      text: "Ejecutando búsqueda con IA…",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
     });
 
-    if (!confirm.isConfirmed) return;
-
     try {
-      await axios.delete(`/topics-ia/${id}`);
-      setItems((prev) => prev.filter((i) => i.id !== id));
-      Swal.fire("Eliminado", "Topic eliminado correctamente.", "success");
-    } catch (e) {
-      Swal.fire("Error", "No se pudo eliminar el topic.", "error");
-    }
-  };
-
-  // ==============================================
-  // Toggle activo/inactivo
-  // ==============================================
-  const toggleActive = async (topic: TrendTopic) => {
-    try {
-      const newValue = topic.active === 1 ? 0 : 1;
-
-      await axios.patch(`/topics-ia/${topic.id}/toggle`, {
-        active: newValue,
-      });
-
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === topic.id ? { ...i, active: newValue } : i
-        )
-      );
-    } catch (e) {
-      Swal.fire("Error", "No se pudo actualizar el estado.", "error");
-    }
-  };
-
-  // ==============================================
-  // Reactivar
-  // ==============================================
-  const reactivate = async (id: number) => {
-    try {
-      await axios.patch(`/topics-ia/${id}/reactivate`);
-      Swal.fire("Reactivado", "El topic ha sido reactivado.", "success");
+      await axios.post(`/topics-ia/${topic.id}/run`);
+      Swal.fire("Éxito", "Tendencias generadas correctamente.", "success");
       fetchPage("/topics-ia/fetch");
-    } catch (e) {
-      Swal.fire("Error", "No se pudo reactivar el topic.", "error");
+    } catch (e: any) {
+      Swal.fire(
+        "Error",
+        e?.response?.data?.message ?? "No se pudo ejecutar el topic.",
+        "error"
+      );
     }
   };
 
-  // ==============================================
-  // Abrir modal edición
-  // ==============================================
-  const openEdit = (topic: TrendTopic) => {
-    setEditing(topic);
-    setShowModal(true);
+  /* ==============================================
+     Eliminar
+  ============================================== */
+  const removeOne = async (id: number, name: string) => {
+    const ok = await Swal.fire({
+      title: `¿Eliminar "${name}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Eliminar",
+    });
+
+    if (!ok.isConfirmed) return;
+
+    await axios.delete(`/topics-ia/${id}`);
+    setItems((p) => p.filter((i) => i.id !== id));
   };
 
-  const handleModalClose = () => {
-    setEditing(null);
-    setShowModal(false);
+  /* ==============================================
+     Toggle active
+  ============================================== */
+  const toggleActive = async (topic: TrendTopic) => {
+    const newVal = topic.active === 1 ? 0 : 1;
+    await axios.patch(`/topics-ia/${topic.id}/toggle`, { active: newVal });
+    setItems((p) =>
+      p.map((i) => (i.id === topic.id ? { ...i, active: newVal } : i))
+    );
   };
 
-  // ==============================================
-  // Render
-  // ==============================================
- return (
-  <AppLayout breadcrumbs={breadcrumbs}>
-    <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100 transition">
+  /* ==============================================
+     Reactivar
+  ============================================== */
+  const reactivate = async (id: number) => {
+    await axios.patch(`/topics-ia/${id}/reactivate`);
+    fetchPage("/topics-ia/fetch");
+  };
 
-      {/* 🔷 HEADER ISIL */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
-        <h1 className="text-3xl font-semibold flex items-center gap-2">
-          <Sparkles className="w-7 h-7 text-[#1CBCE8]" />
-          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Topics IA (Tendencias Tecnológicas)</span>
-        </h1>
+  /* ==============================================
+     Render
+  ============================================== */
+  return (
+    <AppLayout breadcrumbs={breadcrumbs}>
+      <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
 
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" /> Nuevo Topic IA
-        </button>
-      </div>
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-6 border-b pb-4">
+          <h1 className="text-3xl font-semibold flex items-center gap-2">
+            <Sparkles className="w-7 h-7 text-[#1CBCE8]" />
+            <span className="text-[#0C647A] dark:text-[#1CBCE8]">
+              Topics IA (Tendencias / Certificaciones / Skills)
+            </span>
+          </h1>
 
-      {/* 🔍 Buscador */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-[#1CBCE8] text-white rounded-md flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Nuevo Topic IA
+          </button>
+        </div>
+
+        {/* SEARCH */}
+        <div className="relative w-80 mb-6">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
           <input
-            type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar topic..."
-            className="
-              w-full pl-9 pr-3 py-2 rounded-md
-              bg-white dark:bg-gray-800
-              border border-gray-300 dark:border-gray-700
-              text-gray-900 dark:text-gray-100
-              focus:ring-2 focus:ring-[#1CBCE8] outline-none
-            "
+            placeholder="Buscar topic…"
+            className="w-full pl-9 pr-3 py-2 rounded-md border"
           />
         </div>
-      </div>
 
-      {/* 🔹 TABLA ISIL */}
-      <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
-        <table className="min-w-full text-sm">
-
-          {/* ENCABEZADO */}
-          <thead className="bg-[#1CBCE8] dark:bg-[#1CBCE8]/20 text-white dark:text-[#1CBCE8] uppercase text-xs tracking-wide">
-            <tr>
-              <th className="px-4 py-2 text-left">Acciones</th>
-              <th className="px-4 py-2 text-left">Topic</th>
-              <th className="px-4 py-2 text-left">Categoría</th>
-              <th className="px-4 py-2 text-center">Activo</th>
-              <th className="px-4 py-2 text-center">Fallos</th>
-              <th className="px-4 py-2 text-left">Último fallo</th>
-              <th className="px-4 py-2 text-center">Éxitos</th>
-              <th className="px-4 py-2 text-left">Creado</th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-            {loading ? (
+        {/* TABLE */}
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#1CBCE8] text-white uppercase text-xs">
               <tr>
-                <td colSpan={8} className="py-6 text-center text-gray-500">Cargando…</td>
+                <th className="px-4 py-2">Acciones</th>
+                <th className="px-4 py-2">Topic</th>
+                <th className="px-4 py-2">Intent</th>
+                <th className="px-4 py-2">Estado IA</th>
+                <th className="px-4 py-2">Activo</th>
+                <th className="px-4 py-2">Fallos</th>
+                <th className="px-4 py-2">Éxitos</th>
               </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-6 text-center text-gray-500">
-                  No hay topics registrados.
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-[#E7F9FD] dark:hover:bg-[#1CBCE8]/10 transition-colors"
-                >
-                  {/* ACCIONES */}
-                  <td className="px-4 py-3 whitespace-nowrap flex flex-col gap-2">
-                    <button
-                      onClick={() => openEdit(item)}
-                      className="text-[#1CBCE8] hover:text-[#17A8D0] flex items-center gap-1"
-                    >
-                      <Edit className="w-4 h-4" /> Editar
-                    </button>
+            </thead>
 
-                    <button
-                      onClick={() => removeOne(item.id, item.topic_name)}
-                      className="text-red-500 hover:text-red-400 flex items-center gap-1"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-
-                    {!item.active && item.fail_count >= 3 && (
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center">Cargando…</td>
+                </tr>
+              ) : (
+                items.map((item) => (
+                  <tr key={item.id} className="hover:bg-[#E7F9FD]/50">
+                    <td className="px-4 py-2 space-y-1">
                       <button
-                        onClick={() => reactivate(item.id)}
-                        className="text-green-600 hover:text-green-500 flex items-center gap-1"
+                        onClick={() => runTopic(item)}
+                        disabled={item.last_run_status === "running"}
+                        className="flex items-center gap-1 text-green-600"
                       >
-                        <RefreshCcw className="w-4 h-4" /> Reactivar
+                        {item.last_run_status === "running" ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4" />
+                        )}
+
                       </button>
-                    )}
-                  </td>
 
-                  {/* TOPIC */}
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
-                    {item.topic_name}
-                  </td>
+                      <button
+                        onClick={() => setEditing(item)}
+                        className="flex items-center gap-1 text-[#1CBCE8]"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
 
-                  {/* CATEGORÍA */}
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                    {item.category ?? "-"} / {item.subcategory ?? "-"}
-                  </td>
+                      <button
+                        onClick={() => removeOne(item.id, item.topic_name)}
+                        className="flex items-center gap-1 text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
 
-                  {/* SWITCH ACTIVO */}
-                  <td className="px-4 py-3 text-center">
-                    <label className="relative inline-flex items-center cursor-pointer">
+                      {!item.active && item.fail_count >= 3 && (
+                        <button
+                          onClick={() => reactivate(item.id)}
+                          className="flex items-center gap-1 text-green-600"
+                        >
+                          <RefreshCcw className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-2 font-semibold">
+                      {item.topic_name}
+                    </td>
+
+                    <td className="px-4 py-2 capitalize">
+                      {item.intent}
+                    </td>
+
+                    <td className="px-4 py-2">
+                      {item.last_run_status ?? "idle"}
+                    </td>
+
+                    <td className="px-4 py-2 text-center">
                       <input
                         type="checkbox"
                         checked={item.active === 1}
                         onChange={() => toggleActive(item)}
-                        className="sr-only peer"
                       />
-                      <div className="
-                        w-12 h-6 rounded-full transition-colors
-                        bg-gray-300 peer-checked:bg-[#1CBCE8]
-                        dark:bg-gray-700 dark:peer-checked:bg-[#1CBCE8]
-                      "></div>
-                      <div
-                        className="
-                          absolute left-1 top-1 h-4 w-4 bg-white rounded-full shadow
-                          transition-all peer-checked:translate-x-6
-                        "
-                      ></div>
-                    </label>
-                  </td>
+                    </td>
 
-                  {/* FALLOS */}
-                  <td className="px-4 py-3 text-center font-semibold text-red-500">
-                    {item.fail_count}
-                  </td>
+                    <td className="px-4 py-2 text-center text-red-500">
+                      {item.fail_count}
+                    </td>
 
-                  {/* ÚLTIMO FALLO */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {formatDate(item.last_fail_at)}
-                  </td>
-
-                  {/* ÉXITOS */}
-                  <td className="px-4 py-3 text-center font-semibold text-green-600 dark:text-green-400">
-                    {item.success_count}
-                  </td>
-
-                  {/* CREACIÓN */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                    {formatDate(item.created_at)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                    <td className="px-4 py-2 text-center text-green-600">
+                      {item.success_count}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* PAGINACIÓN ISIL */}
-      <div className="flex justify-center mt-6 gap-1">
-        {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-          .filter((p) =>
-            p <= 2 ||
-            p >= pagination.last_page - 1 ||
-            (p >= pagination.current_page - 2 && p <= pagination.current_page + 2)
-          )
-          .map((p, idx, arr) => {
-            const prev = arr[idx - 1];
-            const gap = prev && p - prev > 1;
-
-            return (
-              <span key={p} className="flex">
-                {gap && <span className="px-2 text-gray-400">…</span>}
-
-                <button
-                  onClick={() =>
-                    fetchPage(`/topics-ia/fetch?page=${p}&search=${encodeURIComponent(search)}`)
-                  }
-                  className={`
-                    px-3 py-1 rounded-md text-sm font-medium transition
-                    ${
-                      pagination.current_page === p
-                        ? "bg-[#1CBCE8] text-white shadow"
-                        : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
-                    }
-                  `}
-                  disabled={pagination.current_page === p}
-                >
-                  {p}
-                </button>
-              </span>
-            );
-          })}
-      </div>
-    </div>
-
-    {showModal && (
-      <TopicModal
-        open={showModal}
-        onClose={handleModalClose}
-        onCreated={() => fetchPage("/topics-ia/fetch")}
-        editing={editing}
-      />
-    )}
-  </AppLayout>
-);
-
+      {showModal && (
+        <TopicModal
+          open={showModal}
+          editing={editing}
+          onClose={() => {
+            setEditing(null);
+            setShowModal(false);
+          }}
+          onCreated={() => fetchPage("/topics-ia/fetch")}
+        />
+      )}
+    </AppLayout>
+  );
 }

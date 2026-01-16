@@ -13,10 +13,8 @@ import {
 
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
-import TechnologyRankingList from "./components/Ranking/TechnologyRankingList";
+import RankingList from "./components/Ranking/RankingList";
 import TechnologyJobsModal from "./components/Ranking/TechnologyJobsModal";
-
-//import { useRankingData } from "./hooks/useRankingData";
 
 import Swal from "sweetalert2";
 
@@ -27,13 +25,10 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
   {
     title: "Ranking de Tecnologías",
-    href: "/dashboard/ranking/technologies",
+    href: "/dashboard/ranking-technologias",
   },
 ];
 
-/* =========================================================
-   Types desde Backend (Inertia)
-========================================================= */
 type PageProps = {
   ranking: {
     data: any[];
@@ -44,7 +39,10 @@ type PageProps = {
     next_page_url?: string | null;
   };
   kpis: any;
-  meta: any;
+  meta: {
+    year: number;
+    period: string;
+  };
   weights: {
     laborWeight: number;
     trendsWeight: number;
@@ -52,75 +50,63 @@ type PageProps = {
 };
 
 export default function RankingTechnologiesPage() {
-  /* =========================
-     DATOS DESDE BACKEND
-  ========================= */
-  const { ranking, kpis, meta, weights } = usePage<PageProps>().props;
+  const { ranking, kpis, meta, weights } =
+    usePage<PageProps>().props;
 
   /* =========================
-     NORMALIZACIÓN DATA
-  ========================= */
-  //const { data } = useRankingData(ranking.data);
-
-  /* =========================
-     UI STATE
-  ========================= */
-  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
-
-  /* =========================
-     MODAL OFERTAS LABORALES
+     MODAL OFERTAS (TECNOLOGÍAS)
   ========================= */
   const [openJobsModal, setOpenJobsModal] = useState(false);
-  const [selectedTechnology, setSelectedTechnology] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
 
-  const handleOpenJobs = (technology: any) => {
-    setSelectedTechnology(technology);
+  const handleOpenJobs = (item: any) => {
+    // 👇 solo aplica para tecnologías
+    if (item.entity_type !== "technology") return;
+
+    setSelectedItem(item);
     setOpenJobsModal(true);
   };
 
   /* =========================
-     GUARDAR PONDERACIONES
+     MODAL PONDERACIONES
   ========================= */
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
-      Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
+      Swal.fire(
+        "Error",
+        "Las ponderaciones deben sumar 100%",
+        "error"
+      );
       return;
     }
 
     Swal.fire({
       title: "Aplicando metodología",
-      text: "Recalculando ranking de tecnologías…",
+      text: "Actualizando ranking…",
       allowOutsideClick: false,
-      allowEscapeKey: false,
       didOpen: () => Swal.showLoading(),
     });
 
     router.post(
-      "/dashboard/ranking/technologies/weights",
+      "/dashboard/ranking-technologias/weights",
       {
         labor_weight: newWeights.laborWeight / 100,
         trend_weight: newWeights.trendsWeight / 100,
       },
       {
-        preserveScroll: true,
         onSuccess: () => {
           Swal.fire({
             icon: "success",
             title: "Metodología actualizada",
-            timer: 1500,
+            timer: 1400,
             showConfirmButton: false,
           });
 
           router.reload({
             only: ["ranking", "weights", "meta", "kpis"],
           });
-        },
-        onError: () => {
-          Swal.fire(
-            "Error",
-            "No se pudo aplicar la ponderación",
-            "error"
-          );
         },
       }
     );
@@ -131,45 +117,56 @@ export default function RankingTechnologiesPage() {
       <Head title="Ranking de Tecnologías | Observatorio ISIL" />
 
       <DashboardProvider>
-        {/* ===== CONTENEDOR GENERAL ===== */}
         <div className="bg-background px-6 py-6">
-          <div className="flex gap-6 items-start">
-            {/* ==============================
-                COLUMNA PRINCIPAL
-            ============================== */}
-            <div className="flex-1 min-w-0 space-y-6">
-              {/* ===== HEADER ===== */}
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-6">
+
+              {/* ================= HEADER ================= */}
               <RankingHeader
                 weights={weights}
                 onEditWeights={() => setIsWeightModalOpen(true)}
                 meta={meta}
               />
 
-              {/* ===== KPIs ===== */}
+              {/* ================= KPIs ================= */}
               <KpiGrid items={kpis} />
 
-              {/* ===== FILTROS ===== */}
+              {/* ================= DESCRIPCIÓN ================= */}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Ranking General de Tecnologías
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
+                  Clasificación unificada que integra tecnologías
+                  demandadas en el mercado laboral y tecnologías en
+                  tendencia global, ordenadas según la metodología
+                  seleccionada.
+                </p>
+              </div>
+
+              {/* ================= FILTROS ================= */}
               <RankingFilters />
 
-              {/* ===== RANKING ===== */}
-            <TechnologyRankingList
-  items={ranking.data}
-  pagination={ranking}
-  onSelectTechnology={handleOpenJobs}
-/>
+              {/* ================= RANKING ÚNICO ================= */}
+              <RankingList
+                items={ranking.data}
+                pagination={ranking}
+                onSelectCertification={handleOpenJobs}
+              />
             </div>
           </div>
         </div>
 
-        {/* ===== MODAL OFERTAS LABORALES ===== */}
+        {/* ================= MODAL OFERTAS ================= */}
         <TechnologyJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}
-          technologyId={selectedTechnology?.id}
-          technologyName={selectedTechnology?.name}
+          technologyId={selectedItem?.technology_id ?? selectedItem?.id}
+          technologyName={selectedItem?.name}
         />
 
-        {/* ===== MODAL DE PONDERACIONES ===== */}
+        {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal
           open={isWeightModalOpen}
           onOpenChange={setIsWeightModalOpen}

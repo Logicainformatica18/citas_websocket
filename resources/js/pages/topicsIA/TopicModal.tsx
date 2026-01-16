@@ -3,10 +3,21 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { X } from "lucide-react";
 
+/* ==============================================
+   Tipos
+============================================== */
+type TopicIntent =
+  | "certification"
+  | "technology_trend"
+  | "skill"
+  | "workforce"
+  | "mixed";
+
 type Topic = {
   id?: number;
   topic_name: string;
   search_query: string;
+  intent: TopicIntent;
   category?: string | null;
   subcategory?: string | null;
   importance_weight: number;
@@ -20,6 +31,9 @@ type Props = {
   editing?: Topic | null;
 };
 
+/* ==============================================
+   Componente
+============================================== */
 export default function TopicModal({ open, onClose, onCreated, editing }: Props) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -27,6 +41,7 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
   const [form, setForm] = useState<Topic>({
     topic_name: "",
     search_query: "",
+    intent: "mixed",
     category: "",
     subcategory: "",
     importance_weight: 1,
@@ -36,12 +51,13 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
   const [loading, setLoading] = useState(false);
 
   /* ------------------------------------------
-     Auto Resize Textarea
+     Auto resize textarea
   ------------------------------------------ */
   const autoResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + "px";
     }
   };
 
@@ -53,17 +69,19 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
       setForm({
         topic_name: editing.topic_name,
         search_query: editing.search_query,
+        intent: editing.intent ?? "mixed",
         category: editing.category ?? "",
         subcategory: editing.subcategory ?? "",
         importance_weight: editing.importance_weight ?? 1,
         min_required_results: editing.min_required_results ?? 3,
       });
 
-      setTimeout(() => autoResize(), 50);
+      setTimeout(autoResize, 50);
     } else {
       setForm({
         topic_name: "",
         search_query: "",
+        intent: "mixed",
         category: "",
         subcategory: "",
         importance_weight: 1,
@@ -73,7 +91,7 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
   }, [editing]);
 
   /* ------------------------------------------
-     Cerrar modal al hacer clic afuera
+     Cerrar al click externo
   ------------------------------------------ */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -87,10 +105,10 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
   }, [open, onClose]);
 
   /* ------------------------------------------
-     Manejar cambios del formulario
+     Handle change
   ------------------------------------------ */
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
 
@@ -112,11 +130,27 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
     e.preventDefault();
 
     if (!form.topic_name.trim()) {
-      return Swal.fire("Campo requerido", "El nombre del Topic es obligatorio.", "warning");
+      return Swal.fire(
+        "Campo requerido",
+        "El nombre del Topic es obligatorio.",
+        "warning"
+      );
     }
 
     if (!form.search_query.trim()) {
-      return Swal.fire("Campo requerido", "El Search Query es obligatorio.", "warning");
+      return Swal.fire(
+        "Campo requerido",
+        "El Search Query es obligatorio.",
+        "warning"
+      );
+    }
+
+    if (!form.intent) {
+      return Swal.fire(
+        "Campo requerido",
+        "Debe seleccionar el tipo de intención.",
+        "warning"
+      );
     }
 
     setLoading(true);
@@ -143,11 +177,10 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
   if (!open) return null;
 
   /* ------------------------------------------
-     Render modal
+     Render
   ------------------------------------------ */
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      {/* Contenedor que limita altura y agrega scroll interno */}
       <div
         ref={modalRef}
         className="
@@ -157,10 +190,10 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
           animate-slideUp
         "
       >
-        {/* Botón cerrar */}
+        {/* Cerrar */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white transition"
+          className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white"
         >
           <X className="w-5 h-5" />
         </button>
@@ -170,23 +203,46 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+
           {/* Nombre */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium">Nombre del Topic *</label>
+            <label className="block text-sm font-medium">
+              Nombre del Topic *
+            </label>
             <input
               type="text"
               name="topic_name"
               value={form.topic_name}
               onChange={handleChange}
-              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Ej: IA Generativa en Salud"
-              required
+              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
+              placeholder="Ej: Machine Learning Engineer 2025"
             />
+          </div>
+
+          {/* Intent */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">
+              Tipo de análisis *
+            </label>
+            <select
+              name="intent"
+              value={form.intent}
+              onChange={handleChange}
+              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
+            >
+              <option value="mixed">Mixto (exploratorio)</option>
+              <option value="certification">Certificaciones</option>
+              <option value="technology_trend">Tendencias tecnológicas</option>
+              <option value="skill">Skills / Habilidades</option>
+              <option value="workforce">Workforce / Mercado laboral</option>
+            </select>
           </div>
 
           {/* Search Query */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium">Search Query *</label>
+            <label className="block text-sm font-medium">
+              Search Query *
+            </label>
             <textarea
               ref={textareaRef}
               name="search_query"
@@ -195,11 +251,10 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
               className="
                 w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700
                 resize-none overflow-hidden
-                focus:ring-2 focus:ring-blue-500 outline-none
+                focus:ring-2 focus:ring-[#1CBCE8] outline-none
               "
-              placeholder='Ej: "AI generative trends 2025" McKinsey; Gartner; OpenAI'
+              placeholder='Ej: "machine learning engineer certifications demand 2025 skills workforce"'
               rows={1}
-              required
             />
           </div>
 
@@ -211,8 +266,7 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
               name="category"
               value={form.category ?? ""}
               onChange={handleChange}
-              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Ej: Tecnologías Emergentes"
+              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
             />
           </div>
 
@@ -224,15 +278,14 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
               name="subcategory"
               value={form.subcategory ?? ""}
               onChange={handleChange}
-              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Ej: Modelos Generativos"
+              className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
             />
           </div>
 
-          {/* Peso y resultados mínimos */}
+          {/* Peso y mínimos */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium">Peso (1-10)</label>
+              <label className="block text-sm font-medium">Peso (1–10)</label>
               <input
                 type="number"
                 name="importance_weight"
@@ -240,19 +293,21 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
                 onChange={handleChange}
                 min={1}
                 max={10}
-                className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="block text-sm font-medium">Resultados mínimos</label>
+              <label className="block text-sm font-medium">
+                Resultados mínimos
+              </label>
               <input
                 type="number"
                 name="min_required_results"
                 value={form.min_required_results}
                 onChange={handleChange}
                 min={1}
-                className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
               />
             </div>
           </div>
@@ -262,7 +317,7 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500 transition"
+              className="px-4 py-2 rounded-lg bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500"
             >
               Cancelar
             </button>
@@ -270,9 +325,9 @@ export default function TopicModal({ open, onClose, onCreated, editing }: Props)
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-[#1CBCE8] hover:bg-[#17A8D0] text-white disabled:opacity-50"
             >
-              {loading ? "Guardando..." : editing ? "Actualizar" : "Crear"}
+              {loading ? "Guardando…" : editing ? "Actualizar" : "Crear"}
             </button>
           </div>
         </form>

@@ -524,24 +524,38 @@ Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
 
 
-    Route::prefix('topics-ia')->group(function () {
 
+Route::prefix('topics-ia')->group(function () {
 
-        Route::get('/', [TopicsIAController::class, 'index'])
-            ->name('topics.index');
-        Route::get('/fetch', [TopicsIAController::class, 'fetchPaginated'])
-            ->name('topics.fetch');
-        Route::post('/', [TopicsIAController::class, 'store'])
-            ->name('topics.store');
-        Route::put('/{id}', [TopicsIAController::class, 'update'])
-            ->name('topics.update');
-        Route::delete('/{id}', [TopicsIAController::class, 'destroy'])
-            ->name('topics.destroy');
-        Route::patch('/{id}/toggle', [TopicsIAController::class, 'toggle'])
-            ->name('topics.toggle');
-        Route::patch('/{id}/reactivate', [TopicsIAController::class, 'reactivate'])
-            ->name('topics.reactivate');
-    });
+    // 📄 Vistas / listados
+    Route::get('/', [TopicsIAController::class, 'index'])
+        ->name('topics.index');
+
+    Route::get('/fetch', [TopicsIAController::class, 'fetchPaginated'])
+        ->name('topics.fetch');
+
+    // 🆕 Crear / actualizar / eliminar
+    Route::post('/', [TopicsIAController::class, 'store'])
+        ->name('topics.store');
+
+    Route::put('/{id}', [TopicsIAController::class, 'update'])
+        ->name('topics.update');
+
+    Route::delete('/{id}', [TopicsIAController::class, 'destroy'])
+        ->name('topics.destroy');
+
+    // 🔄 Activar / desactivar
+    Route::patch('/{id}/toggle', [TopicsIAController::class, 'toggle'])
+        ->name('topics.toggle');
+
+    Route::patch('/{id}/reactivate', [TopicsIAController::class, 'reactivate'])
+        ->name('topics.reactivate');
+
+    // 🚀 EJECUTAR IA (🔥 NUEVO)
+    Route::post('/{id}/run', [TopicsIAController::class, 'run'])
+        ->name('topics.run');
+});
+
 
 
     Route::prefix('tech-positions')->group(function () {

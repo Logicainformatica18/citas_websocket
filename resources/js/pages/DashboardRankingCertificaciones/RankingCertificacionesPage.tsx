@@ -154,12 +154,13 @@ export default function RankingCertificacionesPage() {
         </div>
 
         {/* ================= MODAL OFERTAS ================= */}
-        <CertificationJobsModal
-          open={openJobsModal}
-          onClose={() => setOpenJobsModal(false)}
-          certificationId={selectedItem?.certification_id}
-          certificationName={selectedItem?.name}
-        />
+    <CertificationJobsModal
+  open={openJobsModal}
+  onClose={() => setOpenJobsModal(false)}
+  certificationId={selectedItem?.certification_id ?? selectedItem?.id}
+  certificationName={selectedItem?.name}
+/>
+
 
         {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal

@@ -7,65 +7,82 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use App\Services\RunTrendTopicService;
 
 class TopicsIAController extends Controller
 {
-    /**
+    /* ======================================================
      * 📄 Listado general (Inertia)
-     */
+     ====================================================== */
     public function index(Request $request)
     {
         $search = $request->get('search');
+        $intent = $request->get('intent');
 
         $topics = TrendTopic::query()
             ->when($search, function ($query, $search) {
-                $query->where('topic_name', 'like', "%{$search}%")
+                $query->where(function ($q) use ($search) {
+                    $q->where('topic_name', 'like', "%{$search}%")
                       ->orWhere('search_query', 'like', "%{$search}%")
                       ->orWhere('category', 'like', "%{$search}%");
+                });
             })
+            ->when($intent, fn ($q) => $q->where('intent', $intent))
             ->orderBy('active', 'desc')
+            ->orderBy('last_run_status', 'asc')
             ->orderBy('fail_count', 'desc')
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('topicsIA/Index', [
             'topics' => $topics->through(fn ($t) => [
-                'id'                 => $t->id,
-                'topic_name'         => $t->topic_name,
-                'topic_slug'         => $t->topic_slug,
-                'search_query'       => $t->search_query,
+                'id'                   => $t->id,
+                'topic_name'           => $t->topic_name,
+                'topic_slug'           => $t->topic_slug,
+                'search_query'         => $t->search_query,
 
-                'category'           => $t->category,
-                'subcategory'        => $t->subcategory,
-                'importance_weight'  => $t->importance_weight,
+                // 🔥 NUEVOS
+                'intent'               => $t->intent,
+                'execution_mode'       => $t->execution_mode,
+                'last_run_status'      => $t->last_run_status,
+                'last_run_message'     => $t->last_run_message,
 
-                'active'             => $t->active,
-                'fail_count'         => $t->fail_count,
-                'last_fail_at'       => optional($t->last_fail_at)->format('Y-m-d H:i'),
-                'success_count'      => $t->success_count,
-                'last_success_at'    => optional($t->last_success_at)->format('Y-m-d H:i'),
+                'category'             => $t->category,
+                'subcategory'          => $t->subcategory,
+                'importance_weight'    => $t->importance_weight,
+
+                'active'               => $t->active,
+                'fail_count'           => $t->fail_count,
+                'last_fail_at'         => optional($t->last_fail_at)->format('Y-m-d H:i'),
+                'success_count'        => $t->success_count,
+                'last_success_at'      => optional($t->last_success_at)->format('Y-m-d H:i'),
                 'auto_disabled_reason' => $t->auto_disabled_reason,
                 'min_required_results' => $t->min_required_results,
 
-                'created_at' => optional($t->created_at)->format('Y-m-d'),
+                'created_at'           => optional($t->created_at)->format('Y-m-d'),
             ]),
 
-            'filters' => ['search' => $search],
+            'filters' => [
+                'search' => $search,
+                'intent' => $intent,
+            ],
         ]);
     }
 
-    /**
+    /* ======================================================
      * 📄 API JSON paginada
-     */
+     ====================================================== */
     public function fetchPaginated(Request $request)
     {
         $search = $request->get('search');
+        $intent = $request->get('intent');
 
         $topics = TrendTopic::query()
-            ->when($search, fn ($q) =>
+            ->when($search, function ($q) use ($search) {
                 $q->where('topic_name', 'like', "%{$search}%")
-                  ->orWhere('search_query', 'like', "%{$search}%")
-            )
+                  ->orWhere('search_query', 'like', "%{$search}%");
+            })
+            ->when($intent, fn ($q) => $q->where('intent', $intent))
             ->orderBy('active', 'desc')
             ->paginate(10)
             ->withQueryString();
@@ -76,39 +93,49 @@ class TopicsIAController extends Controller
                 'topic_name'           => $t->topic_name,
                 'topic_slug'           => $t->topic_slug,
                 'search_query'         => $t->search_query,
+
+                'intent'               => $t->intent,
+                'execution_mode'       => $t->execution_mode,
+                'last_run_status'      => $t->last_run_status,
+                'last_run_message'     => $t->last_run_message,
+
                 'category'             => $t->category,
                 'subcategory'          => $t->subcategory,
                 'importance_weight'    => $t->importance_weight,
                 'min_required_results' => $t->min_required_results,
+
                 'active'               => $t->active,
                 'fail_count'           => $t->fail_count,
                 'success_count'        => $t->success_count,
                 'last_fail_at'         => optional($t->last_fail_at)->format('Y-m-d H:i'),
                 'last_success_at'      => optional($t->last_success_at)->format('Y-m-d H:i'),
-                'auto_disabled_reason' => $t->auto_disabled_reason,
+
                 'created_at'           => optional($t->created_at)->format('Y-m-d'),
             ])
         );
     }
 
-    /**
+    /* ======================================================
      * 🆕 Crear Topic IA
-     */
+     ====================================================== */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'topic_name'        => 'required|string|max:255',
-            'search_query'      => 'required|string',
-            'category'          => 'nullable|string|max:150',
-            'subcategory'       => 'nullable|string|max:150',
-            'importance_weight' => 'nullable|integer|min:1|max:10',
-            'min_required_results' => 'nullable|integer|min:1|max:10',
+            'topic_name'            => 'required|string|max:255',
+            'search_query'          => 'required|string',
+            'intent'                => 'required|in:certification,technology_trend,skill,workforce,mixed',
+            'category'              => 'nullable|string|max:150',
+            'subcategory'           => 'nullable|string|max:150',
+            'importance_weight'     => 'nullable|integer|min:1|max:10',
+            'min_required_results'  => 'nullable|integer|min:1|max:10',
         ]);
 
         return DB::transaction(function () use ($validated) {
 
-            $validated['topic_slug'] = Str::slug($validated['topic_name']);
-            $validated['active'] = 1;
+            $validated['topic_slug']     = Str::slug($validated['topic_name']);
+            $validated['active']         = 1;
+            $validated['execution_mode'] = 'manual';
+            $validated['last_run_status'] = 'idle';
 
             $topic = TrendTopic::create($validated);
 
@@ -119,19 +146,20 @@ class TopicsIAController extends Controller
         });
     }
 
-    /**
-     * ✏️ Actualizar Topic IA (CORREGIDO)
-     */
+    /* ======================================================
+     * ✏️ Actualizar Topic IA
+     ====================================================== */
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'topic_name'        => 'required|string|max:255',
-            'search_query'      => 'required|string',
-            'category'          => 'nullable|string|max:150',
-            'subcategory'       => 'nullable|string|max:150',
-            'importance_weight' => 'nullable|integer|min:1|max:10',
-            'min_required_results' => 'nullable|integer|min:1|max:10',
-            'active'            => 'sometimes|boolean' // << IMPORTANTE
+            'topic_name'            => 'required|string|max:255',
+            'search_query'          => 'required|string',
+            'intent'                => 'required|in:certification,technology_trend,skill,workforce,mixed',
+            'category'              => 'nullable|string|max:150',
+            'subcategory'           => 'nullable|string|max:150',
+            'importance_weight'     => 'nullable|integer|min:1|max:10',
+            'min_required_results'  => 'nullable|integer|min:1|max:10',
+            'active'                => 'sometimes|boolean',
         ]);
 
         return DB::transaction(function () use ($validated, $request, $id) {
@@ -139,16 +167,16 @@ class TopicsIAController extends Controller
             $topic = TrendTopic::findOrFail($id);
 
             $updateData = [
-                'topic_name'        => $validated['topic_name'],
-                'topic_slug'        => Str::slug($validated['topic_name']),
-                'search_query'      => $validated['search_query'],
-                'category'          => $validated['category'] ?? null,
-                'subcategory'       => $validated['subcategory'] ?? null,
-                'importance_weight' => $validated['importance_weight'] ?? 1,
+                'topic_name'           => $validated['topic_name'],
+                'topic_slug'           => Str::slug($validated['topic_name']),
+                'search_query'         => $validated['search_query'],
+                'intent'               => $validated['intent'],
+                'category'             => $validated['category'] ?? null,
+                'subcategory'          => $validated['subcategory'] ?? null,
+                'importance_weight'    => $validated['importance_weight'] ?? 1,
                 'min_required_results' => $validated['min_required_results'] ?? 3,
             ];
 
-            // 🛑 SOLO ACTUALIZAR ACTIVE SI VIENE EN EL REQUEST
             if ($request->has('active')) {
                 $updateData['active'] = $validated['active'];
             }
@@ -161,10 +189,36 @@ class TopicsIAController extends Controller
             ]);
         });
     }
+public function run($id)
+{
+    $topic = TrendTopic::findOrFail($id);
 
-    /**
+    if ($topic->last_run_status === 'running') {
+        return response()->json([
+            'message' => 'Este topic ya está en ejecución.'
+        ], 409);
+    }
+
+    $topic->markRunning();
+
+    try {
+        app(RunTrendTopicService::class)->run($topic);
+
+        return response()->json([
+            'message' => 'Tendencias generadas correctamente.'
+        ]);
+    } catch (\Throwable $e) {
+        $topic->markFail($e->getMessage());
+
+        return response()->json([
+            'message' => 'Error al ejecutar el topic.'
+        ], 500);
+    }
+}
+
+    /* ======================================================
      * 🗑️ Eliminar Topic IA
-     */
+     ====================================================== */
     public function destroy($id)
     {
         return DB::transaction(function () use ($id) {
@@ -178,22 +232,21 @@ class TopicsIAController extends Controller
         });
     }
 
-    /**
+    /* ======================================================
      * 🔄 Activar / Desactivar manualmente
-     */
+     ====================================================== */
     public function toggle($id, Request $request)
-{
-    $topic = TrendTopic::findOrFail($id);
-    $topic->active = $request->active; // <-- se guarda aquí
-    $topic->save();
+    {
+        $topic = TrendTopic::findOrFail($id);
+        $topic->active = $request->active;
+        $topic->save();
 
-    return response()->json(['success' => true]);
-}
+        return response()->json(['success' => true]);
+    }
 
-
-    /**
+    /* ======================================================
      * 🔧 Reactivar topic desactivado por IA
-     */
+     ====================================================== */
     public function reactivate($id)
     {
         $topic = TrendTopic::findOrFail($id);
@@ -202,6 +255,8 @@ class TopicsIAController extends Controller
         $topic->fail_count = 0;
         $topic->auto_disabled_reason = null;
         $topic->last_fail_at = null;
+        $topic->last_run_status = 'idle';
+        $topic->last_run_message = null;
 
         $topic->save();
 
