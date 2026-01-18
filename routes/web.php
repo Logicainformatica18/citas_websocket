@@ -140,7 +140,16 @@ Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
 
 
+   Route::prefix('dashboard/ranking/languages')->group(function () {
 
+       // 📊 Vista principal ranking
+        Route::get('/', [RankingLenguajesController::class, 'index'])
+            ->name('dashboard.ranking.languages.index');
+
+        // ⚖️ Guardar ponderaciones
+        Route::post('/weights', [RankingLenguajesController::class, 'storeWeights'])
+            ->name('dashboard.ranking.languages.weights');
+    });
 
 
 
