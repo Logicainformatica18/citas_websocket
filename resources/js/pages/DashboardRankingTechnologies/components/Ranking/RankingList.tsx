@@ -31,12 +31,21 @@ export default function RankingList({
       {/* ================= GRID ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {items.map((item, index) => {
+          const isTrend = item.entity_type === "trend";
+          const isIsil  = item.is_isil === 1;
+
           return (
             <TechnologyCard
-              key={item.id}
+              key={`${item.entity_type}-${item.id}`}
               rank={(pagination.current_page - 1) * perPage + index + 1}
               data={item}
-              onClick={() => onSelectTechnology?.(item)}
+
+              /* 👇 Solo tecnologías ISIL son clickeables */
+              onClick={
+                !isTrend && isIsil
+                  ? () => onSelectTechnology?.(item)
+                  : undefined
+              }
             />
           );
         })}
