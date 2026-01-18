@@ -95,7 +95,7 @@ export default function RankingFilters() {
       true
     );
   };
-
+   
   const rankingTypeLabel =
     RANKING_TYPES.find(t => t.value === activeRankingType)?.label ??
     "Ranking general";

@@ -27,21 +27,23 @@ export function Header({
 }: HeaderProps) {
     const { filters } = usePage().props as any;
 
-    const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
-        router.get(
-            "/dashboard/ranking-certificaciones",
-            {
-                category: filters?.category ?? [],
-                career: filters?.career ?? [],
-                year: params.year ?? meta.year,
-                period: params.period ?? meta.period,
-            },
-            {
-                preserveState: true,
-                replace: true,
-            }
-        );
-    };
+const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
+    router.get(
+        "/dashboard/ranking-certificaciones",
+        {
+            ...filters, // 🔥 CLAVE ABSOLUTA
+            year: params.year ?? meta.year,
+            period: params.period ?? meta.period,
+            page: 1,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        }
+    );
+};
+
+
 
     return (
         <header
