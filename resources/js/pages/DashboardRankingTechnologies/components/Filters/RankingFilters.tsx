@@ -1,167 +1,268 @@
+import { useEffect, useRef, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import { useState } from "react";
-import { Filter } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
-type PageProps = {
-  filters?: {
-    year?: number;
-    period?: string;
-    category?: string[];
-  };
-  availableCategories?: string[];
-};
-
+/* =====================================================
+   Component
+===================================================== */
 export default function RankingFilters() {
-  const { filters, availableCategories } = usePage<PageProps>().props;
+  const {
+    filters,
+    availableCategories,
+    availableCareers,
+  } = usePage().props as any;
 
-  /* =========================
-     STATE LOCAL
-  ========================= */
-  const [year, setYear] = useState<number>(
-    filters?.year ?? new Date().getFullYear()
-  );
-  const [period, setPeriod] = useState<string>(filters?.period ?? "s2");
-  const [categories, setCategories] = useState<string[]>(
-    filters?.category ?? []
-  );
+  const [openCategory, setOpenCategory] = useState(false);
+  const [openCareer, setOpenCareer] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const careerRef = useRef<HTMLDivElement>(null);
 
-  /* =========================
-     APPLY FILTERS
-  ========================= */
-  const applyFilters = () => {
+  /* =========================================
+     Cerrar combos al hacer click afuera
+  ========================================= */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        categoryRef.current &&
+        !categoryRef.current.contains(e.target as Node)
+      ) {
+        setOpenCategory(false);
+      }
+      if (
+        careerRef.current &&
+        !careerRef.current.contains(e.target as Node)
+      ) {
+        setOpenCareer(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  /* =========================================
+     Navegación centralizada
+  ========================================= */
+  const navigate = (next: Record<string, any>, resetPage = false) => {
+    const payload: any = {
+      ...filters,
+      ...next,
+    };
+
+    if (!payload.category?.length) delete payload.category;
+    if (!payload.career?.length) delete payload.career;
+
     router.get(
       "/dashboard/ranking/technologies",
       {
-        year,
-        period,
-        category: categories,
-        page: 1,
+        ...payload,
+        ...(resetPage ? { page: 1 } : {}),
       },
       {
-        preserveScroll: true,
         preserveState: true,
         replace: true,
-        onStart: () => setIsLoading(true),
-        onFinish: () => setIsLoading(false),
       }
     );
   };
 
-  /* =========================
-     TOGGLE CATEGORY
-  ========================= */
-  const toggleCategory = (cat: string) => {
-    setCategories((prev) =>
-      prev.includes(cat)
-        ? prev.filter((c) => c !== cat)
-        : [...prev, cat]
+  const toggleCategory = (value: string) => {
+    const current = filters.category ?? [];
+    navigate(
+      {
+        category: current.includes(value)
+          ? current.filter((v: string) => v !== value)
+          : [...current, value],
+      },
+      true
     );
   };
 
+  const toggleCareer = (slug: string) => {
+    const current = filters.career ?? [];
+    navigate(
+      {
+        career: current.includes(slug)
+          ? current.filter((v: string) => v !== slug)
+          : [...current, slug],
+      },
+      true
+    );
+  };
+
+  /* =========================================
+     Render
+  ========================================= */
   return (
-    <div
-      className="
-        rounded-2xl border bg-white dark:bg-[#0F2A3A]
-        dark:border-[#1E3A4A] p-4 space-y-4
-      "
-    >
-      {/* HEADER */}
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-[#1CBCE8]" />
-        <h3 className="text-sm font-semibold uppercase tracking-wider">
-          Filtros del ranking
-        </h3>
+    <div className="space-y-4">
+      {/* =========================
+          COMBOS
+      ========================= */}
+      <div className="flex flex-wrap gap-4">
+        {/* ===== CATEGORÍA TECNOLÓGICA ===== */}
+        <div ref={categoryRef}>
+          <Combo
+            label="Categoría tecnológica"
+            open={openCategory}
+            setOpen={setOpenCategory}
+            items={availableCategories}
+            selected={filters.category ?? []}
+            onToggle={toggleCategory}
+            getValue={(v: string) => v}
+            renderLabel={(v: string) => v}
+          />
+        </div>
+
+        {/* ===== CARRERA ISIL ===== */}
+        <div ref={careerRef}>
+          <Combo
+            label="Carrera ISIL"
+            open={openCareer}
+            setOpen={setOpenCareer}
+            items={availableCareers}
+            selected={filters.career ?? []}
+            onToggle={toggleCareer}
+            getValue={(c: any) => c.slug}
+            renderLabel={(c: any) => c.name}
+          />
+        </div>
       </div>
 
-      {/* CONTROLS */}
-      <div className="flex flex-wrap gap-6 items-end">
-        {/* AÑO */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs uppercase text-gray-500">Año</label>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="rounded-lg border px-3 py-2 text-sm"
-            disabled={isLoading}
-          >
-            {[2023, 2024, 2025].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* =========================
+          CHIPS
+      ========================= */}
+      <div className="flex flex-wrap gap-2">
+        {filters.category?.map((c: string) => (
+          <Chip
+            key={`category-${c}`}
+            label={`Categoría: ${c}`}
+            onRemove={() =>
+              navigate(
+                {
+                  category: filters.category.filter(
+                    (x: string) => x !== c
+                  ),
+                },
+                true
+              )
+            }
+          />
+        ))}
 
-        {/* PERIODO */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs uppercase text-gray-500">Periodo</label>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="rounded-lg border px-3 py-2 text-sm"
-            disabled={isLoading}
-          >
-            <option value="s1">Semestre 1</option>
-            <option value="s2">Semestre 2</option>
-          </select>
-        </div>
+        {filters.career?.map((slug: string) => {
+          const career = availableCareers.find(
+            (c: any) => c.slug === slug
+          );
 
-        {/* CATEGORÍAS */}
-        {availableCategories && (
-          <div className="flex flex-wrap gap-2">
-            {availableCategories.map((cat) => {
-              const active = categories.includes(cat);
-
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => toggleCategory(cat)}
-                  className={`
-                    px-3 py-1.5 rounded-full text-xs border transition
-                    ${
-                      active
-                        ? "bg-[#1CBCE8] text-white"
-                        : "bg-white text-gray-600"
-                    }
-                    disabled:opacity-50
-                  `}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* APPLY BUTTON */}
-        <button
-          onClick={applyFilters}
-          disabled={isLoading}
-          className="
-            ml-auto px-4 py-2 rounded-lg text-sm font-semibold
-            bg-[#1CBCE8] text-white
-            hover:opacity-90
-            disabled:opacity-60
-            flex items-center gap-2
-          "
-        >
-          {isLoading && (
-            <span
-              className="
-                h-4 w-4 rounded-full border-2
-                border-white border-t-transparent
-                animate-spin
-              "
+          return (
+            <Chip
+              key={`career-${slug}`}
+              label={`Carrera: ${career?.name ?? slug}`}
+              onRemove={() =>
+                navigate(
+                  {
+                    career: filters.career.filter(
+                      (x: string) => x !== slug
+                    ),
+                  },
+                  true
+                )
+              }
             />
-          )}
-
-          {isLoading ? "Aplicando…" : "Aplicar filtros"}
-        </button>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+/* =====================================================
+   UI Components
+===================================================== */
+
+function Combo({
+  label,
+  open,
+  setOpen,
+  items,
+  selected,
+  onToggle,
+  getValue,
+  renderLabel,
+}: any) {
+  return (
+    <div className="relative w-64">
+      <button
+        onClick={() => setOpen(!open)}
+        className="
+          w-full rounded-xl border px-4 py-2
+          text-left flex items-center justify-between
+          bg-white text-gray-700 border-gray-300
+          hover:border-[#1CBCE8]
+          dark:bg-[#0F2A3A]
+          dark:text-slate-200
+          dark:border-[#1E3A4A]
+        "
+      >
+        <span className="text-sm">
+          {selected.length ? `${selected.length} seleccionadas` : label}
+        </span>
+        <ChevronDown className="h-4 w-4 text-gray-400" />
+      </button>
+
+      {open && (
+        <div
+          className="
+            absolute z-20 mt-2 w-full
+            rounded-xl border shadow-lg
+            bg-white border-gray-200
+            dark:bg-[#0F2A3A]
+            dark:border-[#1E3A4A]
+            max-h-60 overflow-auto
+          "
+        >
+          {items.map((item: any) => {
+            const value = getValue(item);
+
+            return (
+              <label
+                key={value}
+                className="
+                  flex items-center gap-2 px-4 py-2 text-sm cursor-pointer
+                  hover:bg-sky-50 dark:hover:bg-[#14384F]
+                "
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(value)}
+                  onChange={() => onToggle(value)}
+                  className="accent-[#1CBCE8]"
+                />
+                {renderLabel(item)}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chip({ label, onRemove }: any) {
+  return (
+    <span
+      className="
+        inline-flex items-center gap-2
+        rounded-full px-3 py-1 text-xs font-semibold
+        bg-sky-100 text-sky-700
+        dark:bg-[#14384F]
+        dark:text-[#7DD3FC]
+      "
+    >
+      {label}
+      <button onClick={onRemove} className="hover:text-red-500">
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }

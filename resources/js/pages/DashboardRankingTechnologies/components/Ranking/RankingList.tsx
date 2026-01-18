@@ -1,7 +1,10 @@
-import TechnologyCard from "../Ranking/TechnologyCard";
+import TechnologyCard from "./TechnologyCard";
 import Paginator from "../Pagination/Paginator";
-import { TechnologyRanking } from "../../types/technologyRanking";
+import { TechnologyRanking } from "../../types/ranking";
 
+/* =========================
+   TIPOS
+========================= */
 type Pagination = {
   current_page: number;
   last_page: number;
@@ -13,10 +16,10 @@ type Pagination = {
 type Props = {
   items: TechnologyRanking[];
   pagination: Pagination;
-  onSelectTechnology?: (tech: TechnologyRanking) => void;
+  onSelectTechnology?: (item: TechnologyRanking) => void;
 };
 
-export default function TechnologyRankingList({
+export default function RankingList({
   items,
   pagination,
   onSelectTechnology,
@@ -27,14 +30,16 @@ export default function TechnologyRankingList({
     <>
       {/* ================= GRID ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {items.map((item, index) => (
-          <TechnologyCard
-            key={item.id}
-            rank={(pagination.current_page - 1) * perPage + index + 1}
-            data={item}
-            onClick={() => onSelectTechnology?.(item)}
-          />
-        ))}
+        {items.map((item, index) => {
+          return (
+            <TechnologyCard
+              key={item.id}
+              rank={(pagination.current_page - 1) * perPage + index + 1}
+              data={item}
+              onClick={() => onSelectTechnology?.(item)}
+            />
+          );
+        })}
       </div>
 
       {/* ================= PAGINACIÓN ================= */}

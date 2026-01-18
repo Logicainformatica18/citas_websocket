@@ -1,31 +1,78 @@
-import { Dialog } from "@headlessui/react";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Info, Calculator } from "lucide-react";
 
-export type WeightConfig = {
+/* =========================================================
+   Types
+========================================================= */
+
+export interface WeightConfig {
   laborWeight: number;
   trendsWeight: number;
+}
+
+export const defaultWeights: WeightConfig = {
+  laborWeight: 70,
+  trendsWeight: 30,
 };
 
-type Props = {
+interface WeightConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   weights: WeightConfig;
   onSave: (weights: WeightConfig) => void;
-};
+}
+
+/* =========================================================
+   Component
+========================================================= */
 
 export function WeightConfigModal({
   open,
   onOpenChange,
   weights,
   onSave,
-}: Props) {
+}: WeightConfigModalProps) {
   const [laborWeight, setLaborWeight] = useState(weights.laborWeight);
   const [trendsWeight, setTrendsWeight] = useState(weights.trendsWeight);
 
+  const handleLaborChange = (v: number) => {
+    setLaborWeight(v);
+    setTrendsWeight(100 - v);
+  };
+
+  const handleTrendsChange = (v: number) => {
+    setTrendsWeight(v);
+    setLaborWeight(100 - v);
+  };
+
+  const handleReset = () => {
+    setLaborWeight(defaultWeights.laborWeight);
+    setTrendsWeight(defaultWeights.trendsWeight);
+  };
+
+  const handleApply = () => {
+    onSave({ laborWeight, trendsWeight });
+    onOpenChange(false);
+  };
+
   /* =========================
-     SINCRONIZA CUANDO ABRE
+     Preview mock (Tecnología)
   ========================= */
+  const laborScore = 88.4;
+  const trendsScore = 92.1;
+  const finalScore =
+    laborScore * (laborWeight / 100) +
+    trendsScore * (trendsWeight / 100);
+
   useEffect(() => {
     if (open) {
       setLaborWeight(weights.laborWeight);
@@ -33,160 +80,137 @@ export function WeightConfigModal({
     }
   }, [open, weights]);
 
-  const total = laborWeight + trendsWeight;
-  const valid = total === 100;
-
   return (
-    <Dialog open={open} onClose={onOpenChange} className="relative z-50">
-      {/* BACKDROP */}
-      <div className="fixed inset-0 bg-black/50" />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl rounded-2xl p-6">
+        {/* ================= HEADER ================= */}
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Calculator className="h-5 w-5 text-[#00B6E8]" />
+            Configuración de Metodología
+          </DialogTitle>
+          <DialogDescription>
+            Ajusta el peso relativo de cada criterio. Ambos deben sumar 100%.
+          </DialogDescription>
+        </DialogHeader>
 
-      {/* WRAPPER */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel
-          className="
-            w-full
-            max-w-lg
-            rounded-2xl
-            shadow-xl
-            bg-white
-            dark:bg-[#0F2A3A]
-            border
-            dark:border-[#1E3A4A]
-          "
-        >
-          {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#1E3A4A]">
-            <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Metodología del ranking
-            </Dialog.Title>
-
-            <button
-              onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-[#123A52]"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* ================= BODY ================= */}
-          <div className="px-6 py-6 space-y-6">
-            <p className="text-sm text-gray-600 dark:text-slate-300">
-              Ajusta la ponderación utilizada para calcular el{" "}
-              <span className="font-medium">resultado final</span> del ranking
-              de tecnologías.
-            </p>
-
-            {/* ===== LABOR ===== */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                  Demanda laboral
-                </span>
-                <span className="text-sm font-semibold text-[#22C55E]">
-                  {laborWeight}%
-                </span>
+        {/* ================= RANGES ================= */}
+        <div className="mt-6 space-y-8">
+          {/* Demanda Laboral */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-medium">
+                📊 Demanda Laboral de Tecnologías
+                <Info className="h-4 w-4 text-muted-foreground" />
               </div>
-
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={laborWeight}
-                onChange={(e) =>
-                  setLaborWeight(Number(e.target.value))
-                }
-                className="w-full"
-              />
+              <span className="text-xl font-bold text-[#00B6E8]">
+                {laborWeight}%
+              </span>
             </div>
 
-            {/* ===== TRENDS ===== */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                  Tendencias tecnológicas
-                </span>
-                <span className="text-sm font-semibold text-[#A855F7]">
-                  {trendsWeight}%
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={trendsWeight}
-                onChange={(e) =>
-                  setTrendsWeight(Number(e.target.value))
-                }
-                className="w-full"
-              />
-            </div>
-
-            {/* ===== VALIDACIÓN ===== */}
-            <div className="text-sm">
-              {valid ? (
-                <span className="text-green-600">
-                  ✔ Ponderación válida (100%)
-                </span>
-              ) : (
-                <span className="text-red-500">
-                  La suma debe ser 100% (actual: {total}%)
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* ================= FOOTER ================= */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t dark:border-[#1E3A4A]">
-            <button
-              onClick={() => onOpenChange(false)}
-              className="
-                px-4 py-2
-                rounded-lg
-                text-sm
-                border
-                bg-white
-                text-slate-700
-                hover:bg-gray-100
-
-                dark:bg-[#123A52]
-                dark:text-slate-200
-                dark:border-[#1E3A4A]
-                dark:hover:bg-[#1B4B63]
-              "
-            >
-              Cancelar
-            </button>
-
-            <button
-              disabled={!valid}
-              onClick={() =>
-                onSave({
-                  laborWeight,
-                  trendsWeight,
-                })
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={laborWeight}
+              onChange={(e) =>
+                handleLaborChange(Number(e.target.value))
               }
               className="
-                px-4 py-2
-                rounded-lg
-                text-sm
-                font-medium
-                transition
-                disabled:opacity-40
-
-                bg-[#1CBCE8]
-                text-white
-                hover:bg-[#17A9D1]
+                w-full
+                h-2
+                rounded-full
+                bg-gray-200
+                appearance-none
+                cursor-pointer
+                accent-[#00B6E8]
               "
-            >
-              Aplicar metodología
-            </button>
+            />
           </div>
-        </Dialog.Panel>
-      </div>
+
+          {/* Tendencias Tecnológicas */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-medium">
+                📈 Presencia en Tendencias Tecnológicas
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-xl font-bold text-emerald-500">
+                {trendsWeight}%
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={trendsWeight}
+              onChange={(e) =>
+                handleTrendsChange(Number(e.target.value))
+              }
+              className="
+                w-full
+                h-2
+                rounded-full
+                bg-gray-200
+                appearance-none
+                cursor-pointer
+                accent-emerald-500
+              "
+            />
+          </div>
+        </div>
+
+        {/* ================= PREVIEW ================= */}
+        <div className="mt-8 rounded-xl border bg-[#E6F7FD] p-5">
+          <div className="mb-2 flex items-center gap-2 font-medium">
+            🧮 Preview del Cálculo
+            <span className="text-sm text-muted-foreground">
+              (Ejemplo: React, Python, AWS)
+            </span>
+          </div>
+
+          <div className="mt-3 rounded-lg bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Score Final
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ({laborScore} × {laborWeight}%) + ({trendsScore} ×{" "}
+                  {trendsWeight}%)
+                </p>
+              </div>
+              <p className="text-4xl font-extrabold text-[#00B6E8]">
+                {finalScore.toFixed(1)}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            Fórmula: Score = (Laboral × {laborWeight}%) + (Tendencias ×{" "}
+            {trendsWeight}%)
+          </p>
+        </div>
+
+        <Separator className="my-6" />
+
+        {/* ================= ACTIONS ================= */}
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={handleReset}>
+            Restablecer
+          </Button>
+
+          <Button
+            className="bg-[#00B6E8] hover:bg-[#009FCC]"
+            onClick={handleApply}
+          >
+            Aplicar metodología
+          </Button>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

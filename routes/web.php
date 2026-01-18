@@ -117,30 +117,27 @@ Route::prefix('dashboard/ranking-certificaciones')->group(function () {
     Route::get('/dashboard/{slug}', [DashboardController::class, 'show'])
         ->name('dashboard.show');
 
-    Route::get(
-        '/dashboard/ranking/technologies',
-        [RankingTecnologiasController::class, 'index']
-    )->name('dashboard.ranking.technologies');
 
 
-    Route::get(
-        'dashboard/ranking/technologies/{technology}/jobs',
-        [RankingTecnologiasController::class, 'jobsByTechnology']
-    )->name('dashboard.ranking.technologies.jobs');
+   Route::prefix('dashboard/ranking/technologies')->group(function () {
 
-    Route::prefix('dashboard/ranking')->middleware(['auth'])->group(function () {
+        Route::get(
+            '/',
+            [RankingTecnologiasController::class, 'index']
+        )->name('dashboard.ranking.technologies');
 
-        /* =========================================
-           RANKING DE TECNOLOGÍAS
-        ========================================= */
+        Route::get(
+            '/{technology}/jobs',
+            [RankingTecnologiasController::class, 'jobsByTechnology']
+        )->name('dashboard.ranking.technologies.jobs');
 
-
-
-        // ⚖️ Guardar ponderaciones (laboral / tendencias)
-        Route::post('technologies/weights', [RankingTecnologiasController::class, 'storeWeights'])
-            ->name('dashboard.ranking.technologies.weights');
-
+        Route::post(
+            '/weights',
+            [RankingTecnologiasController::class, 'storeWeights']
+        )->name('dashboard.ranking.technologies.weights');
     });
+
+
 
 
 

@@ -25,7 +25,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
   {
     title: "Ranking de Tecnologías",
-    href: "/dashboard/ranking-technologias",
+    href: "/dashboard/ranking/technologies",
   },
 ];
 
@@ -49,7 +49,7 @@ type PageProps = {
   };
 };
 
-export default function RankingTechnologiesPage() {
+export default function RankingTecnologiasPage() {
   const { ranking, kpis, meta, weights } =
     usePage<PageProps>().props;
 
@@ -60,9 +60,7 @@ export default function RankingTechnologiesPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
   const handleOpenJobs = (item: any) => {
-    // 👇 solo aplica para tecnologías
-    if (item.entity_type !== "technology") return;
-
+    // 👇 aquí siempre aplica (no hay entity_type mixto)
     setSelectedItem(item);
     setOpenJobsModal(true);
   };
@@ -74,23 +72,19 @@ export default function RankingTechnologiesPage() {
 
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
-      Swal.fire(
-        "Error",
-        "Las ponderaciones deben sumar 100%",
-        "error"
-      );
+      Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
       return;
     }
 
     Swal.fire({
       title: "Aplicando metodología",
-      text: "Actualizando ranking…",
+      text: "Actualizando ranking de tecnologías…",
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
 
     router.post(
-      "/dashboard/ranking-technologias/weights",
+      "/dashboard/ranking/technologies/weights",
       {
         labor_weight: newWeights.laborWeight / 100,
         trend_weight: newWeights.trendsWeight / 100,
@@ -138,21 +132,21 @@ export default function RankingTechnologiesPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                  Clasificación unificada que integra tecnologías
-                  demandadas en el mercado laboral y tecnologías en
-                  tendencia global, ordenadas según la metodología
-                  seleccionada.
+                  Clasificación de tecnologías según su demanda laboral
+                  y presencia en reportes de tendencias globales,
+                  ponderadas mediante la metodología seleccionada.
                 </p>
               </div>
 
               {/* ================= FILTROS ================= */}
               <RankingFilters />
 
-              {/* ================= RANKING ÚNICO ================= */}
+              {/* ================= RANKING ================= */}
               <RankingList
                 items={ranking.data}
                 pagination={ranking}
                 onSelectCertification={handleOpenJobs}
+                /* 👆 mantenemos la prop para no tocar RankingList */
               />
             </div>
           </div>
@@ -162,7 +156,7 @@ export default function RankingTechnologiesPage() {
         <TechnologyJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}
-          technologyId={selectedItem?.technology_id ?? selectedItem?.id}
+          technologyId={selectedItem?.id}
           technologyName={selectedItem?.name}
         />
 
