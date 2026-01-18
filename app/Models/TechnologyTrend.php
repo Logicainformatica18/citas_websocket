@@ -20,25 +20,56 @@ class TechnologyTrend extends Model
         'source_title',
         'source_type',
         'raw_data',
-        'scanned_keywords'
+        'scanned_keywords',
+        'associated_technologies' // 👈 NUEVO
     ];
 
     protected $casts = [
         'regions' => 'array',
-        'raw_data' => 'array'
+        'raw_data' => 'array',
+        'scanned_keywords' => 'array',        // 👈 te faltaba
+        'associated_technologies' => 'array', // 👈 NUEVO
     ];
 
-    // Relación con scraping_sources
     public function source()
     {
         return $this->belongsTo(ScrapingSource::class, 'source_id');
     }
+
     public function jobs()
+    {
+        return $this->hasMany(
+            TechnologyTrendJob::class,
+            'technology_trend_id'
+        );
+    }
+    public function markRunning(): void
 {
-    return $this->hasMany(
-        TechnologyTrendJob::class,
-        'technology_trend_id'
-    );
+    $this->update([
+        'last_run_status' => 'running',
+        'last_run_message' => null,
+    ]);
+}
+
+public function markSuccess(int $results): void
+{
+    $this->update([
+        'last_run_status' => 'success',
+        'last_run_message' => "Resultados generados: {$results}",
+        'success_count' => $this->success_count + 1,
+        'last_success_at' => now(),
+    ]);
+}
+
+public function markFail(string $message): void
+{
+    $this->update([
+        'last_run_status' => 'failed',
+        'last_run_message' => $message,
+        'fail_count' => $this->fail_count + 1,
+        'last_fail_at' => now(),
+    ]);
 }
 
 }
+

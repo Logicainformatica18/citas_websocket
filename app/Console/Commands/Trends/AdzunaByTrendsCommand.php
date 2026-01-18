@@ -71,14 +71,23 @@ class AdzunaByTrendsCommand extends Command
 
             for ($page = 1; $page <= $pages; $page++) {
 
-                $keywords = [];
+             $keywords = [];
 
-                if (!empty($topic->scanned_keywords)) {
-                    $decoded = json_decode($topic->scanned_keywords, true);
-                    if (is_array($decoded)) {
-                        $keywords = $decoded;
-                    }
-                }
+if (!empty($topic->scanned_keywords)) {
+
+    if (is_array($topic->scanned_keywords)) {
+        // 🟢 YA ES ARRAY (caso actual)
+        $keywords = $topic->scanned_keywords;
+
+    } elseif (is_string($topic->scanned_keywords)) {
+        // 🟡 LEGACY: string JSON
+        $decoded = json_decode($topic->scanned_keywords, true);
+        if (is_array($decoded)) {
+            $keywords = $decoded;
+        }
+    }
+}
+
 
                 if (empty($keywords)) {
                     $keywords = [$topic->topic_name];

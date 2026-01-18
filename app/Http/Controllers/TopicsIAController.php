@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use App\Services\RunTrendTopicService;
+use App\Jobs\RunTrendTopicJob;
 
 class TopicsIAController extends Controller
 {
@@ -72,48 +73,52 @@ class TopicsIAController extends Controller
     /* ======================================================
      * 📄 API JSON paginada
      ====================================================== */
-    public function fetchPaginated(Request $request)
-    {
-        $search = $request->get('search');
-        $intent = $request->get('intent');
+ public function fetchPaginated(Request $request)
+{
+    $search = $request->get('search');
+    $intent = $request->get('intent');
 
-        $topics = TrendTopic::query()
-            ->when($search, function ($q) use ($search) {
-                $q->where('topic_name', 'like', "%{$search}%")
-                  ->orWhere('search_query', 'like', "%{$search}%");
-            })
-            ->when($intent, fn ($q) => $q->where('intent', $intent))
-            ->orderBy('active', 'desc')
-            ->paginate(10)
-            ->withQueryString();
+    $topics = TrendTopic::query()
+        ->when($search, function ($q) use ($search) {
+            $q->where(function ($qq) use ($search) {
+                $qq->where('topic_name', 'like', "%{$search}%")
+                   ->orWhere('search_query', 'like', "%{$search}%");
+            });
+        })
+        ->when($intent, fn ($q) => $q->where('intent', $intent))
+        ->orderBy('active', 'desc')
+        ->paginate(10)
+        ->withQueryString();
 
-        return response()->json(
-            $topics->through(fn ($t) => [
-                'id'                   => $t->id,
-                'topic_name'           => $t->topic_name,
-                'topic_slug'           => $t->topic_slug,
-                'search_query'         => $t->search_query,
+    // 🔥 TRANSFORMAR SOLO LOS ITEMS
+    $topics->getCollection()->transform(fn ($t) => [
+        'id'                   => $t->id,
+        'topic_name'           => $t->topic_name,
+        'topic_slug'           => $t->topic_slug,
+        'search_query'         => $t->search_query,
 
-                'intent'               => $t->intent,
-                'execution_mode'       => $t->execution_mode,
-                'last_run_status'      => $t->last_run_status,
-                'last_run_message'     => $t->last_run_message,
+        'intent'               => $t->intent,
+        'execution_mode'       => $t->execution_mode,
+        'last_run_status'      => $t->last_run_status,
+        'last_run_message'     => $t->last_run_message,
 
-                'category'             => $t->category,
-                'subcategory'          => $t->subcategory,
-                'importance_weight'    => $t->importance_weight,
-                'min_required_results' => $t->min_required_results,
+        'category'             => $t->category,
+        'subcategory'          => $t->subcategory,
+        'importance_weight'    => $t->importance_weight,
+        'min_required_results' => $t->min_required_results,
 
-                'active'               => $t->active,
-                'fail_count'           => $t->fail_count,
-                'success_count'        => $t->success_count,
-                'last_fail_at'         => optional($t->last_fail_at)->format('Y-m-d H:i'),
-                'last_success_at'      => optional($t->last_success_at)->format('Y-m-d H:i'),
+        'active'               => $t->active,
+        'fail_count'           => $t->fail_count,
+        'success_count'        => $t->success_count,
+        'last_fail_at'         => optional($t->last_fail_at)->format('Y-m-d H:i'),
+        'last_success_at'      => optional($t->last_success_at)->format('Y-m-d H:i'),
 
-                'created_at'           => optional($t->created_at)->format('Y-m-d'),
-            ])
-        );
-    }
+        'created_at'           => optional($t->created_at)->format('Y-m-d'),
+    ]);
+
+    return response()->json($topics);
+}
+
 
     /* ======================================================
      * 🆕 Crear Topic IA
@@ -189,32 +194,47 @@ class TopicsIAController extends Controller
             ]);
         });
     }
-public function run($id)
+
+    public function status($id)
 {
     $topic = TrendTopic::findOrFail($id);
 
-    if ($topic->last_run_status === 'running') {
-        return response()->json([
-            'message' => 'Este topic ya está en ejecución.'
-        ], 409);
-    }
-
-    $topic->markRunning();
-
-    try {
-        app(RunTrendTopicService::class)->run($topic);
-
-        return response()->json([
-            'message' => 'Tendencias generadas correctamente.'
-        ]);
-    } catch (\Throwable $e) {
-        $topic->markFail($e->getMessage());
-
-        return response()->json([
-            'message' => 'Error al ejecutar el topic.'
-        ], 500);
-    }
+    return response()->json([
+        'last_run_status'  => $topic->last_run_status,
+        'last_run_message' => $topic->last_run_message,
+        'fail_count'       => $topic->fail_count,
+        'success_count'    => $topic->success_count,
+        'last_success_at'  => $topic->last_success_at,
+        'last_fail_at'     => $topic->last_fail_at,
+    ]);
 }
+public function run(int $id)
+{
+    $topic = TrendTopic::findOrFail($id);
+
+    // 🔥 permitir re-ejecución si está colgado
+    if ($topic->last_run_status === 'running') {
+
+        // si lleva más de 5 min, se asume colgado
+        if ($topic->updated_at->diffInMinutes(now()) < 5) {
+            return response()->json([
+                'status' => 'already_running'
+            ], 200);
+        }
+    }
+
+    $topic->update([
+        'last_run_status'  => 'queued',
+        'last_run_message' => 'Encolado para ejecución',
+    ]);
+
+    RunTrendTopicJob::dispatch($topic->id);
+
+    return response()->json(['status' => 'queued']);
+}
+
+
+
 
     /* ======================================================
      * 🗑️ Eliminar Topic IA

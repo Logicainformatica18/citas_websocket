@@ -554,6 +554,10 @@ Route::prefix('topics-ia')->group(function () {
     // 🚀 EJECUTAR IA (🔥 NUEVO)
     Route::post('/{id}/run', [TopicsIAController::class, 'run'])
         ->name('topics.run');
+        // 🔍 Consultar estado (polling)
+Route::get('/{id}/status', [TopicsIAController::class, 'status'])
+    ->name('topics.status');
+
 });
 
 
