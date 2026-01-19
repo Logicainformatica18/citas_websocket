@@ -47,6 +47,7 @@ use App\Http\Controllers\Dashboard\RankingTecnologiasController;
 use App\Http\Controllers\Dashboard\TrendingTechnologyController;
 use App\Http\Controllers\Dashboard\TrendingCertificationController;
 use App\Http\Controllers\Dashboard\RankingLenguajesController;
+use App\Http\Controllers\Trends\TrendTechnologyController;
 
 
 Route::get(
@@ -95,6 +96,13 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+
+Route::get('/trends/{trend}/jobs', [TrendTechnologyController::class, 'jobs']);
+
+Route::prefix('trends')->group(function () {
+    Route::get('{trend}/detail', [TrendTechnologyController::class, 'show']);
+    Route::get('{trend}/jobs',   [TrendTechnologyController::class, 'jobs']);
+});
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
     Route::get(

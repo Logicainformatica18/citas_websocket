@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
+
 class RankingCertificacionesController extends Controller
 {
     public function storeWeights(Request $request)
