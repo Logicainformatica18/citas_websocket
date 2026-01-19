@@ -46,6 +46,7 @@ use App\Http\Controllers\AI\DashboardWidgetController;
 use App\Http\Controllers\Dashboard\RankingTecnologiasController;
 use App\Http\Controllers\Dashboard\TrendingTechnologyController;
 use App\Http\Controllers\Dashboard\TrendingCertificationController;
+use App\Http\Controllers\Dashboard\RankingLenguajesController;
 
 
 Route::get(

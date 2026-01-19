@@ -14,8 +14,6 @@ use App\Models\TechnologyTrendTechnology;
 class RunTrendTopicService
 {
 
-
- 
     /* =========================================================
      * Public API
      * ========================================================= */

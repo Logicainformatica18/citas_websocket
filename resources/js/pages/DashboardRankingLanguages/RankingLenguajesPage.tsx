@@ -11,10 +11,10 @@ import {
   WeightConfig,
 } from "./components/Header/WeightConfigModal";
 
-import KpiGrid from "./components/KPIs/KpiGrid";
+import KpiGrid from "./components/Kpis/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
-import TechnologyJobsModal from "./components/Ranking/TechnologyJobsModal";
+//import TechnologyJobsModal from "./components/Ranking/TechnologyJobsModal";
 
 import Swal from "sweetalert2";
 
@@ -153,12 +153,12 @@ export default function RankingTecnologiasPage() {
         </div>
 
         {/* ================= MODAL OFERTAS ================= */}
-        <TechnologyJobsModal
+        {/* <TechnologyJobsModal
           open={openJobsModal}
           onClose={() => setOpenJobsModal(false)}
           technologyId={selectedItem?.id}
           technologyName={selectedItem?.name}
-        />
+        /> */}
 
         {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal

@@ -11,20 +11,13 @@ use App\Models\Prueba;
 class RankingLenguajesController extends Controller
 {
     /* ==================================================
-       GUARDAR PONDERACIONES (LENGUAJES)
+       GUARDAR PONDERACIONES (LENGUAGES)
     ================================================== */
     public function storeWeights(Request $request)
     {
         $data = $request->validate([
             'labor_weight' => 'required|numeric|min:0|max:1',
-            'trend_weight' => 'required|numeric|min:0|max:1',
         ]);
-
-        if (round($data['labor_weight'] + $data['trend_weight'], 2) !== 1.00) {
-            return response()->json([
-                'message' => 'Las ponderaciones deben sumar 1.00',
-            ], 422);
-        }
 
         DB::transaction(function () use ($data) {
             Prueba::where('context', 'languages')
@@ -33,7 +26,7 @@ class RankingLenguajesController extends Controller
 
             Prueba::create([
                 'labor_weight' => $data['labor_weight'],
-                'trend_weight' => $data['trend_weight'],
+                'trend_weight' => 0,
                 'context'      => 'languages',
                 'is_active'    => 1,
                 'applied_at'   => now(),
@@ -50,22 +43,23 @@ class RankingLenguajesController extends Controller
     public function index(Request $request)
     {
         /* ================= BASE ================= */
-        $year        = (int) $request->get('year', 2025);
-        $period      = $request->get('period', 's2');
-        $quarter     = $period === 's1' ? 1 : 4;
+        $year   = (int) $request->get('year', 2025);
+        $period = $request->get('period', 's2');
 
-        $rankingType = $request->get('ranking_type', 'all');
-        if (!in_array($rankingType, ['all', 'language', 'trend'])) {
-            $rankingType = 'all';
-        }
+        $careers = $request->filled('career')
+            ? array_filter((array) $request->career)
+            : [];
 
-        $careers = array_filter((array) $request->get('career', []));
-        $range   = $this->getPeriodRange($period, $year);
+        $range = $this->getPeriodRange($period, $year);
 
         /* ================= PONDERACIONES ================= */
-        $activeWeights = Prueba::getActive('languages');
-        $laborWeight = (float) ($activeWeights?->labor_weight ?? 0.70);
-        $trendWeight = (float) ($activeWeights?->trend_weight ?? 0.30);
+        try {
+            $activeWeights = Prueba::getActive('languages');
+        } catch (\Throwable $e) {
+            $activeWeights = null;
+        }
+
+        $laborWeight = (float) ($activeWeights?->labor_weight ?? 1.0);
 
         /* ================= CATÁLOGOS ================= */
         $availableCareers = DB::table('careers')
@@ -73,7 +67,14 @@ class RankingLenguajesController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);
 
-        /* ================= DEMANDA LABORAL ================= */
+        /* ================= VACANTES ANALIZADAS ================= */
+        $totalVacantesAnalizadas = DB::table('language_job as lj')
+            ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
+            ->whereBetween('j.published_at', [$range['start'], $range['end']])
+            ->distinct('lj.job_offer_id')
+            ->count('lj.job_offer_id');
+
+        /* ================= SUBQUERY DEMANDA LABORAL ================= */
         $laborSub = DB::table('language_job as lj')
             ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
             ->whereBetween('j.published_at', [$range['start'], $range['end']])
@@ -88,80 +89,51 @@ class RankingLenguajesController extends Controller
             ->selectRaw('MAX(offers)')
             ->value('MAX(offers)') ?: 1;
 
-        /* ================= TENDENCIAS ================= */
-        $trendSub = DB::table('language_trends as lt')
-            ->join('language_trend_language as ltl', 'ltl.language_trend_id', '=', 'lt.id')
-            ->where('lt.year', $year)
-            ->where('lt.quarter', $quarter)
-            ->select(
-                'ltl.language_id',
-                DB::raw('COUNT(DISTINCT lt.id) as mentions')
-            )
-            ->groupBy('ltl.language_id');
-
-        $totalReports = DB::table('language_trends')
-            ->where('year', $year)
-            ->where('quarter', $quarter)
-            ->count() ?: 1;
-
-        /* ================= LENGUAJES ISIL ================= */
-        $isilQuery = DB::table('languages as l')
+        /* ================= QUERY BASE ================= */
+        $languagesQuery = DB::table('languages as l')
             ->leftJoinSub($laborSub, 'labor', 'labor.language_id', '=', 'l.id')
-            ->leftJoinSub($trendSub, 'trends', 'trends.language_id', '=', 'l.id')
-            ->whereExists(function ($q) {
+            ->where('l.enabled', 1);
+
+        if (!empty($careers)) {
+            $languagesQuery->whereExists(function ($q) use ($careers) {
                 $q->select(DB::raw(1))
-                  ->from('course_language as cl')
-                  ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
-                  ->whereColumn('cl.language_id', 'l.id');
-            })
-            ->select(
-                DB::raw("'language' as entity_type"),
-                DB::raw('1 as is_isil'),
-                'l.id',
-                'l.name',
-                DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-                DB::raw("
-                    ROUND((COALESCE(labor.offers,0) / {$maxLabor}) * 100, 1)
-                    as labor_score
-                "),
-                DB::raw("
-                    ROUND((COALESCE(trends.mentions,0) / {$totalReports}) * 100, 1)
-                    as trend_score
-                "),
-                DB::raw("
-                    ROUND(
-                        ((COALESCE(labor.offers,0) / {$maxLabor}) * 100 * {$laborWeight})
-                      + ((COALESCE(trends.mentions,0) / {$totalReports}) * 100 * {$trendWeight}),
-                    1) as final_score
-                ")
-            );
-
-        /* ================= TENDENCIAS PURAS ================= */
-        $trendQuery = DB::table('language_trends as lt')
-            ->select(
-                DB::raw("'trend' as entity_type"),
-                DB::raw('0 as is_isil'),
-                'lt.id',
-                'lt.topic_name as name',
-                DB::raw('0 as total_jobs'),
-                DB::raw('0 as labor_score'),
-                DB::raw('lt.trend_score as trend_score'),
-                DB::raw("ROUND(lt.trend_score * {$trendWeight}, 1) as final_score")
-            )
-            ->where('lt.year', $year)
-            ->where('lt.quarter', $quarter);
-
-        /* ================= UNION ================= */
-        if ($rankingType === 'language') {
-            $rankingBase = DB::query()->fromSub($isilQuery, 'ranking');
-        } elseif ($rankingType === 'trend') {
-            $rankingBase = DB::query()->fromSub($trendQuery, 'ranking');
-        } else {
-            $rankingBase = DB::query()
-                ->fromSub($isilQuery->unionAll($trendQuery), 'ranking');
+                    ->from('course_language as cl')
+                    ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
+                    ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
+                    ->whereColumn('cl.language_id', 'l.id')
+                    ->whereIn('ca.slug', $careers);
+            });
         }
 
-        $ranking = $rankingBase
+        $languagesQuery = $languagesQuery->select(
+            DB::raw("'language' as entity_type"),
+            'l.id',
+            'l.name',
+
+            DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+
+           DB::raw("
+    ROUND(
+        (
+          LOG(COALESCE(labor.offers,0) + 1)
+          / LOG({$maxLabor} + 1)
+        ) * 100,
+    1) as labor_score
+"),
+
+DB::raw("
+    ROUND(
+        (
+          LOG(COALESCE(labor.offers,0) + 1)
+          / LOG({$maxLabor} + 1)
+        ) * 100 * {$laborWeight},
+    1) as final_score
+")
+
+        );
+
+        $ranking = DB::query()
+            ->fromSub($languagesQuery, 'ranking')
             ->orderByDesc('final_score')
             ->paginate(10)
             ->withQueryString();
@@ -171,14 +143,22 @@ class RankingLenguajesController extends Controller
             [
                 'ranking' => $ranking,
                 'filters' => [
-                    'year' => $year,
+                    'year'   => $year,
                     'period' => $period,
-                    'ranking_type' => $rankingType,
+                    'career' => $careers,
                 ],
                 'availableCareers' => $availableCareers,
                 'weights' => [
-                    'laborWeight'  => round($laborWeight * 100, 1),
-                    'trendsWeight' => round($trendWeight * 100, 1),
+                    'laborWeight' => round($laborWeight * 100, 1),
+                ],
+                'meta' => [
+                    'year'   => $year,
+                    'period' => $period,
+                    'periodo_label' => $period === 's1'
+                        ? "Semestre 1 – Enero a Junio {$year}"
+                        : "Semestre 2 – Julio a Diciembre {$year}",
+                    'vacantes_analizadas' => $totalVacantesAnalizadas,
+                    'actualizado' => now()->toDateTimeString(),
                 ],
             ]
         );

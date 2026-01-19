@@ -84,6 +84,32 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                   <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild>
+                            <Link
+                                href="/dashboard/ranking/technologies"
+                                className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30"
+                            >
+                                <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
+                                <span className="font-semibold">Ranking Tecnologías</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild>
+                            <Link
+                                href="/dashboard/ranking/languages"
+                                className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30"
+                            >
+                                <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
+                                <span className="font-semibold">Ranking Lenguajes</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
                 {/* ================= ACADÉMICO ================= */}
                 <CollapsibleSection
                     title="Académico"
@@ -112,7 +138,7 @@ export function AppSidebar() {
                     icon={<FolderSearch className={isilBlue} />}
                 >
                     <MenuItem href="/job-offers" icon={<BriefcaseBusiness className={isilBlue} />} label="Empleos" />
-                    <MenuItem href="/scraping-sources" icon={<FileSearch className={isilBlue} />} label="Tendencias Tech" />
+                    {/* <MenuItem href="/scraping-sources" icon={<FileSearch className={isilBlue} />} label="Tendencias Tech" /> */}
                     <MenuItem href="/topics-ia" icon={<FileSearch className={isilBlue} />} label="Topics IA" />
                 </CollapsibleSection>
 
