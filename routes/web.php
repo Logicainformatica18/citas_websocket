@@ -50,10 +50,10 @@ use App\Http\Controllers\Dashboard\RankingLenguajesController;
 use App\Http\Controllers\Trends\TrendTechnologyController;
 
 
-Route::get(
-    '/dashboard/ranking-certificaciones/{certification}/jobs',
-    [RankingCertificacionesController::class, 'jobsByCertification']
-)->name('ranking.certifications.jobs');
+// Route::get(
+//     '/dashboard/ranking-certificaciones/{certification}/jobs',
+//     [RankingCertificacionesController::class, 'jobsByCertification']
+// )->name('ranking.certifications.jobs');
 
 
 Route::middleware('web')->group(function () {
@@ -96,20 +96,38 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
 
-
-Route::get('/trends/{trend}/jobs', [TrendTechnologyController::class, 'jobs']);
-
 Route::prefix('trends')->group(function () {
-    Route::get('{trend}/detail', [TrendTechnologyController::class, 'show']);
-    Route::get('{trend}/jobs',   [TrendTechnologyController::class, 'jobs']);
+
+    // 📊 Detalle de tendencia
+    Route::get(
+        '/{trendId}',
+        [TrendTechnologyController::class, 'show']
+    )->name('trends.show');
+
+    // 💼 Ofertas laborales de la tendencia
+    Route::get(
+        '/{trendId}/jobs',
+        [TrendTechnologyController::class, 'jobs']
+    )->name('trends.jobs');
+
 });
+
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
+
+ Route::get(
+        '/{certificationId}/jobs',
+        [RankingCertificacionesController::class, 'jobsByCertification']
+    );
     Route::get(
         '/trending',
         [RankingCertificacionesController::class, 'trendingCertifications']
     )->name('dashboard.certifications.trending');
 
+Route::get(
+    '/{id}/reports',
+    [RankingCertificacionesController::class, 'trendDetail']
+);
 });
 
  Route::get(

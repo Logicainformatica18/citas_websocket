@@ -16,6 +16,13 @@ type Pagination = {
 type Props = {
   items: CertificationRanking[];
   pagination: Pagination;
+
+  /**
+   * Handler único.
+   * La Page decide qué hacer con:
+   * - certificaciones
+   * - tendencias
+   */
   onSelectItem?: (
     action: "laboral" | "trend",
     item: CertificationRanking
@@ -42,7 +49,15 @@ export default function RankingList({
               rank={(pagination.current_page - 1) * perPage + index + 1}
               data={item}
               variant={isTrend ? "trend" : "certification"}
+
+              /* ✅ SOLO REENVÍA EVENTOS */
               onAction={(action, data) => {
+                // 🔒 Bloqueo mínimo y lógico
+                if (action === "laboral" && data.entity_type !== "certification") {
+                  return;
+                }
+
+                // 🔥 TREND SIEMPRE SE REENVÍA
                 onSelectItem?.(action, data);
               }}
             />

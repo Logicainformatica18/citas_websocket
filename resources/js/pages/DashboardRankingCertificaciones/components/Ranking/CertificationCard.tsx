@@ -29,41 +29,43 @@ export default function CertificationCard({
     onAction,
     variant = "certification",
 }: Props) {
+
     /* =========================================
-       TIPO DE ITEM
+       TIPO DE ITEM (FUENTE ÚNICA)
     ========================================= */
-    const isTrend = variant === "trend";
+    const isTrend = data.entity_type === "trend";
+
 
     /* =========================================
        BLINDAJE DE DATOS
     ========================================= */
+ const hasTrend =
+  data.trend_reports !== null &&
+  data.trend_reports !== undefined &&
+  Number(data.trend_reports) > 0;
+
+
+    const trendReports = Number(data.trend_reports ?? 0);
+    const totalJobs = Number(data.total_jobs ?? 0);
+    const isEmergent = Boolean(data.is_emergent_with_market);
     const finalScore = Number(data.final_score ?? 0);
     const laborScore = Number(data.labor_score ?? 0);
     const trendScore = Number(data.trend_score ?? 0);
-   const hasTrend =
-  data.trend_score !== null &&
-  data.trend_score !== undefined &&
-  data.trend_score > 0;
-
-
-    const totalJobs = Number(data.total_jobs ?? 0);
-    const isEmergent = Boolean(data.is_emergent_with_market);
-
     /* Etiqueta semántica */
     const scoreLabel =
         finalScore >= 70 ? "Alta" :
             finalScore >= 40 ? "Media" :
                 "Baja";
-
+ 
     return (
-     <div
-  className={`
+        <div
+            className={`
     group rounded-2xl border bg-white p-6
     relative overflow-hidden transition-all duration-300
     ${!isTrend ? "hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]" : "opacity-95"}
     dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
   `}
->
+        >
 
             {/* Barra decorativa */}
             <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
@@ -139,13 +141,18 @@ export default function CertificationCard({
                             <div
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    console.log("CLICK LABORAL", data.id);
+                                    if (isTrend) return;
                                     onAction?.("laboral", data);
                                 }}
-                                className="
-    cursor-pointer rounded-lg p-2
-    hover:bg-slate-50 dark:hover:bg-[#1E3A4A]
-    transition
-  "
+
+                                className={`
+    rounded-lg p-2 transition
+    ${isTrend
+                                        ? "opacity-40 cursor-not-allowed"
+                                        : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                                    }
+  `}
                             >
 
                                 <div className="flex items-center justify-between text-xs uppercase text-gray-500">
@@ -176,10 +183,14 @@ export default function CertificationCard({
                             {/* Tendencias */}
                            <div
   onClick={(e) => {
-    if (!hasTrend) return;
     e.stopPropagation();
+    console.log("CLICK TENDENCIA CARD", data.id, data.entity_type);
+
+    if (!hasTrend) return;
+
     onAction?.("trend", data);
   }}
+  title={!hasTrend ? "No hay reportes de tendencia" : "Ver reportes de tendencia"}
   className={`
     rounded-lg p-2 transition
     ${hasTrend
@@ -188,6 +199,7 @@ export default function CertificationCard({
     }
   `}
 >
+
 
 
                                 <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
@@ -202,9 +214,18 @@ export default function CertificationCard({
                                     />
                                 </div>
 
-                                <span className="text-[11px] text-gray-500">
-                                    Score tendencias: {trendScore.toFixed(1)}
-                                </span>
+                                <div className="flex items-center justify-between text-[11px] text-gray-500">
+                                    <span>
+                                        Score tendencias: {trendScore.toFixed(1)}
+                                    </span>
+
+                                    {trendReports > 0 && (
+                                        <span className="text-gray-400">
+                                            {trendReports} reporte{trendReports !== 1 ? "s" : ""}
+                                        </span>
+                                    )}
+                                </div>
+
                             </div>
                         </div>
                     </div>

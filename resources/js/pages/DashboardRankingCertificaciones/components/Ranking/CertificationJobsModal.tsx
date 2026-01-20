@@ -1,181 +1,143 @@
-import { Dialog } from "@headlessui/react";
-import { useEffect, useState } from "react";
 import axios from "axios";
-import { X } from "lucide-react";
-import JobOfferCard from "./JobOfferCard";
 
-type Job = {
+/* ===============================
+   TIPOS
+================================ */
+export type Job = {
   id: number;
   title: string;
   company: string;
-  location?: string;
-  modality?: string;
-  source?: string;
-  url?: string;
+  location: string | null;
+  url: string;
 };
 
 type Props = {
   open: boolean;
+  certification: any;
+  jobs: Job[];
+  pagination: any | null;
   onClose: () => void;
-  certificationId: number | null;
-  certificationName?: string;
+
+  // 👇 IMPORTANTE: setter que viene del padre
+  onPageChange: (paginator: any) => void;
 };
 
 export default function CertificationJobsModal({
   open,
+  certification,
+  jobs,
+  pagination,
   onClose,
-  certificationId,
-  certificationName,
+  onPageChange,
 }: Props) {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  if (!open) return null;
 
-  const fetchJobs = async (pageNumber: number) => {
-    if (!certificationId) return;
+  /* ===============================
+     CARGAR OTRA PÁGINA (AXIOS)
+  ================================ */
+  const loadPage = (url: string) => {
+    axios.get(url).then((res) => {
+      const paginator = res.data.data;
 
-    setLoading(true);
-
-    const res = await axios.get(
-      `/dashboard/ranking-certificaciones/${certificationId}/jobs`,
-      {
-        params: { page: pageNumber, per_page: 10 },
-      }
-    );
-
-    setJobs(res.data.data);
-    setPage(res.data.current_page);
-    setLastPage(res.data.last_page);
-
-    setLoading(false);
+      onPageChange(paginator);
+    });
   };
 
-  useEffect(() => {
-    if (open && certificationId) {
-      fetchJobs(1);
-    }
-  }, [open, certificationId]);
-
   return (
-    <Dialog open={open} onClose={onClose} className="relative z-50">
-      {/* BACKDROP */}
-      <div className="fixed inset-0 bg-black/50" />
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      {/* OVERLAY */}
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+      />
 
-      {/* WRAPPER */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel
-          className="
-            w-full
-            max-w-6xl
-            rounded-2xl
-            shadow-xl
-            flex
-            flex-col
-            max-h-[85vh]
+      {/* MODAL */}
+      <div className="relative w-full max-w-4xl mx-4 rounded-2xl bg-white dark:bg-[#0F2A3A] shadow-xl">
+        {/* ================= HEADER ================= */}
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#1E3A4A]">
+          <h3 className="text-lg font-semibold">
+            Ofertas laborales – {certification?.name}
+          </h3>
 
-            bg-white
-            dark:bg-[#0F2A3A]
-            border
-            dark:border-[#1E3A4A]
-          "
-        >
-          {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#1E3A4A] shrink-0">
-            <div>
-              <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Ofertas laborales
-              </Dialog.Title>
-              <p className="text-sm text-gray-600 dark:text-slate-300">
-                {certificationName}
-              </p>
+          <button onClick={onClose} className="text-xl">✕</button>
+        </div>
+
+        {/* ================= CONTENT ================= */}
+        <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
+          {/* TOTAL */}
+          {pagination && (
+            <p className="text-sm text-slate-500 mb-4">
+              {pagination.total} ofertas laborales encontradas
+            </p>
+          )}
+
+          {/* SIN RESULTADOS */}
+          {jobs.length === 0 && (
+            <p className="text-sm text-slate-500">
+              No se encontraron ofertas laborales.
+            </p>
+          )}
+
+          {/* LISTADO */}
+          {jobs.length > 0 && (
+            <ul className="space-y-4">
+              {jobs.map((job) => (
+                <li
+                  key={job.id}
+                  className="rounded-xl border p-4 dark:border-[#1E3A4A]"
+                >
+                  <h4 className="font-semibold">{job.title}</h4>
+
+                  <p className="text-sm text-gray-500">
+                    {job.company}
+                    {job.location ? ` · ${job.location}` : ""}
+                  </p>
+
+                  <a
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-sky-600 hover:underline"
+                  >
+                    Ver oferta
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* ================= PAGINACIÓN ================= */}
+          {pagination && (
+            <div className="flex justify-between items-center mt-6">
+              <button
+                disabled={!pagination.prev_page_url}
+                onClick={() =>
+                  pagination.prev_page_url &&
+                  loadPage(pagination.prev_page_url)
+                }
+                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+              >
+                Anterior
+              </button>
+
+              <span className="text-sm text-slate-500">
+                Página {pagination.current_page} de {pagination.last_page}
+              </span>
+
+              <button
+                disabled={!pagination.next_page_url}
+                onClick={() =>
+                  pagination.next_page_url &&
+                  loadPage(pagination.next_page_url)
+                }
+                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+              >
+                Siguiente
+              </button>
             </div>
-
-            <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-[#123A52]"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* ================= BODY ================= */}
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {loading ? (
-              <p className="text-center py-10 text-gray-600 dark:text-slate-400">
-                Cargando ofertas…
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {jobs.map((job, index) => (
-                  <JobOfferCard
-                    key={job.id}
-                    index={(page - 1) * 10 + index}
-                    job={job}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ================= FOOTER ================= */}
-          <div className="flex items-center justify-between px-6 py-4 border-t dark:border-[#1E3A4A] shrink-0">
-            <button
-              disabled={page === 1}
-              onClick={() => fetchJobs(page - 1)}
-              className="
-                px-4 py-2
-                rounded-lg
-                border
-                text-sm
-                font-medium
-                transition
-                disabled:opacity-40
-
-                bg-white
-                text-slate-700
-                hover:bg-gray-100
-
-                dark:bg-[#123A52]
-                dark:text-slate-200
-                dark:border-[#1E3A4A]
-                dark:hover:bg-[#1B4B63]
-              "
-            >
-              ← Anterior
-            </button>
-
-            <span className="text-sm text-gray-600 dark:text-slate-400">
-              Página {page} de {lastPage}
-            </span>
-
-            <button
-              disabled={page === lastPage}
-              onClick={() => fetchJobs(page + 1)}
-              className="
-                px-4 py-2
-                rounded-lg
-                border
-                text-sm
-                font-medium
-                transition
-                disabled:opacity-40
-
-                bg-white
-                text-slate-700
-                hover:bg-gray-100
-
-                dark:bg-[#123A52]
-                dark:text-slate-200
-                dark:border-[#1E3A4A]
-                dark:hover:bg-[#1B4B63]
-              "
-            >
-              Siguiente →
-            </button>
-          </div>
-        </Dialog.Panel>
+          )}
+        </div>
       </div>
-    </Dialog>
+    </div>
   );
 }

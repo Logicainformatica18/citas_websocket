@@ -2,6 +2,8 @@ import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
+import axios from "axios";
+
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
@@ -16,6 +18,11 @@ import {
 import KpiGrid from "./components/KPIs/KpiGrid";
 import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
+import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
+import CertificationReportsModal from "./components/Ranking/CertificationReportsModal";
+
+
+
 
 
 import Swal from "sweetalert2";
@@ -30,6 +37,9 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: "/dashboard/ranking-certificaciones",
     },
 ];
+
+
+
 
 type PageProps = {
     ranking: {
@@ -55,33 +65,53 @@ export default function RankingCertificacionesPage() {
     const { ranking, kpis, meta, weights } =
         usePage<PageProps>().props;
 
+
+    const [reportsModal, setReportsModal] = useState<{
+        open: boolean;
+        certification: any | null;
+        reports: any[];
+    }>({
+        open: false,
+        certification: null,
+        reports: [],
+    });
+
     /* =========================
        MODAL OFERTAS
     ========================= */
     /* =========================
        MODAL TENDENCIAS / OFERTAS
     ========================= */
-    const [trendModal, setTrendModal] = useState<{
+   const [trendModal, setTrendModal] = useState<{
+  open: boolean;
+  trend: any | null;
+}>({
+  open: false,
+  trend: null,
+});
+
+
+    const [certJobsModal, setCertJobsModal] = useState<{
         open: boolean;
-        trendId: number | null;
-        tab: "trend" | "jobs";
+        certification: any | null;
+        jobs: any[];
+        pagination: any | null;
     }>({
         open: false,
-        trendId: null,
-        tab: "trend",
+        certification: null,
+        jobs: [],
+        pagination: null,
     });
 
 
-    const openTrendModal = (
-        item: any,
-        tab: "trend" | "jobs" = "trend"
-    ) => {
-        setTrendModal({
-            open: true,
-            trendId: item.id,
-            tab,
-        });
-    };
+
+  const openTrendModal = (item: any) => {
+  setTrendModal({
+    open: true,
+    trend: item,
+  });
+};
+
 
 
     const closeTrendModal = () => {
@@ -176,19 +206,82 @@ export default function RankingCertificacionesPage() {
                                     items={ranking.data}
                                     pagination={ranking}
                                     onSelectItem={(action, item) => {
-                                        console.log("RECIBwwwwwIDO EN PAGE:", action, item.name);
+                                        console.log("RECIBIDO EN PAGE:", action, item);
 
-
-
+                                        /* =========================
+                                           CLICK EN TENDENCIAS
+                                        ========================= */
+                                        /* =========================
+     CLICK EN TENDENCIAS
+  ========================= */
                                         if (action === "trend") {
-                                            openTrendModal(item, "trend");
+
+                                            // 🅰️ Certificación → ver reportes que la sustentan
+                                            if (item.entity_type === "certification") {
+                                                axios
+                                                    .get(`/dashboard/ranking-certificaciones/${item.id}/reports`)
+                                                    .then((res) => {
+                                                        setReportsModal({
+                                                            open: true,
+                                                            certification: item,
+                                                            reports: res.data.data,
+                                                        });
+                                                    })
+                                                    .catch((err) => {
+                                                        console.error("Error cargando reportes:", err);
+                                                    });
+
+                                                return;
+                                            }
+
+                                       
+                                           
+if (item.entity_type === "trend") {
+  openTrendModal(item);
+  return;
+}
+
+
                                         }
 
+
+
+                                        /* =========================
+                                           CLICK EN LABORAL
+                                        ========================= */
                                         if (action === "laboral") {
-                                            openTrendModal(item, "jobs");
+                                            // 🧠 Caso 1: tendencia → tab de ofertas dentro del modal de tendencias
+                                            if (item.entity_type === "trend") {
+                                                openTrendModal(item, "jobs");
+                                                return;
+                                            }
+
+                                            // 🧠 Caso 2: certificación → endpoint de certificaciones
+                                            if (item.entity_type === "certification") {
+                                                axios
+                                                    .get(`/dashboard/ranking-certificaciones/${item.id}/jobs`)
+                                                    .then((res) => {
+                                                        const paginator = res.data.data;
+
+                                                        setCertJobsModal({
+                                                            open: true,
+                                                            certification: item,
+                                                            jobs: paginator.data,
+                                                            pagination: paginator,
+                                                        });
+
+
+                                                    })
+                                                    .catch((err) => {
+                                                        console.error("Error cargando ofertas:", err);
+                                                    });
+
+                                                return;
+                                            }
                                         }
                                     }}
                                 />
+
 
 
 
@@ -199,6 +292,46 @@ export default function RankingCertificacionesPage() {
                     {/* ================= MODAL OFERTAS ================= */}
 
 
+                    {certJobsModal.open && (
+                        <CertificationJobsModal
+                            open={certJobsModal.open}
+                            certification={certJobsModal.certification}
+                            jobs={certJobsModal.jobs}
+                            pagination={certJobsModal.pagination}
+                            onClose={() =>
+                                setCertJobsModal({
+                                    open: false,
+                                    certification: null,
+                                    jobs: [],
+                                    pagination: null,
+                                })
+                            }
+                            onPageChange={(paginator) => {
+                                setCertJobsModal((prev) => ({
+                                    ...prev,
+                                    jobs: paginator.data,
+                                    pagination: paginator,
+                                }));
+                            }}
+                        />
+
+
+
+                    )}
+                    {reportsModal.open && (
+                        <CertificationReportsModal
+                            open={reportsModal.open}
+                            certification={reportsModal.certification}
+                            reports={reportsModal.reports}
+                            onClose={() =>
+                                setReportsModal({
+                                    open: false,
+                                    certification: null,
+                                    reports: [],
+                                })
+                            }
+                        />
+                    )}
 
 
                     {/* ================= MODAL PONDERACIONES ================= */}
@@ -212,17 +345,16 @@ export default function RankingCertificacionesPage() {
                 </DashboardProvider>
             </AppLayout>
 
-         {trendModal.open && trendModal.trendId && (
+          {trendModal.open && trendModal.trend && (
   <TrendDetailModal
     open={trendModal.open}
-    trendId={trendModal.trendId}
-    activeTab={trendModal.tab}
-    onClose={closeTrendModal}
-    onTabChange={(tab) =>
-      setTrendModal((s) => ({ ...s, tab }))
+    trend={trendModal.trend}
+    onClose={() =>
+      setTrendModal({ open: false, trend: null })
     }
   />
 )}
+
 
 
         </>

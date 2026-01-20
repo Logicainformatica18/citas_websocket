@@ -7,9 +7,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
-
+use App\Services\Ranking\CertificationLaborScoreService;
 class RankingCertificacionesController extends Controller
 {
+protected CertificationLaborScoreService $laborService;
+
+    public function __construct(CertificationLaborScoreService $laborService)
+    {
+        $this->laborService = $laborService;
+    }
     public function storeWeights(Request $request)
 {
     /* ==================================================
@@ -171,6 +177,8 @@ $certificationsQuery = $certificationsQuery->select(
     // Demanda laboral
     // ===============================
     DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+    DB::raw('COALESCE(reports.report_mentions, 0) as trend_reports'),
+
     DB::raw("
         ROUND(
             (COALESCE(labor.offers,0) / {$maxLabor}) * 100,
@@ -196,7 +204,13 @@ $certificationsQuery = $certificationsQuery->select(
               + ((COALESCE(reports.report_mentions,0) / {$totalReports}) * 100 * {$trendWeight})
             ),
         1) as final_score
-    ")
+    "),
+       // 🔥 CAMPOS DE TENDENCIA (OBLIGATORIOS PARA UNION)
+    DB::raw('NULL as year'),
+    DB::raw('NULL as quarter'),
+    DB::raw('NULL as source_title'),
+    DB::raw('NULL as source_url'),
+    DB::raw('NULL as source_type')
 );
 
 
@@ -205,57 +219,38 @@ $certificationsQuery = $certificationsQuery->select(
        4. QUERY TENDENCIAS (COMO ITEMS DE RANKING)
     ================================================== */
 $trendsQuery = DB::table('technology_trends as tt')
-    ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
-    ->leftJoin('job_offers as j', function ($join) use ($range) {
-        $join->on('j.id', '=', 'ttj.job_offer_id')
-             ->whereBetween('j.published_at', [$range['start'], $range['end']]);
-    })
     ->where('tt.topic_category', 'like', 'Certificaciones%')
     ->where('tt.year', $year)
     ->where('tt.quarter', $quarter);
 
-/* 🔥 FILTRO ESPECÍFICO DE CATEGORÍA */
+/* Filtro por categoría si aplica */
 if ($rankingType === 'trend' && !empty($trendCategory)) {
     $trendsQuery->where('tt.topic_category', $trendCategory);
 }
 
-$trendsQuery = $trendsQuery
-    ->groupBy(
-        'tt.id',
-        'tt.topic_name',
-        'tt.topic_category',
-        'tt.trend_score'
-    )
-    ->select(
-        DB::raw("'trend' as entity_type"),
-        'tt.id as id',
-        'tt.topic_name as name',
-        DB::raw('NULL as vendor'),
-        DB::raw('NULL as level'),
-        'tt.topic_category as category',
-        DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
-        DB::raw("
-            ROUND(
-              LEAST(
-                (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
-                100
-              ),
-              1
-            ) as labor_score
-        "),
-        DB::raw('tt.trend_score as trend_score'),
-        DB::raw("
-            ROUND(
-              (
-                LEAST(
-                  (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
-                  100
-                ) * {$laborWeight}
-              ) + (tt.trend_score * {$trendWeight}),
-              1
-            ) as final_score
-        ")
-    );
+$trendsQuery = $trendsQuery->select(
+    DB::raw("'trend' as entity_type"),
+    'tt.id as id',
+    'tt.topic_name as name',
+    DB::raw('NULL as vendor'),
+    DB::raw('NULL as level'),
+    'tt.topic_category as category',
+
+    // métricas
+    DB::raw('0 as total_jobs'),
+    DB::raw('1 as trend_reports'),
+    DB::raw('0 as labor_score'),
+    'tt.trend_score as trend_score',
+    DB::raw("ROUND(tt.trend_score * {$trendWeight},1) as final_score"),
+
+    // 🔥 DATOS DE CONTEXTO (CLAVE)
+    'tt.year',
+    'tt.quarter',
+    'tt.source_title',
+    'tt.source_url',
+    'tt.source_type'
+);
+
 
 
 
@@ -326,8 +321,68 @@ if ($rankingType !== 'trend') {
 
 
 
+// public function reportsByCertification(Request $request, int $certificationId)
+// {
+//     $year   = (int) $request->get('year', 2025);
+//     $period = $request->get('period', 's2');
+//     $quarter = $period === 's1' ? 1 : 4;
+
+//     $reports = DB::table('technology_trends as tt')
+//         ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
+//         ->join('course_technology as ct', 'ct.technology_id', '=', 'ttt.technology_id')
+//         ->join('certification_course as cc', 'cc.course_id', '=', 'ct.course_id')
+//         ->where('cc.certification_id', $certificationId)
+//         ->where('tt.year', $year)
+//         ->where('tt.quarter', $quarter)
+//         ->where('tt.topic_category', 'like', 'Certificaciones%')
+//         ->select(
+//             'tt.id',
+//             'tt.topic_name',
+//             'tt.year',
+//             'tt.quarter',
+//             'tt.trend_score',
+//             'tt.source_title',
+//             'tt.source_url',
+//             'tt.source_type'
+//         )
+//         ->distinct()
+//         ->orderByDesc('tt.trend_score')
+//         ->get();
+
+//     return response()->json([
+//         'total' => $reports->count(),
+//         'data'  => $reports,
+//     ]);
+// }
 
 
+public function trendDetail(Request $request)
+{
+    $year   = (int) $request->get('year', 2025);
+    $period = $request->get('period', 's2');
+    $quarter = $period === 's1' ? 1 : 4;
+
+    $trend = DB::table('technology_trends as tt')
+        ->where('tt.topic_category', 'like', 'Certificaciones%')
+        ->where('tt.year', $year)
+        ->where('tt.quarter', $quarter)
+        ->orderByDesc('tt.trend_score')
+        ->select(
+            'tt.id',
+            'tt.topic_name',
+            'tt.trend_score',
+            'tt.year',
+            'tt.quarter',
+            'tt.source_title',
+            'tt.source_url',
+            'tt.source_type'
+        )
+        ->first();
+
+    return response()->json([
+        'data' => $trend,
+    ]);
+}
 
 
 
@@ -335,18 +390,15 @@ if ($rankingType !== 'trend') {
 
 public function jobsByCertification(Request $request, int $certificationId)
 {
-    // ===============================
-    // 1. Parámetros controlados
-    // ===============================
-    $perPage = min((int) $request->get('per_page', 10), 50); // límite de seguridad
-    $page    = (int) $request->get('page', 1);
+    $year   = (int) $request->get('year', 2025);
+    $period = $request->get('period', 's2');
 
-    // ===============================
-    // 2. Query base (LIVIANA)
-    // ===============================
-    $jobs = DB::table('job_offers as j')
-        ->join('certification_job as cj', 'cj.job_offer_id', '=', 'j.id')
-        ->where('cj.certification_id', $certificationId)
+    $perPage = min((int) $request->get('per_page', 10), 50);
+
+    $jobsQuery = $this->laborService
+        ->getJobsForCertification($certificationId, $year, $period);
+
+    $jobs = $jobsQuery
         ->select(
             'j.id',
             'j.title',
@@ -358,20 +410,17 @@ public function jobsByCertification(Request $request, int $certificationId)
             'j.salary_max',
             'j.source',
             'j.published_at',
-            'j.url' // 👈 URL original
+            'j.url'
         )
         ->orderByDesc('j.published_at')
-        ->paginate(
-            $perPage,
-            ['*'],
-            'page',
-            $page
-        );
+        ->paginate($perPage);
 
-    // ===============================
-    // 3. Respuesta JSON paginada
-    // ===============================
-    return response()->json($jobs);
+    return response()->json([
+        'used_for_score' => true,
+        'year'           => $year,
+        'period'         => $period,
+        'data'           => $jobs,
+    ]);
 }
 private function getCertificationReportsSubquery(int $year, int $quarter)
 {
@@ -413,4 +462,5 @@ private function getPeriodRange(string $period, int $year): array
         'end'   => "$year-12-31",
     ];
 }
+
 }
