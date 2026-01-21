@@ -1,23 +1,28 @@
 import { router, usePage } from "@inertiajs/react";
 
+/* =====================================================
+   Types
+===================================================== */
 type Props = {
   currentPage: number;
   lastPage: number;
-  prevUrl?: string | null;
-  nextUrl?: string | null;
 };
 
+/* =====================================================
+   Component
+===================================================== */
 export default function Paginator({
   currentPage,
   lastPage,
-  prevUrl,
-  nextUrl,
 }: Props) {
   const maxVisible = 5;
 
   // 🔑 filtros actuales desde Inertia (lenguajes)
   const { filters } = usePage().props as any;
 
+  /* =========================================
+     Construcción de páginas visibles
+  ========================================= */
   const getPages = () => {
     const pages: number[] = [];
 
@@ -37,11 +42,14 @@ export default function Paginator({
 
   const pages = getPages();
 
+  /* =========================================
+     Navegación centralizada (🔥 CLAVE)
+  ========================================= */
   const goToPage = (page: number) => {
     router.get(
-      "/dashboard/ranking-lenguajes",
+      route("dashboard.ranking.languages"),
       {
-        ...filters, // 🔥 preserva año, período, tipo de ranking, etc.
+        ...filters, // año, periodo, carrera, ranking_type, etc.
         page,
       },
       {
@@ -51,16 +59,22 @@ export default function Paginator({
     );
   };
 
+  if (lastPage <= 1) return null;
+
+  /* =========================================
+     Render
+  ========================================= */
   return (
     <div className="flex items-center justify-center gap-2 mt-8">
       {/* ← ANTERIOR */}
       <button
-        disabled={!prevUrl}
-        onClick={() =>
-          prevUrl &&
-          router.get(prevUrl, {}, { preserveState: true, replace: true })
-        }
-        className="px-3 py-2 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50"
+        disabled={currentPage === 1}
+        onClick={() => goToPage(currentPage - 1)}
+        className="
+          px-3 py-2 rounded-lg border text-sm
+          disabled:opacity-40
+          hover:bg-gray-50
+        "
       >
         ←
       </button>
@@ -101,12 +115,13 @@ export default function Paginator({
 
       {/* SIGUIENTE → */}
       <button
-        disabled={!nextUrl}
-        onClick={() =>
-          nextUrl &&
-          router.get(nextUrl, {}, { preserveState: true, replace: true })
-        }
-        className="px-3 py-2 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50"
+        disabled={currentPage === lastPage}
+        onClick={() => goToPage(currentPage + 1)}
+        className="
+          px-3 py-2 rounded-lg border text-sm
+          disabled:opacity-40
+          hover:bg-gray-50
+        "
       >
         →
       </button>

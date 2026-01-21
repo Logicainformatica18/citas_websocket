@@ -1,10 +1,16 @@
-import { Briefcase } from "lucide-react";
+import {
+  Briefcase,
+  TrendingUp,
+} from "lucide-react";
 import { LanguageRanking } from "../../types/ranking";
 
 type Props = {
   rank: number;
   data: LanguageRanking;
-  onClick?: () => void;
+  onAction?: (
+    action: "laboral" | "trend",
+    item: LanguageRanking
+  ) => void;
 };
 
 /* =========================================
@@ -21,26 +27,29 @@ const defaultRankColor = "bg-gray-200 text-gray-600";
 export default function LanguageCard({
   rank,
   data,
-  onClick,
+  onAction,
 }: Props) {
   /* =========================================
      BLINDAJE DE DATOS
   ========================================= */
-  const laborScore = Number(data.labor_score ?? 0);
-  const totalJobs  = Number(data.total_jobs ?? 0);
+  const finalScore  = Number(data.final_score ?? 0);
+  const laborScore  = Number(data.labor_score ?? 0);
+  const trendScore  = Number(data.trend_score ?? 0);
+  const totalJobs   = Number(data.total_jobs ?? 0);
+  const trendReports = Number(data.trend_reports ?? 0);
 
   const scoreLabel =
-    laborScore >= 70 ? "Alta" :
-    laborScore >= 40 ? "Media" :
+    finalScore >= 70 ? "Alta" :
+    finalScore >= 40 ? "Media" :
     "Baja";
 
   return (
     <div
-      onClick={onClick}
       className="
         group rounded-2xl border bg-white p-6
         relative overflow-hidden transition-all duration-300
-        cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]
+        cursor-pointer hover:shadow-xl hover:-translate-y-[2px]
+        hover:border-[#1CBCE8]
         dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
       "
     >
@@ -67,20 +76,20 @@ export default function LanguageCard({
             </h3>
           </div>
 
-          {/* ================= SCORE ================= */}
+          {/* ================= SCORES ================= */}
           <div className="pt-4 space-y-3">
-            {/* Score principal */}
+            {/* Resultado ponderado */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Demanda laboral
+                Resultado ponderado
               </span>
 
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-[#0EA5E9]">
-                  {laborScore.toFixed(1)}
+                  {finalScore.toFixed(1)}
                 </span>
                 <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                  Demanda {scoreLabel}
+                  Proyección {scoreLabel}
                 </span>
               </div>
             </div>
@@ -88,20 +97,81 @@ export default function LanguageCard({
             {/* Barra score */}
             <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[#22C55E] to-[#4ADE80]"
-                style={{ width: `${laborScore}%` }}
+                className="h-full bg-gradient-to-r from-[#1CBCE8] to-[#38BDF8]"
+                style={{ width: `${Math.min(finalScore, 100)}%` }}
               />
             </div>
 
-            {/* Detalle laboral */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between text-xs uppercase text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Briefcase className="h-3 w-3" />
-                  Vacantes
+            {/* Subscores */}
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              {/* Laboral */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction?.("laboral", data);
+                }}
+                className="
+                  rounded-lg p-2 transition
+                  cursor-pointer hover:bg-slate-50
+                  dark:hover:bg-[#1E3A4A]
+                "
+              >
+                <div className="flex items-center justify-between text-xs uppercase text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Briefcase className="h-3 w-3" />
+                    Laboral
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    {totalJobs.toLocaleString()} vacantes
+                  </span>
+                </div>
+
+                <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
+                  <div
+                    className="h-full bg-[#22C55E]"
+                    style={{ width: `${laborScore}%` }}
+                  />
+                </div>
+
+                <span className="text-[11px] text-gray-500">
+                  Score laboral: {laborScore.toFixed(1)}
                 </span>
-                <span className="text-[11px] text-gray-400">
-                  {totalJobs.toLocaleString()}
+              </div>
+
+              {/* Tendencias */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (trendReports === 0) return;
+                  onAction?.("trend", data);
+                }}
+                className={`
+                  rounded-lg p-2 transition
+                  ${trendReports === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between text-xs uppercase text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Tendencias
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    {trendReports} reportes
+                  </span>
+                </div>
+
+                <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
+                  <div
+                    className="h-full bg-[#A855F7]"
+                    style={{ width: `${trendScore}%` }}
+                  />
+                </div>
+
+                <span className="text-[11px] text-gray-500">
+                  Score tendencias: {trendScore.toFixed(1)}
                 </span>
               </div>
             </div>
@@ -111,10 +181,10 @@ export default function LanguageCard({
         {/* ================= RIGHT ================= */}
         <div className="flex flex-col items-end justify-start text-right">
           <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
-            {laborScore.toFixed(1)}
+            {finalScore.toFixed(1)}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
-            Score laboral
+            Resultado final
           </span>
         </div>
       </div>

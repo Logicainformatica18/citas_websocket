@@ -17,12 +17,7 @@ type Props = {
   items: TechnologyRanking[];
   pagination: Pagination;
 
-  /**
-   * Handler único.
-   * La Page decide qué hacer con:
-   * - tecnologías
-   * - tendencias
-   */
+
   onSelectItem?: (
     action: "laboral" | "trend",
     item: TechnologyRanking

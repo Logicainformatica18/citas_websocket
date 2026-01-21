@@ -182,17 +182,36 @@ Route::get(
 
 
 
+Route::prefix('dashboard/ranking/languages')->group(function () {
 
-   Route::prefix('dashboard/ranking/languages')->group(function () {
+    Route::get(
+        '/',
+        [RankingLenguajesController::class, 'index']
+    )->name('dashboard.ranking.languages');
 
-       // 📊 Vista principal ranking
-        Route::get('/', [RankingLenguajesController::class, 'index'])
-            ->name('dashboard.ranking.languages.index');
+    Route::post(
+        '/weights',
+        [RankingLenguajesController::class, 'storeWeights']
+    )->name('dashboard.ranking.languages.weights');
 
-        // ⚖️ Guardar ponderaciones
-        Route::post('/weights', [RankingLenguajesController::class, 'storeWeights'])
-            ->name('dashboard.ranking.languages.weights');
-    });
+    // 🔥 OFERTAS LABORALES POR LENGUAJE
+    Route::get(
+        '/{language}/jobs',
+        [RankingLenguajesController::class, 'jobsByLanguage']
+    )->name('dashboard.ranking.languages.jobs');
+
+    // 🔥 REPORTES / TENDENCIAS POR LENGUAJE
+    Route::get(
+        '/{language}/reports',
+        [RankingLenguajesController::class, 'reportsByLanguage']
+    )->name('dashboard.ranking.languages.reports');
+
+    // 🔥 DETALLE DE UNA TENDENCIA (MODAL)
+    Route::get(
+        '/trend/{trendId}',
+        [RankingLenguajesController::class, 'languageTrendDetail']
+    )->name('dashboard.ranking.languages.trend.detail');
+});
 
 
 

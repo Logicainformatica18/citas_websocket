@@ -475,6 +475,32 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
 
         return response()->json($jobs);
     }
+public function jobsByLanguage(Request $request, int $languageId)
+{
+    $perPage = min((int) $request->get('per_page', 10), 50);
+    $page    = (int) $request->get('page', 1);
+
+    $jobs = DB::table('job_offers as j')
+        ->join('language_job as lj', 'lj.job_offer_id', '=', 'j.id')
+        ->where('lj.language_id', $languageId)
+        ->select(
+            'j.id',
+            'j.title',
+            'j.company',
+            'j.location',
+            'j.country',
+            'j.modality',
+            'j.salary_min',
+            'j.salary_max',
+            'j.source',
+            'j.published_at',
+            'j.url'
+        )
+        ->orderByDesc('j.published_at')
+        ->paginate($perPage, ['*'], 'page', $page);
+
+    return response()->json($jobs);
+}
 
     /* ==================================================
        UTILIDADES
@@ -493,4 +519,6 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
             'end'   => "$year-12-31",
         ];
     }
+
+    
 }

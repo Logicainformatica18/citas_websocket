@@ -16,9 +16,13 @@ const RANKING_TYPES = [
 ===================================================== */
 export default function RankingFilters() {
   const {
-    filters,
-    availableTrendCategories,
-  } = usePage().props as any;
+  filters,
+  availableTrendCategories = [],
+} = usePage().props as {
+  filters: any;
+  availableTrendCategories?: string[];
+};
+
 
   const [openType, setOpenType] = useState(false);
   const typeRef = useRef<HTMLDivElement>(null);
@@ -44,15 +48,24 @@ export default function RankingFilters() {
      Navegación centralizada – LENGUAJES
   ========================================= */
   const navigate = (next: Record<string, any>, resetPage = false) => {
-    const payload: any = {
+    const payload: Record<string, any> = {
       ...filters,
       ...next,
     };
 
-    if (!payload.trend_category) delete payload.trend_category;
+    // 🧹 Limpieza de parámetros vacíos
+    Object.keys(payload).forEach((k) => {
+      if (
+        payload[k] === null ||
+        payload[k] === undefined ||
+        payload[k] === ""
+      ) {
+        delete payload[k];
+      }
+    });
 
     router.get(
-      "/dashboard/ranking/languages",
+      route("dashboard.ranking.languages"),
       {
         ...payload,
         ...(resetPage ? { page: 1 } : {}),
@@ -65,7 +78,7 @@ export default function RankingFilters() {
   };
 
   const rankingTypeLabel =
-    RANKING_TYPES.find(t => t.value === activeRankingType)?.label ??
+    RANKING_TYPES.find((t) => t.value === activeRankingType)?.label ??
     "Ranking general";
 
   /* =========================================
@@ -77,7 +90,6 @@ export default function RankingFilters() {
           CONTROLES
       ========================= */}
       <div className="flex flex-wrap gap-4">
-
         {/* ===== TIPO DE RANKING ===== */}
         <div ref={typeRef} className="relative w-72">
           <button
@@ -97,21 +109,25 @@ export default function RankingFilters() {
           </button>
 
           {openType && (
-            <div className="
-              absolute z-20 mt-2 w-full
-              rounded-xl border shadow-lg
-              bg-white border-gray-200
-              dark:bg-[#0F2A3A]
-              dark:border-[#1E3A4A]
-            ">
-              {RANKING_TYPES.map(type => (
+            <div
+              className="
+                absolute z-20 mt-2 w-full
+                rounded-xl border shadow-lg
+                bg-white border-gray-200
+                dark:bg-[#0F2A3A]
+                dark:border-[#1E3A4A]
+              "
+            >
+              {RANKING_TYPES.map((type) => (
                 <button
                   key={type.value}
                   onClick={() => {
                     navigate(
                       {
                         ranking_type: type.value,
-                        trend_category: null,
+                        ...(type.value !== "trend"
+                          ? { trend_category: null }
+                          : {}),
                       },
                       true
                     );
@@ -139,7 +155,7 @@ export default function RankingFilters() {
           <div className="w-72">
             <select
               value={filters.trend_category ?? ""}
-              onChange={e =>
+              onChange={(e) =>
                 navigate(
                   { trend_category: e.target.value || null },
                   true
@@ -197,7 +213,13 @@ export default function RankingFilters() {
    UI Components
 ===================================================== */
 
-function Chip({ label, onRemove }: any) {
+function Chip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
   return (
     <span
       className="
