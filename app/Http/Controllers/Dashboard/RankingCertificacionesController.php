@@ -319,43 +319,7 @@ if ($rankingType !== 'trend') {
 }
 
 
-
-
-// public function reportsByCertification(Request $request, int $certificationId)
-// {
-//     $year   = (int) $request->get('year', 2025);
-//     $period = $request->get('period', 's2');
-//     $quarter = $period === 's1' ? 1 : 4;
-
-//     $reports = DB::table('technology_trends as tt')
-//         ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
-//         ->join('course_technology as ct', 'ct.technology_id', '=', 'ttt.technology_id')
-//         ->join('certification_course as cc', 'cc.course_id', '=', 'ct.course_id')
-//         ->where('cc.certification_id', $certificationId)
-//         ->where('tt.year', $year)
-//         ->where('tt.quarter', $quarter)
-//         ->where('tt.topic_category', 'like', 'Certificaciones%')
-//         ->select(
-//             'tt.id',
-//             'tt.topic_name',
-//             'tt.year',
-//             'tt.quarter',
-//             'tt.trend_score',
-//             'tt.source_title',
-//             'tt.source_url',
-//             'tt.source_type'
-//         )
-//         ->distinct()
-//         ->orderByDesc('tt.trend_score')
-//         ->get();
-
-//     return response()->json([
-//         'total' => $reports->count(),
-//         'data'  => $reports,
-//     ]);
-// }
-
-
+ 
 public function trendDetail(Request $request)
 {
     $year   = (int) $request->get('year', 2025);

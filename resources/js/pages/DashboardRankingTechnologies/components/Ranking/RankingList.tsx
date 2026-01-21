@@ -1,6 +1,6 @@
 import TechnologyCard from "./TechnologyCard";
 import Paginator from "../Pagination/Paginator";
-import { TechnologyRanking } from "../../types/ranking";
+import { TechnologyRanking } from "../../types/technologyRanking";
 
 /* =========================
    TIPOS
@@ -16,13 +16,23 @@ type Pagination = {
 type Props = {
   items: TechnologyRanking[];
   pagination: Pagination;
-  onSelectTechnology?: (item: TechnologyRanking) => void;
+
+  /**
+   * Handler único.
+   * La Page decide qué hacer con:
+   * - tecnologías
+   * - tendencias
+   */
+  onSelectItem?: (
+    action: "laboral" | "trend",
+    item: TechnologyRanking
+  ) => void;
 };
 
 export default function RankingList({
   items,
   pagination,
-  onSelectTechnology,
+  onSelectItem,
 }: Props) {
   const perPage = pagination.per_page ?? items.length;
 
@@ -31,21 +41,21 @@ export default function RankingList({
       {/* ================= GRID ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {items.map((item, index) => {
-          const isTrend = item.entity_type === "trend";
-          const isIsil  = item.is_isil === 1;
-
           return (
             <TechnologyCard
               key={`${item.entity_type}-${item.id}`}
               rank={(pagination.current_page - 1) * perPage + index + 1}
               data={item}
 
-              /* 👇 Solo tecnologías ISIL son clickeables */
-              onClick={
-                !isTrend && isIsil
-                  ? () => onSelectTechnology?.(item)
-                  : undefined
-              }
+              /* ✅ SOLO REENVÍA EVENTOS */
+              onAction={(action, data) => {
+                // 🔒 Bloqueo mínimo (igual que Certificaciones)
+                if (action === "laboral" && data.entity_type !== "technology") {
+                  return;
+                }
+
+                onSelectItem?.(action, data);
+              }}
             />
           );
         })}

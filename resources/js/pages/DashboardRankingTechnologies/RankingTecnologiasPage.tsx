@@ -2,8 +2,12 @@ import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
+import axios from "axios";
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
+
+import TrendDetailModal from "./components/Ranking/TrendDetailModal";
+
 
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
 import {
@@ -54,15 +58,53 @@ export default function RankingTecnologiasPage() {
     usePage<PageProps>().props;
 
   /* =========================
-     MODAL OFERTAS (TECNOLOGÍAS)
+     MODAL TENDENCIA
   ========================= */
-  const [openJobsModal, setOpenJobsModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [trendModal, setTrendModal] = useState<{
+    open: boolean;
+    trend: any | null;
+  }>({
+    open: false,
+    trend: null,
+  });
 
-  const handleOpenJobs = (item: any) => {
-    // 👇 aquí siempre aplica (no hay entity_type mixto)
-    setSelectedItem(item);
-    setOpenJobsModal(true);
+  const openTrendModal = (item: any) => {
+    setTrendModal({
+      open: true,
+      trend: item,
+    });
+  };
+
+  const closeTrendModal = () => {
+    setTrendModal({
+      open: false,
+      trend: null,
+    });
+  };
+
+  /* =========================
+     MODAL OFERTAS (LABORAL)
+  ========================= */
+  const [jobsModal, setJobsModal] = useState<{
+    open: boolean;
+    item: any | null;
+  }>({
+    open: false,
+    item: null,
+  });
+
+  const openJobsModal = (item: any) => {
+    setJobsModal({
+      open: true,
+      item,
+    });
+  };
+
+  const closeJobsModal = () => {
+    setJobsModal({
+      open: false,
+      item: null,
+    });
   };
 
   /* =========================
@@ -107,67 +149,123 @@ export default function RankingTecnologiasPage() {
   };
 
   return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Ranking de Tecnologías | Observatorio ISIL" />
+    <>
+      <AppLayout breadcrumbs={breadcrumbs}>
+        <Head title="Ranking de Tecnologías | Observatorio ISIL" />
 
-      <DashboardProvider>
-        <div className="bg-background px-6 py-6">
-          <div className="flex gap-6">
-            <div className="flex-1 space-y-6">
+        <DashboardProvider>
+          <div className="bg-background px-6 py-6">
+            <div className="flex gap-6">
+              <div className="flex-1 space-y-6">
 
-              {/* ================= HEADER ================= */}
-              <RankingHeader
-                weights={weights}
-                onEditWeights={() => setIsWeightModalOpen(true)}
-                meta={meta}
-              />
+                {/* ================= HEADER ================= */}
+                <RankingHeader
+                  weights={weights}
+                  onEditWeights={() => setIsWeightModalOpen(true)}
+                  meta={meta}
+                />
 
-              {/* ================= KPIs ================= */}
-              <KpiGrid items={kpis} />
+                {/* ================= KPIs ================= */}
+                <KpiGrid items={kpis} />
 
-              {/* ================= DESCRIPCIÓN ================= */}
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Ranking General de Tecnologías
-                </h2>
+                {/* ================= DESCRIPCIÓN ================= */}
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Ranking General de Tecnologías
+                  </h2>
 
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                  Clasificación de tecnologías según su demanda laboral
-                  y presencia en reportes de tendencias globales,
-                  ponderadas mediante la metodología seleccionada.
-                </p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
+                    Clasificación unificada que integra tecnologías ISIL
+                    y tecnologías en tendencia global, ordenadas según
+                    demanda laboral y presencia en reportes especializados.
+                  </p>
+                </div>
+
+                {/* ================= FILTROS ================= */}
+                <RankingFilters />
+
+                {/* ================= RANKING ================= */}
+                <RankingList
+                  items={ranking.data}
+                  pagination={ranking}
+                  onSelectItem={(action, item) => {
+                    console.log("CLICK RANKING TEC:", action, item);
+
+       if (action === "trend") {
+  if (!item.is_real_trend || item.trend_reports === 0) {
+    return; // ⛔ no es una tendencia real
+  }
+
+  axios
+    .get(`/dashboard/ranking/technologies/trend/${item.id}`)
+    .then((res) => {
+      const trend = res.data?.data;
+      if (!trend) return;
+
+      openTrendModal({
+        id: trend.id,
+        name: trend.topic_name,
+        trend_score: trend.trend_score,
+        trend_reports: item.trend_reports,
+        year: trend.year,
+        quarter: trend.quarter,
+        source_title: trend.source_title,
+        source_url: trend.source_url,
+        source_type: trend.source_type,
+      });
+    });
+
+  return;
+}
+
+
+
+                  if (action === "laboral") {
+
+  // ✅ SOLO tecnologías
+  if (item.entity_type !== "technology") {
+    console.warn("Jobs ignorados: no es tecnología", item);
+    return;
+  }
+
+  openJobsModal(item);
+  return;
+}
+
+                  }}
+                />
               </div>
-
-              {/* ================= FILTROS ================= */}
-              <RankingFilters />
-
-              {/* ================= RANKING ================= */}
-              <RankingList
-                items={ranking.data}
-                pagination={ranking}
-                onSelectCertification={handleOpenJobs}
-                /* 👆 mantenemos la prop para no tocar RankingList */
-              />
             </div>
           </div>
-        </div>
 
-        {/* ================= MODAL OFERTAS ================= */}
-        <TechnologyJobsModal
-          open={openJobsModal}
-          onClose={() => setOpenJobsModal(false)}
-          technologyId={selectedItem?.id}
-          technologyName={selectedItem?.name}
-        />
+          {/* ================= MODAL OFERTAS ================= */}
+          {jobsModal.open && jobsModal.item && (
+            <TechnologyJobsModal
+              open={jobsModal.open}
+              onClose={closeJobsModal}
+              technologyId={jobsModal.item.id}
+              technologyName={jobsModal.item.name}
+            />
+          )}
 
-        {/* ================= MODAL PONDERACIONES ================= */}
-        <WeightConfigModal
-          open={isWeightModalOpen}
-          onOpenChange={setIsWeightModalOpen}
-          weights={weights}
-          onSave={handleSaveWeights}
+          {/* ================= MODAL PONDERACIONES ================= */}
+          <WeightConfigModal
+            open={isWeightModalOpen}
+            onOpenChange={setIsWeightModalOpen}
+            weights={weights}
+            onSave={handleSaveWeights}
+          />
+        </DashboardProvider>
+      </AppLayout>
+
+      {/* ================= MODAL TENDENCIA ================= */}
+      {trendModal.open && trendModal.trend && (
+        <TrendDetailModal
+          open={trendModal.open}
+          trend={trendModal.trend}
+          onClose={closeTrendModal}
         />
-      </DashboardProvider>
-    </AppLayout>
+      )}
+    </>
   );
 }

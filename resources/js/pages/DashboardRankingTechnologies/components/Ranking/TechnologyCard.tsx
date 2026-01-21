@@ -1,15 +1,17 @@
-import { CertificationRanking } from "../../types/ranking";
+import { TechnologyRanking } from "../../types/ranking";
 import {
   TrendingUp,
   Briefcase,
-  Sparkles,
   GraduationCap,
 } from "lucide-react";
 
 type Props = {
   rank: number;
-  data: CertificationRanking;
-  onClick?: () => void;
+  data: TechnologyRanking;
+  onAction?: (
+    action: "laboral" | "trend",
+    item: TechnologyRanking
+  ) => void;
 };
 
 /* =========================================
@@ -23,25 +25,30 @@ const rankColors: Record<number, string> = {
 
 const defaultRankColor = "bg-gray-200 text-gray-600";
 
-export default function CertificationCard({
+export default function TechnologyCard({
   rank,
   data,
-  onClick,
+  onAction,
 }: Props) {
   /* =========================================
-     BLINDAJE DE TIPO
+     TIPO DE ITEM (FUENTE ÚNICA)
   ========================================= */
   const isTrend = data.entity_type === "trend";
-  const isISIL = Number(data.is_isil) === 1;
+  const isISIL  = Number(data.is_isil ?? 0) === 1;
 
   /* =========================================
      BLINDAJE DE DATOS
   ========================================= */
-  const finalScore = Number(data.final_score ?? 0);
-  const laborScore = Number(data.labor_score ?? 0);
-  const trendScore = Number(data.trend_score ?? 0);
-  const totalJobs = Number(data.total_jobs ?? 0);
-  const isEmergent = Number(data.is_emergent_with_market ?? 0) === 1;
+  const finalScore   = Number(data.final_score ?? 0);
+  const laborScore   = Number(data.labor_score ?? 0);
+  const trendScore   = Number(data.trend_score ?? 0);
+  const totalJobs    = Number(data.total_jobs ?? 0);
+  const trendReports = Number((data as any).trend_reports ?? 0);
+
+  /** 🔥 Regla clave:
+   * Solo hay tendencia REAL si existen reportes
+   */
+  const hasRealTrend = trendReports > 0;
 
   /* Etiqueta semántica */
   const scoreLabel =
@@ -51,16 +58,12 @@ export default function CertificationCard({
 
   return (
     <div
-      onClick={!isTrend ? onClick : undefined}
       className={`
         group rounded-2xl border bg-white p-6
         relative overflow-hidden transition-all duration-300
-        ${
-          !isTrend
-            ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px]"
-            : "cursor-default opacity-95"
-        }
-        hover:border-[#1CBCE8]
+        ${!isTrend
+          ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]"
+          : "opacity-95"}
         dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
       `}
     >
@@ -95,7 +98,7 @@ export default function CertificationCard({
               {data.name}
             </h3>
 
-            {/* 🔥 BADGE ISIL */}
+            {/* BADGE ISIL */}
             {isISIL && !isTrend && (
               <span
                 className="
@@ -111,7 +114,7 @@ export default function CertificationCard({
               </span>
             )}
 
-            {/* 🔥 BADGE TREND */}
+            {/* BADGE TREND */}
             {isTrend && (
               <span
                 className="
@@ -128,15 +131,8 @@ export default function CertificationCard({
             )}
           </div>
 
-          {/* Vendor + Nivel */}
-          {!isTrend && data.vendor && (
-            <p className="text-xs uppercase tracking-wider text-gray-600 dark:text-slate-300">
-              {data.vendor} · NIVEL {data.level}
-            </p>
-          )}
-
-          {/* Categoría */}
-          {data.category && !isTrend && (
+          {/* Categoría (solo tecnologías ISIL) */}
+          {!isTrend && data.category && (
             <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
               <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
               {data.category}
@@ -172,7 +168,20 @@ export default function CertificationCard({
             {/* Subscores */}
             <div className="grid grid-cols-2 gap-4 pt-2">
               {/* Laboral */}
-              <div>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isTrend) return;
+                  onAction?.("laboral", data);
+                }}
+                className={`
+                  rounded-lg p-2 transition
+                  ${isTrend
+                    ? "opacity-40 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                  }
+                `}
+              >
                 <div className="flex items-center justify-between text-xs uppercase text-gray-500">
                   <span className="flex items-center gap-1">
                     <Briefcase className="h-3 w-3" />
@@ -199,7 +208,26 @@ export default function CertificationCard({
               </div>
 
               {/* Tendencias */}
-              <div>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!hasRealTrend) return;
+                  onAction?.("trend", data);
+                }}
+                title={
+                  hasRealTrend
+                    ? "Ver reportes de tendencia"
+                    : "No hay reportes de tendencia reales"
+                }
+                className={`
+                  rounded-lg p-2 transition
+                  ${
+                    hasRealTrend
+                      ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                      : "opacity-40 cursor-not-allowed"
+                  }
+                `}
+              >
                 <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
                   <TrendingUp className="h-3 w-3" />
                   Tendencias
@@ -212,8 +240,14 @@ export default function CertificationCard({
                   />
                 </div>
 
-                <span className="text-[11px] text-gray-500">
-                  Score tendencias: {trendScore.toFixed(1)}
+                <span className="text-[11px] text-gray-500 flex justify-between">
+                  <span>Score: {trendScore.toFixed(1)}</span>
+
+                  {hasRealTrend && (
+                    <span className="text-gray-400">
+                      {trendReports} reporte{trendReports !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -230,24 +264,24 @@ export default function CertificationCard({
           </span>
         </div>
       </div>
- {/* BADGE ISIL (solo certificaciones, abajo) */}
-{!isTrend && (
-  <div className="pt-4 flex justify-end">
-    <span
-      className="
-        inline-flex items-center
-        rounded-full px-3 py-1
-        text-[11px] font-semibold uppercase tracking-widest
-        bg-sky-100 text-sky-700
-        dark:bg-[#14384F]
-        dark:text-[#7DD3FC]
-      "
-    >
-      ISIL
-    </span>
-  </div>
-)}
-       
+
+      {/* BADGE ISIL (footer) */}
+      {!isTrend && isISIL && (
+        <div className="pt-4 flex justify-end">
+          <span
+            className="
+              inline-flex items-center
+              rounded-full px-3 py-1
+              text-[11px] font-semibold uppercase tracking-widest
+              bg-sky-100 text-sky-700
+              dark:bg-[#14384F]
+              dark:text-[#7DD3FC]
+            "
+          >
+            ISIL
+          </span>
+        </div>
+      )}
     </div>
   );
 }

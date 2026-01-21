@@ -162,6 +162,22 @@ Route::get(
             '/weights',
             [RankingTecnologiasController::class, 'storeWeights']
         )->name('dashboard.ranking.technologies.weights');
+
+        Route::get(
+    '/{technology}/reports',
+    [RankingTecnologiasController::class, 'reportsByTechnology']
+)->name('dashboard.ranking.technologies.reports');
+
+Route::get(
+    '/trend/{trendId}',
+    [RankingTecnologiasController::class, 'technologyTrendDetail']
+)->name('dashboard.ranking.technologies.trend.detail');
+
+Route::get(
+    '/trend/{trendId}/jobs',
+    [RankingTecnologiasController::class, 'jobsByTechnologyTrend']
+)->name('dashboard.ranking.technologies.trend.jobs');
+
     });
 
 
