@@ -47,7 +47,9 @@ use App\Http\Controllers\Dashboard\RankingTecnologiasController;
 use App\Http\Controllers\Dashboard\TrendingTechnologyController;
 use App\Http\Controllers\Dashboard\TrendingCertificationController;
 use App\Http\Controllers\Dashboard\RankingLenguajesController;
+use App\Http\Controllers\Dashboard\JobModalityIndicatorController;
 use App\Http\Controllers\Trends\TrendTechnologyController;
+
 
 
 // Route::get(
@@ -95,6 +97,16 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+
+
+Route::prefix('dashboard/indicadores/modalidad-laboral')->group(function () {
+    Route::get('/', [JobModalityIndicatorController::class, 'index']);
+    Route::get('/regions', [JobModalityIndicatorController::class, 'searchRegions']);
+    Route::get('/countries', [JobModalityIndicatorController::class, 'searchCountries']);
+    Route::get('/cities', [JobModalityIndicatorController::class, 'searchCities']);
+});
+
+
 
 Route::prefix('trends')->group(function () {
 
@@ -212,7 +224,6 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         [RankingLenguajesController::class, 'languageTrendDetail']
     )->name('dashboard.ranking.languages.trend.detail');
 });
-
 
 
 
