@@ -84,10 +84,40 @@ class JobModalityIndicatorController extends Controller
                     : 0,
             ]);
 
+         $trendData = DB::table('job_offers')
+    ->whereBetween('published_at', [
+        $range['start'],
+        $range['end'],
+    ])
+    ->selectRaw("
+        YEAR(published_at) as year,
+        MONTH(published_at) as month_num,
+
+        ROUND(SUM(modality IN ('fully_remote','remote')) / COUNT(*) * 100, 1) as remoto,
+        ROUND(SUM(modality IN ('hybrid','remote_local')) / COUNT(*) * 100, 1) as hibrido,
+        ROUND(SUM(modality = 'no_remote') / COUNT(*) * 100, 1) as presencial
+    ")
+    ->groupByRaw('YEAR(published_at), MONTH(published_at)')
+    ->orderByRaw('YEAR(published_at), MONTH(published_at)')
+    ->limit(6)
+    ->get()
+    ->map(function ($row) {
+        return [
+            'month' => \Carbon\Carbon::create()
+                ->month($row->month_num)
+                ->translatedFormat('M'),
+            'remoto'      => (float) $row->remoto,
+            'hibrido'     => (float) $row->hibrido,
+            'presencial'  => (float) $row->presencial,
+        ];
+    });
+
+
         /* =====================================================
            5. Render
         ===================================================== */
         return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
+          'trendData' => $trendData, // 🔥 AQUÍ
             'filters' => $filters,
             'meta' => [
                 'year'   => $year,
