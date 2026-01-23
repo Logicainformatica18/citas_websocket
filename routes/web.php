@@ -49,7 +49,7 @@ use App\Http\Controllers\Dashboard\TrendingCertificationController;
 use App\Http\Controllers\Dashboard\RankingLenguajesController;
 use App\Http\Controllers\Dashboard\JobModalityIndicatorController;
 use App\Http\Controllers\Trends\TrendTechnologyController;
-
+use App\Http\Controllers\Dashboard\RankingCarrerasController;
 
 
 // Route::get(
@@ -97,6 +97,62 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+
+ Route::prefix('dashboard')->group(function () {
+
+
+
+  Route::get('/ranking-carreras', [RankingCarrerasController::class, 'index'])
+            ->name('dashboard.ranking.carreras');
+Route::post(
+    '/ranking-carreras/sync',
+    [RankingCarrerasController::class, 'syncRoles']
+)->name('dashboard.ranking.carreras.sync');
+
+
+        Route::get('/', [DashboardController::class, 'index'])
+            ->name('dashboard.index');
+
+
+
+        Route::post('/', [DashboardController::class, 'store'])
+            ->name('dashboard.store');
+    });
+    Route::prefix('ai/dashboards/{dashboard}')->group(function () {
+
+        Route::get('widgets', [DashboardWidgetController::class, 'index']);
+
+        Route::post('widgets/from-training', [
+            DashboardWidgetController::class,
+            'storeFromTraining'
+        ]);
+
+        Route::put('widgets/{widget}', [
+            DashboardWidgetController::class,
+            'update'
+        ]);
+
+        Route::delete('widgets/{widget}', [
+            DashboardWidgetController::class,
+            'destroy'
+        ]);
+
+        Route::post('widgets/reorder', [
+            DashboardWidgetController::class,
+            'reorder'
+        ]);
+
+        Route::patch('widgets/{widget}/color', [
+            DashboardWidgetController::class,
+            'updateColor'
+        ]);
+
+        Route::post('widgets/{widget}/filters', [
+            DashboardWidgetController::class,
+            'saveFilters'
+        ]);
+
+    });
 
 
 Route::prefix('dashboard/indicadores/modalidad-laboral')->group(function () {
@@ -233,51 +289,7 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
 
 
 
-    Route::prefix('dashboard')->group(function () {
-
-        Route::get('/', [DashboardController::class, 'index'])
-            ->name('dashboard.index');
-
-
-
-        Route::post('/', [DashboardController::class, 'store'])
-            ->name('dashboard.store');
-    });
-    Route::prefix('ai/dashboards/{dashboard}')->group(function () {
-
-        Route::get('widgets', [DashboardWidgetController::class, 'index']);
-
-        Route::post('widgets/from-training', [
-            DashboardWidgetController::class,
-            'storeFromTraining'
-        ]);
-
-        Route::put('widgets/{widget}', [
-            DashboardWidgetController::class,
-            'update'
-        ]);
-
-        Route::delete('widgets/{widget}', [
-            DashboardWidgetController::class,
-            'destroy'
-        ]);
-
-        Route::post('widgets/reorder', [
-            DashboardWidgetController::class,
-            'reorder'
-        ]);
-
-        Route::patch('widgets/{widget}/color', [
-            DashboardWidgetController::class,
-            'updateColor'
-        ]);
-
-        Route::post('widgets/{widget}/filters', [
-            DashboardWidgetController::class,
-            'saveFilters'
-        ]);
-
-    });
+   
 
 
 

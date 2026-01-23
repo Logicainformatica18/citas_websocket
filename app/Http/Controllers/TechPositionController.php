@@ -3,10 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TechPosition;
-use App\Models\Language;
-use App\Models\Technology;
-use App\Models\Competency;
-use App\Models\Methodology;
+use App\Models\Career;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -18,31 +15,24 @@ class TechPositionController extends Controller
      */
     public function index(Request $request)
     {
-        $positions = TechPosition::with(['languages','technologies','competencies','methodologies'])
-            ->orderBy('id','desc')
+        $positions = TechPosition::with(['careers'])
+            ->orderBy('id', 'desc')
             ->paginate(10);
 
-        $languages = Language::all();
-        $technologies = Technology::all();
-        $competencies = Competency::all();
-        $methodologies = Methodology::all();
+        $careers = Career::where('active', 1)
+            ->orderBy('name')
+            ->get();
 
         if ($request->wantsJson()) {
             return response()->json([
-                'positions'      => $positions,
-                'languages'      => $languages,
-                'technologies'   => $technologies,
-                'competencies'   => $competencies,
-                'methodologies'  => $methodologies,
+                'positions' => $positions,
+                'careers'   => $careers,
             ]);
         }
 
         return Inertia::render('techpositions/index', [
-            'positions'     => $positions,
-            'languages'     => $languages,
-            'technologies'  => $technologies,
-            'competencies'  => $competencies,
-            'methodologies' => $methodologies,
+            'positions' => $positions,
+            'careers'   => $careers,
         ]);
     }
 
@@ -51,13 +41,13 @@ class TechPositionController extends Controller
      */
     public function listAll()
     {
-        $positions = TechPosition::select('id','position_name')
-            ->orderBy('position_name','asc')
+        $positions = TechPosition::select('id', 'position_name')
+            ->where('active', 1)
+            ->orderBy('position_name')
             ->get();
 
         return response()->json(['positions' => $positions]);
     }
-
 
     /**
      * 🆕 CREAR ROL TECNOLÓGICO
@@ -65,22 +55,14 @@ class TechPositionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'position_name'   => 'required|string|max:255',
-            'position_name_en'=> 'nullable|string|max:255',
-            'category'        => 'nullable|string|max:255',
-            'subcategory'     => 'nullable|string|max:255',
+            'position_name'    => 'required|string|max:255',
+            'position_name_en' => 'nullable|string|max:255',
+            'category'         => 'nullable|string|max:255',
+            'subcategory'      => 'nullable|string|max:255',
+            'description'      => 'nullable|string',
 
-            'languages'       => 'array',
-            'languages.*'     => 'integer|exists:languages,id',
-
-            'technologies'    => 'array',
-            'technologies.*'  => 'integer|exists:technologies,id',
-
-            'competencies'    => 'array',
-            'competencies.*'  => 'integer|exists:competencies,id',
-
-            'methodologies'   => 'array',
-            'methodologies.*' => 'integer|exists:methodologies,id',
+            'careers'          => 'array',
+            'careers.*'        => 'integer|exists:careers,id',
         ]);
 
         $position = TechPosition::create([
@@ -89,86 +71,57 @@ class TechPositionController extends Controller
             'position_slug'    => Str::slug($request->position_name),
             'category'         => $request->category,
             'subcategory'      => $request->subcategory,
+            'description'      => $request->description,
+            'active'           => true,
         ]);
 
-        // 🔗 Sincronizar relaciones
-        $position->languages()->sync($request->languages ?? []);
-        $position->technologies()->sync($request->technologies ?? []);
-        $position->competencies()->sync($request->competencies ?? []);
-        $position->methodologies()->sync($request->methodologies ?? []);
+        // 🔗 Asociar carreras (regla académica)
+        if ($request->filled('careers')) {
+            $position->careers()->sync($request->careers);
+        }
 
         return response()->json([
-            'message' => '✅ Rol tecnológico creado',
-            'position'=> $position->load(['languages','technologies','competencies','methodologies']),
+            'message'  => '✅ Rol creado correctamente',
+            'position' => $position->load('careers'),
         ]);
     }
 
-
     /**
-     * 📌 Traer un rol + elementos asociados y NO asociados (ordenados)
+     * 📌 VER ROL + CARRERAS ASOCIADAS / NO ASOCIADAS
      */
     public function show($id)
     {
-        $position = TechPosition::with(['languages','technologies','competencies','methodologies'])
-            ->findOrFail($id);
+        $position = TechPosition::with('careers')->findOrFail($id);
 
-        // IDs vinculados
-        $selectedLangs = $position->languages->pluck('id')->toArray();
-        $selectedTechs = $position->technologies->pluck('id')->toArray();
-        $selectedComps = $position->competencies->pluck('id')->toArray();
-        $selectedMeths = $position->methodologies->pluck('id')->toArray();
+        $selectedCareerIds = $position->careers->pluck('id')->toArray();
 
-        // Ordenar: primero los seleccionados
-        $languages = Language::all()
-            ->sortByDesc(fn($x) => in_array($x->id, $selectedLangs))
-            ->values();
-
-        $technologies = Technology::all()
-            ->sortByDesc(fn($x) => in_array($x->id, $selectedTechs))
-            ->values();
-
-        $competencies = Competency::all()
-            ->sortByDesc(fn($x) => in_array($x->id, $selectedComps))
-            ->values();
-
-        $methodologies = Methodology::all()
-            ->sortByDesc(fn($x) => in_array($x->id, $selectedMeths))
+        $careers = Career::where('active', 1)
+            ->get()
+            ->sortByDesc(fn ($c) => in_array($c->id, $selectedCareerIds))
             ->values();
 
         return response()->json([
-            'position'      => $position,
-            'languages'     => $languages,
-            'technologies'  => $technologies,
-            'competencies'  => $competencies,
-            'methodologies' => $methodologies,
+            'position' => $position,
+            'careers'  => $careers,
         ]);
     }
 
-
     /**
-     * ✏ ACTUALIZAR ROL + RELACIONES
+     * ✏ ACTUALIZAR ROL
      */
     public function update(Request $request, $id)
     {
         $position = TechPosition::findOrFail($id);
 
         $request->validate([
-            'position_name'   => 'required|string|max:255',
-            'position_name_en'=> 'nullable|string|max:255',
-            'category'        => 'nullable|string|max:255',
-            'subcategory'     => 'nullable|string|max:255',
+            'position_name'    => 'required|string|max:255',
+            'position_name_en' => 'nullable|string|max:255',
+            'category'         => 'nullable|string|max:255',
+            'subcategory'      => 'nullable|string|max:255',
+            'description'      => 'nullable|string',
 
-            'languages'       => 'array',
-            'languages.*'     => 'integer|exists:languages,id',
-
-            'technologies'    => 'array',
-            'technologies.*'  => 'integer|exists:technologies,id',
-
-            'competencies'    => 'array',
-            'competencies.*'  => 'integer|exists:competencies,id',
-
-            'methodologies'   => 'array',
-            'methodologies.*' => 'integer|exists:methodologies,id',
+            'careers'          => 'array',
+            'careers.*'        => 'integer|exists:careers,id',
         ]);
 
         $position->update([
@@ -177,51 +130,53 @@ class TechPositionController extends Controller
             'position_slug'    => Str::slug($request->position_name),
             'category'         => $request->category,
             'subcategory'      => $request->subcategory,
+            'description'      => $request->description,
         ]);
 
-        // 🔗 Actualizar pivots
-        $position->languages()->sync($request->languages ?? []);
-        $position->technologies()->sync($request->technologies ?? []);
-        $position->competencies()->sync($request->competencies ?? []);
-        $position->methodologies()->sync($request->methodologies ?? []);
+        // 🔗 Sincronizar carreras
+        $position->careers()->sync($request->careers ?? []);
 
         return response()->json([
-            'message' => '✅ Rol tecnológico actualizado',
-            'position'=> $position->load(['languages','technologies','competencies','methodologies']),
+            'message'  => '✅ Rol actualizado correctamente',
+            'position' => $position->load('careers'),
         ]);
     }
 
-
     /**
-     * ❌ ELIMINAR
+     * ❌ ELIMINAR ROL
      */
     public function destroy($id)
     {
         $position = TechPosition::findOrFail($id);
         $position->delete();
 
-        return response()->json(['message' => '🗑 Rol tecnológico eliminado']);
+        return response()->json([
+            'message' => '🗑 Rol eliminado correctamente',
+        ]);
     }
+
+    /**
+     * 🔄 PAGINADO CON BÚSQUEDA
+     */
     public function fetchPaginated(Request $request)
-{
-    $search = $request->get('search');
+    {
+        $search = $request->get('search');
 
-    $positions = TechPosition::with(['languages', 'technologies', 'methodologies', 'competencies'])
-        ->when($search, function ($query, $search) {
-            $query->where('position_name', 'like', "%{$search}%")
-                  ->orWhere('position_name_en', 'like', "%{$search}%")
-                  ->orWhere('category', 'like', "%{$search}%");
-        })
-        ->orderBy('id', 'desc')
-        ->paginate(10);
+        $positions = TechPosition::with('careers')
+            ->when($search, function ($query, $search) {
+                $query->where('position_name', 'like', "%{$search}%")
+                      ->orWhere('position_name_en', 'like', "%{$search}%")
+                      ->orWhere('category', 'like', "%{$search}%");
+            })
+            ->orderBy('id', 'desc')
+            ->paginate(10);
 
-    return response()->json([
-        'data' => $positions->items(),
-        'current_page' => $positions->currentPage(),
-        'last_page' => $positions->lastPage(),
-        'next_page_url' => $positions->nextPageUrl(),
-        'prev_page_url' => $positions->previousPageUrl(),
-    ]);
-}
-
+        return response()->json([
+            'data'            => $positions->items(),
+            'current_page'    => $positions->currentPage(),
+            'last_page'       => $positions->lastPage(),
+            'next_page_url'   => $positions->nextPageUrl(),
+            'prev_page_url'   => $positions->previousPageUrl(),
+        ]);
+    }
 }

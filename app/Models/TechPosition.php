@@ -16,7 +16,7 @@ class TechPosition extends Model
         'category',
         'subcategory',
         'description',
-        'active'
+        'active',
     ];
 
     protected $casts = [
@@ -37,35 +37,37 @@ class TechPosition extends Model
         });
     }
 
+    /* =====================================================
+       🔗 RELACIONES CLAVE PARA LA MÉTRICA
+    ===================================================== */
+
     /**
-     * 🔗 LENGUAJES
+     * 🔗 Carreras asociadas a este rol
+     * (regla académica del Observatorio)
      */
-    public function languages()
+    public function careers()
     {
-        return $this->belongsToMany(Language::class, 'tech_position_language');
+        return $this->belongsToMany(
+            Career::class,
+            'career_tech_position',
+            'tech_position_id',
+            'career_id'
+        )->withTimestamps();
     }
 
     /**
-     * 🔗 TECNOLOGÍAS
+     * 🔗 Vacantes donde aparece este rol
+     * (demanda laboral real)
      */
-    public function technologies()
+    public function jobOffers()
     {
-        return $this->belongsToMany(Technology::class, 'tech_position_technology');
-    }
-
-    /**
-     * 🔗 COMPETENCIAS
-     */
-    public function competencies()
-    {
-        return $this->belongsToMany(Competency::class, 'tech_position_competency');
-    }
-
-    /**
-     * 🔗 METODOLOGÍAS
-     */
-    public function methodologies()
-    {
-        return $this->belongsToMany(Methodology::class, 'tech_position_methodology');
+        return $this->belongsToMany(
+            JobOffer::class,
+            'job_offer_tech_position',
+            'tech_position_id',
+            'job_offer_id'
+        )
+        ->withPivot(['confidence_score', 'source'])
+        ->withTimestamps();
     }
 }

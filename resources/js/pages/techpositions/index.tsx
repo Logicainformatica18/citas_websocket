@@ -3,14 +3,23 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Paintbrush, Trash2, Search, Briefcase } from 'lucide-react';
+import { Trash2, Search, Briefcase } from 'lucide-react';
 import TechPositionModal from "./modal";
 
+/* =====================================================
+   Breadcrumbs
+===================================================== */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Roles Tecnológicos', href: '/tech-positions' }
 ];
 
-type SimpleItem = { id: number; name: string };
+/* =====================================================
+   Types
+===================================================== */
+type SimpleItem = {
+  id: number;
+  name: string;
+};
 
 type TechPosition = {
   id: number;
@@ -18,12 +27,10 @@ type TechPosition = {
   position_name_en: string | null;
   category?: string | null;
   subcategory?: string | null;
+  description?: string | null;
   active: number;
 
-  languages: SimpleItem[];
-  technologies: SimpleItem[];
-  methodologies: SimpleItem[];
-  competencies: SimpleItem[];
+  careers: SimpleItem[];
 };
 
 type Pagination<T> = {
@@ -32,19 +39,16 @@ type Pagination<T> = {
   last_page: number;
 };
 
+/* =====================================================
+   Page
+===================================================== */
 export default function TechPositionsIndex() {
   const {
     positions: initialPagination,
-    languages,
-    technologies,
-    methodologies,
-    competencies,
+    careers,
   } = usePage<{
     positions: Pagination<TechPosition>;
-    languages: SimpleItem[];
-    technologies: SimpleItem[];
-    methodologies: SimpleItem[];
-    competencies: SimpleItem[];
+    careers: SimpleItem[];
   }>().props;
 
   const [items, setItems] = useState<TechPosition[]>(initialPagination.data);
@@ -57,7 +61,9 @@ export default function TechPositionsIndex() {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<TechPosition | null>(null);
 
-  // 🔍 Buscador con debounce
+  /* =====================================================
+     🔍 Buscador con debounce
+  ===================================================== */
   useEffect(() => {
     if (typingTimeout) clearTimeout(typingTimeout);
 
@@ -80,6 +86,9 @@ export default function TechPositionsIndex() {
     setTypingTimeout(timeout);
   }, [searchTerm]);
 
+  /* =====================================================
+     Data helpers
+  ===================================================== */
   const fetchPage = async (url: string) => {
     try {
       const res = await axios.get(url);
@@ -111,7 +120,8 @@ export default function TechPositionsIndex() {
     }
   };
 
- return (
+
+return (
   <AppLayout breadcrumbs={breadcrumbs}>
     <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
 
@@ -119,7 +129,9 @@ export default function TechPositionsIndex() {
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
         <h1 className="text-3xl font-semibold flex items-center gap-2">
           <Briefcase className="w-6 h-6 text-[#1CBCE8]" />
-          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Roles Tecnológicos</span>
+          <span className="text-[#0C647A] dark:text-[#1CBCE8]">
+            Roles Tecnológicos
+          </span>
         </h1>
 
         <button
@@ -153,10 +165,7 @@ export default function TechPositionsIndex() {
               <th className="px-4 py-2 text-left">Acciones</th>
               <th className="px-4 py-2 text-left">Rol</th>
               <th className="px-4 py-2 text-left">Categoría</th>
-              <th className="px-4 py-2 text-left">Lenguajes</th>
-              <th className="px-4 py-2 text-left">Tecnologías</th>
-              <th className="px-4 py-2 text-left">Metodologías</th>
-              <th className="px-4 py-2 text-left">Competencias</th>
+              <th className="px-4 py-2 text-left">Carreras asociadas</th>
             </tr>
           </thead>
 
@@ -172,7 +181,7 @@ export default function TechPositionsIndex() {
                     onClick={() => fetchItem(item.id)}
                     className="text-[#1CBCE8] hover:text-[#17A8D0] flex items-center gap-1"
                   >
-                    <Paintbrush className="w-4 h-4" /> Editar
+                    ✏️ Editar
                   </button>
 
                   <button
@@ -183,79 +192,24 @@ export default function TechPositionsIndex() {
                   </button>
                 </td>
 
-                {/* NOMBRE */}
+                {/* ROL */}
                 <td className="px-4 py-2 font-semibold text-gray-900 dark:text-gray-100">
                   {item.position_name}
                 </td>
 
                 {/* CATEGORÍA */}
-                <td className="px-4 py-2">{item.category ?? '-'}</td>
-
-                {/* LENGUAJES */}
                 <td className="px-4 py-2">
-                  {item.languages.length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {item.languages.map((l) => (
-                        <span
-                          key={l.id}
-                          className="px-2 py-1 rounded-md text-xs font-medium 
-                                     bg-[#C9F3FF] text-[#0C647A] 
-                                     dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8] 
-                                     border border-[#1CBCE8]/30"
-                        >
-                          {l.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : '-'}
+                  {item.category ?? '-'}
                 </td>
 
-                {/* TECNOLOGÍAS */}
+                {/* CARRERAS */}
                 <td className="px-4 py-2">
-                  {item.technologies.length ? (
+                  {item.careers.length ? (
                     <div className="flex flex-wrap gap-1">
-                      {item.technologies.map((t) => (
-                        <span
-                          key={t.id}
-                          className="px-2 py-1 rounded-md text-xs font-medium 
-                                     bg-[#C9F3FF] text-[#0C647A]
-                                     dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
-                                     border border-[#1CBCE8]/30"
-                        >
-                          {t.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : '-'}
-                </td>
-
-                {/* METODOLOGÍAS */}
-                <td className="px-4 py-2">
-                  {item.methodologies.length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {item.methodologies.map((m) => (
-                        <span
-                          key={m.id}
-                          className="px-2 py-1 rounded-md text-xs font-medium 
-                                     bg-[#C9F3FF] text-[#0C647A]
-                                     dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
-                                     border border-[#1CBCE8]/30"
-                        >
-                          {m.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : '-'}
-                </td>
-
-                {/* COMPETENCIAS */}
-                <td className="px-4 py-2">
-                  {item.competencies.length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {item.competencies.map((c) => (
+                      {item.careers.map((c) => (
                         <span
                           key={c.id}
-                          className="px-2 py-1 rounded-md text-xs font-medium 
+                          className="px-2 py-1 rounded-md text-xs font-medium
                                      bg-[#C9F3FF] text-[#0C647A]
                                      dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]
                                      border border-[#1CBCE8]/30"
@@ -264,7 +218,11 @@ export default function TechPositionsIndex() {
                         </span>
                       ))}
                     </div>
-                  ) : '-'}
+                  ) : (
+                    <span className="text-gray-400 italic">
+                      Sin carrera asignada
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -304,10 +262,7 @@ export default function TechPositionsIndex() {
           setEditItem(null);
         }}
         itemToEdit={editItem}
-        languages={languages}
-        technologies={technologies}
-        methodologies={methodologies}
-        competencies={competencies}
+        careers={careers}
         onSaved={(saved) => {
           const idx = items.findIndex((i) => i.id === saved.id);
           if (idx >= 0) {
@@ -322,5 +277,6 @@ export default function TechPositionsIndex() {
     )}
   </AppLayout>
 );
+
 
 }
