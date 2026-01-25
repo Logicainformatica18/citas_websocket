@@ -9,13 +9,14 @@ import { SeniorityModalityPieChart } from "./components/Charts/SeniorityModality
 
 import { useSeniorityData } from "./components/hooks/useSeniorityData";
 import { useSeniorityModalityData } from "./components/hooks/useSeniorityModalityData";
+import { SeniorityFilters } from "./components/Filters/SeniorityFilters";
+
 
 /* =====================================================
    Breadcrumbs
 ===================================================== */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
-  { title: "Indicadores", href: "/dashboard/indicators" },
   { title: "Distribución de Seniority", href: "/dashboard/indicators/seniority" },
 ];
 
@@ -31,12 +32,19 @@ interface PageProps {
   };
 }
 
+
 /* =====================================================
    Page
 ===================================================== */
 export default function SeniorityIndicatorPage() {
-  const { meta } = usePage<PageProps>().props;
-
+  
+const { meta, availableCareers } = usePage<PageProps & {
+  availableCareers: {
+    id: number;
+    name: string;
+    slug: string;
+  }[];
+}>().props;
   const { data, loading } = useSeniorityData();
   const { data: modalityData } = useSeniorityModalityData();
 
@@ -47,7 +55,7 @@ export default function SeniorityIndicatorPage() {
       <div className="flex flex-col gap-6">
         {/* HEADER */}
         <SeniorityHeader meta={meta} />
-
+<SeniorityFilters careers={availableCareers} />
         {/* CONTENT */}
         {loading ? (
           <div className="px-6 py-4 text-sm text-slate-500">

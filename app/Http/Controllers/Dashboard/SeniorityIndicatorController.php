@@ -13,14 +13,12 @@ class SeniorityIndicatorController extends Controller
     /* =====================================================
        0️⃣ Vista principal (Inertia)
     ===================================================== */
- public function index(Request $request)
+public function index(Request $request)
 {
-    /* ===============================
-       Parámetros base
-    =============================== */
     $year   = (int) $request->get('year', 2025);
     $period = $request->get('period', 's2');
 
+    // 🔑 FILTRO GLOBAL
     $careers = $request->filled('career')
         ? array_filter((array) $request->career)
         : [];
@@ -35,46 +33,12 @@ class SeniorityIndicatorController extends Controller
     ]);
 
     /* =================================================
-       🟡 CHECK 1: mercado REAL (sin joins académicos)
-       Esto NUNCA debería ser 0
-    ================================================= */
-    $marketCount = DB::table('job_offers')
-        ->whereBetween(
-            DB::raw('DATE(COALESCE(published_at, created_at))'),
-            [$range['start'], $range['end']]
-        )
-        ->whereIn('seniority', ['junior', 'mid', 'senior'])
-        ->count();
-
-    Log::info('🟡 [SeniorityIndex] Market count (job_offers only)', [
-        'count' => $marketCount,
-    ]);
-
-    /* =================================================
-       🟠 CHECK 2: job_offers + certification_job
-    ================================================= */
-    $certJobCount = DB::table('job_offers as jo')
-        ->join('certification_job as cj', 'cj.job_offer_id', '=', 'jo.id')
-        ->whereBetween(
-            DB::raw('DATE(COALESCE(jo.published_at, jo.created_at))'),
-            [$range['start'], $range['end']]
-        )
-        ->whereIn('jo.seniority', ['junior', 'mid', 'senior'])
-        ->distinct('jo.id')
-        ->count('jo.id');
-
-    Log::info('🟠 [SeniorityIndex] After certification_job join', [
-        'count' => $certJobCount,
-    ]);
-
-    /* =================================================
-       🔴 CHECK 3: JOIN COMPLETO (el que hoy te da 0)
+       Vacantes analizadas (MISMA LÓGICA QUE LOS GRÁFICOS)
     ================================================= */
     $vacantesQuery = DB::table('job_offers as jo')
-        ->join('certification_job as cj', 'cj.job_offer_id', '=', 'jo.id')
-        ->join('certification_course as cc', 'cc.certification_id', '=', 'cj.certification_id')
-        ->join('career_course as crc', 'crc.course_id', '=', 'cc.course_id')
-        ->join('careers as ca', 'ca.id', '=', 'crc.career_id')
+        ->join('competency_job_offer as cjo', 'cjo.job_offer_id', '=', 'jo.id')
+        ->join('competencies as comp', 'comp.id', '=', 'cjo.competency_id')
+        ->join('careers as ca', 'ca.id', '=', 'comp.career_id')
         ->whereBetween(
             DB::raw('DATE(COALESCE(jo.published_at, jo.created_at))'),
             [$range['start'], $range['end']]
@@ -89,26 +53,19 @@ class SeniorityIndicatorController extends Controller
         ->distinct('jo.id')
         ->count('jo.id');
 
-    Log::info('🔴 [SeniorityIndex] After FULL academic join', [
-        'count' => $vacantesAnalizadas,
-    ]);
-
     /* =================================================
-       Carreras disponibles
+       Carreras disponibles (para filtro)
     ================================================= */
     $availableCareers = DB::table('careers')
         ->where('active', 1)
         ->orderBy('name')
         ->get(['id', 'name', 'slug']);
 
-    /* =================================================
-       Render
-    ================================================= */
     return Inertia::render('DashboardSeniority/Index', [
         'filters' => [
             'year'   => $year,
             'period' => $period,
-            'career' => $careers,
+            'career' => $careers, // 👈 CLAVE
         ],
         'availableCareers' => $availableCareers,
         'meta' => [
@@ -121,6 +78,7 @@ class SeniorityIndicatorController extends Controller
         ],
     ]);
 }
+
 
 
     /* =====================================================
@@ -167,7 +125,6 @@ class SeniorityIndicatorController extends Controller
             'rows_updated' => $affected,
         ]);
     }
-
     /* =====================================================
        2️⃣ Distribución de seniority por carrera
     ===================================================== */
@@ -294,55 +251,60 @@ public function modalityDistribution(Request $request)
     $year   = (int) $request->get('year', 2025);
     $period = $request->get('period', 's2');
 
+    $careers = $request->filled('career')
+        ? array_filter((array) $request->career)
+        : [];
+
     $range = $this->getPeriodRange($period, $year);
 
     Log::info('📊 [SeniorityModality] Params', [
-        'year'   => $year,
-        'period' => $period,
-        'range'  => $range,
+        'year'    => $year,
+        'period'  => $period,
+        'range'   => $range,
+        'careers' => $careers,
     ]);
 
-    /* =================================================
-       Conteo normalizado
-       Reglas:
-       - remote, fully_remote  → remoto
-       - hybrid, remote_local  → híbrido
-       - no_remote             → presencial
-    ================================================= */
-    $row = DB::table('job_offers')
+    $query = DB::table('job_offers as jo')
+        ->join('competency_job_offer as cjo', 'cjo.job_offer_id', '=', 'jo.id')
+        ->join('competencies as comp', 'comp.id', '=', 'cjo.competency_id')
+        ->join('careers as ca', 'ca.id', '=', 'comp.career_id')
         ->whereBetween(
-            DB::raw('DATE(COALESCE(published_at, created_at))'),
+            DB::raw('DATE(COALESCE(jo.published_at, jo.created_at))'),
             [$range['start'], $range['end']]
         )
-        ->whereIn('seniority', ['junior', 'mid', 'senior'])
-        ->whereNotNull('modality')
-        ->selectRaw("
-            SUM(
-                CASE
-                    WHEN modality IN ('remote','fully_remote','remote_local') THEN 1
-                    ELSE 0
-                END
-            ) AS remoto,
+        ->whereIn('jo.seniority', ['junior', 'mid', 'senior'])
+        ->whereNotNull('jo.modality');
 
-            SUM(
-                CASE
-                    WHEN modality IN ('hybrid') THEN 1
-                    ELSE 0
-                END
-            ) AS hibrido,
+    // 🔑 MISMO FILTRO QUE LOS OTROS GRÁFICOS
+    if (!empty($careers)) {
+        $query->whereIn('ca.slug', $careers);
+    }
 
-            SUM(
-                CASE
-                    WHEN modality = 'no_remote' THEN 1
-                    ELSE 0
-                END
-            ) AS presencial
-        ")
-        ->first();
+    $row = $query->selectRaw("
+        SUM(
+            CASE
+                WHEN jo.modality IN ('remote','fully_remote') THEN 1
+                ELSE 0
+            END
+        ) AS remoto,
+
+        SUM(
+            CASE
+                WHEN jo.modality IN ('hybrid','remote_local') THEN 1
+                ELSE 0
+            END
+        ) AS hibrido,
+
+        SUM(
+            CASE
+                WHEN jo.modality = 'no_remote' THEN 1
+                ELSE 0
+            END
+        ) AS presencial
+    ")->first();
 
     $total = ($row->remoto + $row->hibrido + $row->presencial);
 
-    // Evitar división por cero
     if ($total === 0) {
         return response()->json([
             'status' => 'ok',
@@ -352,15 +314,11 @@ public function modalityDistribution(Request $request)
                 'onsite'  => 0,
             ],
             'meta' => [
-                'note' => 'No existen vacantes con modalidad para el período seleccionado',
+                'note' => 'No existen vacantes con modalidad para los filtros seleccionados',
             ],
         ]);
     }
 
-    /* =================================================
-       Respuesta para frontend (EN INGLÉS)
-       → compatible con Recharts
-    ================================================= */
     return response()->json([
         'status' => 'ok',
         'data' => [
@@ -373,11 +331,13 @@ public function modalityDistribution(Request $request)
             'period'      => $period,
             'total_jobs'  => $total,
             'calculation' => '% modalidad = (vacantes_modalidad / total_vacantes) × 100',
-            'source'      => 'job_offers.modality (normalizada)',
+            'source'      => 'job_offers → competencies → careers',
         ],
     ]);
 }
 
+
+    
 
     /* =====================================================
        Utils

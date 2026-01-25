@@ -120,7 +120,7 @@ Route::get(
 )->name('dashboard.indicators.seniority.data');
 
 Route::post(
-    '/indicators/seniority/update',
+    '/indicators/seniority/update-seniority',
     [SeniorityIndicatorController::class, 'updateSeniority']
 )->name('dashboard.indicators.seniority.update');
 
