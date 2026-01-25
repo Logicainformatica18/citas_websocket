@@ -51,6 +51,9 @@ use App\Http\Controllers\Dashboard\JobModalityIndicatorController;
 use App\Http\Controllers\Trends\TrendTechnologyController;
 use App\Http\Controllers\Dashboard\RankingCarrerasController;
 use App\Http\Controllers\Dashboard\SeniorityIndicatorController;
+use App\Http\Controllers\Dashboard\CompanyIndicatorController;
+use App\Http\Controllers\Dashboard\JobDemandGeoIndicatorController;
+
 
 
 
@@ -104,6 +107,21 @@ Route::middleware(['auth'])->group(function () {
 
 
  Route::prefix('dashboard')->group(function () {
+
+// routes/dashboard.php
+  Route::get(
+            '/indicators/job-demand-geo',
+            [JobDemandGeoIndicatorController::class, 'index']
+        )->name('dashboard.indicators.job-demand-geo'); 
+Route::get(
+    '/indicators/companies',
+    [CompanyIndicatorController::class, 'index']
+);
+
+Route::get(
+    '/indicators/companies/countries',
+    [CompanyIndicatorController::class, 'searchCountries']
+);
 
 
  Route::get(
