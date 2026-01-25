@@ -50,6 +50,9 @@ use App\Http\Controllers\Dashboard\RankingLenguajesController;
 use App\Http\Controllers\Dashboard\JobModalityIndicatorController;
 use App\Http\Controllers\Trends\TrendTechnologyController;
 use App\Http\Controllers\Dashboard\RankingCarrerasController;
+use App\Http\Controllers\Dashboard\SeniorityIndicatorController;
+
+
 
 
 // Route::get(
@@ -98,8 +101,28 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
 
+
+
  Route::prefix('dashboard')->group(function () {
 
+
+ Route::get(
+    '/indicators/seniority/modality',
+    [SeniorityIndicatorController::class, 'modalityDistribution']
+);
+
+Route::get(
+    '/indicators/seniority',  [SeniorityIndicatorController::class, 'index']
+)->name('dashboard.indicators.seniority.index');
+Route::get(
+    '/indicators/seniority/distribution-by-career',
+    [SeniorityIndicatorController::class, 'distributionByCareer']
+)->name('dashboard.indicators.seniority.data');
+
+Route::post(
+    '/indicators/seniority/update',
+    [SeniorityIndicatorController::class, 'updateSeniority']
+)->name('dashboard.indicators.seniority.update');
 
 
   Route::get('/ranking-carreras', [RankingCarrerasController::class, 'index'])
@@ -289,7 +312,7 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
 
 
 
-   
+
 
 
 

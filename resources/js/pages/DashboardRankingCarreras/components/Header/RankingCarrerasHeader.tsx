@@ -200,7 +200,7 @@ export function RankingCarrerasHeader({ meta }: HeaderProps) {
     </p>
 
     {/* ===== ACTION ===== */}
- 
+
 
     {/* ===== STEPS ===== */}
     <div className="space-y-2 text-sm text-[#0A2540] dark:text-gray-300">
@@ -212,7 +212,7 @@ export function RankingCarrerasHeader({ meta }: HeaderProps) {
     {/* ===== FOOTER ===== */}
     <p className="mt-4 mb-4 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
         Los cálculos se realizan únicamente con datos del período seleccionado.
-        
+
     </p>
        <button
         onClick={async () => {

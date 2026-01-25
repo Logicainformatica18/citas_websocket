@@ -6,6 +6,17 @@ import { CareerKpiGrid } from "./components/KPIs/CareerKpiGrid";
 import { CareerRankingTable } from "./components/Table/CareerRankingTable";
 import { CareerMethodologyCard } from "./components/Methodology/CareerMethodologyCard";
 import { RankingCarrerasFilters } from "./components/Filters/RankingCarrerasFilters";
+import { Head } from "@inertiajs/react";
+import { type BreadcrumbItem } from "@/types";
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: "Dashboard", href: "/dashboard" },
+
+    {
+        title: "Demanda laboral por carrera",
+        href: "/dashboard/ranking-carreras",
+    },
+];
 
 /* =====================================================
    Page
@@ -45,12 +56,13 @@ export default function RankingCarrerasPage() {
     const topCareer = ranking?.data?.[0]?.name ?? null;
 
     return (
-        <AppLayout>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppLayout breadcrumbs={breadcrumbs}>
+        <Head title="Demanda laboral por carrera | Observatorio ISIL" />
 
-                {/* ================= HEADER ================= */}
-                <RankingCarrerasHeader meta={meta} />
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 
+            {/* ================= HEADER ================= */}
+            <RankingCarrerasHeader meta={meta} />
                 {/* ================= CONTENIDO ================= */}
                 <div className="mx-auto max-w-7xl px-6 lg:px-8">
 

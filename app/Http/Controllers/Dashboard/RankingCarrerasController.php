@@ -27,7 +27,12 @@ public function syncRoles(SyncCareerRolesService $service)
         /* ==================================================
            0. Parámetros base (MISMO PATRÓN ISIL)
         ================================================== */
-        $year   = (int) $request->get('year', now()->year);
+      $DEFAULT_YEAR = 2025;
+$DEFAULT_PERIOD = 's2';
+
+$year = (int) $request->get('year', $DEFAULT_YEAR);
+$period = $request->get('period', $DEFAULT_PERIOD);
+
         $period = $request->get('period', 's2');
 
         if (!in_array($period, ['s1', 's2'])) {
