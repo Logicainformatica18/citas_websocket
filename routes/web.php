@@ -117,6 +117,15 @@ Route::get(
     '/indicators/companies',
     [CompanyIndicatorController::class, 'index']
 );
+Route::get(
+    '/indicators/job-demand-geo/heatmap',
+    [JobDemandGeoIndicatorController::class, 'getData']
+)->name('dashboard.job-demand-geo.heatmap');
+ Route::get(
+            '/heatmap',
+            [JobDemandGeoIndicatorController::class, 'heatmap']
+        )->name('dashboard.indicators.job-demand-geo.heatmap');
+
 
 Route::get(
     '/indicators/companies/countries',
