@@ -11,23 +11,23 @@ const RANKING_TYPES = [
   { value: "trend", label: "Lenguajes en tendencia" },
 ];
 
+const TREND_DOMAINS = [
+  { value: "language", label: "Lenguajes" },
+];
+
 /* =====================================================
    Component
 ===================================================== */
 export default function RankingFilters() {
-  const {
-  filters,
-  availableTrendCategories = [],
-} = usePage().props as {
-  filters: any;
-  availableTrendCategories?: string[];
-};
-
+  const { filters } = usePage().props as {
+    filters: any;
+  };
 
   const [openType, setOpenType] = useState(false);
   const typeRef = useRef<HTMLDivElement>(null);
 
   const activeRankingType = filters.ranking_type ?? "all";
+  const trendDomain = filters.trend_domain ?? "language";
   const isTrendOnly = activeRankingType === "trend";
 
   /* =========================================
@@ -81,6 +81,10 @@ export default function RankingFilters() {
     RANKING_TYPES.find((t) => t.value === activeRankingType)?.label ??
     "Ranking general";
 
+  const trendDomainLabel =
+    TREND_DOMAINS.find((d) => d.value === trendDomain)?.label ??
+    "Lenguajes";
+
   /* =========================================
      Render
   ========================================= */
@@ -125,9 +129,9 @@ export default function RankingFilters() {
                     navigate(
                       {
                         ranking_type: type.value,
-                        ...(type.value !== "trend"
-                          ? { trend_category: null }
-                          : {}),
+                        ...(type.value === "trend"
+                          ? { trend_domain: trendDomain }
+                          : { trend_domain: null }),
                       },
                       true
                     );
@@ -150,16 +154,13 @@ export default function RankingFilters() {
           )}
         </div>
 
-        {/* ===== CATEGORÍA DE TENDENCIAS ===== */}
+        {/* ===== DOMINIO DE TENDENCIAS ===== */}
         {isTrendOnly && (
           <div className="w-72">
             <select
-              value={filters.trend_category ?? ""}
+              value={trendDomain}
               onChange={(e) =>
-                navigate(
-                  { trend_category: e.target.value || null },
-                  true
-                )
+                navigate({ trend_domain: e.target.value }, true)
               }
               className="
                 w-full rounded-xl border px-4 py-2
@@ -169,10 +170,9 @@ export default function RankingFilters() {
                 dark:border-[#1E3A4A]
               "
             >
-              <option value="">Todas las tendencias</option>
-              {availableTrendCategories.map((c: string) => (
-                <option key={c} value={c}>
-                  {c}
+              {TREND_DOMAINS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
                 </option>
               ))}
             </select>
@@ -189,18 +189,18 @@ export default function RankingFilters() {
             label={`Tipo: ${rankingTypeLabel}`}
             onRemove={() =>
               navigate(
-                { ranking_type: "all", trend_category: null },
+                { ranking_type: "all", trend_domain: null },
                 true
               )
             }
           />
         )}
 
-        {isTrendOnly && filters.trend_category && (
+        {isTrendOnly && trendDomain && (
           <Chip
-            label={`Tendencia: ${filters.trend_category}`}
+            label={`Dominio: ${trendDomainLabel}`}
             onRemove={() =>
-              navigate({ trend_category: null }, true)
+              navigate({ trend_domain: null }, true)
             }
           />
         )}

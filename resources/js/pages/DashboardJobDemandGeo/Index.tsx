@@ -17,7 +17,6 @@ import JobDemandGeoMethodologyCard from "./components/Methodology/JobDemandGeoMe
 ========================================================= */
 const breadcrumbs: BreadcrumbItem[] = [
     { title: "Dashboard", href: "/dashboard" },
-    { title: "Indicadores", href: "/dashboard/indicadores" },
     { title: "Demanda laboral por ciudad", href: "#" },
 ];
 

@@ -42,6 +42,9 @@ export default function LanguageCard({
     finalScore >= 70 ? "Alta" :
     finalScore >= 40 ? "Media" :
     "Baja";
+const isISIL =
+  data.is_isil === 1 ||
+  (data.entity_type === "language" && data.total_jobs > 0);
 
   return (
     <div
@@ -179,14 +182,33 @@ export default function LanguageCard({
         </div>
 
         {/* ================= RIGHT ================= */}
-        <div className="flex flex-col items-end justify-start text-right">
-          <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
-            {finalScore.toFixed(1)}
-          </span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
-            Resultado final
-          </span>
-        </div>
+     {/* ================= RIGHT ================= */}
+<div className="flex flex-col items-end justify-between text-right">
+  <div>
+    <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
+      {finalScore.toFixed(1)}
+    </span>
+    <span className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
+      Resultado final
+    </span>
+  </div>
+
+  {isISIL && (
+    <span
+      className="
+        mt-4 inline-flex items-center
+        rounded-full px-3 py-1
+        text-xs font-semibold
+        bg-sky-100 text-sky-700
+        dark:bg-[#14384F]
+        dark:text-[#7DD3FC]
+      "
+    >
+      ISIL
+    </span>
+  )}
+</div>
+
       </div>
     </div>
   );

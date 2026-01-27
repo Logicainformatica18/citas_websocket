@@ -47,7 +47,7 @@ class RankingLenguajesController extends Controller
     /* ==================================================
        RANKING PRINCIPAL – LANGUAGES
     ================================================== */
-    public function index(Request $request)
+public function index(Request $request)
 {
     /* ================= PARÁMETROS BASE ================= */
     $year    = (int) $request->get('year', 2025);
@@ -61,16 +61,22 @@ class RankingLenguajesController extends Controller
 
     $careers = array_filter((array) $request->get('career', []));
 
-    $careerFilter = function ($q) use ($careers) {
-    $q->select(DB::raw(1))
-      ->from('course_language as cl')
-      ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
-      ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-      ->whereColumn('cl.language_id', 'l.id')
-      ->whereIn('ca.slug', $careers);
-};
+    // 🔥 Dominio de tendencias (formal)
+    $trendDomain = $request->get('trend_domain', 'language');
 
-    $range   = $this->getPeriodRange($period, $year);
+    // 🔥 Filtro centralizado de tendencias de lenguajes
+    $applyLanguageTrendFilter = function ($q) use ($trendDomain) {
+        if ($trendDomain === 'language') {
+            $q->whereIn('tt.topic_category', [
+                'Lenguaje',
+                'Lenguajes',
+                'Language',
+                'Programming Language',
+            ]);
+        }
+    };
+
+    $range = $this->getPeriodRange($period, $year);
 
     /* ================= PONDERACIONES ================= */
     try {
@@ -113,40 +119,35 @@ class RankingLenguajesController extends Controller
         ->value('MAX(offers)') ?: 1;
 
     /* ==================================================
-       2. TOTAL DE REPORTES DE TENDENCIA (META)
+       2. TOTAL DE REPORTES DE TENDENCIA
     ================================================== */
-    $totalReports = DB::table('technology_trends')
-        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.intent')) = 'technology_trend'")
-        ->where('year', $year)
-        ->where('quarter', $quarter)
-        ->where(function ($q) {
-            $q->where('topic_category', 'LIKE', '%Lenguaje%')
-              ->orWhere('topic_category', 'LIKE', '%Lenguajes%')
-              ->orWhere('topic_category', 'LIKE', '%Language%');
+    $totalReports = DB::table('technology_trends as tt')
+        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
+        ->where('tt.year', $year)
+        ->where('tt.quarter', $quarter)
+        ->where(function ($q) use ($applyLanguageTrendFilter) {
+            $applyLanguageTrendFilter($q);
         })
-        ->distinct('id')
-        ->count('id');
+        ->distinct('tt.id')
+        ->count('tt.id');
 
     $totalReports = max($totalReports, 1);
 
     /* ==================================================
-       3. SUBQUERY REPORTES POR LENGUAJE (DERIVADO)
+       3. SUBQUERY REPORTES POR LENGUAJE
     ================================================== */
- $reportsSub = DB::table('technology_trends as tt')
-    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
-    ->where('tt.year', $year)
-    ->where('tt.quarter', $quarter)
-    ->where(function ($q) {
-        $q->where('tt.topic_category', 'LIKE', '%Lenguaje%')
-          ->orWhere('tt.topic_category', 'LIKE', '%Lenguajes%')
-          ->orWhere('tt.topic_category', 'LIKE', '%Language%');
-    })
-    ->select(
-        DB::raw('LOWER(tt.topic_name) as language_name'),
-        DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
-    )
-    ->groupBy(DB::raw('LOWER(tt.topic_name)'));
-
+    $reportsSub = DB::table('technology_trends as tt')
+        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
+        ->where('tt.year', $year)
+        ->where('tt.quarter', $quarter)
+        ->where(function ($q) use ($applyLanguageTrendFilter) {
+            $applyLanguageTrendFilter($q);
+        })
+        ->select(
+            DB::raw('LOWER(tt.topic_name) as language_name'),
+            DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
+        )
+        ->groupBy(DB::raw('LOWER(tt.topic_name)'));
 
     /* ==================================================
        4. LENGUAJES ISIL (LABOR + TREND)
@@ -181,7 +182,17 @@ class RankingLenguajesController extends Controller
 
     $languagesQuery = $languagesQuery->select(
         DB::raw("'language' as entity_type"),
-        DB::raw('1 as is_isil'),
+        DB::raw("
+            CASE 
+              WHEN EXISTS (
+                SELECT 1
+                FROM course_language cl
+                JOIN career_course cc ON cc.course_id = cl.course_id
+                WHERE cl.language_id = l.id
+              )
+              THEN 1 ELSE 0
+            END as is_isil
+        "),
         DB::raw('0 as is_real_trend'),
 
         'l.id',
@@ -226,10 +237,8 @@ class RankingLenguajesController extends Controller
         ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
         ->where('tt.year', $year)
         ->where('tt.quarter', $quarter)
-        ->where(function ($q) {
-            $q->where('tt.topic_category', 'LIKE', '%Lenguaje%')
-              ->orWhere('tt.topic_category', 'LIKE', '%Lenguajes%')
-              ->orWhere('tt.topic_category', 'LIKE', '%Language%');
+        ->where(function ($q) use ($applyLanguageTrendFilter) {
+            $applyLanguageTrendFilter($q);
         })
         ->select(
             DB::raw("'trend' as entity_type"),
@@ -241,8 +250,7 @@ class RankingLenguajesController extends Controller
             'tt.topic_category as category',
 
             DB::raw('0 as total_jobs'),
-          DB::raw('tt.trend_score > 0 as trend_reports'),
-
+            DB::raw('1 as trend_reports'),
 
             DB::raw('0 as labor_score'),
             'tt.trend_score as trend_score',
@@ -259,17 +267,13 @@ class RankingLenguajesController extends Controller
     /* ==================================================
        6. UNION + FILTRO
     ================================================== */
-  if ($rankingType === 'language') {
-    $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
-
-} elseif ($rankingType === 'trend') {
-    $rankingBase = DB::query()->fromSub($trendsQuery, 'ranking');
-
-} else {
-    // 🔥 ALL = solo lenguajes consolidados
-    $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
-}
-
+    if ($rankingType === 'language') {
+        $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
+    } elseif ($rankingType === 'trend') {
+        $rankingBase = DB::query()->fromSub($trendsQuery, 'ranking');
+    } else {
+        $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
+    }
 
     $ranking = $rankingBase
         ->orderByDesc('final_score')
@@ -286,6 +290,7 @@ class RankingLenguajesController extends Controller
                 'period'       => $period,
                 'career'       => $careers,
                 'ranking_type' => $rankingType,
+                'trend_domain' => $trendDomain,
             ],
             'availableCareers' => $availableCareers,
             'weights' => [
