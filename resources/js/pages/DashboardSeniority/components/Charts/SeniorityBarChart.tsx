@@ -21,6 +21,27 @@ const ISIL_COLORS = {
 };
 
 export function SeniorityBarChart({ data }: Props) {
+  /* =====================================================
+     EMPTY STATE
+  ===================================================== */
+  if (!data || data.length === 0) {
+    return (
+      <div className="border rounded-xl p-6 bg-white dark:bg-[#0F2A3A] dark:border-[#1E3A4A]">
+        <p className="text-base font-semibold mb-2 text-slate-900 dark:text-slate-100">
+          Distribución de seniority por carrera (%)
+        </p>
+
+        <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          No hay datos de seniority disponibles para la carrera seleccionada en
+          este período.
+        </div>
+      </div>
+    );
+  }
+
+  /* =====================================================
+     TRANSFORM DATA
+  ===================================================== */
   const chartData = data.map((career) => {
     const row: any = { name: career.career_name };
 
@@ -31,9 +52,17 @@ export function SeniorityBarChart({ data }: Props) {
     return row;
   });
 
-  /* 🔑 aire vertical */
+  /* =====================================================
+     DIMENSIONS
+  ===================================================== */
   const ROW_HEIGHT = 84;
-  const chartHeight = data.length * ROW_HEIGHT;
+  const MIN_HEIGHT = 240;
+  const chartHeight = Math.max(data.length * ROW_HEIGHT, MIN_HEIGHT);
+
+  /* =====================================================
+     FORCE RE-RENDER (career change)
+  ===================================================== */
+  const chartKey = data.map((d) => d.career_id).join("-");
 
   return (
     <div className="border rounded-xl p-6 bg-white dark:bg-[#0F2A3A] dark:border-[#1E3A4A]">
@@ -44,13 +73,14 @@ export function SeniorityBarChart({ data }: Props) {
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
+            key={chartKey}
             data={chartData}
             layout="vertical"
-            margin={{ top: 10, right: 30, left: 180, bottom: 10 }} // 👈 CLAVE
+            margin={{ top: 10, right: 30, left: 180, bottom: 10 }}
             barCategoryGap={36}
             barGap={12}
           >
-            {/* 🧭 GRID SUAVE */}
+            {/* GRID */}
             <CartesianGrid
               strokeDasharray="3 3"
               vertical
@@ -59,7 +89,7 @@ export function SeniorityBarChart({ data }: Props) {
               opacity={0.4}
             />
 
-            {/* 📐 EJE X */}
+            {/* X AXIS */}
             <XAxis
               type="number"
               domain={[0, 100]}
@@ -68,17 +98,17 @@ export function SeniorityBarChart({ data }: Props) {
               tick={{ fontSize: 12 }}
             />
 
-            {/* 📐 EJE Y */}
+            {/* Y AXIS */}
             <YAxis
               type="category"
               dataKey="name"
-              width={170} // 👈 MÁS COMPACTO
+              width={170}
               tick={{ fontSize: 13 }}
             />
 
             <Tooltip formatter={(v: number) => `${v}%`} />
 
-            {/* 🎨 LEYENDA */}
+            {/* LEGEND */}
             <Legend
               verticalAlign="top"
               align="right"
@@ -108,7 +138,7 @@ export function SeniorityBarChart({ data }: Props) {
               }}
             />
 
-            {/* BARRAS */}
+            {/* BARS */}
             <Bar
               dataKey="junior"
               fill={ISIL_COLORS.junior}

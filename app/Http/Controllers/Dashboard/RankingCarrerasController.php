@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Services\Careers\SyncCareerRolesService;
 
 class RankingCarrerasController extends Controller
 {

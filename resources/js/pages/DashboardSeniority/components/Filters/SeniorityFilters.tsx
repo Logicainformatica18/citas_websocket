@@ -1,5 +1,6 @@
 import { router, usePage } from "@inertiajs/react";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
 
 type Career = {
   id: number;
@@ -12,19 +13,36 @@ interface Props {
 }
 
 export function SeniorityFilters({ careers }: Props) {
-  const { filters } = usePage().props as any;
+  const page = usePage().props as any;
 
+  /* =====================================================
+     Estado LOCAL sincronizado
+  ===================================================== */
+  const [selected, setSelected] = useState<string[]>(
+    page.filters?.career ?? []
+  );
+
+  /* =====================================================
+     Sync cuando Inertia responde
+  ===================================================== */
+  useEffect(() => {
+    setSelected(page.filters?.career ?? []);
+  }, [page.filters?.career]);
+
+  /* =====================================================
+     Toggle career
+  ===================================================== */
   const toggleCareer = (slug: string) => {
-    const current = filters?.career ?? [];
+    const next = selected.includes(slug)
+      ? selected.filter((c) => c !== slug)
+      : [...selected, slug];
 
-    const next = current.includes(slug)
-      ? current.filter((c: string) => c !== slug)
-      : [...current, slug];
+    setSelected(next); // 👈 feedback inmediato
 
     router.get(
       "/dashboard/indicators/seniority",
       {
-        ...filters,
+        ...page.filters,
         career: next.length ? next : undefined,
         page: 1,
       },
@@ -36,10 +54,12 @@ export function SeniorityFilters({ careers }: Props) {
   };
 
   const clear = () => {
+    setSelected([]);
+
     router.get(
       "/dashboard/indicators/seniority",
       {
-        ...filters,
+        ...page.filters,
         career: undefined,
         page: 1,
       },
@@ -59,7 +79,7 @@ export function SeniorityFilters({ careers }: Props) {
             Filtrar por carrera
           </p>
 
-          {filters?.career?.length > 0 && (
+          {selected.length > 0 && (
             <button
               onClick={clear}
               className="text-xs font-medium text-[#00B6E8] hover:underline"
@@ -72,7 +92,7 @@ export function SeniorityFilters({ careers }: Props) {
         {/* Badges */}
         <div className="flex flex-wrap gap-2">
           {careers.map((career) => {
-            const active = filters?.career?.includes(career.slug);
+            const active = selected.includes(career.slug);
 
             return (
               <Badge
@@ -83,20 +103,21 @@ export function SeniorityFilters({ careers }: Props) {
                   transition-all
                   duration-200
                   select-none
-                  ${active
-                    ? `
-                      bg-[#00B6E8]
-                      text-white
-                      opacity-100
-                      shadow-sm
-                    `
-                    : `
-                      bg-[#ECFAFD]
-                      text-[#4B7C91]
-                      opacity-60
-                      hover:opacity-85
-                      hover:bg-[#DFF3FB]
-                    `
+                  ${
+                    active
+                      ? `
+                        bg-[#00B6E8]
+                        text-white
+                        opacity-100
+                        shadow-sm
+                      `
+                      : `
+                        bg-[#ECFAFD]
+                        text-[#4B7C91]
+                        opacity-60
+                        hover:opacity-85
+                        hover:bg-[#DFF3FB]
+                      `
                   }
                 `}
               >

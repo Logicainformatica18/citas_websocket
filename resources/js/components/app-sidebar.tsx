@@ -115,7 +115,11 @@ export function AppSidebar() {
                     icon={<Building2 className={isilBlue} />}
                     label="Demanda Ciudad"
                 />
-
+   <MenuItem
+                    href="/dashboard/ranking-carreras"
+                    icon={<Building2 className={isilBlue} />}
+                    label="Demanda por Carrera"
+                />
                 <MenuItem
                     href="/dashboard/indicadores/modalidad-laboral"
                     icon={<Laptop className={isilBlue} />}

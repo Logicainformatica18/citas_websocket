@@ -23,6 +23,7 @@ interface HeaderProps {
 export function SeniorityHeader({ meta }: HeaderProps) {
   const { filters } = usePage().props as any;
   const [updating, setUpdating] = useState(false);
+const hasCareerFilter = filters?.career && filters.career.length > 0;
 
   /* ===============================
      Cambio de filtros
@@ -105,10 +106,12 @@ export function SeniorityHeader({ meta }: HeaderProps) {
             </div>
 
             {/* Description */}
-            <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
-              Análisis del nivel de experiencia solicitado por el mercado laboral,
-              segmentado por carrera y período.
-            </p>
+           <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+  {hasCareerFilter
+    ? "Análisis del nivel de experiencia solicitado por el mercado laboral, alineado a la carrera seleccionada."
+    : "Análisis del nivel de experiencia solicitado por el mercado laboral, a nivel general."}
+</p>
+
 
             {/* ===== CONTROLES ===== */}
             <div className="flex flex-wrap items-end gap-8">
@@ -173,10 +176,12 @@ export function SeniorityHeader({ meta }: HeaderProps) {
 
               {/* Badges */}
               <div className="flex flex-wrap items-center gap-3">
-                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-                  <Database className="h-3 w-3 text-[#00B6E8]" />
-                  {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
-                </Badge>
+              <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+  <Database className="h-3 w-3 text-[#00B6E8]" />
+  {meta.vacantes_analizadas.toLocaleString()}{" "}
+  {hasCareerFilter ? "vacantes alineadas a carrera" : "vacantes del mercado"}
+</Badge>
+
 
                 <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
                   <Briefcase className="h-3 w-3 text-[#00B6E8]" />
@@ -206,7 +211,12 @@ export function SeniorityHeader({ meta }: HeaderProps) {
             <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
               <li>• Detección del seniority solicitado en cada vacante.</li>
               <li>• Normalización de experiencia (junior / mid / senior).</li>
-              <li>• Asociación a carreras mediante competencias.</li>
+             <li>
+  • {hasCareerFilter
+    ? "Asociación directa a la carrera seleccionada mediante tech positions."
+    : "Cobertura del mercado laboral general (sin filtro por carrera)."}
+</li>
+
               <li>• Cálculo porcentual por carrera.</li>
             </ul>
 
