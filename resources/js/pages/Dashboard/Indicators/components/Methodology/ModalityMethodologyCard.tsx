@@ -68,9 +68,9 @@ export default function ModalityMethodologyCard() {
       </div>
 
       {/* Footer */}
-      <div className="mt-6 border-t border-[#BEE9F7] pt-4 text-xs text-slate-500">
+      {/* <div className="mt-6 border-t border-[#BEE9F7] pt-4 text-xs text-slate-500">
         100% basado en demanda laboral real de portales de empleo.
-      </div>
+      </div> */}
     </div>
   );
 }

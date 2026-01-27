@@ -151,27 +151,27 @@ class RunAllJobs extends Command
 // 'usajobs:technologies',
 
 
- 'adzuna:competencies --country=us --pages=1',
-    'adzuna:competencies --country=ca --pages=1',
-    'adzuna:competencies --country=mx --pages=1',
-    'adzuna:competencies --country=br --pages=1',
+//  'adzuna:competencies --country=us --pages=1',
+//     'adzuna:competencies --country=ca --pages=1',
+//     'adzuna:competencies --country=mx --pages=1',
+//     'adzuna:competencies --country=br --pages=1',
 
-    'adzuna:competencies --country=es --pages=1',
-    'adzuna:competencies --country=fr --pages=1',
-    'adzuna:competencies --country=de --pages=1',
-    'adzuna:competencies --country=it --pages=1',
-    'adzuna:competencies --country=gb --pages=1',
-    'adzuna:competencies --country=nl --pages=1',
-    'adzuna:competencies --country=ch --pages=1',
-    'adzuna:competencies --country=pl --pages=1',
+//     'adzuna:competencies --country=es --pages=1',
+//     'adzuna:competencies --country=fr --pages=1',
+//     'adzuna:competencies --country=de --pages=1',
+//     'adzuna:competencies --country=it --pages=1',
+//     'adzuna:competencies --country=gb --pages=1',
+//     'adzuna:competencies --country=nl --pages=1',
+//     'adzuna:competencies --country=ch --pages=1',
+//     'adzuna:competencies --country=pl --pages=1',
 
-'adzuna:competencies --country=in --pages=1',
-'adzuna:competencies --country=sg --pages=1',
+// 'adzuna:competencies --country=in --pages=1',
+// 'adzuna:competencies --country=sg --pages=1',
 
-'adzuna:competencies --country=za --pages=1',
+// 'adzuna:competencies --country=za --pages=1',
 
-'adzuna:competencies --country=au --pages=1',
-'adzuna:competencies --country=nz --pages=1',
+// 'adzuna:competencies --country=au --pages=1',
+// 'adzuna:competencies --country=nz --pages=1',
 
  'computrabajo:competencies  --pages=5',
 'computrabajo:technologies --country=pe --pages=1',
@@ -227,7 +227,15 @@ class RunAllJobs extends Command
 // 'jobicy:certifications',
 // 'reed:certifications',
 // 'remoteok:certifications',
-// 'remotive:certifications'
+// 'remotive:certifications',
+
+
+'normalize:asia-countries',
+'normalize:europe-countries',
+'joboffers:normalize-regions',
+'joboffers:normalize-north-america',
+'joboffers:normalize-oceania'
+
 
 ];
 

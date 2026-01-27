@@ -4,7 +4,6 @@ import { usePage } from "@inertiajs/react";
 import { RankingCarrerasHeader } from "./components/Header/RankingCarrerasHeader";
 import { CareerKpiGrid } from "./components/KPIs/CareerKpiGrid";
 import { CareerRankingTable } from "./components/Table/CareerRankingTable";
-import { CareerMethodologyCard } from "./components/Methodology/CareerMethodologyCard";
 import { RankingCarrerasFilters } from "./components/Filters/RankingCarrerasFilters";
 import { Head } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
@@ -88,9 +87,7 @@ export default function RankingCarrerasPage() {
                     </div>
 
                     {/* ================= METODOLOGÍA ================= */}
-                    <div className="mt-10 pb-10">
-                        <CareerMethodologyCard />
-                    </div>
+                
 
                 </div>
             </div>

@@ -10,6 +10,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
 
     \App\Console\Commands\Certifications\AdzunaByCertificationsCommand::class,
+    \App\Console\Commands\Normalize\NormalizeOceaniaCountries::class,
     \App\Console\Commands\GetOnBoardByLanguagesCommand::class,
 
      \App\Console\Commands\ArbeitnowByLanguagesCommand::class,

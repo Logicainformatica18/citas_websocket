@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Database } from "lucide-react";
 import { router } from "@inertiajs/react";
+import ModalityMethodologyCard from "../Methodology/ModalityMethodologyCard";
 
 /* =========================================================
    Types
@@ -63,11 +64,10 @@ export function JobModalityIndicatorHeader({
 
       {/* ===== CONTENT ===== */}
       <div className="relative mx-auto max-w-7xl py-10 md:py-14">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* ================= LEFT ================= */}
-          <div className="space-y-6 max-w-3xl">
-
+          <div className="space-y-6 lg:col-span-2 max-w-3xl">
             {/* Title */}
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B6E8] shadow-lg">
@@ -91,44 +91,21 @@ export function JobModalityIndicatorHeader({
               basada en ofertas laborales reales de portales de empleo.
             </p>
 
-            {/* ===== CONTROLES DE PERÍODO ===== */}
+            {/* ===== CONTROLES ===== */}
             <div className="flex flex-wrap items-end gap-8">
-
-              {/* ===== AÑO ===== */}
+              {/* Año */}
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
                   Año de análisis
                 </span>
 
-                <div className="
-                  relative
-                  group
-                  rounded-xl
-                  border
-                  bg-white
-                  shadow-sm
-                  transition-all
-                  hover:border-[#00B6E8]
-                  hover:shadow-md
-                  hover:-translate-y-[1px]
-                ">
+                <div className="relative group rounded-xl border bg-white shadow-sm transition-all hover:border-[#00B6E8] hover:shadow-md">
                   <select
                     value={meta.year}
                     onChange={(e) =>
                       onChange({ year: Number(e.target.value) })
                     }
-                    className="
-                      w-[120px]
-                      appearance-none
-                      bg-transparent
-                      px-4
-                      py-2
-                      text-sm
-                      font-semibold
-                      text-[#0A2540]
-                      cursor-pointer
-                      focus:outline-none
-                    "
+                    className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
                   >
                     {[2024, 2025, 2026].map((y) => (
                       <option key={y} value={y}>
@@ -143,24 +120,13 @@ export function JobModalityIndicatorHeader({
                 </div>
               </div>
 
-              {/* ===== SEMESTRE ===== */}
+              {/* Semestre */}
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
                   Semestre
                 </span>
 
-                <div className="
-                  flex
-                  rounded-xl
-                  border
-                  bg-white
-                  shadow-sm
-                  overflow-hidden
-                  transition-all
-                  hover:border-[#00B6E8]
-                  hover:shadow-md
-                  dark:bg-[#0F2A3A]
-                ">
+                <div className="flex rounded-xl border bg-white shadow-sm overflow-hidden dark:bg-[#0F2A3A]">
                   {[
                     { value: "s1", label: "Ene – Jun" },
                     { value: "s2", label: "Jul – Dic" },
@@ -173,18 +139,11 @@ export function JobModalityIndicatorHeader({
                         onClick={() =>
                           onChange({ period: s.value as "s1" | "s2" })
                         }
-                        className={`
-                          px-6
-                          py-2
-                          text-sm
-                          font-semibold
-                          transition-all
-                          ${
-                            active
-                              ? "bg-[#00B6E8] text-white shadow-inner"
-                              : "text-[#005F7A] hover:bg-[#E6F7FD] dark:text-slate-300 dark:hover:bg-[#123A52]"
-                          }
-                        `}
+                        className={`px-6 py-2 text-sm font-semibold transition-all ${
+                          active
+                            ? "bg-[#00B6E8] text-white shadow-inner"
+                            : "text-[#005F7A] hover:bg-[#E6F7FD] dark:text-slate-300 dark:hover:bg-[#123A52]"
+                        }`}
                       >
                         {s.label}
                       </button>
@@ -193,9 +152,9 @@ export function JobModalityIndicatorHeader({
                 </div>
               </div>
 
-              {/* ===== BADGE ===== */}
+              {/* Badge */}
               <div className="flex items-center gap-3">
-                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
                   <Database className="h-3 w-3 text-[#00B6E8]" />
                   {meta.total_vacantes.toLocaleString()} vacantes analizadas
                 </Badge>
@@ -209,6 +168,11 @@ export function JobModalityIndicatorHeader({
               </span>{" "}
               {meta.periodo_label}
             </p>
+          </div>
+
+          {/* ================= RIGHT – METODOLOGÍA ================= */}
+          <div className="lg:col-span-1">
+            <ModalityMethodologyCard />
           </div>
         </div>
       </div>
