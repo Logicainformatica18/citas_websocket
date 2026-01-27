@@ -1,7 +1,7 @@
 import { Dialog } from "@headlessui/react";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, TrendingUp, Briefcase } from "lucide-react";
 
 /* =========================
    TIPOS
@@ -21,43 +21,52 @@ type Job = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  technologyId: number | null;
-  technologyName?: string;
+
+  /** Uno de los dos */
+  technologyId?: number;
+  trendId?: number;
+
+  /** Título visible */
+  title?: string;
 };
 
 export default function TechnologyJobsModal({
   open,
   onClose,
   technologyId,
-  technologyName,
+  trendId,
+  title,
 }: Props) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
+  const isTrend = Boolean(trendId);
+
   /* =========================
      FETCH OFERTAS
   ========================= */
   const fetchJobs = async (pageNumber: number) => {
-    if (!technologyId) return;
+    if (!technologyId && !trendId) return;
 
     setLoading(true);
 
     try {
-      const res = await axios.get(
-        `/dashboard/ranking/technologies/${technologyId}/jobs`,
-        {
-          params: {
-            page: pageNumber,
-            per_page: 10,
-          },
-        }
-      );
+      const url = technologyId
+        ? `/dashboard/ranking/technologies/${technologyId}/jobs`
+        : `/dashboard/ranking/technologies/trend/${trendId}/jobs`;
+
+      const res = await axios.get(url, {
+        params: {
+          page: pageNumber,
+          per_page: 10,
+        },
+      });
 
       setJobs(res.data.data ?? []);
-      setPage(res.data.current_page);
-      setLastPage(res.data.last_page);
+      setPage(res.data.current_page ?? 1);
+      setLastPage(res.data.last_page ?? 1);
     } catch (error) {
       console.error("❌ Error cargando ofertas laborales:", error);
       setJobs([]);
@@ -70,13 +79,13 @@ export default function TechnologyJobsModal({
      EFECTO APERTURA
   ========================= */
   useEffect(() => {
-    if (open && technologyId) {
-      setJobs([]);
-      setPage(1);
-      setLastPage(1);
-      fetchJobs(1);
-    }
-  }, [open, technologyId]);
+    if (!open) return;
+
+    setJobs([]);
+    setPage(1);
+    setLastPage(1);
+    fetchJobs(1);
+  }, [open, technologyId, trendId]);
 
   if (!open) return null;
 
@@ -98,15 +107,37 @@ export default function TechnologyJobsModal({
         >
           {/* ================= HEADER ================= */}
           <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#1E3A4A] shrink-0">
-            <div>
-              <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Ofertas laborales
-              </Dialog.Title>
-              {technologyName && (
-                <p className="text-sm text-gray-600 dark:text-slate-300">
-                  {technologyName}
-                </p>
-              )}
+            <div className="flex items-start gap-3">
+              <span
+                className={`
+                  mt-1 p-2 rounded-lg
+                  ${
+                    isTrend
+                      ? "bg-purple-100 text-purple-700 dark:bg-[#2A1B3D] dark:text-purple-300"
+                      : "bg-sky-100 text-sky-700 dark:bg-[#14384F] dark:text-[#7DD3FC]"
+                  }
+                `}
+              >
+                {isTrend ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <Briefcase className="h-4 w-4" />
+                )}
+              </span>
+
+              <div>
+                <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  {isTrend
+                    ? "Vacantes detectadas por tendencia"
+                    : "Ofertas laborales"}
+                </Dialog.Title>
+
+                {title && (
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
+                    {title}
+                  </p>
+                )}
+              </div>
             </div>
 
             <button
@@ -129,7 +160,7 @@ export default function TechnologyJobsModal({
               </p>
             ) : jobs.length === 0 ? (
               <p className="text-center py-10 text-gray-600 dark:text-slate-400">
-                No se encontraron ofertas laborales para esta tecnología.
+                No se encontraron ofertas laborales.
               </p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

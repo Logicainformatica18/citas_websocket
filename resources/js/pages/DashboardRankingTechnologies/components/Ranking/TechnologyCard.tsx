@@ -56,232 +56,240 @@ export default function TechnologyCard({
     finalScore >= 40 ? "Media" :
     "Baja";
 
-  return (
+return (
+  <div
+    className={`
+      group rounded-2xl border bg-white p-6
+      relative overflow-hidden transition-all duration-300
+      ${!isTrend
+        ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]"
+        : "opacity-95"}
+      dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
+    `}
+  >
+    {/* Barra decorativa */}
     <div
       className={`
-        group rounded-2xl border bg-white p-6
-        relative overflow-hidden transition-all duration-300
-        ${!isTrend
-          ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]"
-          : "opacity-95"}
-        dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
+        absolute top-0 left-0 h-1 w-full
+        ${
+          isTrend
+            ? "bg-gradient-to-r from-[#A855F7] to-[#C084FC]"
+            : "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
+        }
       `}
-    >
-      {/* Barra decorativa */}
-      <div
-        className={`
-          absolute top-0 left-0 h-1 w-full
-          ${
-            isTrend
-              ? "bg-gradient-to-r from-[#A855F7] to-[#C084FC]"
-              : "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
-          }
-        `}
-      />
+    />
 
-      <div className="flex justify-between gap-6">
-        {/* ================= LEFT ================= */}
-        <div className="flex-1 space-y-2">
-          {/* Rank + Nombre */}
-          <div className="flex items-center gap-3">
+    <div className="flex justify-between gap-3">
+      {/* ================= LEFT ================= */}
+      <div className="flex-1 space-y-4">
+        {/* ================= HEADER ================= */}
+        <div className="flex items-center gap-3">
+          <span
+            className={`
+              flex items-center justify-center w-10 h-10 rounded-xl
+              font-bold text-sm
+              ${rankColors[rank] ?? defaultRankColor}
+            `}
+          >
+            #{rank}
+          </span>
+
+          <h3 className="text-base font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">
+            {data.name}
+          </h3>
+
+          {/* BADGE ISIL */}
+          {isISIL && !isTrend && (
             <span
-              className={`
-                flex items-center justify-center w-10 h-10 rounded-xl
-                font-bold text-sm
-                ${rankColors[rank] ?? defaultRankColor}
-              `}
+              className="
+                ml-2 inline-flex items-center gap-1
+                rounded-full bg-[#ECFAFD] px-2 py-0.5
+                text-[10px] font-bold uppercase
+                text-[#0284C7]
+                dark:bg-[#14384F] dark:text-[#7DD3FC]
+              "
             >
-              #{rank}
+              <GraduationCap className="h-3 w-3" />
+              ISIL
             </span>
-
-            <h3 className="text-base font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">
-              {data.name}
-            </h3>
-
-            {/* BADGE ISIL */}
-            {isISIL && !isTrend && (
-              <span
-                className="
-                  ml-2 inline-flex items-center gap-1
-                  rounded-full bg-[#ECFAFD] px-2 py-0.5
-                  text-[10px] font-bold uppercase
-                  text-[#0284C7]
-                  dark:bg-[#14384F] dark:text-[#7DD3FC]
-                "
-              >
-                <GraduationCap className="h-3 w-3" />
-                ISIL
-              </span>
-            )}
-
-            {/* BADGE TREND */}
-            {isTrend && (
-              <span
-                className="
-                  ml-2 inline-flex items-center gap-1
-                  rounded-full bg-purple-100 px-2 py-0.5
-                  text-[10px] font-bold uppercase
-                  text-purple-700
-                  dark:bg-[#2A1B3D] dark:text-purple-300
-                "
-              >
-                <TrendingUp className="h-3 w-3" />
-                Tendencia
-              </span>
-            )}
-          </div>
-
-          {/* Categoría (solo tecnologías ISIL) */}
-          {!isTrend && data.category && (
-            <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
-              {data.category}
-            </div>
           )}
 
-          {/* ================= SCORES ================= */}
-          <div className="pt-4 space-y-3">
-            {/* Resultado ponderado */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Resultado ponderado
-              </span>
-
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-[#0EA5E9]">
-                  {finalScore.toFixed(1)}
-                </span>
-                <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                  Proyección {scoreLabel}
-                </span>
-              </div>
-            </div>
-
-            {/* Barra score */}
-            <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#1CBCE8] to-[#38BDF8]"
-                style={{ width: `${Math.min(finalScore, 100)}%` }}
-              />
-            </div>
-
-            {/* Subscores */}
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              {/* Laboral */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isTrend) return;
-                  onAction?.("laboral", data);
-                }}
-                className={`
-                  rounded-lg p-2 transition
-                  ${isTrend
-                    ? "opacity-40 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between text-xs uppercase text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    Laboral
-                  </span>
-
-                  {!isTrend && (
-                    <span className="text-[11px] text-gray-400">
-                      {totalJobs.toLocaleString()} vacantes
-                    </span>
-                  )}
-                </div>
-
-                <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
-                  <div
-                    className="h-full bg-[#22C55E]"
-                    style={{ width: `${laborScore}%` }}
-                  />
-                </div>
-
-                <span className="text-[11px] text-gray-500">
-                  Score laboral: {laborScore.toFixed(1)}
-                </span>
-              </div>
-
-              {/* Tendencias */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!hasRealTrend) return;
-                  onAction?.("trend", data);
-                }}
-                title={
-                  hasRealTrend
-                    ? "Ver reportes de tendencia"
-                    : "No hay reportes de tendencia reales"
-                }
-                className={`
-                  rounded-lg p-2 transition
-                  ${
-                    hasRealTrend
-                      ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-                      : "opacity-40 cursor-not-allowed"
-                  }
-                `}
-              >
-                <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
-                  <TrendingUp className="h-3 w-3" />
-                  Tendencias
-                </div>
-
-                <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
-                  <div
-                    className="h-full bg-[#A855F7]"
-                    style={{ width: `${trendScore}%` }}
-                  />
-                </div>
-
-                <span className="text-[11px] text-gray-500 flex justify-between">
-                  <span>Score: {trendScore.toFixed(1)}</span>
-
-                  {hasRealTrend && (
-                    <span className="text-gray-400">
-                      {trendReports} reporte{trendReports !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* BADGE TREND */}
+          {isTrend && (
+            <span
+              className="
+                ml-2 inline-flex items-center gap-1
+                rounded-full bg-purple-100 px-2 py-0.5
+                text-[10px] font-bold uppercase
+                text-purple-700
+                dark:bg-[#2A1B3D] dark:text-purple-300
+              "
+            >
+              <TrendingUp className="h-3 w-3" />
+              Tendencia
+            </span>
+          )}
         </div>
 
-        {/* ================= RIGHT ================= */}
-        <div className="flex flex-col items-end justify-start text-right">
-          <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
-            {finalScore.toFixed(1)}
-          </span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
-            Resultado final
-          </span>
+        {/* ================= SUBTÍTULO ================= */}
+        <div className="text-xs uppercase tracking-wide text-gray-500">
+          {isTrend ? "Reporte tecnológico" : "Tecnología académica"}
+        </div>
+
+        {/* ================= CATEGORÍA ================= */}
+        {!isTrend && data.category && (
+          <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
+            {data.category}
+          </div>
+        )}
+
+        {/* ================= RESULTADO PONDERADO ================= */}
+        <div className="pt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Resultado ponderado
+            </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-[#0EA5E9]">
+                {finalScore.toFixed(1)}
+              </span>
+              <span className="text-[11px] font-semibold text-gray-400 uppercase">
+                Proyección {scoreLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* Barra */}
+          <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#1CBCE8] to-[#38BDF8]"
+              style={{ width: `${Math.min(finalScore, 100)}%` }}
+            />
+          </div>
+
+          {/* ================= BLOQUES ================= */}
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            {/* Laboral */}
+          {/* Laboral */}
+<div
+  onClick={(e) => {
+    e.stopPropagation();
+    console.log("CLICK LABORAL", data);
+
+    if (totalJobs === 0) return;
+
+    onAction?.("laboral", {
+      ...data,
+      __source: isTrend ? "trend" : "technology", // 🔥 CLAVE
+    });
+  }}
+
+
+  className={`
+    rounded-lg p-2 transition
+    ${
+      totalJobs > 0
+        ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+        : "opacity-40 cursor-not-allowed"
+    }
+  `}
+>
+  <div className="flex items-center justify-between text-xs uppercase text-gray-500">
+    <span className="flex items-center gap-1">
+      <Briefcase className="h-3 w-3" />
+      Laboral
+    </span>
+
+    <span className="text-[11px] text-gray-400">
+      {totalJobs.toLocaleString()} vacante{totalJobs !== 1 ? "s" : ""}
+    </span>
+  </div>
+
+  <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
+    <div
+      className="h-full bg-[#22C55E]"
+      style={{ width: `${laborScore}%` }}
+    />
+  </div>
+
+  <span className="text-[11px] text-gray-500">
+    Score laboral: {laborScore.toFixed(1)}
+  </span>
+</div>
+
+
+            {/* Tendencias */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!hasRealTrend) return;
+                onAction?.("trend", data);
+              }}
+              className={`
+                rounded-lg p-2 transition
+                ${
+                  hasRealTrend
+                    ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                    : "opacity-40 cursor-not-allowed"
+                }
+              `}
+            >
+              <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
+                <TrendingUp className="h-3 w-3" />
+                Tendencias
+              </div>
+
+              <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
+                <div
+                  className="h-full bg-[#A855F7]"
+                  style={{ width: `${trendScore}%` }}
+                />
+              </div>
+
+              <span className="text-[11px] text-gray-500 flex justify-between">
+                <span>Score: {trendScore.toFixed(1)}</span>
+                {hasRealTrend && (
+                  <span className="text-gray-400">
+                    {trendReports} reporte{trendReports !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* BADGE ISIL (footer) */}
-      {!isTrend && isISIL && (
-        <div className="pt-4 flex justify-end">
-          <span
-            className="
-              inline-flex items-center
-              rounded-full px-3 py-1
-              text-[11px] font-semibold uppercase tracking-widest
-              bg-sky-100 text-sky-700
-              dark:bg-[#14384F]
-              dark:text-[#7DD3FC]
-            "
-          >
-            ISIL
-          </span>
-        </div>
-      )}
+      {/* ================= RIGHT ================= */}
+      <div className="flex flex-col items-end justify-start text-right">
+        <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
+          {finalScore.toFixed(1)}
+        </span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
+          Resultado final
+        </span>
+      </div>
     </div>
-  );
+
+    {/* ================= FOOTER ISIL ================= */}
+    {!isTrend && isISIL && (
+      <div className="pt-4 flex justify-end">
+        <span
+          className="
+            inline-flex items-center
+            rounded-full px-3 py-1
+            text-[11px] font-semibold uppercase tracking-widest
+            bg-sky-100 text-sky-700
+            dark:bg-[#14384F]
+            dark:text-[#7DD3FC]
+          "
+        >
+          ISIL
+        </span>
+      </div>
+    )}
+  </div>
+);
+
 }

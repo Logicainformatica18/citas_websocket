@@ -8,7 +8,6 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import TrendDetailModal from "./components/Ranking/TrendDetailModal";
 
-
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
 import {
   WeightConfigModal,
@@ -68,10 +67,10 @@ export default function RankingTecnologiasPage() {
     trend: null,
   });
 
-  const openTrendModal = (item: any) => {
+  const openTrendModal = (trend: any) => {
     setTrendModal({
       open: true,
-      trend: item,
+      trend,
     });
   };
 
@@ -87,15 +86,23 @@ export default function RankingTecnologiasPage() {
   ========================= */
   const [jobsModal, setJobsModal] = useState<{
     open: boolean;
+    type: "technology" | "trend" | null;
     item: any | null;
   }>({
     open: false,
+    type: null,
     item: null,
   });
 
-  const openJobsModal = (item: any) => {
+  const openJobsModal = (
+    type: "technology" | "trend",
+    item: any
+  ) => {
+    if (!item || !item.total_jobs || item.total_jobs === 0) return;
+
     setJobsModal({
       open: true,
+      type,
       item,
     });
   };
@@ -103,6 +110,7 @@ export default function RankingTecnologiasPage() {
   const closeJobsModal = () => {
     setJobsModal({
       open: false,
+      type: null,
       item: null,
     });
   };
@@ -114,7 +122,11 @@ export default function RankingTecnologiasPage() {
 
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
-      Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
+      Swal.fire(
+        "Error",
+        "Las ponderaciones deben sumar 100%",
+        "error"
+      );
       return;
     }
 
@@ -148,124 +160,135 @@ export default function RankingTecnologiasPage() {
     );
   };
 
-  return (
-    <>
-      <AppLayout breadcrumbs={breadcrumbs}>
-        <Head title="Ranking de Tecnologías | Observatorio ISIL" />
 
-        <DashboardProvider>
-          <div className="bg-background px-6 py-6">
-            <div className="flex gap-6">
-              <div className="flex-1 space-y-6">
+   return (
+  <>
+    <AppLayout breadcrumbs={breadcrumbs}>
+      <Head title="Ranking de Tecnologías | Observatorio ISIL" />
 
-                {/* ================= HEADER ================= */}
-                <RankingHeader
-                  weights={weights}
-                  onEditWeights={() => setIsWeightModalOpen(true)}
-                  meta={meta}
-                />
+      <DashboardProvider>
+        <div className="bg-background px-6 py-6">
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-6">
 
-                {/* ================= KPIs ================= */}
-                <KpiGrid items={kpis} />
+              {/* ================= HEADER ================= */}
+              <RankingHeader
+                weights={weights}
+                onEditWeights={() => setIsWeightModalOpen(true)}
+                meta={meta}
+              />
 
-                {/* ================= DESCRIPCIÓN ================= */}
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    Ranking General de Tecnologías
-                  </h2>
+              {/* ================= KPIs ================= */}
+              <KpiGrid items={kpis} />
 
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                    Clasificación unificada que integra tecnologías ISIL
-                    y tecnologías en tendencia global, ordenadas según
-                    demanda laboral y presencia en reportes especializados.
-                  </p>
-                </div>
+              {/* ================= DESCRIPCIÓN ================= */}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Ranking General de Tecnologías
+                </h2>
 
-                {/* ================= FILTROS ================= */}
-                <RankingFilters />
-
-                {/* ================= RANKING ================= */}
-                <RankingList
-                  items={ranking.data}
-                  pagination={ranking}
-                  onSelectItem={(action, item) => {
-                    console.log("CLICK RANKING TEC:", action, item);
-
-       if (action === "trend") {
-  if (!item.is_real_trend || item.trend_reports === 0) {
-    return; // ⛔ no es una tendencia real
-  }
-
-  axios
-    .get(`/dashboard/ranking/technologies/trend/${item.id}`)
-    .then((res) => {
-      const trend = res.data?.data;
-      if (!trend) return;
-
-      openTrendModal({
-        id: trend.id,
-        name: trend.topic_name,
-        trend_score: trend.trend_score,
-        trend_reports: item.trend_reports,
-        year: trend.year,
-        quarter: trend.quarter,
-        source_title: trend.source_title,
-        source_url: trend.source_url,
-        source_type: trend.source_type,
-      });
-    });
-
-  return;
-}
-
-
-
-                  if (action === "laboral") {
-
-  // ✅ SOLO tecnologías
-  if (item.entity_type !== "technology") {
-    console.warn("Jobs ignorados: no es tecnología", item);
-    return;
-  }
-
-  openJobsModal(item);
-  return;
-}
-
-                  }}
-                />
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
+                  Clasificación unificada que integra tecnologías ISIL y
+                  tecnologías en tendencia global, ordenadas según demanda
+                  laboral y presencia en reportes especializados.
+                </p>
               </div>
+
+              {/* ================= FILTROS ================= */}
+              <RankingFilters />
+
+              {/* ================= RANKING ================= */}
+              <RankingList
+                items={ranking.data}
+                pagination={ranking}
+                onSelectItem={(action, item) => {
+                  console.log("CLICK RANKING TEC:", action, item);
+
+                  /* ========= TENDENCIA ========= */
+                  if (action === "trend") {
+                    if (!item.is_real_trend || item.trend_reports === 0) return;
+
+                    axios
+                      .get(
+                        `/dashboard/ranking/technologies/trend/${item.id}`
+                      )
+                      .then((res) => {
+                        const trend = res.data?.data;
+                        if (!trend) return;
+
+                        openTrendModal({
+                          id: trend.id,
+                          name: trend.topic_name,
+                          trend_score: trend.trend_score,
+                          trend_reports: item.trend_reports,
+                          year: trend.year,
+                          quarter: trend.quarter,
+                          source_title: trend.source_title,
+                          source_url: trend.source_url,
+                          source_type: trend.source_type,
+                        });
+                      });
+
+                    return;
+                  }
+
+                  /* ========= LABORAL ========= */
+                  if (action === "laboral") {
+                    if (!item.total_jobs || item.total_jobs === 0) return;
+
+                    if (item.entity_type === "technology") {
+                      openJobsModal("technology", item);
+                      return;
+                    }
+
+                    if (item.entity_type === "trend") {
+                      openJobsModal("trend", item);
+                      return;
+                    }
+                  }
+                }}
+              />
             </div>
           </div>
+        </div>
 
-          {/* ================= MODAL OFERTAS ================= */}
-          {jobsModal.open && jobsModal.item && (
-            <TechnologyJobsModal
-              open={jobsModal.open}
-              onClose={closeJobsModal}
-              technologyId={jobsModal.item.id}
-              technologyName={jobsModal.item.name}
-            />
-          )}
-
-          {/* ================= MODAL PONDERACIONES ================= */}
-          <WeightConfigModal
-            open={isWeightModalOpen}
-            onOpenChange={setIsWeightModalOpen}
-            weights={weights}
-            onSave={handleSaveWeights}
+        {/* ================= MODAL OFERTAS LABORALES ================= */}
+        {jobsModal.open && jobsModal.item && (
+          <TechnologyJobsModal
+            open={jobsModal.open}
+            onClose={closeJobsModal}
+            technologyId={
+              jobsModal.type === "technology"
+                ? jobsModal.item.id
+                : undefined
+            }
+            trendId={
+              jobsModal.type === "trend"
+                ? jobsModal.item.id
+                : undefined
+            }
+            title={jobsModal.item.name}
           />
-        </DashboardProvider>
-      </AppLayout>
+        )}
 
-      {/* ================= MODAL TENDENCIA ================= */}
-      {trendModal.open && trendModal.trend && (
-        <TrendDetailModal
-          open={trendModal.open}
-          trend={trendModal.trend}
-          onClose={closeTrendModal}
+        {/* ================= MODAL PONDERACIONES ================= */}
+        <WeightConfigModal
+          open={isWeightModalOpen}
+          onOpenChange={setIsWeightModalOpen}
+          weights={weights}
+          onSave={handleSaveWeights}
         />
-      )}
-    </>
-  );
+      </DashboardProvider>
+    </AppLayout>
+
+    {/* ================= MODAL DETALLE TENDENCIA ================= */}
+    {trendModal.open && trendModal.trend && (
+      <TrendDetailModal
+        open={trendModal.open}
+        trend={trendModal.trend}
+        onClose={closeTrendModal}
+      />
+    )}
+  </>
+);
 }
