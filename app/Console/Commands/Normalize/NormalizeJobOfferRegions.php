@@ -86,7 +86,7 @@ class NormalizeJobOfferRegions extends Command
                         WHEN UPPER(TRIM(REPLACE(region,'_',' '))) IN (
                             'REMOTE',
                             'REMOTO'
-                        ) THEN 'Remoto'
+                        ) THEN 'Remote'
 
                         ELSE 'Desconocido'
                     END

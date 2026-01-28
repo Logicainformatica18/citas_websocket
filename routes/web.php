@@ -53,7 +53,7 @@ use App\Http\Controllers\Dashboard\RankingCarrerasController;
 use App\Http\Controllers\Dashboard\SeniorityIndicatorController;
 use App\Http\Controllers\Dashboard\CompanyIndicatorController;
 use App\Http\Controllers\Dashboard\JobDemandGeoIndicatorController;
-
+use App\Http\Controllers\Dashboard\MacroTrendsIndicatorController;
 
 
 
@@ -107,6 +107,12 @@ Route::middleware(['auth'])->group(function () {
 
 
  Route::prefix('dashboard')->group(function () {
+
+
+  Route::get(
+            '/indicators/macro-trends',
+            [MacroTrendsIndicatorController::class, 'index']
+        )->name('dashboard.indicators.macro-trends');
 
 // routes/dashboard.php
   Route::get(
