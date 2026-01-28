@@ -60,7 +60,7 @@ return redirect()->back();
 
 
 }
-  
+
 
 public function index(Request $request)
 {
@@ -86,7 +86,7 @@ $rankingType = $request->get('ranking_type', 'all');
 
     $range = $this->getPeriodRange($period, $year);
     $trendCategory = $request->get('trend_category');
-$reportsSub   = $this->getCertificationReportsSubquery($year, $quarter);
+$reportsSub   = $this->getDirectCertificationTrendsSubquery($year, $quarter);
 $totalReports = $this->getTrendReportsCount($year, $quarter);
 $totalReports = max($totalReports, 1);
     /* ==================================================
@@ -146,7 +146,14 @@ $totalReports = max($totalReports, 1);
     ================================================== */
  $certificationsQuery = DB::table('certifications as c')
     ->leftJoinSub($laborSub, 'labor', 'labor.certification_id', '=', 'c.id')
-    ->leftJoinSub($reportsSub, 'reports', 'reports.certification_id', '=', 'c.id');
+->leftJoinSub(
+    $reportsSub,
+    'reports',
+    'reports.certification_id',
+    '=',
+    'c.id'
+);
+
 
 
 
@@ -319,7 +326,7 @@ if ($rankingType !== 'trend') {
 }
 
 
- 
+
 public function trendDetail(Request $request)
 {
     $year   = (int) $request->get('year', 2025);
@@ -386,21 +393,42 @@ public function jobsByCertification(Request $request, int $certificationId)
         'data'           => $jobs,
     ]);
 }
-private function getCertificationReportsSubquery(int $year, int $quarter)
+private function getDirectCertificationTrendsSubquery(int $year, int $quarter)
 {
-    return DB::table('technology_trends as tt')
-        ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
-        ->join('course_technology as ct', 'ct.technology_id', '=', 'ttt.technology_id')
-        ->join('certification_course as cc', 'cc.course_id', '=', 'ct.course_id')
-        ->where('tt.topic_category', 'like', 'Certificaciones%')
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
+    return DB::table('certifications as c')
+        ->join('technology_trends as tt', function ($join) use ($year, $quarter) {
+            $join->whereRaw(
+                "JSON_UNQUOTE(tt.scanned_keywords) LIKE CONCAT('%', LOWER(c.name), '%')"
+            )
+            ->where('tt.topic_category', 'like', 'Certificaciones%')
+            ->where('tt.year', $year)
+            ->where('tt.quarter', $quarter);
+        })
         ->select(
-            'cc.certification_id',
-            DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
+            'c.id as certification_id',
+            DB::raw('COUNT(DISTINCT tt.id) as report_mentions'),
+            DB::raw('ROUND(AVG(tt.trend_score), 2) as avg_trend_score')
         )
-        ->groupBy('cc.certification_id');
+        ->groupBy('c.id');
 }
+
+
+
+// private function getCertificationReportsSubquery(int $year, int $quarter)
+// {
+//     return DB::table('technology_trends as tt')
+//         ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
+//         ->join('course_technology as ct', 'ct.technology_id', '=', 'ttt.technology_id')
+//         ->join('certification_course as cc', 'cc.course_id', '=', 'ct.course_id')
+//         ->where('tt.topic_category', 'like', 'Certificaciones%')
+//         ->where('tt.year', $year)
+//         ->where('tt.quarter', $quarter)
+//         ->select(
+//             'cc.certification_id',
+//             DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
+//         )
+//         ->groupBy('cc.certification_id');
+// }
 
 private function getTrendReportsCount(int $year, int $quarter): int
 {

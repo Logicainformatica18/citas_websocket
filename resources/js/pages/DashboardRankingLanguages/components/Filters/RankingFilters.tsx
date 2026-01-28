@@ -19,16 +19,26 @@ const TREND_DOMAINS = [
    Component
 ===================================================== */
 export default function RankingFilters() {
-  const { filters } = usePage().props as {
+  const { filters, availableCareers } = usePage().props as {
     filters: any;
+    availableCareers: {
+      id: number;
+      name: string;
+      slug: string;
+    }[];
   };
 
   const [openType, setOpenType] = useState(false);
+  const [openCareers, setOpenCareers] = useState(false);
+
   const typeRef = useRef<HTMLDivElement>(null);
+  const careerRef = useRef<HTMLDivElement>(null);
 
   const activeRankingType = filters.ranking_type ?? "all";
   const trendDomain = filters.trend_domain ?? "language";
   const isTrendOnly = activeRankingType === "trend";
+
+  const selectedCareers: string[] = filters.career ?? [];
 
   /* =========================================
      Cerrar combos al hacer click afuera
@@ -37,6 +47,9 @@ export default function RankingFilters() {
     const handler = (e: MouseEvent) => {
       if (typeRef.current && !typeRef.current.contains(e.target as Node)) {
         setOpenType(false);
+      }
+      if (careerRef.current && !careerRef.current.contains(e.target as Node)) {
+        setOpenCareers(false);
       }
     };
 
@@ -53,12 +66,12 @@ export default function RankingFilters() {
       ...next,
     };
 
-    // 🧹 Limpieza de parámetros vacíos
     Object.keys(payload).forEach((k) => {
       if (
         payload[k] === null ||
         payload[k] === undefined ||
-        payload[k] === ""
+        payload[k] === "" ||
+        (Array.isArray(payload[k]) && payload[k].length === 0)
       ) {
         delete payload[k];
       }
@@ -86,6 +99,17 @@ export default function RankingFilters() {
     "Lenguajes";
 
   /* =========================================
+     Toggle carrera
+  ========================================= */
+  const toggleCareer = (slug: string) => {
+    const next = selectedCareers.includes(slug)
+      ? selectedCareers.filter((c) => c !== slug)
+      : [...selectedCareers, slug];
+
+    navigate({ career: next }, true);
+  };
+
+  /* =========================================
      Render
   ========================================= */
   return (
@@ -94,34 +118,19 @@ export default function RankingFilters() {
           CONTROLES
       ========================= */}
       <div className="flex flex-wrap gap-4">
+
         {/* ===== TIPO DE RANKING ===== */}
-        <div ref={typeRef} className="relative w-72">
+        {/* <div ref={typeRef} className="relative w-72">
           <button
             onClick={() => setOpenType(!openType)}
-            className="
-              w-full rounded-xl border px-4 py-2
-              text-left flex items-center justify-between
-              bg-white text-gray-700 border-gray-300
-              hover:border-[#1CBCE8]
-              dark:bg-[#0F2A3A]
-              dark:text-slate-200
-              dark:border-[#1E3A4A]
-            "
+            className="w-full rounded-xl border px-4 py-2 flex justify-between bg-white dark:bg-[#0F2A3A]"
           >
             <span className="text-sm">{rankingTypeLabel}</span>
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 opacity-60" />
           </button>
 
           {openType && (
-            <div
-              className="
-                absolute z-20 mt-2 w-full
-                rounded-xl border shadow-lg
-                bg-white border-gray-200
-                dark:bg-[#0F2A3A]
-                dark:border-[#1E3A4A]
-              "
-            >
+            <div className="absolute z-20 mt-2 w-full rounded-xl border bg-white dark:bg-[#0F2A3A]">
               {RANKING_TYPES.map((type) => (
                 <button
                   key={type.value}
@@ -137,47 +146,52 @@ export default function RankingFilters() {
                     );
                     setOpenType(false);
                   }}
-                  className={`
-                    w-full px-4 py-2 text-left text-sm
-                    hover:bg-sky-50 dark:hover:bg-[#14384F]
-                    ${
-                      activeRankingType === type.value
-                        ? "font-semibold text-[#1CBCE8]"
-                        : "text-gray-700 dark:text-slate-200"
-                    }
-                  `}
+                  className={`w-full px-4 py-2 text-left text-sm ${
+                    activeRankingType === type.value
+                      ? "font-semibold text-[#1CBCE8]"
+                      : ""
+                  }`}
                 >
                   {type.label}
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </div> */}
 
-        {/* ===== DOMINIO DE TENDENCIAS ===== */}
-        {isTrendOnly && (
-          <div className="w-72">
-            <select
-              value={trendDomain}
-              onChange={(e) =>
-                navigate({ trend_domain: e.target.value }, true)
-              }
-              className="
-                w-full rounded-xl border px-4 py-2
-                bg-white text-gray-700
-                dark:bg-[#0F2A3A]
-                dark:text-slate-200
-                dark:border-[#1E3A4A]
-              "
-            >
-              {TREND_DOMAINS.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* ===== FILTRO POR CARRERA ===== */}
+        <div ref={careerRef} className="relative w-72">
+          <button
+            onClick={() => setOpenCareers(!openCareers)}
+            className="w-full rounded-xl border px-4 py-2 flex justify-between bg-white dark:bg-[#0F2A3A]"
+          >
+            <span className="text-sm">
+              {selectedCareers.length > 0
+                ? `${selectedCareers.length} carrera(s)`
+                : "Filtrar por carrera"}
+            </span>
+            <ChevronDown className="h-4 w-4 opacity-60" />
+          </button>
+
+          {openCareers && (
+            <div className="absolute z-20 mt-2 w-full max-h-64 overflow-auto rounded-xl border bg-white dark:bg-[#0F2A3A]">
+              {availableCareers.map((career) => {
+                const active = selectedCareers.includes(career.slug);
+                return (
+                  <button
+                    key={career.slug}
+                    onClick={() => toggleCareer(career.slug)}
+                    className={`w-full px-4 py-2 text-left text-sm ${
+                      active ? "bg-sky-50 font-semibold text-[#1CBCE8]" : ""
+                    }`}
+                  >
+                    {career.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* =========================
@@ -188,22 +202,25 @@ export default function RankingFilters() {
           <Chip
             label={`Tipo: ${rankingTypeLabel}`}
             onRemove={() =>
-              navigate(
-                { ranking_type: "all", trend_domain: null },
-                true
-              )
+              navigate({ ranking_type: "all", trend_domain: null }, true)
             }
           />
         )}
 
-        {isTrendOnly && trendDomain && (
-          <Chip
-            label={`Dominio: ${trendDomainLabel}`}
-            onRemove={() =>
-              navigate({ trend_domain: null }, true)
-            }
-          />
-        )}
+        {selectedCareers.map((slug) => {
+          const label =
+            availableCareers.find((c) => c.slug === slug)?.name ?? slug;
+
+          return (
+            <Chip
+              key={slug}
+              label={`Carrera: ${label}`}
+              onRemove={() =>
+                toggleCareer(slug)
+              }
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -221,17 +238,9 @@ function Chip({
   onRemove: () => void;
 }) {
   return (
-    <span
-      className="
-        inline-flex items-center gap-2
-        rounded-full px-3 py-1 text-xs font-semibold
-        bg-sky-100 text-sky-700
-        dark:bg-[#14384F]
-        dark:text-[#7DD3FC]
-      "
-    >
+    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold bg-sky-100 text-sky-700 dark:bg-[#14384F] dark:text-[#7DD3FC]">
       {label}
-      <button onClick={onRemove} className="hover:text-red-500">
+      <button onClick={onRemove}>
         <X className="h-3 w-3" />
       </button>
     </span>

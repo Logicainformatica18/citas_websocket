@@ -119,7 +119,7 @@ export default function RankingFilters() {
       ========================= */}
       <div className="flex flex-wrap gap-4">
         {/* ===== TIPO DE RANKING ===== */}
-        <div ref={typeRef} className="relative w-64">
+        {/* <div ref={typeRef} className="relative w-64">
           <button
             onClick={() => setOpenType(!openType)}
             className="
@@ -175,7 +175,7 @@ export default function RankingFilters() {
               ))}
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* ===== CATEGORÍA TECNOLÓGICA ===== */}
         <div ref={categoryRef}>

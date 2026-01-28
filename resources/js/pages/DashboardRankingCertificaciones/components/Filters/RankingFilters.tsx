@@ -95,7 +95,7 @@ export default function RankingFilters() {
       true
     );
   };
-   
+
   const rankingTypeLabel =
     RANKING_TYPES.find(t => t.value === activeRankingType)?.label ??
     "Ranking general";
@@ -107,7 +107,7 @@ export default function RankingFilters() {
       ========================= */}
       <div className="flex flex-wrap gap-4">
         {/* ===== TIPO DE RANKING ===== */}
-        <div ref={typeRef}>
+        {/* <div ref={typeRef}>
           <div className="relative w-64">
             <button
               onClick={() => setOpenType(!openType)}
@@ -171,7 +171,7 @@ export default function RankingFilters() {
               </div>
             )}
           </div>
-        </div>
+        </div> */}
 
         {/* ===== ÁREA ===== */}
         <div ref={areaRef}>

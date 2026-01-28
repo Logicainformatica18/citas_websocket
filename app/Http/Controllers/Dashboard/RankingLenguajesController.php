@@ -183,7 +183,7 @@ public function index(Request $request)
     $languagesQuery = $languagesQuery->select(
         DB::raw("'language' as entity_type"),
         DB::raw("
-            CASE 
+            CASE
               WHEN EXISTS (
                 SELECT 1
                 FROM course_language cl
