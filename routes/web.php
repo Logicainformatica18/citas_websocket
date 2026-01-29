@@ -238,7 +238,10 @@ Route::prefix('trends')->group(function () {
 
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
-
+Route::get(
+    '/trend/{trend}/jobs',
+    [RankingCertificacionesController::class, 'jobsByTechnologyTrend']
+);
  Route::get(
         '/{certificationId}/jobs',
         [RankingCertificacionesController::class, 'jobsByCertification']

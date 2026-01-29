@@ -20,6 +20,7 @@ import RankingFilters from "./components/Filters/RankingFilters";
 import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 import CertificationReportsModal from "./components/Ranking/CertificationReportsModal";
+import TrendJobsModal from "./components/Ranking/TrendJobsModal";
 
 
 
@@ -65,6 +66,17 @@ export default function RankingCertificacionesPage() {
     const { ranking, kpis, meta, weights } =
         usePage<PageProps>().props;
 
+const [trendJobsModal, setTrendJobsModal] = useState<{
+  open: boolean;
+  trend: any | null;
+  jobs: any[];
+  pagination: any | null;
+}>({
+  open: false,
+  trend: null,
+  jobs: [],
+  pagination: null,
+});
 
     const [reportsModal, setReportsModal] = useState<{
         open: boolean;
@@ -205,81 +217,79 @@ export default function RankingCertificacionesPage() {
                                 <RankingList
                                     items={ranking.data}
                                     pagination={ranking}
-                                    onSelectItem={(action, item) => {
-                                        console.log("RECIBIDO EN PAGE:", action, item);
+                                   onSelectItem={(action, item) => {
+  console.log("RECIBIDO EN PAGE:", action, item.entity_type);
 
-                                        /* =========================
-                                           CLICK EN TENDENCIAS
-                                        ========================= */
-                                        /* =========================
-     CLICK EN TENDENCIAS
+  /* =========================
+     CLICK EN TENDENCIAS (DETALLE)
   ========================= */
-                                        if (action === "trend") {
+  if (action === "trend") {
 
-                                            // 🅰️ Certificación → ver reportes que la sustentan
-                                            if (item.entity_type === "certification") {
-                                                axios
-                                                    .get(`/dashboard/ranking-certificaciones/${item.id}/reports`)
-                                                    .then((res) => {
-                                                        setReportsModal({
-                                                            open: true,
-                                                            certification: item,
-                                                            reports: res.data.data,
-                                                        });
-                                                    })
-                                                    .catch((err) => {
-                                                        console.error("Error cargando reportes:", err);
-                                                    });
+    // Certificación → reportes
+    if (item.entity_type === "certification") {
+      axios
+        .get(`/dashboard/ranking-certificaciones/${item.id}/reports`)
+        .then((res) => {
+          setReportsModal({
+            open: true,
+            certification: item,
+            reports: res.data.data,
+          });
+        });
+      return;
+    }
 
-                                                return;
-                                            }
+    // Trend → detalle de tendencia
+    if (item.entity_type === "trend") {
+      setTrendModal({
+        open: true,
+        trend: item,
+      });
+      return;
+    }
+  }
 
-                                       
-                                           
-if (item.entity_type === "trend") {
-  openTrendModal(item);
-  return;
-}
+  /* =========================
+     CLICK EN LABORAL (JOBS)
+  ========================= */
+  if (action === "laboral") {
 
+    // Certificación → jobs por certificación
+    if (item.entity_type === "certification") {
+      axios
+        .get(`/dashboard/ranking-certificaciones/${item.id}/jobs`)
+        .then((res) => {
+          const paginator = res.data.data;
 
-                                        }
+          setCertJobsModal({
+            open: true,
+            certification: item,
+            jobs: paginator.data,
+            pagination: paginator,
+          });
+        });
+      return;
+    }
 
+    // Trend → jobs por tendencia
+    if (item.entity_type === "trend") {
+      axios
+        .get(`/dashboard/ranking-certificaciones/trend/${item.id}/jobs`)
+        .then((res) => {
+          const paginator = res.data.data;
 
+          setTrendJobsModal({
+            open: true,
+            trend: item,
+            jobs: paginator.data,
+            pagination: paginator,
+          });
+        });
+      return;
+    }
+  }
+}}
 
-                                        /* =========================
-                                           CLICK EN LABORAL
-                                        ========================= */
-                                        if (action === "laboral") {
-                                            // 🧠 Caso 1: tendencia → tab de ofertas dentro del modal de tendencias
-                                            if (item.entity_type === "trend") {
-                                                openTrendModal(item, "jobs");
-                                                return;
-                                            }
-
-                                            // 🧠 Caso 2: certificación → endpoint de certificaciones
-                                            if (item.entity_type === "certification") {
-                                                axios
-                                                    .get(`/dashboard/ranking-certificaciones/${item.id}/jobs`)
-                                                    .then((res) => {
-                                                        const paginator = res.data.data;
-
-                                                        setCertJobsModal({
-                                                            open: true,
-                                                            certification: item,
-                                                            jobs: paginator.data,
-                                                            pagination: paginator,
-                                                        });
-
-
-                                                    })
-                                                    .catch((err) => {
-                                                        console.error("Error cargando ofertas:", err);
-                                                    });
-
-                                                return;
-                                            }
-                                        }
-                                    }}
                                 />
 
 
@@ -332,6 +342,29 @@ if (item.entity_type === "trend") {
                             }
                         />
                     )}
+{trendJobsModal.open && (
+  <TrendJobsModal
+    open={trendJobsModal.open}
+    trend={trendJobsModal.trend}
+    jobs={trendJobsModal.jobs}
+    pagination={trendJobsModal.pagination}
+    onClose={() =>
+      setTrendJobsModal({
+        open: false,
+        trend: null,
+        jobs: [],
+        pagination: null,
+      })
+    }
+    onPageChange={(paginator) => {
+      setTrendJobsModal((prev) => ({
+        ...prev,
+        jobs: paginator.data,
+        pagination: paginator,
+      }));
+    }}
+  />
+)}
 
 
                     {/* ================= MODAL PONDERACIONES ================= */}

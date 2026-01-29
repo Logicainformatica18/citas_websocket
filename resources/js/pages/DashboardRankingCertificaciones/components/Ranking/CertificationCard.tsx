@@ -51,12 +51,14 @@ export default function CertificationCard({
     const finalScore = Number(data.final_score ?? 0);
     const laborScore = Number(data.labor_score ?? 0);
     const trendScore = Number(data.trend_score ?? 0);
+    const laborWeightedScore = Number(data.labor_weighted_score ?? 0);
+
     /* Etiqueta semántica */
     const scoreLabel =
         finalScore >= 70 ? "Alta" :
             finalScore >= 40 ? "Media" :
                 "Baja";
- 
+
     return (
         <div
             className={`
@@ -142,16 +144,18 @@ export default function CertificationCard({
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     console.log("CLICK LABORAL", data.id);
-                                    if (isTrend) return;
-                                    onAction?.("laboral", data);
+                                    if (totalJobs === 0) return;
+onAction?.("laboral", data);
+
                                 }}
 
                                 className={`
     rounded-lg p-2 transition
-    ${isTrend
-                                        ? "opacity-40 cursor-not-allowed"
-                                        : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-                                    }
+    ${totalJobs === 0
+  ? "opacity-40 cursor-not-allowed"
+  : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+}
+
   `}
                             >
 
@@ -161,11 +165,12 @@ export default function CertificationCard({
                                         Laboral
                                     </span>
 
-                                    {!isTrend && (
-                                        <span className="text-[11px] text-gray-400">
-                                            {totalJobs.toLocaleString()} vacantes
-                                        </span>
-                                    )}
+                                  {totalJobs > 0 && (
+  <span className="text-[11px] text-gray-400">
+    {totalJobs.toLocaleString()} vacantes
+  </span>
+)}
+
                                 </div>
 
                                 <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-[#1E3A4A] overflow-hidden mt-1">
@@ -176,7 +181,9 @@ export default function CertificationCard({
                                 </div>
 
                                 <span className="text-[11px] text-gray-500">
-                                    Score laboral: {laborScore.toFixed(1)}
+                                  Score laboral: {laborScore.toFixed(1)}
+
+
                                 </span>
                             </div>
 

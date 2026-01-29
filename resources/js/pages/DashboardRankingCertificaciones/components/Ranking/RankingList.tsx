@@ -53,9 +53,7 @@ export default function RankingList({
               /* ✅ SOLO REENVÍA EVENTOS */
               onAction={(action, data) => {
                 // 🔒 Bloqueo mínimo y lógico
-                if (action === "laboral" && data.entity_type !== "certification") {
-                  return;
-                }
+               
 
                 // 🔥 TREND SIEMPRE SE REENVÍA
                 onSelectItem?.(action, data);
