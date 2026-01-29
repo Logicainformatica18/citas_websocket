@@ -121,17 +121,34 @@ if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
     /* ==================================================
        2. SUBQUERY TENDENCIAS (TECNOLOGÍAS)
     ================================================== */
-    $reportsSub = DB::table('technology_trends as tt')
-        ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
-       ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
+   $reportsSub = DB::table('technologies as t')
+    ->leftJoin('technology_categories as tc', 'tc.id', '=', 't.category_id')
+    ->leftJoin('technology_trends as tt', function ($join) use ($year, $quarter) {
+        $join->on(DB::raw(1), '=', DB::raw(1))
+             ->where('tt.year', $year)
+             ->where('tt.quarter', $quarter);
+    })
+    ->where(function ($q) {
+        $q->whereExists(function ($sub) {
+            $sub->select(DB::raw(1))
+                ->from('technology_trend_technology as ttt')
+                ->whereColumn('ttt.technology_trend_id', 'tt.id')
+                ->whereColumn('ttt.technology_id', 't.id');
+        })
+        ->orWhereRaw("JSON_SEARCH(tt.scanned_keywords, 'one', t.name) IS NOT NULL")
+        ->orWhereRaw("JSON_SEARCH(tt.associated_technologies, 'one', t.name) IS NOT NULL")
+        ->orWhereRaw("LOWER(tt.topic_name) LIKE CONCAT('%', LOWER(t.name), '%')")
+        ->orWhereRaw("
+            tc.name IS NOT NULL
+            AND LOWER(tt.topic_category) LIKE CONCAT('%', LOWER(tc.name), '%')
+        ");
+    })
+    ->select(
+        't.id as technology_id',
+        DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
+    )
+    ->groupBy('t.id');
 
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
-        ->select(
-            'ttt.technology_id',
-            DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
-        )
-        ->groupBy('ttt.technology_id');
 
   $totalReports = DB::table('technology_trends')
     ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.intent')) = 'technology_trend'")
@@ -445,6 +462,7 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
         'data' => $jobs,
     ]);
 }
+
 
     /* ==================================================
        JOBS POR TECNOLOGÍA

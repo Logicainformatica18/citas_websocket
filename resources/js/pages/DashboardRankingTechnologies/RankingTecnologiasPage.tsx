@@ -9,6 +9,7 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 import TrendDetailModal from "./components/Ranking/TrendDetailModal";
 
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
+import TrendJobsModal from "./components/Ranking/TrendJobsModal";
 import {
   WeightConfigModal,
   WeightConfig,
@@ -253,23 +254,30 @@ export default function RankingTecnologiasPage() {
         </div>
 
         {/* ================= MODAL OFERTAS LABORALES ================= */}
-        {jobsModal.open && jobsModal.item && (
-          <TechnologyJobsModal
-            open={jobsModal.open}
-            onClose={closeJobsModal}
-            technologyId={
-              jobsModal.type === "technology"
-                ? jobsModal.item.id
-                : undefined
-            }
-            trendId={
-              jobsModal.type === "trend"
-                ? jobsModal.item.id
-                : undefined
-            }
-            title={jobsModal.item.name}
-          />
-        )}
+        {/* ================= MODAL JOBS TECNOLOGÍA ================= */}
+{jobsModal.open &&
+  jobsModal.type === "technology" &&
+  jobsModal.item && (
+    <TechnologyJobsModal
+      open
+      onClose={closeJobsModal}
+      technologyId={jobsModal.item.id}
+      title={jobsModal.item.name}
+    />
+)}
+
+{/* ================= MODAL JOBS TENDENCIA ================= */}
+{jobsModal.open &&
+  jobsModal.type === "trend" &&
+  jobsModal.item && (
+    <TrendJobsModal
+      open
+      onClose={closeJobsModal}
+      trendId={jobsModal.item.id}
+      title={jobsModal.item.name}
+    />
+)}
+
 
         {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal

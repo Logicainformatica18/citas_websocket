@@ -17,7 +17,6 @@ type Props = {
   items: TechnologyRanking[];
   pagination: Pagination;
 
-
   onSelectItem?: (
     action: "laboral" | "trend",
     item: TechnologyRanking
@@ -35,25 +34,18 @@ export default function RankingList({
     <>
       {/* ================= GRID ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {items.map((item, index) => {
-          return (
-            <TechnologyCard
-              key={`${item.entity_type}-${item.id}`}
-              rank={(pagination.current_page - 1) * perPage + index + 1}
-              data={item}
+        {items.map((item, index) => (
+          <TechnologyCard
+            key={`${item.entity_type}-${item.id}`}
+            rank={(pagination.current_page - 1) * perPage + index + 1}
+            data={item}
 
-              /* ✅ SOLO REENVÍA EVENTOS */
-              onAction={(action, data) => {
-                // 🔒 Bloqueo mínimo (igual que Certificaciones)
-                if (action === "laboral" && data.entity_type !== "technology") {
-                  return;
-                }
-
-                onSelectItem?.(action, data);
-              }}
-            />
-          );
-        })}
+            /* ✅ REENVÍA TODO (SIN BLOQUEOS) */
+            onAction={(action, data) => {
+              onSelectItem?.(action, data);
+            }}
+          />
+        ))}
       </div>
 
       {/* ================= PAGINACIÓN ================= */}

@@ -37,7 +37,7 @@ export default function JobDemandGeoIndex() {
             {/* ================= KPIs ================= */}
             <div className="mt-6 space-y-6">
                 <CityDemandKpiGrid meta={meta} />
-                <JobDemandGeoKpiGrid meta={meta} />
+                {/* <JobDemandGeoKpiGrid meta={meta} /> */}
             </div>
 
             {/* ================= FILTROS ================= */}
@@ -49,7 +49,7 @@ export default function JobDemandGeoIndex() {
             </div>
 
             {/* ================= CONTENIDO ================= */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mt-6">
+            <div className="grid grid-cols-1 xl:grid-cols-1 gap-6 mt-6">
                 {/* TABLA */}
                 <div className="xl:col-span-6">
                    <JobDemandCityTable ranking={ranking} />
@@ -57,9 +57,9 @@ export default function JobDemandGeoIndex() {
                 </div>
 
                 {/* METODOLOGÍA */}
-                <div className="xl:col-span-6">
+                {/* <div className="xl:col-span-6">
                     <JobDemandGeoMethodologyCard />
-                </div>
+                </div> */}
             </div>
         </AppLayout>
     );

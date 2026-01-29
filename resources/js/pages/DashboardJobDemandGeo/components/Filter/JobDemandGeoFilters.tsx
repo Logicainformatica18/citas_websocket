@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import {
-    Globe,
-    MapPin,
-    X,
-} from "lucide-react";
+import { Globe, MapPin, X } from "lucide-react";
 
 interface Props {
     regions: string[];
@@ -13,40 +9,74 @@ interface Props {
 export default function JobDemandGeoFilters({ regions }: Props) {
     const { filters } = usePage().props as any;
 
-    const [region, setRegion] = useState<string>(filters.region ?? "");
-    const [countryQuery, setCountryQuery] = useState<string>(filters.country ?? "");
-    const [countryResults, setCountryResults] = useState<string[]>([]);
-    const [showCountries, setShowCountries] = useState(false);
+    const [region, setRegion] = useState(filters.region ?? "");
+    const [query, setQuery] = useState(filters.country ?? "");
+    const [results, setResults] = useState<string[]>([]);
+    const [open, setOpen] = useState(false);
 
-    const timeoutRef = useRef<any>(null);
+    const timeout = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     /* =====================
-       Buscar países (debounce)
+       AUTOCOMPLETE SERVER
+    ===================== */
+    const searchCountries = (q: string) => {
+        fetch(
+            `/dashboard/indicators/job-demand-geo/search-countries?q=${q}&region=${region}`
+        )
+            .then((r) => r.json())
+            .then((data) => {
+                setResults(data);
+                setOpen(true);
+            });
+    };
+
+    /* =====================
+       Escribir → request
     ===================== */
     useEffect(() => {
-        if (!countryQuery || countryQuery.length < 2) {
-            setCountryResults([]);
-            return;
-        }
+        if (!region) return;
 
-        clearTimeout(timeoutRef.current);
+        clearTimeout(timeout.current);
 
-        timeoutRef.current = setTimeout(() => {
-            fetch(
-                `/dashboard/indicators/job-demand-geo/search-countries?q=${countryQuery}&region=${region ?? ""}`
-            )
-                .then((res) => res.json())
-                .then((data) => {
-                    setCountryResults(data);
-                    setShowCountries(true);
-                });
+        timeout.current = setTimeout(() => {
+            searchCountries(query);
         }, 300);
-    }, [countryQuery, region]);
+    }, [query]);
+
+    /* =====================
+       Cambiar región
+    ===================== */
+    useEffect(() => {
+        setQuery("");
+        setResults([]);
+        setOpen(false);
+
+        if (region) {
+            searchCountries("");
+        }
+    }, [region]);
+
+    /* =====================
+       Click fuera
+    ===================== */
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(e.target as Node)
+            ) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
 
     /* =====================
        Aplicar filtros
     ===================== */
-    const applyFilters = (params: Partial<typeof filters>) => {
+    const applyFilters = (params: any) => {
         router.get(
             "/dashboard/indicators/job-demand-geo",
             {
@@ -61,38 +91,23 @@ export default function JobDemandGeoFilters({ regions }: Props) {
         );
     };
 
-    /* =====================
-       Limpiar
-    ===================== */
-    const clearCountry = () => {
-        setCountryQuery("");
-        applyFilters({ country: null });
-    };
-
-    const clearRegion = () => {
-        setRegion("");
-        setCountryQuery("");
-        applyFilters({ region: null, country: null });
-    };
-
     return (
-        <div className="mt-6 flex flex-wrap items-end gap-4 rounded-2xl border bg-white p-4 shadow-sm dark:bg-[#0F2A3A]">
+        <div className="relative z-40 mt-6 flex gap-4 rounded-2xl border bg-white p-4 shadow-sm dark:bg-[#0F2A3A]">
             {/* ================= REGIÓN ================= */}
             <div className="flex flex-col gap-1 min-w-[200px]">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    Región
-                </span>
+                <span className="text-xs font-semibold">Región</span>
 
                 <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#00B6E8]" />
+                    <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00B6E8]" />
 
                     <select
                         value={region}
                         onChange={(e) => {
-                            setRegion(e.target.value);
-                            applyFilters({ region: e.target.value || null, country: null });
+                            const v = e.target.value;
+                            setRegion(v);
+                            applyFilters({ region: v || null, country: null });
                         }}
-                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#00B6E8]"
+                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold"
                     >
                         <option value="">Todas</option>
                         {regions.map((r) => (
@@ -104,60 +119,69 @@ export default function JobDemandGeoFilters({ regions }: Props) {
 
                     {region && (
                         <button
-                            onClick={clearRegion}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500"
+                            onClick={() => {
+                                setRegion("");
+                                setQuery("");
+                                applyFilters({ region: null, country: null });
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4 text-slate-400" />
                         </button>
                     )}
                 </div>
             </div>
 
             {/* ================= PAÍS ================= */}
-            <div className="relative flex flex-col gap-1 min-w-[260px]">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    País
-                </span>
+            <div
+                ref={containerRef}
+                className="relative flex flex-col gap-1 min-w-[260px]"
+            >
+                <span className="text-xs font-semibold">País</span>
 
                 <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#00B6E8]" />
+                    <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00B6E8]" />
 
                     <input
-                        value={countryQuery}
-                        onChange={(e) => setCountryQuery(e.target.value)}
-                        placeholder="Buscar país…"
-                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#00B6E8]"
-                        onFocus={() => setShowCountries(true)}
-                        onBlur={() => setTimeout(() => setShowCountries(false), 200)}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onFocus={() => region && setOpen(true)}
+                        placeholder="Seleccionar país"
+                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold"
                     />
 
-                    {countryQuery && (
+                    {query && (
                         <button
-                            onClick={clearCountry}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500"
+                            onClick={() => {
+                                setQuery("");
+                                setResults([]);
+                                applyFilters({ country: null });
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4 text-slate-400" />
                         </button>
                     )}
                 </div>
 
-                {showCountries && countryResults.length > 0 && (
-                    <div className="absolute top-full z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border bg-white shadow-lg dark:bg-[#102C3C]">
-                        {countryResults.map((c) => (
-                            <button
-                                key={c}
-                                onClick={() => {
-                                    setCountryQuery(c);
-                                    applyFilters({ country: c });
-                                    setShowCountries(false);
-                                }}
-                                className="block w-full px-4 py-2 text-left text-sm hover:bg-[#E6F7FD] dark:hover:bg-[#123A52]"
-                            >
-                                {c}
-                            </button>
-                        ))}
-                    </div>
-                )}
+              {open && results.length > 0 && (
+    <div className="absolute bottom-full z-50 mt-1 max-h-64 w-full overflow-auto rounded-xl border bg-white shadow-xl dark:bg-[#102C3C]">
+        {results.map((c) => (
+            <button
+                key={c}
+                onClick={() => {
+                    setQuery(c);
+                    setOpen(false);
+                    applyFilters({ country: c });
+                }}
+                className="block w-full px-4 py-2 text-left text-sm hover:bg-[#E6F7FD]"
+            >
+                {c}
+            </button>
+        ))}
+    </div>
+)}
+
             </div>
         </div>
     );

@@ -23,15 +23,15 @@ class RunAllJobs extends Command
 //     'getonboard:technologies',
 
 
-//  'computrabajo:technologies --country=pe --pages=1',
-//     'computrabajo:technologies --country=bo --pages=1',
-// 'computrabajo:technologies --country=ar --pages=1',
-// 'computrabajo:technologies --country=uy --pages=1',
-// 'computrabajo:technologies --country=mx --pages=1',
-// 'computrabajo:technologies --country=co --pages=1',
-// 'computrabajo:technologies --country=ec --pages=1',
-// 'computrabajo:technologies --country=ve --pages=1',
-// 'computrabajo:technologies --country=cl --pages=1',
+ //'computrabajo:technologies --country=pe --pages=1',
+    'computrabajo:technologies --country=bo --pages=1',
+'computrabajo:technologies --country=ar --pages=1',
+'computrabajo:technologies --country=uy --pages=1',
+'computrabajo:technologies --country=mx --pages=1',
+'computrabajo:technologies --country=co --pages=1',
+'computrabajo:technologies --country=ec --pages=1',
+'computrabajo:technologies --country=ve --pages=1',
+'computrabajo:technologies --country=cl --pages=1',
 
 //  'computrabajo:languages --pages=1',
 // 'computrabajo:methodologies --pages=1',
@@ -234,7 +234,8 @@ class RunAllJobs extends Command
 'normalize:europe-countries',
 'joboffers:normalize-regions',
 'joboffers:normalize-north-america',
-'joboffers:normalize-oceania'
+'joboffers:normalize-oceania',
+'normalize:geo-regions'
 
 
 ];

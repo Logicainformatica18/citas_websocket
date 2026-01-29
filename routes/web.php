@@ -118,7 +118,7 @@ Route::middleware(['auth'])->group(function () {
   Route::get(
             '/indicators/job-demand-geo',
             [JobDemandGeoIndicatorController::class, 'index']
-        )->name('dashboard.indicators.job-demand-geo'); 
+        )->name('dashboard.indicators.job-demand-geo');
 Route::get(
     '/indicators/companies',
     [CompanyIndicatorController::class, 'index']
@@ -127,6 +127,12 @@ Route::get(
     '/indicators/job-demand-geo/heatmap',
     [JobDemandGeoIndicatorController::class, 'getData']
 )->name('dashboard.job-demand-geo.heatmap');
+  Route::get(
+            '/indicators/job-demand-geo/search-countries',
+            [JobDemandGeoIndicatorController::class, 'searchCountries']
+        );
+
+
  Route::get(
             '/heatmap',
             [JobDemandGeoIndicatorController::class, 'heatmap']
@@ -275,6 +281,8 @@ Route::get(
 
    Route::prefix('dashboard/ranking/technologies')->group(function () {
 
+ 
+
         Route::get(
             '/',
             [RankingTecnologiasController::class, 'index']
@@ -300,8 +308,7 @@ Route::get(
     [RankingTecnologiasController::class, 'technologyTrendDetail']
 )->name('dashboard.ranking.technologies.trend.detail');
 
-Route::get(
-    '/trend/{trendId}/jobs',
+Route::get(    '/trend/{trendId}/jobs',
     [RankingTecnologiasController::class, 'jobsByTechnologyTrend']
 )->name('dashboard.ranking.technologies.trend.jobs');
 

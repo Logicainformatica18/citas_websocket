@@ -50,7 +50,7 @@ class JobDemandGeoIndicatorController extends Controller
         /* =====================================================
            1️⃣ Filtros
         ===================================================== */
-        $year    = (int) $request->input('year', 2026);
+        $year    = (int) $request->input('year', 2025);
         $period  = $request->input('period', 's2');
         $region  = $request->input('region');
         $country = $request->input('country');
@@ -166,6 +166,30 @@ $ranking->getCollection()->transform(function ($row) use ($totalJobs) {
             'regions' => $regions,
         ]);
     }
+
+public function searchCountries(Request $request)
+{
+    $term   = trim($request->get('q', ''));
+    $region = $request->get('region');
+
+    $regionSql = $this->normalizedRegionSql();
+
+    return DB::table('job_offers')
+        ->whereNotNull('country')
+        ->when($region, fn ($q) =>
+            $q->whereRaw("$regionSql = ?", [$region])
+        )
+        ->when($term, fn ($q) =>
+            $q->where('country', 'like', "%{$term}%")
+        )
+        ->distinct()
+        ->orderBy('country')
+        ->limit(15)
+        ->pluck('country');
+}
+
+
+
  public function getData(Request $request)
 {
     /* =====================================================
