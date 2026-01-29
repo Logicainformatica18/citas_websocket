@@ -133,9 +133,21 @@ export default function TechnologyCard({
           </div>
 
           {/* ================= SUBTÍTULO ================= */}
-          <div className="text-xs uppercase tracking-wide text-gray-500">
-            {isTrend ? "Reporte tecnológico" : "Tecnología académica"}
-          </div>
+      {/* ================= SUBTÍTULO ================= */}
+{data.entity_type === "technology" && (
+  <p className="text-sm text-slate-500">
+    {data.category ?? "Tecnología"}
+  </p>
+)}
+
+{data.entity_type === "trend" && (
+  <p className="text-sm text-slate-500 line-clamp-2">
+    {data.impacted_technologies
+      ? `Tecnologías asociadas: ${data.impacted_technologies}`
+      : "Tendencia tecnológica"}
+  </p>
+)}
+
 
           {/* ================= CATEGORÍA ================= */}
           {!isTrend && data.category && (

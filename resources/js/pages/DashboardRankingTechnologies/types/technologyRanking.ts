@@ -36,4 +36,6 @@ export type TechnologyRanking = {
   source_title?: string;
   source_url?: string;
   source_type?: string;
+  // 🔥 NUEVO
+  impacted_technologies?: string | null;
 };

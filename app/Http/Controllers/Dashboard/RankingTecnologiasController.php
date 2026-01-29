@@ -56,7 +56,7 @@ class RankingTecnologiasController extends Controller
     $year        = (int) $request->get('year', 2025);
     $period      = $request->get('period', 's2');
     $quarter     = $period === 's1' ? 1 : 4;
- 
+
 $rankingType = $request->get('ranking_type');
 
 if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
@@ -121,33 +121,22 @@ if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
     /* ==================================================
        2. SUBQUERY TENDENCIAS (TECNOLOGÍAS)
     ================================================== */
-   $reportsSub = DB::table('technologies as t')
-    ->leftJoin('technology_categories as tc', 'tc.id', '=', 't.category_id')
-    ->leftJoin('technology_trends as tt', function ($join) use ($year, $quarter) {
-        $join->on(DB::raw(1), '=', DB::raw(1))
-             ->where('tt.year', $year)
-             ->where('tt.quarter', $quarter);
-    })
-    ->where(function ($q) {
-        $q->whereExists(function ($sub) {
-            $sub->select(DB::raw(1))
-                ->from('technology_trend_technology as ttt')
-                ->whereColumn('ttt.technology_trend_id', 'tt.id')
-                ->whereColumn('ttt.technology_id', 't.id');
-        })
-        ->orWhereRaw("JSON_SEARCH(tt.scanned_keywords, 'one', t.name) IS NOT NULL")
-        ->orWhereRaw("JSON_SEARCH(tt.associated_technologies, 'one', t.name) IS NOT NULL")
-        ->orWhereRaw("LOWER(tt.topic_name) LIKE CONCAT('%', LOWER(t.name), '%')")
-        ->orWhereRaw("
-            tc.name IS NOT NULL
-            AND LOWER(tt.topic_category) LIKE CONCAT('%', LOWER(tc.name), '%')
-        ");
-    })
+   /* ==================================================
+   2. SUBQUERY TENDENCIAS (TECNOLOGÍAS REALES)
+================================================== */
+$reportsSub = DB::table('technology_trend_technology as ttt')
+    ->join('technology_trends as tt', 'tt.id', '=', 'ttt.technology_trend_id')
+    ->where('tt.year', $year)
+    ->where('tt.quarter', $quarter)
+    ->whereRaw(
+        "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
+    )
     ->select(
-        't.id as technology_id',
+        'ttt.technology_id',
         DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
     )
-    ->groupBy('t.id');
+    ->groupBy('ttt.technology_id');
+
 
 
   $totalReports = DB::table('technology_trends')
@@ -166,6 +155,7 @@ $totalReports = max($totalReports, 1);
     $isilQuery = DB::table('technologies as t')
         ->leftJoinSub($laborSub, 'labor', 'labor.technology_id', '=', 't.id')
         ->leftJoinSub($reportsSub, 'reports', 'reports.technology_id', '=', 't.id')
+
         ->leftJoin('technology_categories as tc', 'tc.id', '=', 't.category_id')
         ->where('t.enabled', 1)
         ->whereExists(function ($q) {
@@ -193,7 +183,7 @@ $totalReports = max($totalReports, 1);
   $isilQuery = $isilQuery->select(
     DB::raw("'technology' as entity_type"),
     DB::raw('1 as is_isil'),
-    DB::raw('0 as is_real_trend'), 
+    DB::raw('0 as is_real_trend'),
     't.id',
     't.name',
     'tc.name as category',
@@ -227,47 +217,77 @@ DB::raw("
     DB::raw('NULL as quarter'),
     DB::raw('NULL as source_title'),
     DB::raw('NULL as source_url'),
-    DB::raw('NULL as source_type')
+    DB::raw('NULL as source_type'),
+    DB::raw('NULL as impacted_technologies'),
+
 );
 
 
+$trendTechnologiesSub = DB::table('technology_trend_technology as ttt')
+    ->join('technologies as t', 't.id', '=', 'ttt.technology_id')
+    ->select(
+        'ttt.technology_trend_id',
+        DB::raw("
+            GROUP_CONCAT(
+                DISTINCT t.name
+                ORDER BY t.name
+                SEPARATOR ', '
+            ) as impacted_technologies
+        ")
+    )
+    ->groupBy('ttt.technology_trend_id');
     /* ==================================================
        4. TECNOLOGÍAS EN TENDENCIA (NO ISIL)
     ================================================== */
+    $trendJobsSub = DB::table('technology_trend_job')
+    ->select(
+        'technology_trend_id',
+        DB::raw('COUNT(DISTINCT job_offer_id) as total_jobs')
+    )
+    ->groupBy('technology_trend_id');
+
 $trendsQuery = DB::table('technology_trends as tt')
-    ->leftJoin('technology_trend_job as ttj', 'ttj.technology_trend_id', '=', 'tt.id')
-    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
+    ->leftJoinSub(
+        $trendJobsSub,
+        'trend_jobs',
+        'trend_jobs.technology_trend_id',
+        '=',
+        'tt.id'
+    )
+    ->leftJoinSub(
+        $trendTechnologiesSub,
+        'trend_tech',
+        'trend_tech.technology_trend_id',
+        '=',
+        'tt.id'
+    )
+    ->whereRaw(
+        "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
+    )
     ->where('tt.year', $year)
     ->where('tt.quarter', $quarter)
-    ->groupBy(
-        'tt.id',
-        'tt.topic_name',
-        'tt.trend_score',
-        'tt.year',
-        'tt.quarter',
-        'tt.source_title',
-        'tt.source_url',
-        'tt.source_type'
-    )
+    ->whereNotNull('trend_tech.impacted_technologies')
+
     ->select(
         DB::raw("'trend' as entity_type"),
         DB::raw('0 as is_isil'),
-        DB::raw('1 as is_real_trend'), // 🔥 CLAVE
+        DB::raw('1 as is_real_trend'),
+
         'tt.id',
         'tt.topic_name as name',
         DB::raw('NULL as category'),
 
         // métricas
-        DB::raw('COUNT(DISTINCT ttj.job_offer_id) as total_jobs'),
-        DB::raw('COUNT(DISTINCT tt.id) as trend_reports'),
+        DB::raw('COALESCE(trend_jobs.total_jobs, 0) as total_jobs'),
+        DB::raw('1 as trend_reports'),
 
         DB::raw("
             ROUND(
-              LEAST(
-                (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
-                100
-              ),
-              1
+                LEAST(
+                    (COALESCE(trend_jobs.total_jobs,0) / {$maxLabor}) * 100,
+                    100
+                ),
+                1
             ) as labor_score
         "),
 
@@ -275,13 +295,13 @@ $trendsQuery = DB::table('technology_trends as tt')
 
         DB::raw("
             ROUND(
-              (
-                LEAST(
-                  (COUNT(DISTINCT ttj.job_offer_id) / {$maxLabor}) * 100,
-                  100
-                ) * {$laborWeight}
-              ) + (tt.trend_score * {$trendWeight}),
-              1
+                (
+                    LEAST(
+                        (COALESCE(trend_jobs.total_jobs,0) / {$maxLabor}) * 100,
+                        100
+                    ) * {$laborWeight}
+                ) + (tt.trend_score * {$trendWeight}),
+                1
             ) as final_score
         "),
 
@@ -290,8 +310,12 @@ $trendsQuery = DB::table('technology_trends as tt')
         'tt.quarter',
         'tt.source_title',
         'tt.source_url',
-        'tt.source_type'
+        'tt.source_type',
+
+        // 🔥 CLAVE UX
+        'trend_tech.impacted_technologies'
     );
+
 
 
 if ($rankingType === 'trend' && $request->filled('trend_category')) {
@@ -538,5 +562,5 @@ public function jobsByLanguage(Request $request, int $languageId)
         ];
     }
 
-    
+
 }
