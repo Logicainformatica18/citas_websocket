@@ -16,6 +16,10 @@ class Dashboard extends Model
         'layout_type',
         'is_default',
     ];
+public function isDeletable(): bool
+{
+    return !$this->is_default;
+}
 
     /* =====================================================
        Relaciones

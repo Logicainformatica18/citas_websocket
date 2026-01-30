@@ -276,12 +276,13 @@ Route::get(
 
     Route::get('/dashboard/{slug}', [DashboardController::class, 'show'])
         ->name('dashboard.show');
-
+Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->name('dashboard.update');
+    Route::delete('/dashboard/{dashboard}', [DashboardController::class, 'destroy'])->name('dashboard.destroy');
 
 
    Route::prefix('dashboard/ranking/technologies')->group(function () {
 
- 
+
 
         Route::get(
             '/',

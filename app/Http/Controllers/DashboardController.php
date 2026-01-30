@@ -37,6 +37,82 @@ class DashboardController extends Controller
     ]);
 }
 
+public function update(Request $request, Dashboard $dashboard)
+{
+    $request->validate([
+        'title' => 'required|string|max:255',
+    ]);
+
+    // Si no cambió el título, no hacemos nada
+    if ($dashboard->title === $request->title) {
+        return back();
+    }
+
+    // Generar nuevo slug
+    $slug = Str::slug($request->title);
+    $originalSlug = $slug;
+    $i = 1;
+
+    while (
+        Dashboard::where('slug', $slug)
+            ->where('id', '!=', $dashboard->id)
+            ->exists()
+    ) {
+        $slug = "{$originalSlug}-{$i}";
+        $i++;
+    }
+
+    $dashboard->update([
+        'title' => $request->title,
+        'slug'  => $slug,
+    ]);
+
+    return redirect()->route('dashboard.show', $dashboard->slug);
+}
+/* =====================================================
+   5️⃣ DESTROY
+   → Eliminar dashboard
+===================================================== */
+public function destroy(Dashboard $dashboard)
+{
+    /* =========================================
+       1️⃣ Proteger dashboard default
+    ========================================= */
+    if ($dashboard->is_default) {
+        return back()->withErrors([
+            'dashboard' => 'No se puede eliminar el dashboard principal',
+        ]);
+    }
+
+    /* =========================================
+       2️⃣ Eliminar widgets asociados
+       (si no tienes cascadeOnDelete)
+    ========================================= */
+    $dashboard->widgets()->delete();
+
+    /* =========================================
+       3️⃣ Eliminar dashboard
+    ========================================= */
+    $dashboard->delete();
+
+    /* =========================================
+       4️⃣ Buscar siguiente dashboard
+       (preferimos el default si existe)
+    ========================================= */
+    $nextDashboard =
+        Dashboard::where('is_default', true)->first()
+        ?? Dashboard::orderBy('created_at')->first();
+
+    if (!$nextDashboard) {
+        abort(404, 'No hay dashboards disponibles');
+    }
+
+    /* =========================================
+       5️⃣ Redirección limpia
+    ========================================= */
+    return redirect()->route('dashboard.show', $nextDashboard->slug);
+}
+
 
     /* =====================================================
        2️⃣ SHOW
