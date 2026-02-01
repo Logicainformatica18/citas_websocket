@@ -108,17 +108,25 @@ const isISIL =
             {/* Subscores */}
             <div className="grid grid-cols-2 gap-4 pt-2">
               {/* Laboral */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAction?.("laboral", data);
-                }}
-                className="
-                  rounded-lg p-2 transition
-                  cursor-pointer hover:bg-slate-50
-                  dark:hover:bg-[#1E3A4A]
-                "
-              >
+           {/* Laboral */}
+<div
+  onClick={(e) => {
+    e.stopPropagation();
+
+    // 🔒 No abrir si no hay mercado real
+    if (totalJobs === 0) return;
+
+    onAction?.("laboral", data);
+  }}
+  className={`
+    rounded-lg p-2 transition
+    ${totalJobs === 0
+      ? "opacity-40 cursor-not-allowed"
+      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+    }
+  `}
+>
+
                 <div className="flex items-center justify-between text-xs uppercase text-gray-500">
                   <span className="flex items-center gap-1">
                     <Briefcase className="h-3 w-3" />
@@ -143,11 +151,16 @@ const isISIL =
 
               {/* Tendencias */}
               <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (trendReports === 0) return;
-                  onAction?.("trend", data);
-                }}
+              onClick={(e) => {
+  e.stopPropagation();
+
+  // 🔒 Solo tendencias reales
+  if (!data.is_real_trend) return;
+  if (trendReports === 0) return;
+
+  onAction?.("trend", data);
+}}
+
                 className={`
                   rounded-lg p-2 transition
                   ${trendReports === 0
@@ -207,6 +220,21 @@ const isISIL =
       ISIL
     </span>
   )}
+  {/* {data.is_real_trend === 1 && (
+  <span
+    className="
+      mt-2 inline-flex items-center
+      rounded-full px-3 py-1
+      text-xs font-semibold
+      bg-purple-100 text-purple-700
+      dark:bg-[#2B1C3A]
+      dark:text-[#E9D5FF]
+    "
+  >
+    Trend
+  </span>
+)} */}
+
 </div>
 
       </div>

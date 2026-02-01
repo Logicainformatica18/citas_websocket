@@ -50,33 +50,27 @@ class RankingLenguajesController extends Controller
 public function index(Request $request)
 {
     /* ================= PARÁMETROS BASE ================= */
-    $year    = (int) $request->get('year', 2025);
-    $period  = $request->get('period', 's2');
-    $quarter = $period === 's1' ? 1 : 4;
+    $year    = (int) $request->get('year', 2026);
+    $period  = $request->get('period', 's1');
+    $quarters = $period === 's1' ? [1, 2] : [3, 4];
 
-    $rankingType = $request->get('ranking_type');
+    $rankingType = $request->get('ranking_type', 'all');
     if (!in_array($rankingType, ['all', 'language', 'trend'])) {
         $rankingType = 'all';
     }
 
     $careers = array_filter((array) $request->get('career', []));
+    $range   = $this->getPeriodRange($period, $year);
 
-    // 🔥 Dominio de tendencias (formal)
-    $trendDomain = $request->get('trend_domain', 'language');
-
-    // 🔥 Filtro centralizado de tendencias de lenguajes
-    $applyLanguageTrendFilter = function ($q) use ($trendDomain) {
-        if ($trendDomain === 'language') {
-            $q->whereIn('tt.topic_category', [
-                'Lenguaje',
-                'Lenguajes',
-                'Language',
-                'Programming Language',
-            ]);
-        }
+    /* ==================================================
+       FILTRO SEMÁNTICO CORRECTO PARA LENGUAJES
+    ================================================== */
+    $applyLanguageTrendFilter = function ($q) {
+        $q->where(function ($qq) {
+            $qq->whereRaw("LOWER(tt.topic_category) LIKE '%lenguaj%'")
+               ->orWhereRaw("LOWER(tt.topic_category) LIKE '%language%'");
+        });
     };
-
-    $range = $this->getPeriodRange($period, $year);
 
     /* ================= PONDERACIONES ================= */
     try {
@@ -94,15 +88,47 @@ public function index(Request $request)
         ->orderBy('name')
         ->get(['id', 'name', 'slug']);
 
-    /* ================= VACANTES ANALIZADAS ================= */
-    $totalVacantesAnalizadas = DB::table('language_job as lj')
-        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
+    /* ==================================================
+       VACANTES ANALIZADAS (REAL MARKET DATA)
+    ================================================== */
+    $totalVacantesAnalizadas = DB::table('technology_trend_job as ttj')
+        ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id')
         ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->distinct('lj.job_offer_id')
-        ->count('lj.job_offer_id');
+        ->distinct('ttj.job_offer_id')
+        ->count('ttj.job_offer_id');
 
     /* ==================================================
-       1. SUBQUERY DEMANDA LABORAL (LENGUAJES)
+       SUBQUERY: JOBS POR TREND (FUENTE REAL)
+    ================================================== */
+    $trendJobsSub = DB::table('technology_trend_job')
+        ->select(
+            'technology_trend_id',
+            DB::raw('COUNT(DISTINCT job_offer_id) as total_jobs')
+        )
+        ->groupBy('technology_trend_id');
+
+    $maxJobs = DB::query()
+        ->fromSub($trendJobsSub, 'x')
+        ->selectRaw('MAX(total_jobs)')
+        ->value('MAX(total_jobs)') ?: 1;
+
+    /* ==================================================
+       TOTAL DE REPORTES
+    ================================================== */
+    $totalReports = DB::table('technology_trends as tt')
+        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
+        ->where('tt.year', $year)
+        ->whereIn('tt.quarter', $quarters)
+        ->where(function ($q) use ($applyLanguageTrendFilter) {
+            $applyLanguageTrendFilter($q);
+        })
+        ->distinct('tt.id')
+        ->count('tt.id');
+
+    $totalReports = max($totalReports, 1);
+
+    /* ==================================================
+       1️⃣ LENGUAJES ISIL (language_job)
     ================================================== */
     $laborSub = DB::table('language_job as lj')
         ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
@@ -118,125 +144,50 @@ public function index(Request $request)
         ->selectRaw('MAX(offers)')
         ->value('MAX(offers)') ?: 1;
 
-    /* ==================================================
-       2. TOTAL DE REPORTES DE TENDENCIA
-    ================================================== */
-    $totalReports = DB::table('technology_trends as tt')
-        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
-        ->where(function ($q) use ($applyLanguageTrendFilter) {
-            $applyLanguageTrendFilter($q);
-        })
-        ->distinct('tt.id')
-        ->count('tt.id');
-
-    $totalReports = max($totalReports, 1);
-
-    /* ==================================================
-       3. SUBQUERY REPORTES POR LENGUAJE
-    ================================================== */
-    $reportsSub = DB::table('technology_trends as tt')
-        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
-        ->where(function ($q) use ($applyLanguageTrendFilter) {
-            $applyLanguageTrendFilter($q);
-        })
-        ->select(
-            DB::raw('LOWER(tt.topic_name) as language_name'),
-            DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
-        )
-        ->groupBy(DB::raw('LOWER(tt.topic_name)'));
-
-    /* ==================================================
-       4. LENGUAJES ISIL (LABOR + TREND)
-    ================================================== */
     $languagesQuery = DB::table('languages as l')
         ->leftJoinSub($laborSub, 'labor', 'labor.language_id', '=', 'l.id')
-        ->leftJoinSub(
-            $reportsSub,
-            'reports',
-            DB::raw('LOWER(l.name)'),
-            '=',
-            'reports.language_name'
-        )
         ->where('l.enabled', 1)
-        ->whereExists(function ($q) {
-            $q->select(DB::raw(1))
-              ->from('course_language as cl')
-              ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
-              ->whereColumn('cl.language_id', 'l.id');
-        });
-
-    if (!empty($careers)) {
-        $languagesQuery->whereExists(function ($q) use ($careers) {
-            $q->select(DB::raw(1))
-              ->from('course_language as cl')
-              ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
-              ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-              ->whereColumn('cl.language_id', 'l.id')
-              ->whereIn('ca.slug', $careers);
-        });
-    }
-
-    $languagesQuery = $languagesQuery->select(
-        DB::raw("'language' as entity_type"),
-        DB::raw("
-            CASE
-              WHEN EXISTS (
-                SELECT 1
-                FROM course_language cl
-                JOIN career_course cc ON cc.course_id = cl.course_id
-                WHERE cl.language_id = l.id
-              )
-              THEN 1 ELSE 0
-            END as is_isil
-        "),
-        DB::raw('0 as is_real_trend'),
-
-        'l.id',
-        'l.name',
-        DB::raw('NULL as category'),
-
-        DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-        DB::raw('COALESCE(reports.report_mentions,0) as trend_reports'),
-
-        DB::raw("
-            ROUND(
-                (LOG(COALESCE(labor.offers,0) + 1) / LOG({$maxLabor} + 1)) * 100,
-            1) as labor_score
-        "),
-
-        DB::raw("
-            ROUND(
-                (COALESCE(reports.report_mentions,0) / {$totalReports}) * 100,
-            1) as trend_score
-        "),
-
-        DB::raw("
-            ROUND(
-                (
-                    ((LOG(COALESCE(labor.offers,0) + 1) / LOG({$maxLabor} + 1)) * 100 * {$laborWeight})
-                  + ((COALESCE(reports.report_mentions,0) / {$totalReports}) * 100 * {$trendWeight})
-                ),
-            1) as final_score
-        "),
-
-        DB::raw('NULL as year'),
-        DB::raw('NULL as quarter'),
-        DB::raw('NULL as source_title'),
-        DB::raw('NULL as source_url'),
-        DB::raw('NULL as source_type')
-    );
+        ->select(
+            DB::raw("'language' as entity_type"),
+            DB::raw('1 as is_isil'),
+            DB::raw('0 as is_real_trend'),
+            'l.id',
+            'l.name',
+            DB::raw('NULL as category'),
+            DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+            DB::raw('0 as trend_reports'),
+            DB::raw("
+                ROUND(
+                    (LOG(COALESCE(labor.offers,0) + 1) / LOG({$maxLabor} + 1)) * 100,
+                1) as labor_score
+            "),
+            DB::raw('0 as trend_score'),
+            DB::raw("
+                ROUND(
+                    (LOG(COALESCE(labor.offers,0) + 1) / LOG({$maxLabor} + 1)) * 100 * {$laborWeight},
+                1) as final_score
+            "),
+            DB::raw('NULL as year'),
+            DB::raw('NULL as quarter'),
+            DB::raw('NULL as source_title'),
+            DB::raw('NULL as source_url'),
+            DB::raw('NULL as source_type')
+        );
 
     /* ==================================================
-       5. TENDENCIAS PURAS DE LENGUAJES
+       2️⃣ TENDENCIAS DE LENGUAJES (technology_trend_job)
     ================================================== */
     $trendsQuery = DB::table('technology_trends as tt')
+        ->leftJoinSub(
+            $trendJobsSub,
+            'jobs',
+            'jobs.technology_trend_id',
+            '=',
+            'tt.id'
+        )
         ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
         ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
+        ->whereIn('tt.quarter', $quarters)
         ->where(function ($q) use ($applyLanguageTrendFilter) {
             $applyLanguageTrendFilter($q);
         })
@@ -244,19 +195,25 @@ public function index(Request $request)
             DB::raw("'trend' as entity_type"),
             DB::raw('0 as is_isil'),
             DB::raw('1 as is_real_trend'),
-
             'tt.id',
             'tt.topic_name as name',
             'tt.topic_category as category',
-
-            DB::raw('0 as total_jobs'),
+            DB::raw('COALESCE(jobs.total_jobs,0) as total_jobs'),
             DB::raw('1 as trend_reports'),
-
-            DB::raw('0 as labor_score'),
-            'tt.trend_score as trend_score',
-
-            DB::raw("ROUND(tt.trend_score * {$trendWeight},1) as final_score"),
-
+            DB::raw("
+                ROUND(
+                    (LOG(COALESCE(jobs.total_jobs,0) + 1) / LOG({$maxJobs} + 1)) * 100,
+                1) as labor_score
+            "),
+            'tt.trend_score',
+            DB::raw("
+                ROUND(
+                    (
+                        (LOG(COALESCE(jobs.total_jobs,0) + 1) / LOG({$maxJobs} + 1)) * 100 * {$laborWeight}
+                      + (tt.trend_score * {$trendWeight})
+                    ),
+                1) as final_score
+            "),
             'tt.year',
             'tt.quarter',
             'tt.source_title',
@@ -265,14 +222,17 @@ public function index(Request $request)
         );
 
     /* ==================================================
-       6. UNION + FILTRO
+       UNION FINAL
     ================================================== */
     if ($rankingType === 'language') {
         $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
     } elseif ($rankingType === 'trend') {
         $rankingBase = DB::query()->fromSub($trendsQuery, 'ranking');
     } else {
-        $rankingBase = DB::query()->fromSub($languagesQuery, 'ranking');
+        $rankingBase = DB::query()->fromSub(
+            $languagesQuery->unionAll($trendsQuery),
+            'ranking'
+        );
     }
 
     $ranking = $rankingBase
@@ -290,7 +250,6 @@ public function index(Request $request)
                 'period'       => $period,
                 'career'       => $careers,
                 'ranking_type' => $rankingType,
-                'trend_domain' => $trendDomain,
             ],
             'availableCareers' => $availableCareers,
             'weights' => [
@@ -309,6 +268,40 @@ public function index(Request $request)
             ],
         ]
     );
+}
+
+/* ==================================================
+   JOBS POR LENGUAJE EN TENDENCIA (MODAL LABORAL)
+================================================== */
+public function jobsByTrendLanguage(Request $request, int $trendId)
+{
+    $perPage = min((int) $request->get('per_page', 10), 50);
+    $page    = (int) $request->get('page', 1);
+
+    $jobs = DB::table('technology_trend_job as ttj')
+        ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id')
+        ->where('ttj.technology_trend_id', $trendId)
+        ->select(
+            'j.id',
+            'j.title',
+            'j.company',
+            'j.location',
+            'j.country',
+            'j.modality',
+            'j.salary_min',
+            'j.salary_max',
+            'j.source',
+            'j.published_at',
+            'j.url'
+        )
+        ->orderByDesc('j.published_at')
+        ->paginate($perPage, ['*'], 'page', $page);
+
+    return response()->json([
+        'used_for_score' => true,
+        'trend_id' => $trendId,
+        'data' => $jobs,
+    ]);
 }
 
 

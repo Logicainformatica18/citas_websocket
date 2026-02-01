@@ -346,6 +346,11 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         '/trend/{trendId}',
         [RankingLenguajesController::class, 'languageTrendDetail']
     )->name('dashboard.ranking.languages.trend.detail');
+
+    Route::get(
+    '/trend/{trend}/jobs',
+    [RankingLenguajesController::class, 'jobsByTrendLanguage']
+)->name('ranking.languages.trend.jobs');
 });
 
 

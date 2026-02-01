@@ -20,8 +20,8 @@ type Props = {
   /**
    * Handler único.
    * La Page decide:
-   * - laboral → jobs
-   * - trend   → reportes / detalle tendencia
+   * - laboral → jobs (language o trend)
+   * - trend   → detalle de tendencia
    */
   onSelectItem?: (
     action: "laboral" | "trend",
@@ -42,18 +42,46 @@ export default function RankingList({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {items.map((item, index) => (
           <LanguageCard
-            key={`language-${item.id}`}
+            key={`${item.entity_type}-${item.id}`}
             rank={(pagination.current_page - 1) * perPage + index + 1}
             data={item}
 
-            /* ✅ SOLO REENVÍA EVENTOS */
+            /* =========================
+               REENVÍO DE ACCIONES
+            ========================= */
             onAction={(action, data) => {
-              // 🔒 Blindaje mínimo
-              if (action === "trend" && Number(data.trend_reports ?? 0) === 0) {
+
+              /* ---------- DETALLE TENDENCIA ---------- */
+              if (action === "trend") {
+                // 🔒 Solo si es tendencia real
+                if (!data.is_real_trend) return;
+
+                // 🔒 Sin reportes no tiene sentido
+                if (Number(data.trend_reports ?? 0) === 0) return;
+
+                onSelectItem?.("trend", data);
                 return;
               }
 
-              onSelectItem?.(action, data);
+              /* ---------- LABORAL ---------- */
+              if (action === "laboral") {
+
+                // 🔵 Lenguaje ISIL → jobs por language_job
+                if (data.entity_type === "language") {
+                  if (Number(data.total_jobs ?? 0) === 0) return;
+                  onSelectItem?.("laboral", data);
+                  return;
+                }
+
+                // 🔴 Lenguaje en tendencia → jobs por technology_trend_job
+                if (data.entity_type === "trend") {
+                  if (!data.is_real_trend) return;
+                  if (Number(data.total_jobs ?? 0) === 0) return;
+
+                  onSelectItem?.("laboral", data);
+                  return;
+                }
+              }
             }}
           />
         ))}

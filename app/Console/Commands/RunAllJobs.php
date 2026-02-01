@@ -24,14 +24,14 @@ class RunAllJobs extends Command
 
 
  //'computrabajo:technologies --country=pe --pages=1',
-    'computrabajo:technologies --country=bo --pages=1',
-'computrabajo:technologies --country=ar --pages=1',
-'computrabajo:technologies --country=uy --pages=1',
-'computrabajo:technologies --country=mx --pages=1',
-'computrabajo:technologies --country=co --pages=1',
-'computrabajo:technologies --country=ec --pages=1',
-'computrabajo:technologies --country=ve --pages=1',
-'computrabajo:technologies --country=cl --pages=1',
+//     'computrabajo:technologies --country=bo --pages=1',
+// 'computrabajo:technologies --country=ar --pages=1',
+// 'computrabajo:technologies --country=uy --pages=1',
+// 'computrabajo:technologies --country=mx --pages=1',
+// 'computrabajo:technologies --country=co --pages=1',
+// 'computrabajo:technologies --country=ec --pages=1',
+// 'computrabajo:technologies --country=ve --pages=1',
+// 'computrabajo:technologies --country=cl --pages=1',
 
 //  'computrabajo:languages --pages=1',
 // 'computrabajo:methodologies --pages=1',
@@ -228,6 +228,16 @@ class RunAllJobs extends Command
 // 'reed:certifications',
 // 'remoteok:certifications',
 // 'remotive:certifications',
+
+
+ 'adzuna:trends-languages --country=us',
+ 'adzuna:trends-languages --country=ca',
+ 'adzuna:trends-languages --country=mx',
+ 'adzuna:trends-languages --country=br',
+ 'adzuna:trends-languages --country=es',
+ 'adzuna:trends-languages --country=fr',
+ 'adzuna:trends-languages --country=de',
+ 'adzuna:trends-languages --country=gb',
 
 
 'normalize:asia-countries',
