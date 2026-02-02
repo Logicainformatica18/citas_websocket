@@ -4,9 +4,10 @@ import {
     Database,
     Sparkles,
     Settings2,
+    GraduationCap,
 } from "lucide-react";
 import { router, usePage } from "@inertiajs/react";
-import { WeightConfig } from "./WeightConfigModal";
+import { WeightConfig } from  "./WeightConfigModal";
 
 interface HeaderProps {
     meta: {
@@ -14,47 +15,45 @@ interface HeaderProps {
         period: "s1" | "s2";
         periodo_label: string;
         vacantes_analizadas: number;
-          reportes_analizados: number; // 👈 AÑADIR ESTO
+        reportes_analizados: number;
     };
     weights: WeightConfig;
     onEditWeights: () => void;
 }
 
-export function Header({
+export default function Header({
     meta,
     weights,
     onEditWeights,
 }: HeaderProps) {
     const { filters } = usePage().props as any;
 
-const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
-    router.get(
-        "/dashboard/ranking-certificaciones",
-        {
-            ...filters, // 🔥 CLAVE ABSOLUTA
-            year: params.year ?? meta.year,
-            period: params.period ?? meta.period,
-            page: 1,
-        },
-        {
-            preserveState: true,
-            replace: true,
-        }
-    );
-};
-
-
+    const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
+        router.get(
+            "/dashboard/indicators/pe-alignment",
+            {
+                ...filters, // 🔥 MISMA LÓGICA QUE RANKING
+                year: params.year ?? meta.year,
+                period: params.period ?? meta.period,
+                page: 1,
+            },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    };
 
     return (
         <header
             className="
-        relative
-        overflow-hidden
-        border-b
-        bg-[#E6F7FD]
-        dark:bg-[#0A2540]
-        px-4 sm:px-6 lg:px-8
-      "
+                relative
+                overflow-hidden
+                border-b
+                bg-[#E6F7FD]
+                dark:bg-[#0A2540]
+                px-4 sm:px-6 lg:px-8
+            "
         >
             {/* ===== BACKGROUND ===== */}
             <div className="absolute inset-0 pointer-events-none">
@@ -68,10 +67,11 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
 
                     {/* ================= LEFT ================= */}
                     <div className="space-y-6 max-w-3xl">
+
                         {/* Title */}
                         <div className="flex items-center gap-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B6E8] shadow-lg">
-                                <BarChart3 className="h-6 w-6 text-white" />
+                                <GraduationCap className="h-6 w-6 text-white" />
                             </div>
 
                             <div>
@@ -80,19 +80,17 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                 </p>
 
                                 <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
-                                    Ranking de Certificaciones
+                                   Alineación de Programa de estudios con tendencias del sector
                                 </h1>
-
                             </div>
                         </div>
 
                         {/* Description */}
                         <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
-                            Análisis automatizado de certificaciones tecnológicas más demandadas,
-                            basado en ofertas laborales reales y datos verificados.
+                            Indicador que mide el nivel de alineación del Perfil de Egreso con
+                            la demanda real del mercado laboral y las competencias estratégicas
+                            del futuro, basándose en vacantes y reportes globales.
                         </p>
-
-
 
                         {/* ===== CONTROLES DE PERÍODO ===== */}
                         <div className="flex flex-wrap items-end gap-8">
@@ -103,38 +101,37 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                     Año de análisis
                                 </span>
 
-
-
-
                                 <div
                                     className="
-        relative
-        group
-        rounded-xl
-        border
-        bg-white
-        shadow-sm
-        transition-all
-        hover:border-[#00B6E8]
-        hover:shadow-md
-        hover:-translate-y-[1px]
-      "
+                                        relative
+                                        group
+                                        rounded-xl
+                                        border
+                                        bg-white
+                                        shadow-sm
+                                        transition-all
+                                        hover:border-[#00B6E8]
+                                        hover:shadow-md
+                                        hover:-translate-y-[1px]
+                                    "
                                 >
                                     <select
                                         value={meta.year}
-                                        onChange={(e) => onChange({ year: Number(e.target.value) })}
+                                        onChange={(e) =>
+                                            onChange({ year: Number(e.target.value) })
+                                        }
                                         className="
-          w-[120px]
-          appearance-none
-          bg-transparent
-          px-4
-          py-2
-          text-sm
-          font-semibold
-          text-[#0A2540]
-          cursor-pointer
-          focus:outline-none
-        "
+                                            w-[120px]
+                                            appearance-none
+                                            bg-transparent
+                                            px-4
+                                            py-2
+                                            text-sm
+                                            font-semibold
+                                            text-[#0A2540]
+                                            cursor-pointer
+                                            focus:outline-none
+                                        "
                                     >
                                         {[2024, 2025, 2026].map((y) => (
                                             <option key={y} value={y}>
@@ -149,7 +146,7 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                 </div>
                             </div>
 
-                            {/* ===== SEMESTRE (MISMO DISEÑO, MEJOR UX) ===== */}
+                            {/* ===== SEMESTRE ===== */}
                             <div className="relative flex flex-col gap-2">
                                 <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
                                     Semestre
@@ -157,21 +154,20 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
 
                                 <div
                                     className="
-    flex
-    rounded-xl
-    border
-    bg-white
-    shadow-sm
-    overflow-hidden
-    transition-all
-    cursor-pointer
-    hover:border-[#00B6E8]
-    hover:shadow-md
-    hover:-translate-y-[1px]
-    dark:bg-[#0F2A3A]
-  "
+                                        flex
+                                        rounded-xl
+                                        border
+                                        bg-white
+                                        shadow-sm
+                                        overflow-hidden
+                                        transition-all
+                                        cursor-pointer
+                                        hover:border-[#00B6E8]
+                                        hover:shadow-md
+                                        hover:-translate-y-[1px]
+                                        dark:bg-[#0F2A3A]
+                                    "
                                 >
-
                                     {[
                                         { value: "s1", label: "Ene – Jun" },
                                         { value: "s2", label: "Jul – Dic" },
@@ -181,33 +177,30 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                         return (
                                             <button
                                                 key={s.value}
-                                                onClick={() => onChange({ period: s.value as "s1" | "s2" })}
+                                                onClick={() =>
+                                                    onChange({ period: s.value as "s1" | "s2" })
+                                                }
                                                 className={`
-    px-6
-    py-2
-    text-sm
-    font-semibold
-    transition-all
-    cursor-pointer
-    ${active
+                                                    px-6
+                                                    py-2
+                                                    text-sm
+                                                    font-semibold
+                                                    transition-all
+                                                    ${active
                                                         ? "bg-[#00B6E8] text-white shadow-inner"
                                                         : "text-[#005F7A] hover:bg-[#E6F7FD] dark:text-slate-300 dark:hover:bg-[#123A52]"
                                                     }
-  `}
+                                                `}
                                             >
-
-
                                                 {s.label}
                                             </button>
                                         );
                                     })}
                                 </div>
 
-                                {/* Hint sin desalinear */}
                                 <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 dark:text-slate-400 whitespace-nowrap">
                                     Haz clic para cambiar el período
                                 </span>
-
                             </div>
 
                             {/* ===== BADGES ===== */}
@@ -216,19 +209,13 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                     <Database className="h-3 w-3 text-[#00B6E8]" />
                                     {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
                                 </Badge>
-<Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-    <Sparkles className="h-3 w-3 text-[#00B6E8]" />
-    {meta.reportes_analizados.toLocaleString()} reportes analizados
-</Badge>
 
-                            </div>
-                            {/* <Badge className="gap-1.5 border border-[#00B6E8] bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] transition">
+                                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
                                     <Sparkles className="h-3 w-3 text-[#00B6E8]" />
-                                    Datos reales por período
-                                </Badge> */}
+                                    {meta.reportes_analizados.toLocaleString()} reportes analizados
+                                </Badge>
+                            </div>
                         </div>
-
-
 
                         {/* Active period */}
                         <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
@@ -243,24 +230,24 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                     <button
                         onClick={onEditWeights}
                         className="
-              group
-              w-full
-              max-w-sm
-              rounded-2xl
-              border border-[#00B6E8]/40
-              bg-white
-              p-5
-              text-left
-              shadow-xl
-              transition-all
-              hover:border-[#00B6E8]
-              hover:shadow-2xl
-              dark:bg-[#102C3C]
-            "
+                            group
+                            w-full
+                            max-w-sm
+                            rounded-2xl
+                            border border-[#00B6E8]/40
+                            bg-white
+                            p-5
+                            text-left
+                            shadow-xl
+                            transition-all
+                            hover:border-[#00B6E8]
+                            hover:shadow-2xl
+                            dark:bg-[#102C3C]
+                        "
                     >
                         <div className="mb-2 flex items-center justify-between">
                             <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
-                                Metodología de cálculo
+                                Metodología del indicador
                             </p>
                             <Settings2 className="h-4 w-4 text-[#00B6E8] opacity-60 group-hover:opacity-100" />
                         </div>
@@ -270,23 +257,23 @@ const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
                                 <span className="font-bold text-[#00B6E8]">
                                     {weights.laborWeight}%
                                 </span>{" "}
-                                Demanda laboral
+                                Mercado laboral
                             </p>
                             <p>
                                 <span className="font-bold text-[#00B6E8]">
                                     {weights.trendsWeight}%
                                 </span>{" "}
-                                Tendencias tecnológicas
+                                Prospectiva y tendencias
                             </p>
                         </div>
 
                         <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                            Score = ({weights.laborWeight / 100} × Laboral) + (
-                            {weights.trendsWeight / 100} × Tendencias)
+                            Índice = ({weights.laborWeight / 100} × Mercado) + (
+                            {weights.trendsWeight / 100} × Prospectiva)
                         </p>
 
                         <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                            Los cálculos se realizan únicamente con datos del período seleccionado.
+                            Los cálculos consideran únicamente datos del período seleccionado.
                         </p>
 
                         <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">

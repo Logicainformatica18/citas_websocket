@@ -54,6 +54,7 @@ use App\Http\Controllers\Dashboard\SeniorityIndicatorController;
 use App\Http\Controllers\Dashboard\CompanyIndicatorController;
 use App\Http\Controllers\Dashboard\JobDemandGeoIndicatorController;
 use App\Http\Controllers\Dashboard\MacroTrendsIndicatorController;
+use App\Http\Controllers\Dashboard\PeAlignmentIndicatorController;
 
 
 
@@ -107,6 +108,32 @@ Route::middleware(['auth'])->group(function () {
 
 
  Route::prefix('dashboard')->group(function () {
+
+ Route::get(
+        '/indicators/pe-alignment',
+        [PeAlignmentIndicatorController::class, 'index']
+    )->name('dashboard.indicators.pe-alignment');
+Route::get(
+    '/indicators/pe-alignment/competencies/{careerId}',
+    [PeAlignmentIndicatorController::class, 'competenciesByCareer']
+)->name('dashboard.indicators.pe-alignment.competencies');
+    /* =====================================================
+       Empleos relacionados a una competencia del PE
+       (drill-down mercado laboral)
+       ===================================================== */
+    Route::get(
+        '/indicators/pe-alignment/competency/{competencyId}/jobs',
+        [PeAlignmentIndicatorController::class, 'jobsByCompetency']
+    )->name('dashboard.indicators.pe-alignment.jobs');
+
+    /* =====================================================
+       Tendencias relacionadas a una competencia del PE
+       (drill-down prospectiva)
+       ===================================================== */
+    Route::get(
+        '/indicators/pe-alignment/competency/{competencyId}/trends',
+        [PeAlignmentIndicatorController::class, 'trendsByCompetency']
+    )->name('dashboard.indicators.pe-alignment.trends');
 
 
   Route::get(

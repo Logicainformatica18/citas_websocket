@@ -86,6 +86,11 @@ export function AppSidebar() {
                     icon={<Award className={isilBlue} />}
                     label="Certificaciones"
                 />
+                <MenuItem
+                    href="/dashboard/indicators/pe-alignment"
+                    icon={<Award className={isilBlue} />}
+                    label="Alineación Competencias"
+                />
 
                 <MenuItem
                     href="/dashboard/ranking/technologies"
