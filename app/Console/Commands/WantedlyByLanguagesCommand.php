@@ -266,7 +266,7 @@ class WantedlyByLanguagesCommand extends Command
             str_contains($text, 'リモート可'),
             str_contains($text, 'partly remote') => 'hybrid',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

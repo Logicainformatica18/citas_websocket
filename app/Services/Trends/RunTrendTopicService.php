@@ -118,28 +118,28 @@ class RunTrendTopicService
         }
 
         /* -------- Guardar TechnologyTrend -------- */
-        $trend = TechnologyTrend::updateOrCreate(
-            [
-                'topic_name' => $t['topic_name'],
-                'year'       => $year,
-                'quarter'    => $quarter,
-                'source_id'  => $source->id ?? 1,
-            ],
-            [
-                'topic_category'        => $label,
-                'trend_score'           => $t['trend_score'],
-                'regions'               => $t['regions'] ?? [],
-                'scanned_keywords'      => $t['job_search_keywords'] ?? [],
-                'associated_technologies'=> $t['associated_technologies'] ?? [],
-                'source_url'            => $t['source_links'][0]['url'] ?? null,
-                'source_title'          => $t['source_links'][0]['title'] ?? null,
-                'raw_data'              => [
-                    'intent'         => $intent,
-                    'classification' => $classification,
-                    'payload'        => $t,
-                ],
-            ]
-        );
+      $trend = TechnologyTrend::updateOrCreate(
+    [
+        'topic_name' => $t['topic_name'],
+        'year'       => $year,
+        'quarter'    => $quarter,
+    ],
+    [
+        'source_id'              => $source->id ?? 1,
+        'topic_category'         => $label,
+        'trend_score'            => $t['trend_score'],
+        'regions'                => $t['regions'] ?? [],
+        'scanned_keywords'       => $t['job_search_keywords'] ?? [],
+        'associated_technologies'=> $t['associated_technologies'] ?? [],
+        'source_url'             => $t['source_links'][0]['url'] ?? null,
+        'source_title'           => $t['source_links'][0]['title'] ?? null,
+        'raw_data'               => [
+            'intent'         => $intent,
+            'classification' => $classification,
+            'payload'        => $t,
+        ],
+    ]
+);
 
         /* ======================================================
          * MATCH LIMPIO DE TECNOLOGÍAS

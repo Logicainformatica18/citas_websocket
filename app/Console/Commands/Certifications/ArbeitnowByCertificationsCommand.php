@@ -256,7 +256,7 @@ class ArbeitnowByCertificationsCommand extends Command
 
             str_contains($loc, 'hybrid') => 'hybrid',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 }

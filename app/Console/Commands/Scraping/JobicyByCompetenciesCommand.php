@@ -224,7 +224,7 @@ class JobicyByCompetenciesCommand extends Command
             str_contains($text, 'remote in'),
             str_contains($text, 'local remote') => 'remote_local',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

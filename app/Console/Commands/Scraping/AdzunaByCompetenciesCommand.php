@@ -168,7 +168,7 @@ protected function processJobOffer(array $job, string $query, string $country)
             str_contains($text, 'hybrid'),
             str_contains($text, 'híbrido') => 'hybrid',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

@@ -197,7 +197,7 @@ class JobsDataFeedsByLanguagesCommand extends Command
 
             str_contains($text, 'hybrid') => 'hybrid',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

@@ -11,17 +11,11 @@ class JobModalityIndicatorController extends Controller
 {
     public function index(Request $request)
     {
-        /* =====================================================
-           0. Período (ESTÁNDAR ISIL)
-        ===================================================== */
         $year   = (int) $request->get('year', 2025);
         $period = $request->get('period', 's2');
 
         $range = $this->getPeriodRange($year, $period);
 
-        /* =====================================================
-           1. Filtros activos
-        ===================================================== */
         $filters = [
             'region'  => $request->get('region'),
             'country' => $request->get('country'),
@@ -31,19 +25,20 @@ class JobModalityIndicatorController extends Controller
             'period'  => $period,
         ];
 
-        /* =====================================================
-           2. Subquery clasificada
-        ===================================================== */
         $classified = DB::table('job_offers')
             ->selectRaw("
                 CASE
-                    WHEN modality IN ('fully_remote', 'remote') THEN 'remoto'
-                    WHEN modality IN ('hybrid', 'remote_local') THEN 'híbrido'
-                    WHEN modality = 'no_remote' THEN 'presencial'
-                    ELSE 'desconocido'
+                    WHEN modality IN ('remote', 'fully_remote', 'remote_local')
+                        THEN 'remoto'
+                    WHEN modality = 'hybrid'
+                        THEN 'híbrido'
+                    WHEN modality = 'presencial'
+                        THEN 'presencial'
+                    WHEN modality = 'no_precisa' OR modality IS NULL
+                        THEN 'no_precisa'
+                    ELSE 'no_precisa'
                 END AS modalidad
             ")
-            ->whereNotNull('modality')
             ->whereBetween('published_at', [$range['start'], $range['end']]);
 
         if ($filters['region']) {
@@ -62,14 +57,8 @@ class JobModalityIndicatorController extends Controller
             $classified->where('source', $filters['source']);
         }
 
-        /* =====================================================
-           3. Total
-        ===================================================== */
         $totalVacantes = (clone $classified)->count();
 
-        /* =====================================================
-           4. Agregación
-        ===================================================== */
         $data = DB::query()
             ->fromSub($classified, 't')
             ->select('modalidad', DB::raw('COUNT(*) as vacantes'))
@@ -84,42 +73,48 @@ class JobModalityIndicatorController extends Controller
                     : 0,
             ]);
 
-         $trendData = DB::table('job_offers')
-    ->whereBetween('published_at', [
-        $range['start'],
-        $range['end'],
-    ])
-    ->selectRaw("
-        YEAR(published_at) as year,
-        MONTH(published_at) as month_num,
+        $trendData = DB::table('job_offers')
+            ->whereBetween('published_at', [$range['start'], $range['end']])
+            ->selectRaw("
+                YEAR(published_at) as year,
+                MONTH(published_at) as month_num,
 
-        ROUND(SUM(modality IN ('fully_remote','remote')) / COUNT(*) * 100, 1) as remoto,
-        ROUND(SUM(modality IN ('hybrid','remote_local')) / COUNT(*) * 100, 1) as hibrido,
-        ROUND(SUM(modality = 'no_remote') / COUNT(*) * 100, 1) as presencial
-    ")
-    ->groupByRaw('YEAR(published_at), MONTH(published_at)')
-    ->orderByRaw('YEAR(published_at), MONTH(published_at)')
-    ->limit(6)
-    ->get()
-    ->map(function ($row) {
-        return [
-            'month' => \Carbon\Carbon::create()
-                ->month($row->month_num)
-                ->translatedFormat('M'),
-            'remoto'      => (float) $row->remoto,
-            'hibrido'     => (float) $row->hibrido,
-            'presencial'  => (float) $row->presencial,
-        ];
-    });
+                ROUND(
+                    SUM(modality IN ('remote','fully_remote','remote_local')) / COUNT(*) * 100,
+                1) as remoto,
 
+                ROUND(
+                    SUM(modality = 'hybrid') / COUNT(*) * 100,
+                1) as hibrido,
 
-        /* =====================================================
-           5. Render
-        ===================================================== */
+                ROUND(
+                    SUM(modality = 'presencial') / COUNT(*) * 100,
+                1) as presencial,
+
+                ROUND(
+                    SUM(modality = 'no_precisa' OR modality IS NULL) / COUNT(*) * 100,
+                1) as no_precisa
+            ")
+            ->groupByRaw('YEAR(published_at), MONTH(published_at)')
+            ->orderByRaw('YEAR(published_at), MONTH(published_at)')
+            ->limit(6)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'month'       => \Carbon\Carbon::create()
+                        ->month($row->month_num)
+                        ->translatedFormat('M'),
+                    'remoto'      => (float) $row->remoto,
+                    'hibrido'     => (float) $row->hibrido,
+                    'presencial'  => (float) $row->presencial,
+                    'no_precisa'  => (float) $row->no_precisa,
+                ];
+            });
+
         return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
-          'trendData' => $trendData, // 🔥 AQUÍ
-            'filters' => $filters,
-            'meta' => [
+            'trendData' => $trendData,
+            'filters'   => $filters,
+            'meta'      => [
                 'year'   => $year,
                 'period' => $period,
                 'periodo_label' => $period === 's1'
@@ -131,9 +126,6 @@ class JobModalityIndicatorController extends Controller
         ]);
     }
 
-    /* =====================================================
-       AUTOCOMPLETE: REGIONES
-    ===================================================== */
     public function searchRegions(Request $request)
     {
         $term = trim($request->get('q', ''));
@@ -149,9 +141,6 @@ class JobModalityIndicatorController extends Controller
             ->pluck('region');
     }
 
-    /* =====================================================
-       AUTOCOMPLETE: PAÍSES
-    ===================================================== */
     public function searchCountries(Request $request)
     {
         $term   = trim($request->get('q', ''));
@@ -171,9 +160,6 @@ class JobModalityIndicatorController extends Controller
             ->pluck('country');
     }
 
-    /* =====================================================
-       AUTOCOMPLETE: CIUDADES
-    ===================================================== */
     public function searchCities(Request $request)
     {
         $term    = trim($request->get('q', ''));
@@ -193,9 +179,6 @@ class JobModalityIndicatorController extends Controller
             ->pluck('city');
     }
 
-    /* =====================================================
-       Helper período
-    ===================================================== */
     private function getPeriodRange(int $year, string $period): array
     {
         return $period === 's1'

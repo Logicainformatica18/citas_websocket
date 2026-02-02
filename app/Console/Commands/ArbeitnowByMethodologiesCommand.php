@@ -309,7 +309,7 @@ $country = match (strtolower($country)) {
         str_contains($loc, 'híbrido') => 'hybrid',
 
         // 🏢 Presencial o sin indicio de remoto
-        default => 'no_remote',
+        default => 'no_precisa',
     };
 }
 protected function extractCity(?string $location): ?string

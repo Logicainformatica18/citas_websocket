@@ -371,7 +371,7 @@ protected function extractModality(string $location, bool $isRemote): string
         str_contains($loc, 'híbrido') => 'hybrid',
 
         // 🏢 Presencial / sin dato remoto
-        default => 'no_remote',
+        default => 'no_precisa',
     };
 }
 

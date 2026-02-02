@@ -245,7 +245,7 @@ class RemotiveByCompetenciesCommand extends Command
             str_contains($title, 'remote'),
             str_contains($desc, 'remote') => 'remote',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

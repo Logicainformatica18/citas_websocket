@@ -279,7 +279,7 @@ class GreenhouseByCompetenciesCommand extends Command
         return match (true) {
             str_contains($t, 'remote') => 'remote',
             str_contains($t, 'hybrid') => 'hybrid',
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

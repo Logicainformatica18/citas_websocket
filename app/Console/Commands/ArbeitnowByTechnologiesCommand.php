@@ -276,7 +276,7 @@ $region = RegionHelper::fromCountry($country);
         str_contains($loc, 'híbrido') => 'hybrid',
 
         // 🏢 Presencial o sin indicio de remoto
-        default => 'no_remote',
+        default => 'no_precisa',
     };
 }
 

@@ -252,7 +252,7 @@ class JoobleByMethodologiesCommand extends Command
         return match (true) {
             str_contains($txt, 'fully remote') => 'fully_remote',
             str_contains($txt, 'remote') => 'remote',
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

@@ -237,7 +237,7 @@ $offer->technologies()->syncWithoutDetaching([$techId]);
             str_contains($text, 'hybrid'),
             str_contains($text, 'híbrido') => 'hybrid',
 
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 

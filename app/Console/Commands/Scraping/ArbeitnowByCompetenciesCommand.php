@@ -274,7 +274,7 @@ public function handle()
             str_contains($loc, 'work from home'),
             str_contains($loc, 'home office') => 'remote',
             str_contains($loc, 'hybrid') => 'hybrid',
-            default => 'no_remote',
+            default => 'no_precisa',
         };
     }
 }

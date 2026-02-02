@@ -109,6 +109,11 @@ export function AppSidebar() {
                     icon={<Users className={isilBlue} />}
                     label="Senioridad"
                 />
+                <MenuItem
+                    href="/dashboard/indicators/macro-trends"
+                    icon={<Users className={isilBlue} />}
+                    label="Tendencias Macro"
+                />
 
                 <MenuItem
                     href="/dashboard/indicators/companies"

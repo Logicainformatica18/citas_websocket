@@ -9,70 +9,87 @@ use App\Services\Trends\RunTrendTopicService;
 
 class RunTrendTopicsSequential extends Command
 {
-    protected $signature = 'trends:run-one {--sleep=15}';
+    protected $signature = 'trends:run-all {--sleep=15} {--limit=50}';
 
-    protected $description = 'Ejecuta UN TrendTopic pendiente por corrida (secuencial, seguro para GPT-Search)';
+    protected $description = 'Ejecuta TrendTopics uno por uno hasta que no queden pendientes (secuencial y seguro)';
 
     public function handle()
     {
         $sleep = (int) $this->option('sleep');
+        $limit = (int) $this->option('limit');
 
-        // 🔍 1️⃣ Buscar siguiente topic pendiente
-        $topic = TrendTopic::where('active', 1)
-            ->where(function ($q) {
-                $q->whereNull('last_run_status')
-                  ->orWhereIn('last_run_status', ['success', 'failed']);
-            })
-            ->orderBy('last_success_at')
-            ->first();
+        $processed = 0;
 
-        if (!$topic) {
-            $this->info('🟢 No hay TrendTopics pendientes');
-            return Command::SUCCESS;
-        }
+        $this->info('🚀 Iniciando ejecución secuencial de TrendTopics');
 
-        // 🔒 2️⃣ Marcar como running
-        $topic->update([
-            'last_run_status'  => 'running',
-            'last_run_message' => 'Procesando (secuencial)',
-        ]);
+        while (true) {
 
-        $this->info("🔥 Ejecutando topic {$topic->id} ({$topic->intent})");
+            if ($processed >= $limit) {
+                $this->warn("🟡 Límite alcanzado ({$limit})");
+                break;
+            }
 
-        try {
-            app(RunTrendTopicService::class)->run($topic);
+            // 🔍 Buscar siguiente topic pendiente
+            $topic = TrendTopic::where('active', 1)
+                ->where(function ($q) {
+                    $q->whereNull('last_run_status')
+                      ->orWhereIn('last_run_status', ['success', 'failed']);
+                })
+                ->orderBy('last_success_at')
+                ->first();
 
+            if (!$topic) {
+                $this->info('🟢 No hay más TrendTopics pendientes');
+                break;
+            }
+
+            // 🔒 Marcar como running
             $topic->update([
-                'last_run_status'   => 'success',
-                'last_run_message'  => 'Procesado correctamente',
-                'success_count'     => $topic->success_count + 1,
-                'last_success_at'   => now(),
+                'last_run_status'  => 'running',
+                'last_run_message' => 'Procesando (secuencial)',
             ]);
 
-            $this->info('✅ Topic procesado');
+            $this->info("🔥 Ejecutando topic {$topic->id} ({$topic->intent})");
 
-        } catch (\Throwable $e) {
+            try {
+                app(RunTrendTopicService::class)->run($topic);
 
-            Log::error('💥 Error en TrendTopic', [
-                'topic_id' => $topic->id,
-                'error'    => $e->getMessage(),
-            ]);
+                $topic->update([
+                    'last_run_status'   => 'success',
+                    'last_run_message'  => 'Procesado correctamente',
+                    'success_count'     => $topic->success_count + 1,
+                    'last_success_at'   => now(),
+                ]);
 
-            $topic->update([
-                'last_run_status' => 'failed',
-                'last_run_message'=> $e->getMessage(),
-                'fail_count'      => $topic->fail_count + 1,
-                'last_fail_at'    => now(),
-            ]);
+                $this->info('✅ Topic procesado');
 
-            $this->error('❌ Topic falló');
+            } catch (\Throwable $e) {
+
+                Log::error('💥 Error en TrendTopic', [
+                    'topic_id' => $topic->id,
+                    'error'    => $e->getMessage(),
+                ]);
+
+                $topic->update([
+                    'last_run_status' => 'failed',
+                    'last_run_message'=> $e->getMessage(),
+                    'fail_count'      => $topic->fail_count + 1,
+                    'last_fail_at'    => now(),
+                ]);
+
+                $this->error('❌ Topic falló');
+            }
+
+            $processed++;
+
+            // 💤 Sleep entre ejecuciones
+            if ($sleep > 0) {
+                $this->info("⏳ Sleep {$sleep}s");
+                sleep($sleep);
+            }
         }
 
-        // 💤 3️⃣ Pausa consciente (opcional)
-        if ($sleep > 0) {
-            $this->info("⏳ Sleep {$sleep}s");
-            sleep($sleep);
-        }
+        $this->info("🏁 Proceso finalizado. Topics procesados: {$processed}");
 
         return Command::SUCCESS;
     }
