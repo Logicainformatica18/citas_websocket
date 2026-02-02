@@ -23,7 +23,7 @@ export default function CompanyKpiGrid({ meta }: Props) {
 
       {/* Empresas activas */}
       <CompanyKpiCard
-        title="Empresas activas"
+        title="Empresas"
         value={meta.empresas_activas}
         subtitle="Con al menos una vacante"
         icon={<Building2 className="h-4 w-4" />}

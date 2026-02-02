@@ -151,29 +151,29 @@ class RunAllJobs extends Command
 // 'usajobs:technologies',
 
 
-//  'adzuna:competencies --country=us --pages=1',
-//     'adzuna:competencies --country=ca --pages=1',
-//     'adzuna:competencies --country=mx --pages=1',
-//     'adzuna:competencies --country=br --pages=1',
+ 'adzuna:competencies --country=us --pages=1',
+    'adzuna:competencies --country=ca --pages=1',
+    'adzuna:competencies --country=mx --pages=1',
+    'adzuna:competencies --country=br --pages=1',
 
-//     'adzuna:competencies --country=es --pages=1',
-//     'adzuna:competencies --country=fr --pages=1',
-//     'adzuna:competencies --country=de --pages=1',
-//     'adzuna:competencies --country=it --pages=1',
-//     'adzuna:competencies --country=gb --pages=1',
-//     'adzuna:competencies --country=nl --pages=1',
-//     'adzuna:competencies --country=ch --pages=1',
-//     'adzuna:competencies --country=pl --pages=1',
+    'adzuna:competencies --country=es --pages=1',
+    'adzuna:competencies --country=fr --pages=1',
+    'adzuna:competencies --country=de --pages=1',
+    'adzuna:competencies --country=it --pages=1',
+    'adzuna:competencies --country=gb --pages=1',
+    'adzuna:competencies --country=nl --pages=1',
+    'adzuna:competencies --country=ch --pages=1',
+    'adzuna:competencies --country=pl --pages=1',
 
-// 'adzuna:competencies --country=in --pages=1',
-// 'adzuna:competencies --country=sg --pages=1',
+'adzuna:competencies --country=in --pages=1',
+'adzuna:competencies --country=sg --pages=1',
 
-// 'adzuna:competencies --country=za --pages=1',
+'adzuna:competencies --country=za --pages=1',
 
-// 'adzuna:competencies --country=au --pages=1',
-// 'adzuna:competencies --country=nz --pages=1',
+'adzuna:competencies --country=au --pages=1',
+'adzuna:competencies --country=nz --pages=1',
 
-//  'computrabajo:competencies  --pages=5',
+ 'computrabajo:competencies  --pages=5',
 // 'computrabajo:technologies --country=pe --pages=1',
 // 'computrabajo:technologies --country=bo --pages=1',
 // 'computrabajo:technologies --country=ar --pages=1',
@@ -230,14 +230,14 @@ class RunAllJobs extends Command
 // 'remotive:certifications',
 
 
- 'adzuna:trends-languages --country=us',
- 'adzuna:trends-languages --country=ca',
- 'adzuna:trends-languages --country=mx',
- 'adzuna:trends-languages --country=br',
- 'adzuna:trends-languages --country=es',
- 'adzuna:trends-languages --country=fr',
- 'adzuna:trends-languages --country=de',
- 'adzuna:trends-languages --country=gb',
+//  'adzuna:trends-languages --country=us',
+//  'adzuna:trends-languages --country=ca',
+//  'adzuna:trends-languages --country=mx',
+//  'adzuna:trends-languages --country=br',
+//  'adzuna:trends-languages --country=es',
+//  'adzuna:trends-languages --country=fr',
+//  'adzuna:trends-languages --country=de',
+//  'adzuna:trends-languages --country=gb',
 
 
 'normalize:asia-countries',
@@ -245,7 +245,8 @@ class RunAllJobs extends Command
 'joboffers:normalize-regions',
 'joboffers:normalize-north-america',
 'joboffers:normalize-oceania',
-'normalize:geo-regions'
+'normalize:geo-regions',
+'normalize:peru-regions'
 
 
 ];
