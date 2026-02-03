@@ -11,7 +11,7 @@ use App\Models\MethodologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
-
+use App\Services\ScraperRunService;
 
 class ArbeitnowByMethodologiesCommand extends Command
 {
@@ -37,35 +37,51 @@ class ArbeitnowByMethodologiesCommand extends Command
         'remote' => ['city' => 'Remoto', 'lat' => 0.0000, 'lng' => 0.0000, 'country' => 'Remote'],
     ];
 
-   public function handle()
+public function handle()
 {
-    // 🔹 Trae solo metodologías realmente vinculadas a carreras
-    $methodologies = Methodology::select('methodologies.id', 'methodologies.name')
-        ->whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-                ->from('course_methodology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })
-        ->get();
+    /* =========================================
+       🧾 REGISTRO DE EJECUCIÓN (SCRAPER RUN)
+    ========================================= */
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Arbeitnow',
+        'methodologies'
+    );
 
-    $this->info("🌐 Iniciando scraping de Arbeitnow por metodología ({$methodologies->count()} metodologías)...");
+    $totalFoundAll   = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
 
-    foreach ($methodologies as $methodology) {
-        $methodologyId = $methodology->id;
-        $methodologyName = $methodology->name;
+    try {
+        // 🔹 Solo metodologías vinculadas a carreras
+        $methodologies = Methodology::select('methodologies.id', 'methodologies.name')
+            ->whereIn('methodologies.id', function ($q) {
+                $q->select('course_methodology.methodology_id')
+                    ->from('course_methodology')
+                    ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+            })
+            ->get();
 
-        $this->warn("\n💡 Procesando metodología: {$methodologyName}");
+        $this->info("🌐 Iniciando scraping de Arbeitnow por metodología ({$methodologies->count()} metodologías)...");
 
-        $totalFound = 0;
-        $totalNew = 0;
-        $countries = [];
-        $modalities = [];
+        foreach ($methodologies as $methodology) {
+            $methodologyId   = $methodology->id;
+            $methodologyName = $methodology->name;
 
-        try {
-            // 🌍 Llamado directo con el nombre de la metodología
-            $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
-                'search' => $methodologyName,
-            ]);
+            $this->warn("\n💡 Procesando metodología: {$methodologyName}");
+
+            $totalFound = 0;
+            $totalNew   = 0;
+            $countries  = [];
+            $modalities = [];
+
+            /* ============================
+               🌍 LLAMADO PRINCIPAL
+            ============================ */
+            $response = Http::timeout(25)->get(
+                'https://www.arbeitnow.com/api/job-board-api',
+                ['search' => $methodologyName]
+            );
 
             if ($response->failed()) {
                 $this->error("❌ Falló la API para {$methodologyName}");
@@ -75,7 +91,9 @@ class ArbeitnowByMethodologiesCommand extends Command
             $jobs = $response->json()['data'] ?? [];
             $totalFound = count($jobs);
 
-            // ⚙️ Si la API no devuelve nada, usar fallback filtrando manualmente
+            /* ============================
+               ⚙️ FALLBACK
+            ============================ */
             if ($totalFound === 0) {
                 $backup = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api');
 
@@ -89,8 +107,7 @@ class ArbeitnowByMethodologiesCommand extends Command
                                     strip_tags(($job['title'] ?? '') . ' ' . ($job['description'] ?? ''))
                                 )
                             );
-                            $needle = strtolower($methodologyName);
-                            $needle = preg_quote($needle, '/');
+                            $needle = preg_quote(strtolower($methodologyName), '/');
                             return preg_match("/\\b{$needle}\\b/i", $text);
                         })
                         ->values()
@@ -106,70 +123,53 @@ class ArbeitnowByMethodologiesCommand extends Command
                 continue;
             }
 
-            // 🧩 Procesar cada oferta
+            /* ============================
+               🧩 PROCESAR OFERTAS
+            ============================ */
             foreach ($jobs as $job) {
-                $title = $job['title'] ?? 'N/A';
-                $company = $job['company_name'] ?? null;
-                $location = trim($job['location'] ?? '');
+                $title       = $job['title'] ?? 'N/A';
+                $company     = $job['company_name'] ?? null;
+                $location    = trim($job['location'] ?? '');
                 $description = $job['description'] ?? '';
-                $urlJob = $job['url'] ?? null;
-                $isRemote = $job['remote'] ?? false;
+                $urlJob      = $job['url'] ?? null;
+                $isRemote    = $job['remote'] ?? false;
 
-                // 🗺️ País y coordenadas
+                // 🌍 País y coordenadas
                 $countryCode = $this->detectCountryCode($location, $isRemote);
-                [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($this->extractCity($location), $countryCode);
+                [$city, $lat, $lng, $country] =
+                    $this->getCoordsFromCountry($this->extractCity($location), $countryCode);
 
-                // Fallback capital
                 if (!$lat || !$lng) {
                     if (isset($this->capitalMap[$countryCode])) {
                         $capital = $this->capitalMap[$countryCode];
                         $city = $capital['city'];
-                        $lat = $capital['lat'];
-                        $lng = $capital['lng'];
+                        $lat  = $capital['lat'];
+                        $lng  = $capital['lng'];
                         $country = $capital['country'];
                         $this->stats['fallback']++;
                     } else {
+                        $totalSkippedAll++;
                         continue;
                     }
                 }
 
-                // Duplicados
                 $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
-               $existingOffer = JobOffer::where('source', 'Arbeitnow')
-    ->where(function ($q) use ($externalId, $title, $company, $country, $methodologyName, $urlJob) {
-        $q->where('external_id', $externalId)
-          ->orWhere(function ($q2) use ($title, $company, $country, $methodologyName, $urlJob) {
-              $q2->where('title', $title)
-                 ->where('company', $company)
-                 ->where('country', $country ?? 'Unknown')
-                 ->where('search_query', $methodologyName)
-                 ->where(function ($q3) use ($urlJob) {
-                     $q3->where('url', $urlJob)
-                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-                 });
-          });
-    })
-    ->first();
 
-if ($existingOffer) {
-    // 🧩 Si ya existe, asociar la metodología si aún no lo está
-    $existingOffer->methodologies()->syncWithoutDetaching([$methodologyId]);
-    continue; // ❌ No crear una nueva
-}
-$region = RegionHelper::fromCountry($country);
-$country = match (strtolower($country)) {
-    'peru' => 'Perú',
-    'mexico' => 'México',
-    'colombia' => 'Colombia',
-    'argentina' => 'Argentina',
-    'uruguay' => 'Uruguay',
-    'ecuador' => 'Ecuador',
-    'venezuela' => 'Venezuela',
-    'bolivia' => 'Bolivia',
-    default => ucfirst($country),
-};
+                $existingOffer = JobOffer::where('source', 'Arbeitnow')
+                    ->where('external_id', $externalId)
+                    ->first();
 
-                // 💾 Guardar
+                if ($existingOffer) {
+                    $existingOffer->methodologies()
+                        ->syncWithoutDetaching([$methodologyId]);
+                    $totalSkippedAll++;
+                    continue;
+                }
+
+                $region = RegionHelper::fromCountry($country);
+
+                $modality = $this->extractModality($location, $isRemote);
+
                 $offer = JobOffer::create([
                     'title'        => $title,
                     'company'      => $company,
@@ -177,38 +177,38 @@ $country = match (strtolower($country)) {
                     'city'         => $city,
                     'latitude'     => $lat,
                     'longitude'    => $lng,
-                    'modality'     => $this->extractModality($location, $isRemote),
+                    'modality'     => $modality,
                     'source'       => 'Arbeitnow',
                     'external_id'  => $externalId,
                     'url'          => $urlJob,
                     'currency'     => 'EUR',
-                    'salary_min'   => null,
-                    'salary_max'   => null,
                     'search_query' => $methodologyName,
-                 'published_at' => isset($job['created_at'])
-    ? (is_numeric($job['created_at'])
-        ? Carbon::createFromTimestamp($job['created_at'])
-        : Carbon::parse($job['created_at']))
-    : now(),
-
-
+                    'published_at' => isset($job['created_at'])
+                        ? (is_numeric($job['created_at'])
+                            ? Carbon::createFromTimestamp($job['created_at'])
+                            : Carbon::parse($job['created_at']))
+                        : now(),
                     'created_at'   => now(),
                     'updated_at'   => now(),
-                    'region' => $region,
-
+                    'region'       => $region,
                 ]);
 
-                // 🔗 Relación metodología ↔ oferta
-                $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
+                $offer->methodologies()
+                    ->syncWithoutDetaching([$methodologyId]);
 
-                // Contadores
                 $totalNew++;
-                $countries[$country ?? 'Unknown'] = ($countries[$country ?? 'Unknown'] ?? 0) + 1;
-                $modality = $this->extractModality($location, $isRemote);
-                $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                $totalInsertedAll++;
+
+                $countries[$country ?? 'Unknown'] =
+                    ($countries[$country ?? 'Unknown'] ?? 0) + 1;
+
+                $modalities[$modality] =
+                    ($modalities[$modality] ?? 0) + 1;
             }
 
-            // 📊 Guardar métricas si aún no existen hoy
+            /* ============================
+               📊 MÉTRICAS
+            ============================ */
             $today = now()->toDateString();
             $existsToday = MethodologyMetric::whereDate('run_date', $today)
                 ->where('methodology_id', $methodologyId)
@@ -217,27 +217,40 @@ $country = match (strtolower($country)) {
 
             if (!$existsToday) {
                 MethodologyMetric::create([
-                    'methodology_id'       => $methodologyId,
-                    'methodology_name'     => $methodologyName,
-                    'jobs_found_count'     => $totalFound,
-                    'jobs_new_count'       => $totalNew,
-                    'countries_breakdown'  => $countries,
-                    'modality_breakdown'   => $modalities,
-                    'run_date'             => Carbon::today(),
-                    'source'               => 'Arbeitnow',
+                    'methodology_id'      => $methodologyId,
+                    'methodology_name'    => $methodologyName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
+                    'run_date'            => Carbon::today(),
+                    'source'              => 'Arbeitnow',
                 ]);
             }
 
+            $totalFoundAll += $totalFound;
+
             $this->info("✅ {$methodologyName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-        } catch (\Throwable $th) {
-            Log::error("⚠️ Error en {$methodologyName}: " . $th->getMessage());
+            sleep(1.5);
         }
 
-        sleep(1.5);
-    }
+        /* ============================
+           ✅ FIN OK
+        ============================ */
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
 
-    $this->info("\n🎯 Proceso completado: métricas registradas en `methodology_metrics`.");
+        $this->info("\n🎯 Proceso completado correctamente.");
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
+    }
 }
+
 
 
     // 🌍 Identifica país por patrones
@@ -292,26 +305,56 @@ $country = match (strtolower($country)) {
         return $this->geoCache[$key] = [null, null, null];
     }
 
-   protected function extractModality(string $location, bool $isRemote): string
+protected function extractModality(string $location, bool $isRemote): string
 {
-    $loc = strtolower($location);
+    $text = strtolower($location);
 
-    return match (true) {
-        // 🌎 100% remoto (sin restricción de país)
-        $isRemote,
-        str_contains($loc, 'remote'),
-        str_contains($loc, 'anywhere'),
-        str_contains($loc, 'work from home'),
-        str_contains($loc, 'home office') => 'remote',
+    /* =========================
+       1️⃣ REMOTO EXPLÍCITO
+    ========================= */
+    if (
+        $isRemote ||
+        str_contains($text, 'remote') ||
+        str_contains($text, 'anywhere') ||
+        str_contains($text, 'work from home') ||
+        str_contains($text, 'home office') ||
+        str_contains($text, 'teletrabajo')
+    ) {
+        return 'remote';
+    }
 
-        // 🏠 Híbrido  aspera
-        str_contains($loc, 'hybrid'),
-        str_contains($loc, 'híbrido') => 'hybrid',
+    /* =========================
+       2️⃣ HÍBRIDO
+    ========================= */
+    if (
+        str_contains($text, 'hybrid') ||
+        str_contains($text, 'híbrido') ||
+        str_contains($text, 'mix') ||
+        str_contains($text, 'partial remote')
+    ) {
+        return 'hybrid';
+    }
 
-        // 🏢 Presencial o sin indicio de remoto
-        default => 'no_precisa',
-    };
+    /* =========================
+       3️⃣ PRESENCIAL EXPLÍCITO
+    ========================= */
+    if (
+        str_contains($text, 'on-site') ||
+        str_contains($text, 'onsite') ||
+        str_contains($text, 'office') ||
+        str_contains($text, 'in office') ||
+        str_contains($text, 'presencial') ||
+        str_contains($text, 'oficina')
+    ) {
+        return 'presencial';
+    }
+
+    /* =========================
+       4️⃣ NO PRECISA
+    ========================= */
+    return 'no_precisa';
 }
+
 protected function extractCity(?string $location): ?string
 {
     if (empty($location)) return null;

@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
+use App\Services\ScraperRunService;
 
 class JobicyByTechnologiesCommand extends Command
 {
@@ -38,54 +39,73 @@ class JobicyByTechnologiesCommand extends Command
         'fr' => ['city' => 'París', 'lat' => 48.8566, 'lng' => 2.3522],
     ];
 
-    public function handle()
-    {
+ public function handle()
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Jobicy',
+        'technologies'
+    );
+
+    try {
+
+        // 🔢 Contadores GLOBALES del run
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
         // 🔹 Solo tecnologías asociadas a carreras ISIL
         $technologies = Technology::whereIn('technologies.id', function ($q) {
             $q->select('course_technology.technology_id')
-                ->from('course_technology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+              ->from('course_technology')
+              ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
         })->pluck('name', 'id');
 
         $this->info("🌍 Iniciando importación desde Jobicy para {$technologies->count()} tecnologías...");
 
         foreach ($technologies as $techId => $techName) {
+
             $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             try {
                 // 🌐 Consulta global Jobicy
                 $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
+
                 if ($response->failed()) {
                     $this->error("❌ Error al consultar Jobicy API para {$techName}");
+                    $totalSkippedAll++;
                     continue;
                 }
 
                 // 🔍 Filtrar coincidencias por nombre de tecnología
                 $results = collect($response->json('jobs') ?? [])
-                    ->filter(fn($job) => str_contains(
+                    ->filter(fn ($job) => str_contains(
                         strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
                         strtolower($techName)
                     ))
                     ->values();
 
                 $totalFound = $results->count();
-                $totalNew = 0;
-                $countries = [];
+                $totalNew   = 0;
+                $countries  = [];
                 $modalities = [];
 
                 foreach ($results as $job) {
+
                     $externalId = $job['id'] ?? null;
+
                     if ($externalId && JobOffer::where('external_id', $externalId)->exists()) {
+                        $totalSkippedAll++;
                         continue;
                     }
 
-                    // 🌍 Normalización y validación del país
+                    // 🌍 Normalización de país
                     $countryRaw = $job['jobGeo'] ?? null;
                     $country = CountryNormalizer::normalize($countryRaw);
 
                     if ($country === 'Desconocido' || !$country) {
-                        $this->stats['skipped']++;
-                        Log::info("⏭️ Omitido: {$job['jobTitle']} (sin país detectado)");
+                        $totalSkippedAll++;
                         continue;
                     }
 
@@ -94,14 +114,22 @@ class JobicyByTechnologiesCommand extends Command
                     $city = $this->capitalMap[$code]['city'] ?? 'Remote';
                     [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
 
+                    if (!$lat || !$lng) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
                     // 💼 Datos principales
                     $title   = $job['jobTitle'] ?? 'N/A';
                     $company = $job['companyName'] ?? null;
                     $urlJob  = $job['url'] ?? null;
                     $desc    = strip_tags($job['jobDescription'] ?? '');
+
                     $modality = $this->detectModality(
                         $desc,
-                        is_array($job['jobType']) ? implode(' ', $job['jobType']) : ($job['jobType'] ?? '')
+                        is_array($job['jobType'])
+                            ? implode(' ', $job['jobType'])
+                            : ($job['jobType'] ?? '')
                     );
 
                     // 💰 Salarios
@@ -109,92 +137,127 @@ class JobicyByTechnologiesCommand extends Command
                     $salaryMax = $job['annualSalaryMax'] ?? null;
                     $currency  = $job['salaryCurrency'] ?? 'USD';
 
-                    // 💾 Crear oferta laboral
+                    // 💾 Crear oferta
                     $offer = JobOffer::create([
-                        'title'             => $title,
-                        'company'           => $company,
-                        'country'           => $country,
-                        'region'            => RegionHelper::fromCountry($country),
-                        'city'              => $city,
-                        'latitude'          => $lat,
-                        'longitude'         => $lng,
-                        'modality'          => $modality,
-                        'salary_min'        => $salaryMin,
-                        'salary_max'        => $salaryMax,
-                        'currency'          => $currency,
-                        'source'            => 'Jobicy',
-                        'external_id'       => $externalId,
-                        'url'               => $urlJob,
-                        'search_query'      => $techName,
-                        'published_at'      => isset($job['pubDate']) ? Carbon::parse($job['pubDate']) : now(),
-                        'created_at'        => now(),
-                        'updated_at'        => now(),
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $country,
+                        'region'       => RegionHelper::fromCountry($country),
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => $modality,
+                        'salary_min'   => $salaryMin,
+                        'salary_max'   => $salaryMax,
+                        'currency'     => $currency,
+                        'source'       => 'Jobicy',
+                        'external_id'  => $externalId,
+                        'url'          => $urlJob,
+                        'search_query' => $techName,
+                        'published_at' => isset($job['pubDate'])
+                                            ? Carbon::parse($job['pubDate'])
+                                            : now(),
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
                     ]);
 
-                    // 🔗 Relación tecnología ↔ oferta
+                    // 🔗 Tecnología ↔ oferta
                     $offer->technologies()->syncWithoutDetaching([$techId]);
 
                     // 📊 Contadores
                     $totalNew++;
-                    $countries[$country] = ($countries[$country] ?? 0) + 1;
+                    $countries[$country]   = ($countries[$country] ?? 0) + 1;
                     $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-
-                    $this->line("✅ {$title} ({$country}) 💰{$salaryMin}-{$salaryMax} {$currency}");
                 }
 
-                // 📈 Guardar métricas
-                if ($totalNew > 0) {
-                    TechnologyMetric::updateOrCreate(
-                        [
-                            'technology_id' => $techId,
-                            'run_date'      => Carbon::today(),
-                            'source'        => 'Jobicy',
-                        ],
-                        [
-                            'technology_name'     => $techName,
-                            'jobs_found_count'    => $totalFound,
-                            'jobs_new_count'      => $totalNew,
-                            'countries_breakdown' => $countries,
-                            'modality_breakdown'  => $modalities,
-                            'updated_at'          => now(),
-                        ]
-                    );
-                }
+                // 📈 Métrica diaria
+                TechnologyMetric::updateOrCreate(
+                    [
+                        'technology_id' => $techId,
+                        'run_date'      => Carbon::today(),
+                        'source'        => 'Jobicy',
+                    ],
+                    [
+                        'technology_name'     => $techName,
+                        'jobs_found_count'    => $totalFound,
+                        'jobs_new_count'      => $totalNew,
+                        'countries_breakdown' => $countries,
+                        'modality_breakdown'  => $modalities,
+                        'updated_at'          => now(),
+                    ]
+                );
 
-                $this->info("📊 {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} totales | ⏭️ Omitidas: {$this->stats['skipped']}");
+                $this->info("📊 {$techName}: {$totalNew} nuevas | {$totalFound} totales");
+
+                // 🔢 acumular al run global
+                $totalFoundAll    += $totalFound;
+                $totalInsertedAll += $totalNew;
 
             } catch (\Throwable $e) {
-                Log::error("⚠️ Error en {$techName}: " . $e->getMessage());
-                $this->error("❌ {$techName}: " . $e->getMessage());
+                Log::error("⚠️ Error en {$techName}: {$e->getMessage()}");
+                $totalSkippedAll++;
             }
 
-            usleep(random_int(600000, 1200000)); // Delay anti-baneo
+            usleep(random_int(600000, 1200000)); // anti-baneo
         }
 
-        $this->info("\n🎯 Proceso completado Jobicy. ⏭️ Omitidas sin país: {$this->stats['skipped']}");
+        // ✅ Finalizar RUN exitoso
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🎯 Proceso Jobicy (technologies) finalizado correctamente.");
+
+    } catch (\Throwable $e) {
+        // ❌ Fallo crítico
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     // 🧠 Detección de modalidad
-    protected function detectModality(string $desc, string $type): string
-    {
-        $text = strtolower($desc . ' ' . $type);
+   protected function detectModality(string $desc, string $type): string
+{
+    $text = strtolower($desc . ' ' . $type);
 
-        return match (true) {
-            str_contains($text, 'fully remote'),
-            str_contains($text, 'work from anywhere'),
-            str_contains($text, 'remote worldwide'),
-            str_contains($text, 'anywhere') => 'fully_remote',
+    return match (true) {
 
-            str_contains($text, 'hybrid'),
-            str_contains($text, 'partial remote') => 'hybrid',
+        // 🌍 Remoto (cualquier variante)
+        str_contains($text, 'fully remote'),
+        str_contains($text, 'remote worldwide'),
+        str_contains($text, 'work from anywhere'),
+        str_contains($text, 'anywhere'),
+        str_contains($text, 'remote local'),
+        str_contains($text, 'remote in'),
+        str_contains($text, 'local remote'),
+        str_contains($text, 'remote'),
+        str_contains($text, 'telecommute'),
+        str_contains($text, 'work from home'),
+        str_contains($text, 'home office') => 'remote',
 
-            str_contains($text, 'remote local'),
-            str_contains($text, 'remote in'),
-            str_contains($text, 'local remote') => 'remote_local',
+        // 🏠 Híbrido
+        str_contains($text, 'hybrid'),
+        str_contains($text, 'partial remote'),
+        str_contains($text, 'mixto'),
+        str_contains($text, 'híbrido') => 'hybrid',
 
-            default => 'no_precisa',
-        };
-    }
+        // 🏢 Presencial explícito
+        str_contains($text, 'on-site'),
+        str_contains($text, 'onsite'),
+        str_contains($text, 'presencial'),
+        str_contains($text, 'in office'),
+        str_contains($text, 'office-based'),
+        str_contains($text, 'at the office') => 'presencial',
+
+        // ❓ No especifica
+        default => 'no_precisa',
+    };
+}
+
 
     // 🌍 Coordenadas por país o capital
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)

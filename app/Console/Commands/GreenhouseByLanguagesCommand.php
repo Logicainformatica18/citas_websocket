@@ -11,6 +11,9 @@ use App\Models\LanguageMetric;
 use App\Models\City;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
+use App\Models\Technology;
+use App\Services\ScraperRunService;
+
 
 class GreenhouseByLanguagesCommand extends Command
 {
@@ -22,8 +25,17 @@ class GreenhouseByLanguagesCommand extends Command
         'skipped'  => 0,
     ];
 
-    public function handle()
-    {
+  public function handle()
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Greenhouse',
+        'technologies'
+    );
+
+    try {
+
         $companies = $this->option('company');
 
         if (empty($companies)) {
@@ -31,17 +43,21 @@ class GreenhouseByLanguagesCommand extends Command
             return;
         }
 
-        // ✔ Lenguajes permitidos
-        $languages = Language::with('context')
-            ->where('enabled', 1)
-            ->whereIn('languages.id', function ($q) {
-                $q->select('course_language.language_id')
-                    ->from('course_language')
-                    ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+        // 🔢 Contadores GLOBALES del run
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        // ✔ Tecnologías realmente asociadas a carreras
+        $technologies = Technology::where('enabled', 1)
+            ->whereIn('technologies.id', function ($q) {
+                $q->select('course_technology.technology_id')
+                    ->from('course_technology')
+                    ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
             })
             ->get();
 
-        $this->info("🌱 Importando desde Greenhouse para {$languages->count()} lenguajes…");
+        $this->info("🌱 Importando desde Greenhouse para {$technologies->count()} tecnologías…");
 
         foreach ($companies as $companySlug) {
 
@@ -49,151 +65,155 @@ class GreenhouseByLanguagesCommand extends Command
 
             $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
 
-            try {
-                $response = Http::timeout(20)->get($url);
+            $response = Http::timeout(20)->get($url);
 
-                if ($response->failed()) {
-                    $this->error("❌ No se pudo obtener datos de: {$companySlug}");
-                    continue;
-                }
+            if ($response->failed()) {
+                $this->error("❌ No se pudo obtener datos de: {$companySlug}");
+                $totalSkippedAll++;
+                continue;
+            }
 
-                $jobs = $response->json('jobs') ?? [];
-                $contentAvailable = $this->companyHasContent($jobs);
+            $jobs = $response->json('jobs') ?? [];
+            $contentAvailable = $this->companyHasContent($jobs);
 
-                $this->line($contentAvailable
-                    ? "✔ Esta empresa SÍ expone descripción"
-                    : "⚠ Solo título (sin descripción)");
+            $this->line($contentAvailable
+                ? "✔ Esta empresa SÍ expone descripción"
+                : "⚠ Solo título (sin descripción)");
 
-                foreach ($languages as $lang) {
+            foreach ($technologies as $tech) {
 
-                    // 🔥 Build search string: lenguaje + contexto
-                    $pattern = $this->getSearchPattern($lang);
+                $pattern = $tech->name;
+                $escaped = preg_quote($pattern, '/');
+                $regex   = "/{$escaped}/i";
 
-                    $escaped = preg_quote($pattern, '/');
-                    $regex = "/{$escaped}/i";
+                // 🔍 Filtrar vacantes por tecnología
+                $resultsForTech = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
 
-                    // Filtrar vacantes según coincidencia
-                    $resultsForLang = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
+                    $title   = $job['title'] ?? '';
+                    $content = $contentAvailable ? ($job['content'] ?? '') : '';
 
-                        $title = $job['title'] ?? '';
-                        $content = $contentAvailable ? ($job['content'] ?? '') : '';
+                    return preg_match($regex, $title)
+                        || ($contentAvailable && preg_match($regex, $content));
+                });
 
-                        return preg_match($regex, $title)
-                            || ($contentAvailable && preg_match($regex, $content));
-                    });
+                $this->line("\n🔎 {$tech->name} → " . count($resultsForTech));
 
-                    $this->line("\n🔎 {$lang->name} (buscando: {$pattern}) → " . count($resultsForLang));
+                $totalFoundAll += count($resultsForTech);
 
-                    $new = [];
+                $newForTech = 0;
 
-                    foreach ($resultsForLang as $job) {
+                foreach ($resultsForTech as $job) {
 
-                        $content = $contentAvailable ? ($job['content'] ?? '') : '';
-                        $title = $job['title'] ?? 'N/A';
-                        $companyName = $job['company_name'] ?? ucfirst($companySlug);
-                        $urlJob = $job['absolute_url'] ?? null;
+                    $content     = $contentAvailable ? ($job['content'] ?? '') : '';
+                    $title       = $job['title'] ?? 'N/A';
+                    $companyName = $job['company_name'] ?? ucfirst($companySlug);
+                    $urlJob      = $job['absolute_url'] ?? null;
 
-                        // Ubicación cruda
-                        $loc = strtolower($job['location']['name'] ?? '');
+                    // Ubicación
+                    $loc = strtolower($job['location']['name'] ?? '');
 
-                        // Extraer país
-                        $countryCode = $this->extractCountryCodeOrNull($loc);
-
-                        // ❌ Si NO detectamos país → DESCARTAR
-                        if (!$countryCode) {
-                            $this->stats['skipped']++;
-                            continue;
-                        }
-
-                        // Normalizar país
-                        $countryFull = CountryNormalizer::normalize($countryCode);
-
-                        // Extraer ciudad
-                        $cityRaw = $this->extractCity($loc);
-
-                        // Buscar coordenadas REALES en tu tabla cities
-                        [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
-
-                        // ❌ Si no hay coordenadas → DESCARTAR
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
-                            continue;
-                        }
-
-                        // Detectar modalidad
-                        $modality = $this->detectModality($loc, $content);
-
-                        $externalId = $job['id'];
-
-                        // Evitar duplicados
-                        $existing = JobOffer::where('external_id', $externalId)
-                            ->where('source', 'Greenhouse')
-                            ->first();
-
-                        if ($existing) {
-                            $existing->languages()->syncWithoutDetaching([$lang->id]);
-                            continue;
-                        }
-
-                        $region = RegionHelper::fromCountry($countryFull);
-
-                        // Crear oferta limpia
-                        $offer = JobOffer::create([
-                            'title'             => $title,
-                            'company'           => $companyName,
-                            'country'           => $countryFull,
-                            'city'              => $cityClean,
-                            'latitude'          => $lat,
-                            'longitude'         => $lng,
-                            'modality'          => $modality,
-                            'experience_level'  => $this->extractExperience($content),
-                            'education_level'   => $this->extractEducation($content),
-                            'skills'            => $this->extractSkills($content),
-                            'certifications'    => $this->extractCertifications($content),
-                            'requirements'      => strip_tags($content),
-                            'source'            => 'Greenhouse',
-                            'external_id'       => $externalId,
-                            'url'               => $urlJob,
-                            'search_query'      => $pattern,
-                            'published_at'      => $job['updated_at'] ?? now(),
-                            'region'            => $region,
-                        ]);
-
-                        $offer->languages()->syncWithoutDetaching([$lang->id]);
-
-                        $new[] = $externalId;
+                    // País
+                    $countryCode = $this->extractCountryCodeOrNull($loc);
+                    if (!$countryCode) {
+                        $totalSkippedAll++;
+                        continue;
                     }
 
-                    // Guardar métricas
-                    LanguageMetric::updateOrCreate(
-                        [
-                            'language_id' => $lang->id,
-                            'run_date'    => now()->toDateString(),
-                            'source'      => 'Greenhouse'
-                        ],
-                        [
-                            'language_name'      => $lang->name,
-                            'jobs_found_count'   => count($resultsForLang),
-                            'jobs_new_count'     => count($new),
-                            'countries_breakdown'=> [],
-                            'modality_breakdown' => [],
-                        ]
-                    );
+                    $countryFull = CountryNormalizer::normalize($countryCode);
 
-                    $this->info("✔ {$lang->name}: " . count($new) . " nuevas");
+                    // Ciudad + coords
+                    $cityRaw = $this->extractCity($loc);
+                    [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
+
+                    if (!$lat || !$lng) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    // Modalidad
+                    $modality = $this->detectModality($loc, $content);
+
+                    $externalId = $job['id'];
+
+                    // Duplicado
+                    $existing = JobOffer::where('external_id', $externalId)
+                        ->where('source', 'Greenhouse')
+                        ->first();
+
+                    if ($existing) {
+                        $existing->technologies()->syncWithoutDetaching([$tech->id]);
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $region = RegionHelper::fromCountry($countryFull);
+
+                    // 💾 Crear oferta
+                    $offer = JobOffer::create([
+                        'title'             => $title,
+                        'company'           => $companyName,
+                        'country'           => $countryFull,
+                        'city'              => $cityClean,
+                        'latitude'          => $lat,
+                        'longitude'         => $lng,
+                        'modality'          => $modality,
+                        'experience_level'  => $this->extractExperience($content),
+                        'education_level'   => $this->extractEducation($content),
+                        'skills'            => $this->extractSkills($content),
+                        'certifications'    => $this->extractCertifications($content),
+                        'requirements'      => strip_tags($content),
+                        'source'            => 'Greenhouse',
+                        'external_id'       => $externalId,
+                        'url'               => $urlJob,
+                        'search_query'      => $tech->name,
+                        'published_at'      => $job['updated_at'] ?? now(),
+                        'region'            => $region,
+                    ]);
+
+                    $offer->technologies()->syncWithoutDetaching([$tech->id]);
+
+                    $newForTech++;
+                    $totalInsertedAll++;
                 }
 
-            } catch (\Throwable $e) {
-                $this->error("⚠ Error en Greenhouse: " . $e->getMessage());
-                Log::error("Greenhouse error: " . $e->getMessage());
+                // 📊 Métrica diaria por tecnología
+                TechnologyMetric::updateOrCreate(
+                    [
+                        'technology_id' => $tech->id,
+                        'run_date'      => now()->toDateString(),
+                        'source'        => 'Greenhouse',
+                    ],
+                    [
+                        'technology_name'     => $tech->name,
+                        'jobs_found_count'    => count($resultsForTech),
+                        'jobs_new_count'      => $newForTech,
+                        'countries_breakdown' => [],
+                        'modality_breakdown'  => [],
+                        'updated_at'          => now(),
+                    ]
+                );
+
+                $this->info("✔ {$tech->name}: {$newForTech} nuevas");
             }
         }
 
-        // Resultado final
-        $this->newLine();
-        $this->info("🎯 Finalizado:");
-        $this->line("   ⏭️ Skipped:  {$this->stats['skipped']}");
+        // ✅ Finalizar RUN OK
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🎯 Greenhouse → Tecnologías finalizado correctamente.");
+
+    } catch (\Throwable $e) {
+        // ❌ Fallo crítico
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
 
     /* =======================================================
@@ -277,16 +297,38 @@ class GreenhouseByLanguagesCommand extends Command
         return [null, null, null];
     }
 
-    protected function detectModality($loc, $desc)
-    {
-        $t = strtolower($loc . ' ' . $desc);
+   protected function detectModality(string $loc, string $desc): string
+{
+    $t = strtolower($loc . ' ' . $desc);
 
-        return match (true) {
-            str_contains($t, 'remote') => 'remote',
-            str_contains($t, 'hybrid') => 'hybrid',
-            default => 'no_precisa',
-        };
-    }
+    return match (true) {
+
+        // 🌍 REMOTO
+        str_contains($t, 'remote'),
+        str_contains($t, 'work from home'),
+        str_contains($t, 'home office'),
+        str_contains($t, 'teletrabajo'),
+        str_contains($t, 'anywhere') => 'remote',
+
+        // 🏠 HÍBRIDO
+        str_contains($t, 'hybrid'),
+        str_contains($t, 'híbrido'),
+        str_contains($t, 'mixto'),
+        str_contains($t, 'partial remote') => 'hybrid',
+
+        // 🏢 PRESENCIAL
+        str_contains($t, 'onsite'),
+        str_contains($t, 'on-site'),
+        str_contains($t, 'office'),
+        str_contains($t, 'presencial'),
+        str_contains($t, 'in office'),
+        str_contains($t, 'oficina') => 'presencial',
+
+        // ❓ NO PRECISA
+        default => 'no_precisa',
+    };
+}
+
 
     protected function extractExperience($text)
     {

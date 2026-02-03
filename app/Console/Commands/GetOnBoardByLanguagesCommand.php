@@ -10,6 +10,7 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 class GetOnBoardByLanguagesCommand extends Command
 {
@@ -28,35 +29,55 @@ class GetOnBoardByLanguagesCommand extends Command
         'Venezuela' => ['city' => 'Caracas', 'lat' => 10.4806, 'lng' => -66.9036],
     ];
 
-    public function handle()
-    {
+ public function handle()
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'GetOnBoard',
+        'languages'
+    );
+
+    try {
+
         $pages = (int) $this->option('pages');
 
-        // 🔹 Solo lenguajes que aparecen en carreras
+        // 🔢 Contadores GLOBALES del run
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        // 🔹 Solo lenguajes realmente vinculados a carreras
         $languages = Language::whereIn('languages.id', function ($q) {
             $q->select('course_language.language_id')
-                ->from('course_language')
-                ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+              ->from('course_language')
+              ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
         })->pluck('name', 'id');
 
         $this->info("🔎 Iniciando scraping de GetOnBoard para {$languages->count()} lenguajes...");
 
         foreach ($languages as $languageId => $languageName) {
+
             $this->warn("\n💡 Procesando lenguaje: {$languageName}");
 
-            $totalFound = 0;
-            $totalNew = 0;
-            $totalUnmapped = 0;
-            $countries = [];
-            $modalities = [];
+            $totalFound     = 0;
+            $totalNew       = 0;
+            $totalUnmapped  = 0;
+            $countries      = [];
+            $modalities     = [];
 
             for ($page = 1; $page <= $pages; $page++) {
-                $url = "https://www.getonbrd.com/api/v0/search/jobs?query=" . urlencode($languageName) . "&page={$page}&per_page=100";
+
+                $url = "https://www.getonbrd.com/api/v0/search/jobs?query="
+                    . urlencode($languageName)
+                    . "&page={$page}&per_page=100";
 
                 try {
                     $response = Http::timeout(25)->get($url);
+
                     if ($response->failed()) {
                         $this->warn("❌ Falló la API en {$languageName} (página {$page})");
+                        $totalSkippedAll++;
                         continue;
                     }
 
@@ -64,44 +85,42 @@ class GetOnBoardByLanguagesCommand extends Command
                     $totalFound += count($data);
 
                     foreach ($data as $job) {
-                        $attr = $job['attributes'] ?? [];
-                        $title = $attr['title'] ?? 'N/A';
-                        $company = $attr['company']['data']['attributes']['name'] ?? null;
-                        $country = $attr['countries'][0] ?? 'Desconocido';
-                        $city = $attr['city'] ?? null;
-                        $modality = $attr['remote_modality'] ?? 'unknown';
-                        $urlJob = $job['links']['public_url'] ?? null;
+
+                        $attr       = $job['attributes'] ?? [];
+                        $title      = $attr['title'] ?? 'N/A';
+                        $company    = $attr['company']['data']['attributes']['name'] ?? null;
+                        $country    = $attr['countries'][0] ?? 'Desconocido';
+                        $city       = $attr['city'] ?? null;
+
+                        // ✅ NORMALIZACIÓN LIMPIA
+                        $rawModality = $attr['remote_modality'] ?? null;
+                        $modality    = $this->normalizeGetOnBoardModality($rawModality);
+
+                        $urlJob     = $job['links']['public_url'] ?? null;
                         $externalId = $job['id'] ?? null;
 
-                        // 📊 Contadores
-                        $countries[$country] = ($countries[$country] ?? 0) + 1;
+                        // 📊 Métricas
+                        $countries[$country]  = ($countries[$country] ?? 0) + 1;
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                         // 🧭 Coordenadas
                         [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $country);
+
                         if (!$lat || !$lng) {
                             $totalUnmapped++;
+                            $totalSkippedAll++;
                             continue;
                         }
 
-                        // 🔍 Busca si ya existe la oferta
+                        // 🔍 Duplicado
                         $existingOffer = JobOffer::where('source', 'GetOnBoard')
-                            ->where(function ($q) use ($externalId, $title, $company, $city, $country, $languageName, $urlJob) {
-                                $q->where('external_id', $externalId)
-                                    ->orWhere(function ($q2) use ($title, $company, $city, $country, $languageName, $urlJob) {
-                                        $q2->whereRaw('LOWER(title) = ?', [strtolower($title)])
-                                            ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
-                                            ->where('city', $city)
-                                            ->where('country', $country)
-                                            ->where('search_query', $languageName)
-                                            ->where('url', $urlJob);
-                                    });
-                            })
+                            ->where('external_id', $externalId)
                             ->first();
 
                         if ($existingOffer) {
-                            // 🔗 Vincula lenguaje si ya existe
-                            $existingOffer->languages()->syncWithoutDetaching([$languageId]);
+                            $existingOffer->languages()
+                                ->syncWithoutDetaching([$languageId]);
+                            $totalSkippedAll++;
                             continue;
                         }
 
@@ -119,84 +138,64 @@ class GetOnBoardByLanguagesCommand extends Command
                             default => ucfirst($country),
                         };
 
-                      // 💾 Crear oferta extendida con más campos del API
-$desc = strip_tags($attr['description'] ?? '');
-$benefitsText = strip_tags($attr['benefits'] ?? '');
+                        // 📄 Textos
+                        $desc         = strip_tags($attr['description'] ?? '');
+                        $benefitsText = strip_tags($attr['benefits'] ?? '');
 
-// 📊 Campos adicionales del API
-$seniority = $attr['seniority']['data']['id'] ?? null; // 1=Junior, 4=Senior
-$category  = $attr['category_name'] ?? null;
-$minSalary = $attr['min_salary'] ?? null;
-$maxSalary = $attr['max_salary'] ?? null;
-$compType  = $attr['compensation_type'] ?? null;
-$currency  = null;
+                        // 📊 Campos adicionales
+                        $seniority = $attr['seniority']['data']['id'] ?? null;
+                        $minSalary = $attr['min_salary'] ?? null;
+                        $maxSalary = $attr['max_salary'] ?? null;
+                        $compType  = $attr['compensation_type'] ?? null;
+                        $currency  = null;
 
-// 🪙 Fallback: detectar moneda dentro del texto de beneficios
-if (preg_match('/(USD|MXN|CLP|PEN|COP|ARS|BOB|VEF)/i', $benefitsText, $m)) {
-    $currency = strtoupper($m[1]);
-}
+                        if (preg_match('/(USD|MXN|CLP|PEN|COP|ARS|BOB)/i', $benefitsText, $m)) {
+                            $currency = strtoupper($m[1]);
+                        }
 
-// 💼 Experiencia y certificaciones
-$experienceYears = null;
-$certifications  = [];
+                        // 💾 Crear oferta
+                        $offer = JobOffer::create([
+                            'title'             => $title,
+                            'company'           => $company,
+                            'country'           => $country,
+                            'region'            => RegionHelper::fromCountry($country),
+                            'city'              => $city,
+                            'latitude'          => $lat,
+                            'longitude'         => $lng,
+                            'modality'          => $modality,
+                            'experience_level'  => $seniority,
+                            'description'       => $desc,
+                            'benefits'          => $benefitsText,
+                            'salary_min'        => $minSalary,
+                            'salary_max'        => $maxSalary,
+                            'currency'          => $currency,
+                            'compensation_type' => $compType,
+                            'source'            => 'GetOnBoard',
+                            'search_query'      => $languageName,
+                            'external_id'       => $externalId,
+                            'url'               => $urlJob,
+                            'published_at'      => isset($attr['published_at'])
+                                                    ? Carbon::createFromTimestamp($attr['published_at'])
+                                                    : now(),
+                            'created_at'        => now(),
+                            'updated_at'        => now(),
+                        ]);
 
-if (preg_match('/(\d+)[–\-–+]?\s*(?:\+)?\s*(years?|años?)\s+of\s+experience/i', $desc, $m)) {
-    $experienceYears = (int) $m[1];
-}
-
-if (preg_match_all('/(AWS|Azure|Scrum|PMP|Certification|Certified)/i', $desc, $matches)) {
-    $certifications = array_unique($matches[0]);
-}
-
-// 💾 Insertar oferta en la tabla
-$offer = JobOffer::create([
-    'title'              => $title,
-    'company'            => $company,
-    'country'            => $country,
-    'region'             => RegionHelper::fromCountry($country),
-    'city'               => $city,
-    'latitude'           => $lat,
-    'longitude'          => $lng,
-    'modality'           => $modality,
-    'experience_level'   => $seniority,
-    'certifications'     => !empty($certifications) ? implode(', ', $certifications) : null,
-    'description'        => $desc,
-    'benefits'           => $benefitsText,
-    'salary_min'         => $minSalary,
-    'salary_max'         => $maxSalary,
-    'currency'           => $currency,
-    'compensation_type'  => $compType,
-    'source'             => 'GetOnBoard',
-    'search_query'       => $languageName,
-    'external_id'        => $externalId,
-    'url'                => $urlJob,
-    'published_at'       => isset($attr['published_at'])
-                              ? Carbon::createFromTimestamp($attr['published_at'])
-                              : now(),
-    'created_at'         => now(),
-    'updated_at'         => now(),
-]);
-
-// 🔗 Vincula lenguaje ↔ oferta
-$offer->languages()->syncWithoutDetaching([$languageId]);
-
-$this->line("✅ {$title} ({$country} - {$city}) 💰{$minSalary}-{$maxSalary} {$currency}");
-
-
-
-
+                        $offer->languages()
+                              ->syncWithoutDetaching([$languageId]);
 
                         $totalNew++;
-
                     }
 
-                    usleep(random_int(600000, 1200000)); // 0.6 a 1.2 seg
+                    usleep(random_int(600000, 1200000));
+
                 } catch (\Throwable $th) {
-                    Log::error("⚠️ Error en {$languageName} (página {$page}): " . $th->getMessage());
+                    Log::error("⚠️ Error en {$languageName} (página {$page}): {$th->getMessage()}");
+                    $totalSkippedAll++;
                 }
             }
 
-            // 📊 Registrar métricas
+            // 📊 Métrica diaria
             LanguageMetric::updateOrCreate(
                 [
                     'language_id' => $languageId,
@@ -213,11 +212,26 @@ $this->line("✅ {$title} ({$country} - {$city}) 💰{$minSalary}-{$maxSalary} {
                 ]
             );
 
-            $this->info("📊 {$languageName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} totales");
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
         }
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
         $this->info("\n🎯 Scraping + métricas completado exitosamente (GetOnBoard).");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
+
 
     // ---------------------------------------------------------------------
     // 🔧 Helpers
@@ -259,4 +273,14 @@ $this->line("✅ {$title} ({$country} - {$city}) 💰{$minSalary}-{$maxSalary} {
 
         return [null, null];
     }
+    protected function normalizeGetOnBoardModality(?string $raw): string
+{
+    return match (strtolower($raw ?? '')) {
+        'fully_remote', 'remote_local' => 'remote',
+        'hybrid'                      => 'hybrid',
+        'no_remote'                   => 'presencial',
+        default                       => 'no_precisa',
+    };
+}
+
 }

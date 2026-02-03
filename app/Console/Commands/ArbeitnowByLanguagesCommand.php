@@ -11,6 +11,7 @@ use App\Models\LanguageMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 
 class ArbeitnowByLanguagesCommand extends Command
@@ -57,194 +58,199 @@ class ArbeitnowByLanguagesCommand extends Command
 
 public function handle()
 {
-    $languages = Language::select('languages.id', 'languages.name')
-        ->whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-                ->from('course_language')
-                ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })
-        ->get();
-
-    $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
-
-    foreach ($languages as $language) {
-        $languageId = $language->id;
-        $languageName = $language->name;
-
-        $this->warn("\n💡 Procesando lenguaje: {$languageName}");
-
-        $totalFound = 0;
-        $totalNew = 0;
-        $countries = [];
-        $modalities = [];
-
-        try {
-  // 🌍 Intento principal: búsqueda directa
-$response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
-    'search' => $languageName,
-]);
-
-if ($response->failed()) {
-    $this->error("❌ Falló la API para {$languageName}");
-    continue;
-}
-
-$jobs = $response->json()['data'] ?? [];
-$totalFound = count($jobs);
-
-// ⚙️ Fallback si la búsqueda no devolvió nada
-if ($totalFound === 0) {
-    $backup = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api');
-
-    if ($backup->ok()) {
-        $allJobs = $backup->json()['data'] ?? [];
-
-        $jobs = collect($allJobs)
-            ->filter(function ($job) use ($languageName) {
-                $text = strtolower(
-                    html_entity_decode(
-                        strip_tags(($job['title'] ?? '') . ' ' . ($job['description'] ?? ''))
-                    )
-                );
-
-                // 🧠 Normalizar el nombre del lenguaje
-                $needle = strtolower($languageName);
-                $needle = str_replace(['#', '++'], ['sharp', 'pp'], $needle);
-                $needle = preg_quote($needle, '/');
-
-                // 🔍 Coincidencia estricta (palabra completa)
-                return preg_match("/\\b{$needle}\\b/i", $text);
-            })
-            ->values()
-            ->all();
-
-        $this->stats['fallback'] += count($jobs);
-        $totalFound = count($jobs);
-    }
-}
-
-if ($totalFound === 0) {
-    $this->warn("⚠️ Sin resultados para {$languageName}");
-    continue;
-}
-foreach ($jobs as $job) {
-    $title = $job['title'] ?? 'N/A';
-    $company = $job['company_name'] ?? null;
-    $location = $job['location'] ?? '';
-    $description = $job['description'] ?? '';
-    $urlJob = $job['url'] ?? null;
-    $isRemote = $job['remote'] ?? false;
-
-    // 🧭 Detección de país
-    $countryCode = $this->detectCountryCode($location, $isRemote);
-    [$city, $lat, $lng, $country] = $this->getCoordsFromCountry(
-        $this->extractCity($location),
-        $countryCode
+    /* =========================================
+       1️⃣ START SCRAPER RUN
+    ========================================= */
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Arbeitnow',
+        'languages'
     );
 
-    // 🚫 Saltar si no hay país o coordenadas
-    if (empty($country)) continue;
+    // 🔢 contadores GLOBALES del run
+    $foundAll    = 0;
+    $insertedAll = 0;
+    $skippedAll  = 0;
 
-  $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
+    try {
+        $languages = Language::select('languages.id', 'languages.name')
+            ->whereIn('languages.id', function ($q) {
+                $q->select('course_language.language_id')
+                    ->from('course_language')
+                    ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+            })
+            ->get();
 
-$existingOffer = JobOffer::where('source', 'Arbeitnow')
-    ->where(function ($q) use ($externalId, $title, $company, $country, $languageName, $urlJob) {
-        $q->where('external_id', $externalId)
-          ->orWhere(function ($q2) use ($title, $company, $country, $languageName, $urlJob) {
-              $q2->where('title', $title)
-                 ->where('company', $company)
-                 ->where('country', $country ?? 'Unknown')
-                 ->where('search_query', $languageName)
-                 ->where(function ($q3) use ($urlJob) {
-                     $q3->where('url', $urlJob)
-                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-                 });
-          });
-    })
-    ->first();
+        $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
 
+        foreach ($languages as $language) {
+            $languageId   = $language->id;
+            $languageName = $language->name;
 
-if ($existingOffer) {
-    // 🧩 Si ya existe, asociar el lenguaje si aún no lo está
-    $existingOffer->languages()->syncWithoutDetaching([$languageId]);
-    continue; // ❌ No crear una nueva
-}
+            $this->warn("\n💡 Procesando lenguaje: {$languageName}");
 
-$region = RegionHelper::fromCountry($country);
+            $totalFound = 0;
+            $totalNew   = 0;
+            $countries  = [];
+            $modalities = [];
 
+            /* ================= API PRINCIPAL ================= */
+            $response = Http::timeout(25)->get(
+                'https://www.arbeitnow.com/api/job-board-api',
+                ['search' => $languageName]
+            );
 
-    $offer = JobOffer::create([
-        'title'             => $title,
-        'company'           => $company,
-        'country'           => $country,
-        'city'              => $city,
-        'latitude'          => $lat,
-        'longitude'         => $lng,
-        'modality'          => $this->extractModality($location, $isRemote),
-        'salary_min'        => null,
-        'salary_max'        => null,
-        'currency'          => 'EUR',
-        'experience_level'  => null,
-        'education_level'   => null,
-        'certifications'    => null,
-        'skills'            => null,
-        'requirements'      => strip_tags($description),
-        'source'            => 'Arbeitnow',
-        'external_id'       => $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_')),
-        'url'               => $urlJob,
-        'search_query'      => $languageName,
-       'published_at' => isset($job['created_at'])
-    ? (is_numeric($job['created_at'])
-        ? Carbon::createFromTimestamp($job['created_at'])
-        : Carbon::parse($job['created_at']))
-    : now(),
+            if ($response->failed()) {
+                continue;
+            }
 
-        'created_at'        => now(),
-        'updated_at'        => now(),
-        'region' => $region,
+            $jobs = $response->json()['data'] ?? [];
+            $totalFound = count($jobs);
 
-    ]);
+            /* ================= FALLBACK ================= */
+            if ($totalFound === 0) {
+                $backup = Http::timeout(25)->get(
+                    'https://www.arbeitnow.com/api/job-board-api'
+                );
 
-    // 🔗 Asociar pivot lenguaje ↔ oferta
-    $offer->languages()->syncWithoutDetaching([$languageId]);
+                if ($backup->ok()) {
+                    $jobs = collect($backup->json()['data'] ?? [])
+                        ->filter(function ($job) use ($languageName) {
+                            $text = strtolower(
+                                strip_tags(($job['title'] ?? '') . ' ' . ($job['description'] ?? ''))
+                            );
 
-    // 📊 Contadores
-    $totalNew++;
-    $countries[$country] = ($countries[$country] ?? 0) + 1;
-    $modality = $this->extractModality($location, $isRemote);
-    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-}
+                            $needle = strtolower($languageName);
+                            $needle = str_replace(['#', '++'], ['sharp', 'pp'], $needle);
 
-            // 📈 Registrar métricas solo una vez por lenguaje
+                            return preg_match("/\\b" . preg_quote($needle, '/') . "\\b/i", $text);
+                        })
+                        ->values()
+                        ->all();
+
+                    $totalFound = count($jobs);
+                }
+            }
+
+            if ($totalFound === 0) {
+                continue;
+            }
+
+            $foundAll += $totalFound;
+
+            /* ================= PROCESO DE OFERTAS ================= */
+            foreach ($jobs as $job) {
+                $title       = $job['title'] ?? 'N/A';
+                $company     = $job['company_name'] ?? null;
+                $location    = $job['location'] ?? '';
+                $description = $job['description'] ?? '';
+                $urlJob      = $job['url'] ?? null;
+                $isRemote    = $job['remote'] ?? false;
+
+                /* ================= MODALIDAD ================= */
+                $modality = $this->extractModality($location, $isRemote);
+
+                /* ================= UBICACIÓN ================= */
+                $countryCode = $this->detectCountryCode($location, $isRemote);
+                [$city, $lat, $lng, $country] = $this->getCoordsFromCountry(
+                    $this->extractCity($location),
+                    $countryCode
+                );
+
+                if (empty($country)) {
+                    $skippedAll++;
+                    continue;
+                }
+
+                /* ================= DEDUP ================= */
+                $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
+
+                $existing = JobOffer::where('source', 'Arbeitnow')
+                    ->where('external_id', $externalId)
+                    ->first();
+
+                if ($existing) {
+                    $existing->languages()->syncWithoutDetaching([$languageId]);
+                    $skippedAll++;
+                    continue;
+                }
+
+                /* ================= INSERT ================= */
+                $region = RegionHelper::fromCountry($country);
+
+                $offer = JobOffer::create([
+                    'title'        => $title,
+                    'company'      => $company,
+                    'country'      => $country,
+                    'city'         => $city,
+                    'latitude'     => $lat,
+                    'longitude'    => $lng,
+                    'modality'     => $modality,
+                    'currency'     => 'EUR',
+                    'requirements' => strip_tags($description),
+                    'source'       => 'Arbeitnow',
+                    'external_id'  => $externalId,
+                    'url'          => $urlJob,
+                    'search_query' => $languageName,
+                    'published_at' => isset($job['created_at'])
+                        ? Carbon::parse($job['created_at'])
+                        : now(),
+                    'region'       => $region,
+                ]);
+
+                $offer->languages()->syncWithoutDetaching([$languageId]);
+
+                $totalNew++;
+                $insertedAll++;
+
+                $countries[$country] =
+                    ($countries[$country] ?? 0) + 1;
+                $modalities[$modality] =
+                    ($modalities[$modality] ?? 0) + 1;
+            }
+
+            /* ================= MÉTRICA DIARIA ================= */
             $today = now()->toDateString();
-            $existsToday = LanguageMetric::whereDate('run_date', $today)
+            if (!LanguageMetric::whereDate('run_date', $today)
                 ->where('language_id', $languageId)
                 ->where('source', 'Arbeitnow')
-                ->exists();
-
-            if (!$existsToday) {
+                ->exists()
+            ) {
                 LanguageMetric::create([
-                    'language_id' => $languageId,
-                    'language_name' => $languageName,
-                    'jobs_found_count' => $totalFound,
-                    'jobs_new_count' => $totalNew,
-                    'countries_breakdown' => $countries,
+                    'language_id'        => $languageId,
+                    'language_name'      => $languageName,
+                    'jobs_found_count'   => $totalFound,
+                    'jobs_new_count'     => $totalNew,
+                    'countries_breakdown'=> $countries,
                     'modality_breakdown' => $modalities,
-                    'run_date' => Carbon::today(),
-                    'source' => 'Arbeitnow',
+                    'run_date'           => Carbon::today(),
+                    'source'             => 'Arbeitnow',
                 ]);
             }
 
             $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-        } catch (\Throwable $th) {
-            Log::error("⚠️ Error en {$languageName}: " . $th->getMessage());
         }
 
-        sleep(1.5);
-    } // 🔚 foreach $languages
+        /* =========================================
+           2️⃣ SUCCESS
+        ========================================= */
+        ScraperRunService::success(
+            $run,
+            $foundAll,
+            $insertedAll,
+            $skippedAll
+        );
 
-    $this->info("\n🎯 Proceso completado: métricas registradas en `language_metrics`.");
+        $this->info("🎯 Proceso Arbeitnow finalizado correctamente");
+    } catch (\Throwable $e) {
+        /* =========================================
+           3️⃣ FAILED
+        ========================================= */
+        ScraperRunService::failed($run, $e);
+        throw $e;
+    }
 }
+
 
 protected function extractCity(?string $location): ?string
 {
@@ -359,21 +365,44 @@ protected function extractModality(string $location, bool $isRemote): string
     $loc = strtolower($location);
 
     return match (true) {
-        // 🌎 100% remoto (sin restricción de país)
+
+        /* ============================
+           1️⃣ REMOTO EXPLÍCITO
+        ============================ */
         $isRemote,
         str_contains($loc, 'remote'),
         str_contains($loc, 'anywhere'),
         str_contains($loc, 'work from home'),
-        str_contains($loc, 'home office') => 'remote',
+        str_contains($loc, 'home office'),
+        str_contains($loc, 'teletrabajo') => 'remote',
 
-        // 🏠 Híbrido
+        /* ============================
+           2️⃣ HÍBRIDO
+        ============================ */
         str_contains($loc, 'hybrid'),
-        str_contains($loc, 'híbrido') => 'hybrid',
+        str_contains($loc, 'híbrido'),
+        str_contains($loc, 'mixed'),
+        str_contains($loc, 'flexible') => 'hybrid',
 
-        // 🏢 Presencial / sin dato remoto
+        /* ============================
+           3️⃣ PRESENCIAL EXPLÍCITO
+        ============================ */
+        str_contains($loc, 'on-site'),
+        str_contains($loc, 'onsite'),
+        str_contains($loc, 'presencial'),
+        str_contains($loc, 'in office'),
+        str_contains($loc, 'office'),
+        str_contains($loc, 'based in'),
+        str_contains($loc, 'ubicado en'),
+        str_contains($loc, 'located in') => 'presencial',
+
+        /* ============================
+           4️⃣ NO PRECISA
+        ============================ */
         default => 'no_precisa',
     };
 }
+
 
 
 }

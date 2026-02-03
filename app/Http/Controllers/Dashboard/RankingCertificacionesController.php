@@ -9,6 +9,8 @@ use Inertia\Inertia;
 use App\Models\Prueba;
 use Illuminate\Support\Facades\Log;
 use App\Services\Ranking\CertificationLaborScoreService;
+use App\Http\Controllers\Dashboard\JobMarketStatusController;
+
 class RankingCertificacionesController extends Controller
 {
     protected CertificationLaborScoreService $laborService;
@@ -392,6 +394,7 @@ DB::raw("
                     'laborWeight' => round($laborWeight * 100, 1),
                     'trendsWeight' => round($trendWeight * 100, 1),
                 ],
+                'jobMarketStatus' => JobMarketStatusController::get($year, $period),
                 'meta' => [
                     'year' => $year,
                     'period' => $period,

@@ -13,6 +13,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 class ComputrabajoByLanguagesCommand extends Command
 {
@@ -44,41 +45,50 @@ protected $currencyMap = [
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
-    public function handle()
-    {
-   $languages = Language::select(
-        'languages.id',
-        'languages.name',
-        'semantic_contexts.search_context'
-    )
-    ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
-    ->whereIn('languages.id', function ($q) {
-        $q->select('course_language.language_id')
-          ->from('course_language')
-          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-    })
-    ->get();
+  public function handle()
+{
+    // 🧾 Iniciar tracking del scraper
+    $run = ScraperRunService::start(
+        $this->signature, // computrabajo:languages (o el signature real)
+        'Computrabajo',
+        'languages'
+    );
 
+    $totalFoundAll   = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    try {
+        $languages = Language::select(
+            'languages.id',
+            'languages.name',
+            'semantic_contexts.search_context'
+        )
+        ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
+        ->whereIn('languages.id', function ($q) {
+            $q->select('course_language.language_id')
+              ->from('course_language')
+              ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+        })
+        ->get();
 
         $pages = (int) $this->option('pages');
 
         $this->info("🌐 Scrapeando Computrabajo para {$languages->count()} lenguajes ({$pages} páginas por país)...");
 
         foreach ($languages as $lang) {
-    $langId = $lang->id;
-    $langName = $lang->name;
-    $context = $lang->search_context;
+            $langId   = $lang->id;
+            $langName = $lang->name;
+            $context  = $lang->search_context;
 
-    $this->warn("\n💡 Lenguaje actual: {$langName} ({$context})");
-
+            $this->warn("\n💡 Lenguaje actual: {$langName} ({$context})");
 
             $totalFound = 0;
-            $totalNew = 0;
-            $countries = [];
+            $totalNew   = 0;
+            $countries  = [];
             $modalities = [];
 
-         $slugLang = $this->makeSearchSlug($langName, $context);
-
+            $slugLang = $this->makeSearchSlug($langName, $context);
 
             foreach ($this->countryMap as $code => $country) {
                 $this->line("🌍 País: {$country}");
@@ -89,8 +99,8 @@ protected $currencyMap = [
 
                     try {
                         $response = Http::withHeaders([
-                            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                            'Accept-Language' => 'es-ES,es;q=0.9,en;q=0.8',
+                            'User-Agent' => 'Mozilla/5.0',
+                            'Accept-Language' => 'es-ES,es;q=0.9',
                         ])->timeout(25)->get($url);
 
                         if ($response->failed()) {
@@ -99,117 +109,118 @@ protected $currencyMap = [
                         }
 
                         $crawler = new Crawler($response->body());
-                        $offers = $crawler->filter('article[class*="box_offer"]');
+                        $offers  = $crawler->filter('article[class*="box_offer"]');
 
                         if ($offers->count() === 0) {
-                            $this->warn("⚠️ Sin ofertas para {$langName} en {$country} (página {$i})");
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $langName, $code,$langId) {
+                        $offers->each(function (Crawler $offer)
+                            use (
+                                &$totalFound,
+                                &$totalNew,
+                                &$countries,
+                                &$modalities,
+                                &$totalInsertedAll,
+                                &$totalSkippedAll,
+                                $country,
+                                $langName,
+                                $code,
+                                $langId
+                            ) {
+
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
-                                         // 🚫 Nuevo filtro
+
                                 if (!$this->isTechRelated($title)) {
-                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    $totalSkippedAll++;
                                     return;
                                 }
+
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
-                                $href = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com" . $href;
+
+                                $href   = $offer->filter('h2 a')->attr('href');
+                                $urlJob = "https://{$code}.computrabajo.com{$href}";
 
                                 $city = $this->extractCityFromUrl($urlJob);
                                 [$lat, $lng] = $this->getCoords($city, $country);
 
-                                $modality = $this->mapModality($title . ' ' . $city);
-                                $published = now();
+                                // 🧭 MODALIDAD (remote / hybrid / presencial / no_precisa)
+                                $text = strtolower($title . ' ' . $city);
 
-// 💰 Extraer texto de salario (si existe)
-$salaryText = null;
-$offer->filter('p.fc_aux')->each(function ($node) use (&$salaryText) {
-    $text = trim($node->text());
-    if (preg_match('/(\$|S\/|US\$)/', $text)) {
-        $salaryText = $text;
-    }
-});
+                                $modality = match (true) {
+                                    str_contains($text, 'remote'),
+                                    str_contains($text, 'remoto'),
+                                    str_contains($text, 'teletrabajo'),
+                                    str_contains($text, 'home office') => 'remote',
 
-// 🧮 Parsear monto y moneda según código del país
-[$salaryMin, $salaryMax, $currency] = $this->parseSalary($salaryText, $code);
+                                    str_contains($text, 'hybrid'),
+                                    str_contains($text, 'híbrido'),
+                                    str_contains($text, 'mixto') => 'hybrid',
 
+                                    str_contains($text, 'presencial'),
+                                    str_contains($text, 'oficina'),
+                                    str_contains($text, 'onsite'),
+                                    str_contains($text, 'on site') => 'presencial',
 
+                                    default => 'no_precisa',
+                                };
 
                                 $totalFound++;
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                              $existingOffer = JobOffer::where('source', 'Computrabajo')
-    ->where(function ($q) use ($title, $company, $country, $langName, $urlJob) {
-        $q->whereRaw('LOWER(title) = ?', [strtolower($title)])
-          ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
-          ->where('country', $country)
-          ->where('search_query', $langName)
-          ->where(function ($q2) use ($urlJob) {
-              $q2->where('url', $urlJob)
-                 ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-          });
-    })
-    ->first();
+                                $existingOffer = JobOffer::where('source', 'Computrabajo')
+                                    ->where('url', $urlJob)
+                                    ->first();
 
-if ($existingOffer) {
-    $existingOffer->languages()->syncWithoutDetaching([$langId]);
-    return;
-}
-$country = match (strtolower($country)) {
-    'peru' => 'Perú',
-    'mexico' => 'México',
-    'colombia' => 'Colombia',
-    'argentina' => 'Argentina',
-    'uruguay' => 'Uruguay',
-    'ecuador' => 'Ecuador',
-    'venezuela' => 'Venezuela',
-    'bolivia' => 'Bolivia',
-    default => ucfirst($country),
-};
+                                if ($existingOffer) {
+                                    $existingOffer->languages()->syncWithoutDetaching([$langId]);
+                                    $totalSkippedAll++;
+                                    return;
+                                }
 
-$offer = JobOffer::create([
-    'title'        => $title,
-    'company'      => $company,
-    'country'      => $country,
-'region' => RegionHelper::fromCountry($country),
-'state_code' => strtoupper($code),
+                                $countryNorm = match (strtolower($country)) {
+                                    'peru' => 'Perú',
+                                    'mexico' => 'México',
+                                    default => ucfirst($country),
+                                };
 
-    'city'         => $city,
-    'latitude'     => $lat,
-    'longitude'    => $lng,
-    'modality'     => $modality,
-    'source'       => 'Computrabajo',
-    'search_query' => $langName,
-    'url'          => $urlJob,
-    'salary_min'   => $salaryMin,
-    'salary_max'   => $salaryMax,
-    'currency'     => $currency,
-    'published_at' => $published,
-    'created_at'   => now(),
-    'updated_at'   => now(),
-]);
+                                $offerModel = JobOffer::create([
+                                    'title'        => $title,
+                                    'company'      => $company,
+                                    'country'      => $countryNorm,
+                                    'region'       => RegionHelper::fromCountry($countryNorm),
+                                    'state_code'   => strtoupper($code),
+                                    'city'         => $city,
+                                    'latitude'     => $lat,
+                                    'longitude'    => $lng,
+                                    'modality'     => $modality,
+                                    'source'       => 'Computrabajo',
+                                    'search_query' => $langName,
+                                    'url'          => $urlJob,
+                                    'published_at' => now(),
+                                    'created_at'   => now(),
+                                    'updated_at'   => now(),
+                                ]);
 
-
-$offer->languages()->syncWithoutDetaching([$langId]);
-
+                                $offerModel->languages()->syncWithoutDetaching([$langId]);
 
                                 $totalNew++;
-                                $this->line("✅ {$title} ({$country} - {$city})");
+                                $totalInsertedAll++;
 
-                            } catch (\Throwable $th) {
-                                Log::warning("⚠️ Error oferta {$langName}: " . $th->getMessage());
+                            } catch (\Throwable $e) {
+                                $totalSkippedAll++;
+                                Log::warning("⚠️ Error oferta {$langName}: " . $e->getMessage());
                             }
                         });
 
                         usleep(random_int(500000, 1500000));
-                    } catch (\Throwable $th) {
-                        $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
+
+                    } catch (\Throwable $e) {
+                        Log::warning("💥 Error página {$country}: " . $e->getMessage());
                     }
                 }
 
@@ -219,24 +230,39 @@ $offer->languages()->syncWithoutDetaching([$langId]);
             LanguageMetric::updateOrCreate(
                 [
                     'language_id' => $langId,
-                    'run_date' => Carbon::today(),
-                    'source' => 'Computrabajo',
+                    'run_date'    => Carbon::today(),
+                    'source'      => 'Computrabajo',
                 ],
                 [
-                    'language_name' => $langName,
-                    'jobs_found_count' => $totalFound,
-                    'jobs_new_count' => $totalNew,
-                    'countries_breakdown' => $countries,
-                    'modality_breakdown' => $modalities,
-                    'updated_at' => now(),
+                    'language_name'     => $langName,
+                    'jobs_found_count'  => $totalFound,
+                    'jobs_new_count'    => $totalNew,
+                    'countries_breakdown'=> $countries,
+                    'modality_breakdown'=> $modalities,
+                    'updated_at'        => now(),
                 ]
             );
 
+            $totalFoundAll += $totalFound;
             $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        $this->info("\n🎯 Scraping + métricas completado exitosamente con geolocalización.");
+        // ✅ Final OK
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🎯 Scraping + métricas completado exitosamente.");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
 protected function makeSearchSlug(string $langName, ?string $context = null): string
 {
@@ -267,44 +293,51 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
         return 'Remote';
     }
 
-        protected function mapModality(string $text): string
+    protected function mapModality(string $text): string
 {
     $t = strtolower($text);
 
-    // 🟢 1. Casos combinados ("presencial y remoto", "híbrido", etc.)
+    // 🟡 1. HÍBRIDO (combinaciones claras)
     if (
         (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
         (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
         (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
         str_contains($t, 'híbrido') ||
+        str_contains($t, 'hybrid') ||
         str_contains($t, 'mixto') ||
         str_contains($t, 'parcial')
     ) {
         return 'hybrid';
     }
 
-    // 🔵 2. Solo remoto
+    // 🔵 2. REMOTO PURO
     if (
         str_contains($t, 'remoto') ||
+        str_contains($t, 'remote') ||
         str_contains($t, 'teletrabajo') ||
-        str_contains($t, 'home office')
+        str_contains($t, 'home office') ||
+        str_contains($t, 'work from home') ||
+        str_contains($t, 'anywhere')
     ) {
-        return 'fully_remote';
+        return 'remote';
     }
 
-    // 🟣 3. Solo presencial
+    // 🟢 3. PRESENCIAL EXPLÍCITO
     if (
         str_contains($t, 'presencial') ||
         str_contains($t, 'oficina') ||
-        str_contains($t, 'onsite')
+        str_contains($t, 'onsite') ||
+        str_contains($t, 'on site') ||
+        str_contains($t, 'en sede') ||
+        str_contains($t, 'in situ')
     ) {
-        return 'no_remote';
+        return 'presencial';
     }
 
-    // ⚪ 4. Desconocido / local genérico
-    return 'no_remote';
+    // ⚪ 4. NO PRECISA (no hay señal clara)
+    return 'no_precisa';
+}
 
-    }
 
     protected function getCoords($city, $country)
     {

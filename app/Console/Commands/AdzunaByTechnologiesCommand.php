@@ -11,6 +11,7 @@ use App\Models\TechnologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 class AdzunaByTechnologiesCommand extends Command
 {
     protected $signature = 'adzuna:technologies {--country=us} {--pages=1}';
@@ -55,18 +56,33 @@ class AdzunaByTechnologiesCommand extends Command
         'remote' => ['city' => 'Remoto', 'lat' => 0.0000, 'lng' => 0.0000, 'country' => 'Remote'],
     ];
 
-    public function handle()
-    {
+public function handle()
+{
+    /* =========================================
+       1️⃣ START SCRAPER RUN
+    ========================================= */
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Adzuna',
+        'technologies'
+    );
+
+    // 🔢 contadores GLOBALES del run
+    $foundAll   = 0;
+    $insertedAll = 0;
+    $skippedAll  = 0;
+
+    try {
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-    $q->select('course_technology.technology_id')
-        ->from('course_technology')
-        ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-})
-->orderBy('id')            // (opcional pero recomendado para consistencia)
-->pluck('name', 'id');
 
+        $technologies = Technology::whereIn('technologies.id', function ($q) {
+            $q->select('course_technology.technology_id')
+                ->from('course_technology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+        })
+        ->orderBy('id')
+        ->pluck('name', 'id');
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
@@ -78,168 +94,170 @@ class AdzunaByTechnologiesCommand extends Command
             $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             $totalFound = $totalNew = $totalDuplicates = $totalUnmapped = 0;
-            $countries = [];
+            $countries  = [];
             $modalities = [];
 
             for ($page = 1; $page <= $pages; $page++) {
-                $url = "{$baseUrl}/{$country}/search/{$page}?app_id={$appId}&app_key={$appKey}&results_per_page=100&what=" . urlencode($techName);
+                $url = "{$baseUrl}/{$country}/search/{$page}"
+                    . "?app_id={$appId}&app_key={$appKey}"
+                    . "&results_per_page=100"
+                    . "&what=" . urlencode($techName);
 
-                try {
-                    $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) {
-                        $this->error("❌ Error al consultar API (página {$page})");
+                $response = Http::timeout(25)->get($url);
+                if ($response->failed()) {
+                    continue;
+                }
+
+                $results = $response->json('results') ?? [];
+                $totalFound += count($results);
+                $foundAll   += count($results);
+
+                foreach ($results as $job) {
+                    $title   = $job['title'] ?? 'N/A';
+                    $company = $job['company']['display_name'] ?? null;
+                    $desc    = strtolower($job['description'] ?? '');
+                    $loc     = strtolower(($job['location']['display_name'] ?? '') . ' ' . $title);
+                    $urlJob  = $job['redirect_url'] ?? null;
+
+                    /* ================= MODALIDAD ================= */
+                    $modality = $this->detectModality($loc, $desc);
+
+                    /* ================= UBICACIÓN ================= */
+                    $area        = $job['location']['area'] ?? [];
+                    $city        = $area[1] ?? ($area[0] ?? null);
+                    $countryName = $area[0] ?? null;
+
+                    $isoToName = [
+                        'DE'=>'Alemania','FR'=>'Francia','ES'=>'España','IT'=>'Italia',
+                        'GB'=>'Reino Unido','US'=>'Estados Unidos','CA'=>'Canadá','BR'=>'Brasil',
+                        'MX'=>'México','IN'=>'India','SG'=>'Singapur','NL'=>'Países Bajos',
+                        'PL'=>'Polonia','BE'=>'Bélgica','CH'=>'Suiza','ZA'=>'Sudáfrica',
+                        'NZ'=>'Nueva Zelanda','AU'=>'Australia','PT'=>'Portugal'
+                    ];
+
+                    $countryCode = strtoupper($countryName ?? $country);
+                    $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryCode));
+
+                    [$city, $latitude, $longitude] =
+                        $this->getCoordsFromCountry($city, strtolower($countryCode));
+
+                    if (!$latitude || !$longitude) {
+                        $skippedAll++;
+                        $totalUnmapped++;
                         continue;
                     }
 
-                    $results = $response->json('results') ?? [];
-                    $totalFound += count($results);
-
-                    foreach ($results as $job) {
-                        $title   = $job['title'] ?? 'N/A';
-                        $company = $job['company']['display_name'] ?? null;
-                        $desc    = strtolower($job['description'] ?? '');
-                        $loc     = strtolower(($job['location']['display_name'] ?? '') . ' ' . ($job['title'] ?? ''));
-                        $urlJob  = $job['redirect_url'] ?? null;
-
-                        // 🧭 Modalidad
-                        $modality = $this->detectModality($loc, $desc);
-
-                    $area = $job['location']['area'] ?? [];
-$city = $area[1] ?? ($area[0] ?? null);
-$countryName = $area[0] ?? null;
-
-$isoToName = [
-    'DE' => 'Alemania', 'FR' => 'Francia', 'ES' => 'España', 'IT' => 'Italia',
-    'GB' => 'Reino Unido', 'US' => 'Estados Unidos', 'CA' => 'Canadá', 'BR' => 'Brasil',
-    'MX' => 'México', 'IN' => 'India', 'SG' => 'Singapur', 'NL' => 'Países Bajos',
-    'PL' => 'Polonia', 'BE' => 'Bélgica', 'CH' => 'Suiza', 'ZA' => 'Sudáfrica',
-    'NZ' => 'Nueva Zelanda', 'AU' => 'Australia', 'PT' => 'Portugal'
-];
-
-$countryCode = strtoupper($countryName ?? $country);
-$countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryName ?? $countryCode));
-
-[$city, $latitude, $longitude] = $this->getCoordsFromCountry($city, strtolower($countryCode));
-
-if (!$latitude || !$longitude) {
-    if (isset($this->capitalMap[strtolower($countryCode)])) {
-        $capital = $this->capitalMap[strtolower($countryCode)];
-        $city = $capital['city'];
-        $latitude = $capital['lat'];
-        $longitude = $capital['lng'];
-        $this->stats['fallback']++;
-    } else {
-        $this->stats['skipped']++;
-        $totalUnmapped++;
-        continue;
-    }
-}
-
-
-
-                  // 🔍 Buscar si ya existe la oferta por external_id
-$existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
-
-if ($existing) {
-    // ✅ Si ya existe, solo asociar la tecnología sin duplicar
-    $existing->technologies()->syncWithoutDetaching([$techId]);
-    $totalDuplicates++;
-    continue;
-}
-$region = RegionHelper::fromCountry($countryFull);
-// 💾 Si no existe, crear nueva oferta
-$offer = JobOffer::create([
-    'title'             => $title,
-    'company'           => $company,
-    'country'           => $countryFull,
-    'city'              => $city,
-    'latitude'          => $latitude,
-    'longitude'         => $longitude,
-    'modality'          => $modality,
-    'salary_min'        => $job['salary_min'] ?? null,
-    'salary_max'        => $job['salary_max'] ?? null,
-    'currency'          => $job['salary_currency'] ?? 'USD',
-    'compensation_type' => $job['contract_time'] ?? $job['contract_type'] ?? null,
-    'experience_level'  => $this->extractExperience($job['description'] ?? ''),
-    'education_level'   => $this->extractEducation($job['description'] ?? ''),
-    'certifications'    => $this->extractCertifications($job['description'] ?? ''),
-    'skills'            => $this->extractSkills($job['description'] ?? ''),
-    'requirements'      => strip_tags($job['description'] ?? null),
-    'source'            => 'Adzuna',
-    'external_id'       => $job['id'] ?? null,
-    'url'               => $urlJob,
-    'search_query'      => $techName,
-    'published_at'      => isset($job['created']) ? Carbon::parse($job['created']) : now(),
-    'created_at'        => now(),
-    'updated_at'        => now(),
-    'region' => $region,
-]);
-
-// 🔗 Asociar tecnología a la nueva oferta
-$offer->technologies()->syncWithoutDetaching([$techId]);
-
-
-
-                        $totalNew++;
-                        $countries[$countryName ?? 'Unknown'] = ($countries[$countryName ?? 'Unknown'] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                    /* ================= DUPLICADOS ================= */
+                    $existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
+                    if ($existing) {
+                        $existing->technologies()->syncWithoutDetaching([$techId]);
+                        $totalDuplicates++;
+                        $skippedAll++;
+                        continue;
                     }
 
-                    sleep(1.2);
-                } catch (\Throwable $e) {
-                    Log::error("⚠️ Error en {$techName} (página {$page}): " . $e->getMessage());
-                    $this->error("❌ {$techName}: " . $e->getMessage());
+                    /* ================= INSERT ================= */
+                    $region = RegionHelper::fromCountry($countryFull);
+
+                    $offer = JobOffer::create([
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $countryFull,
+                        'city'         => $city,
+                        'latitude'     => $latitude,
+                        'longitude'    => $longitude,
+                        'modality'     => $modality,
+                        'salary_min'   => $job['salary_min'] ?? null,
+                        'salary_max'   => $job['salary_max'] ?? null,
+                        'currency'     => $job['salary_currency'] ?? 'USD',
+                        'source'       => 'Adzuna',
+                        'external_id'  => $job['id'] ?? null,
+                        'url'          => $urlJob,
+                        'search_query' => $techName,
+                        'published_at' => isset($job['created'])
+                            ? Carbon::parse($job['created'])
+                            : now(),
+                        'region'       => $region,
+                    ]);
+
+                    $offer->technologies()->syncWithoutDetaching([$techId]);
+
+                    $totalNew++;
+                    $insertedAll++;
+
+                    $countries[$countryFull] =
+                        ($countries[$countryFull] ?? 0) + 1;
+                    $modalities[$modality] =
+                        ($modalities[$modality] ?? 0) + 1;
                 }
-            }
 
-            // 📊 Registrar métricas diarias
-            $today = now()->toDateString();
-            $existsToday = TechnologyMetric::whereDate('run_date', $today)
-                ->where('technology_id', $techId)
-                ->where('source', 'Adzuna')
-                ->exists();
-
-            if (!$existsToday) {
-                TechnologyMetric::create([
-                    'technology_id'        => $techId,
-                    'technology_name'      => $techName,
-                    'jobs_found_count'     => $totalFound,
-                    'jobs_new_count'       => $totalNew,
-                    'countries_breakdown'  => $countries,
-                    'modality_breakdown'   => $modalities,
-                    'run_date'             => Carbon::today(),
-                    'source'               => 'Adzuna',
-                ]);
+                sleep(1.2);
             }
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
         }
 
-        $this->newLine();
-        $this->info("🎯 Proceso completado:");
-        $this->line("   🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("   🛰️ Geocodificadas API: {$this->stats['api_hits']}");
-        $this->line("   🏙️ Fallbacks (capital): {$this->stats['fallback']}");
-        $this->line("   ⏭️ Omitidas: {$this->stats['skipped']}");
+        /* =========================================
+           2️⃣ SUCCESS SCRAPER RUN
+        ========================================= */
+        ScraperRunService::success(
+            $run,
+            $foundAll,
+            $insertedAll,
+            $skippedAll
+        );
+
+        $this->info("🎯 Proceso completado correctamente");
+    } catch (\Throwable $e) {
+        /* =========================================
+           3️⃣ FAILED SCRAPER RUN
+        ========================================= */
+        ScraperRunService::failed($run, $e);
+        throw $e;
+    }
+}
+
+
+
+   protected function detectModality(string $location, string $description): string
+{
+    $text = strtolower($location . ' ' . $description);
+
+    // 🔹 REMOTO
+    if (
+        str_contains($text, 'remote') ||
+        str_contains($text, 'work from home') ||
+        str_contains($text, 'home office') ||
+        str_contains($text, 'teletrabajo') ||
+        str_contains($text, 'anywhere')
+    ) {
+        return 'remote';
     }
 
-    protected function detectModality(string $location, string $description): string
-    {
-        $text = strtolower($location . ' ' . $description);
-
-        return match (true) {
-            str_contains($text, 'remote'),
-            str_contains($text, 'work from home'),
-            str_contains($text, 'home office'),
-            str_contains($text, 'teletrabajo'),
-            str_contains($text, 'anywhere') => 'remote',
-
-            str_contains($text, 'hybrid'),
-            str_contains($text, 'híbrido') => 'hybrid',
-
-            default => 'no_precisa',
-        };
+    // 🔹 HÍBRIDO
+    if (
+        str_contains($text, 'hybrid') ||
+        str_contains($text, 'híbrido')
+    ) {
+        return 'hybrid';
     }
+
+    // 🔹 PRESENCIAL (clave que faltaba)
+    if (
+        str_contains($text, 'on-site') ||
+        str_contains($text, 'onsite') ||
+        str_contains($text, 'presencial') ||
+        str_contains($text, 'in office') ||
+        str_contains($text, 'office-based') ||
+        str_contains($text, 'at our office')
+    ) {
+        return 'presencial';
+    }
+
+    // 🔹 NO PRECISA
+    return 'no_precisa';
+}
+
 
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)
     {

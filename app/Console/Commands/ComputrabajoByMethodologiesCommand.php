@@ -12,6 +12,7 @@ use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 
 class ComputrabajoByMethodologiesCommand extends Command
@@ -34,29 +35,48 @@ class ComputrabajoByMethodologiesCommand extends Command
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
-    public function handle()
-    {
-        $methodologies = Methodology::pluck('name', 'id');
-        $pages = (int) $this->option('pages');
+   public function handle()
+{
+    // ▶️ Registrar inicio del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Computrabajo',
+        'methodologies'
+    );
 
-        $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
+    $pages = (int) $this->option('pages');
+
+    // 🔢 Acumuladores GLOBALes del run
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $methodologies = Methodology::pluck('name', 'id');
+
+    $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
+
+    try {
 
         foreach ($methodologies as $methodId => $methodName) {
+
             $this->warn("\n💡 Metodología actual: {$methodName}");
 
             $totalFound = 0;
-            $totalNew = 0;
-            $countries = [];
+            $totalNew   = 0;
+            $countries  = [];
             $modalities = [];
 
-           $context = Methodology::find($methodId)->search_context;
-$slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $methodName);
-
+            $context = Methodology::find($methodId)->search_context;
+            $slugMethod = $this->makeSearchSlug(
+                $context ? "{$context} {$methodName}" : $methodName
+            );
 
             foreach ($this->countryMap as $code => $country) {
+
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
+
                     $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugMethod}?p={$i}";
                     $this->line("🔗 Página {$i}: {$url}");
 
@@ -72,122 +92,154 @@ $slugMethod = $this->makeSearchSlug($context ? "{$context} {$methodName}" : $met
                         }
 
                         $crawler = new Crawler($response->body());
-                        $offers = $crawler->filter('article[class*="box_offer"]');
+                        $offers  = $crawler->filter('article[class*="box_offer"]');
 
                         if ($offers->count() === 0) {
-                            $this->warn("⚠️ Sin ofertas para {$methodName} en {$country} (página {$i})");
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer) use (&$totalNew, &$totalFound, &$countries, &$modalities, $country, $methodName, $code,$methodId) {
+                        $offers->each(function (Crawler $offer) use (
+                            &$totalFound,
+                            &$totalNew,
+                            &$countries,
+                            &$modalities,
+                            &$totalSkippedAll,
+                            $country,
+                            $methodName,
+                            $methodId,
+                            $code
+                        ) {
                             try {
                                 $title = trim($offer->filter('h2 a')->text());
-                                       // 🚫 Nuevo filtro
+
                                 if (!$this->isTechRelated($title)) {
-                                    $this->warn("⛔ Ignorado (no tech): {$title}");
+                                    $totalSkippedAll++;
                                     return;
                                 }
+
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
-                                $href = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com" . $href;
+
+                                $href   = $offer->filter('h2 a')->attr('href');
+                                $urlJob = "https://{$code}.computrabajo.com{$href}";
 
                                 $city = $this->extractCityFromUrl($urlJob);
                                 [$lat, $lng] = $this->getCoords($city, $country);
 
                                 $modality = $this->mapModality($title . ' ' . $city);
-                                $published = now();
 
                                 $totalFound++;
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
-                              $existingOffer = JobOffer::where('source', 'Computrabajo')
-    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
-    ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
-    ->where('country', $country)
-    ->where('search_query', $methodName)
-    ->first();
+                                // 🔍 Duplicado
+                                $existingOffer = JobOffer::where('source', 'Computrabajo')
+                                    ->whereRaw('LOWER(title) = ?', [strtolower($title)])
+                                    ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
+                                    ->where('country', $country)
+                                    ->where('search_query', $methodName)
+                                    ->first();
 
-if ($existingOffer) {
-    // Solo vincula la metodología sin alterar los datos existentes
-    $existingOffer->methodologies()->syncWithoutDetaching([$methodId]);
-    return;
-}
+                                if ($existingOffer) {
+                                    $existingOffer->methodologies()->syncWithoutDetaching([$methodId]);
+                                    $totalSkippedAll++;
+                                    return;
+                                }
 
-$country = match (strtolower($country)) {
-    'peru' => 'Perú',
-    'mexico' => 'México',
-    'colombia' => 'Colombia',
-    'argentina' => 'Argentina',
-    'uruguay' => 'Uruguay',
-    'ecuador' => 'Ecuador',
-    'venezuela' => 'Venezuela',
-    'bolivia' => 'Bolivia',
-    default => ucfirst($country),
-};
+                                $countryNormalized = match (strtolower($country)) {
+                                    'peru' => 'Perú',
+                                    'mexico' => 'México',
+                                    'colombia' => 'Colombia',
+                                    'argentina' => 'Argentina',
+                                    'uruguay' => 'Uruguay',
+                                    'ecuador' => 'Ecuador',
+                                    'venezuela' => 'Venezuela',
+                                    'bolivia' => 'Bolivia',
+                                    default => ucfirst($country),
+                                };
 
-                           $offer = JobOffer::create([
-    'title'        => $title,
-    'company'      => $company,
-    'country'      => $country,
-    'region'       => RegionHelper::fromCountry($country),
-    'state_code'   => strtoupper($code),
-    'city'         => $city,
-    'latitude'     => $lat,
-    'longitude'    => $lng,
-    'modality'     => $modality,
-    'source'       => 'Computrabajo',
-    'search_query' => $methodName,
-    'url'          => $urlJob,
-    'published_at' => $published,
-    'created_at'   => now(),
-    'updated_at'   => now(),
-]);
+                                $offerModel = JobOffer::create([
+                                    'title'        => $title,
+                                    'company'      => $company,
+                                    'country'      => $countryNormalized,
+                                    'region'       => RegionHelper::fromCountry($countryNormalized),
+                                    'state_code'   => strtoupper($code),
+                                    'city'         => $city,
+                                    'latitude'     => $lat,
+                                    'longitude'    => $lng,
+                                    'modality'     => $modality,
+                                    'source'       => 'Computrabajo',
+                                    'search_query' => $methodName,
+                                    'url'          => $urlJob,
+                                    'published_at' => now(),
+                                    'created_at'   => now(),
+                                    'updated_at'   => now(),
+                                ]);
 
-$offer->methodologies()->syncWithoutDetaching([$methodId]);
-
+                                $offerModel->methodologies()->syncWithoutDetaching([$methodId]);
 
                                 $totalNew++;
-                                $this->line("✅ {$title} ({$country} - {$city})");
+                                $this->line("✅ {$title} ({$countryNormalized} - {$city})");
 
                             } catch (\Throwable $th) {
-                                Log::warning("⚠️ Error oferta {$methodName}: " . $th->getMessage());
+                                Log::warning("⚠️ Error oferta {$methodName}: {$th->getMessage()}");
+                                $totalSkippedAll++;
                             }
                         });
 
-                   usleep(random_int(500000, 1500000)); // 0.5 a 1.5 seg
+                        usleep(random_int(500000, 1500000));
+
                     } catch (\Throwable $th) {
-                        $this->warn("💥 Error en {$country} (página {$i}): " . $th->getMessage());
+                        Log::warning("💥 Error en {$country} página {$i}: {$th->getMessage()}");
+                        $totalSkippedAll++;
                     }
                 }
 
                 sleep(4);
             }
 
-            // 🧾 Registrar métricas del día
+            // 📊 Métrica diaria
             MethodologyMetric::updateOrCreate(
                 [
                     'methodology_id' => $methodId,
-                    'run_date' => Carbon::today(),
-                    'source' => 'Computrabajo',
+                    'run_date'       => Carbon::today(),
+                    'source'         => 'Computrabajo',
                 ],
                 [
-                    'methodology_name' => $methodName,
-                    'jobs_found_count' => $totalFound,
-                    'jobs_new_count' => $totalNew,
+                    'methodology_name'    => $methodName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
                     'countries_breakdown' => $countries,
-                    'modality_breakdown' => $modalities,
-                    'updated_at' => now(),
+                    'modality_breakdown'  => $modalities,
+                    'updated_at'          => now(),
                 ]
             );
 
             $this->info("📊 {$methodName}: {$totalNew} nuevas / {$totalFound} totales");
+
+            // 🔢 acumular en el run global
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
         }
 
+        // ✅ Final exitoso del run
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
         $this->info("\n🎯 Scraping + métricas completado exitosamente (metodologías).");
+
+    } catch (\Throwable $e) {
+        // ❌ Fallo crítico
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     protected function makeSearchSlug(string $name): string
     {
@@ -209,34 +261,51 @@ $offer->methodologies()->syncWithoutDetaching([$methodId]);
         return 'Remote';
     }
 
-    protected function mapModality(string $text): string
-    {
-        $t = strtolower($text);
+   protected function mapModality(string $text): string
+{
+    $t = strtolower($text);
 
-        if (
-            (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
-            (str_contains($t, 'híbrido')) || str_contains($t, 'mixto')
-        ) {
-            return 'hybrid';
-        }
-
-        if (
-            str_contains($t, 'remoto') ||
-            str_contains($t, 'teletrabajo') ||
-            str_contains($t, 'home office')
-        ) {
-            return 'fully_remote';
-        }
-
-        if (
-            str_contains($t, 'presencial') ||
-            str_contains($t, 'oficina')
-        ) {
-            return 'no_remote';
-        }
-
-        return 'no_remote';
+    // 🟡 1. HÍBRIDO (combinaciones claras)
+    if (
+        (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
+        (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
+        (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
+        str_contains($t, 'híbrido') ||
+        str_contains($t, 'hybrid') ||
+        str_contains($t, 'mixto') ||
+        str_contains($t, 'parcial')
+    ) {
+        return 'hybrid';
     }
+
+    // 🔵 2. REMOTO PURO
+    if (
+        str_contains($t, 'remoto') ||
+        str_contains($t, 'remote') ||
+        str_contains($t, 'teletrabajo') ||
+        str_contains($t, 'home office') ||
+        str_contains($t, 'work from home') ||
+        str_contains($t, 'anywhere')
+    ) {
+        return 'remote';
+    }
+
+    // 🟢 3. PRESENCIAL EXPLÍCITO
+    if (
+        str_contains($t, 'presencial') ||
+        str_contains($t, 'oficina') ||
+        str_contains($t, 'onsite') ||
+        str_contains($t, 'on site') ||
+        str_contains($t, 'en sede') ||
+        str_contains($t, 'in situ')
+    ) {
+        return 'presencial';
+    }
+
+    // ⚪ 4. NO PRECISA (no hay señal clara)
+    return 'no_precisa';
+}
+
 
     protected function getCoords($city, $country)
     {

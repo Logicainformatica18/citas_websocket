@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Carbon\Carbon;
 
 class JobModalityIndicatorController extends Controller
 {
@@ -25,6 +26,9 @@ class JobModalityIndicatorController extends Controller
             'period'  => $period,
         ];
 
+        /* =====================================================
+           CLASIFICACIÓN PRINCIPAL (KPIs + Donut)
+        ===================================================== */
         $classified = DB::table('job_offers')
             ->selectRaw("
                 CASE
@@ -32,7 +36,7 @@ class JobModalityIndicatorController extends Controller
                         THEN 'remoto'
                     WHEN modality = 'hybrid'
                         THEN 'híbrido'
-                    WHEN modality = 'presencial'
+                    WHEN modality = 'no_remote'
                         THEN 'presencial'
                     WHEN modality = 'no_precisa' OR modality IS NULL
                         THEN 'no_precisa'
@@ -61,7 +65,7 @@ class JobModalityIndicatorController extends Controller
 
         $data = DB::query()
             ->fromSub($classified, 't')
-            ->select('modalidad', DB::raw('COUNT(*) as vacantes'))
+            ->select('modalidad', DB::raw('COUNT(*) AS vacantes'))
             ->groupBy('modalidad')
             ->orderByDesc('vacantes')
             ->get()
@@ -73,45 +77,49 @@ class JobModalityIndicatorController extends Controller
                     : 0,
             ]);
 
+        /* =====================================================
+           TENDENCIA MENSUAL (%)
+        ===================================================== */
         $trendData = DB::table('job_offers')
             ->whereBetween('published_at', [$range['start'], $range['end']])
             ->selectRaw("
-                YEAR(published_at) as year,
-                MONTH(published_at) as month_num,
+                YEAR(published_at)  AS year,
+                MONTH(published_at) AS month_num,
 
                 ROUND(
-                    SUM(modality IN ('remote','fully_remote','remote_local')) / COUNT(*) * 100,
-                1) as remoto,
+                    SUM(modality IN ('remote','fully_remote','remote_local')) 
+                    / COUNT(*) * 100,
+                1) AS remoto,
 
                 ROUND(
-                    SUM(modality = 'hybrid') / COUNT(*) * 100,
-                1) as hibrido,
+                    SUM(modality = 'hybrid') 
+                    / COUNT(*) * 100,
+                1) AS hibrido,
 
                 ROUND(
-                    SUM(modality = 'presencial') / COUNT(*) * 100,
-                1) as presencial,
+                    SUM(modality = 'no_remote') 
+                    / COUNT(*) * 100,
+                1) AS presencial,
 
                 ROUND(
-                    SUM(modality = 'no_precisa' OR modality IS NULL) / COUNT(*) * 100,
-                1) as no_precisa
+                    SUM(modality = 'no_precisa' OR modality IS NULL) 
+                    / COUNT(*) * 100,
+                1) AS no_precisa
             ")
             ->groupByRaw('YEAR(published_at), MONTH(published_at)')
             ->orderByRaw('YEAR(published_at), MONTH(published_at)')
             ->limit(6)
             ->get()
-            ->map(function ($row) {
-                return [
-                    'month'       => \Carbon\Carbon::create()
-                        ->month($row->month_num)
-                        ->translatedFormat('M'),
-                    'remoto'      => (float) $row->remoto,
-                    'hibrido'     => (float) $row->hibrido,
-                    'presencial'  => (float) $row->presencial,
-                    'no_precisa'  => (float) $row->no_precisa,
-                ];
-            });
+            ->map(fn ($row) => [
+                'month'       => Carbon::create()->month($row->month_num)->translatedFormat('M'),
+                'remoto'      => (float) $row->remoto,
+                'hibrido'     => (float) $row->hibrido,
+                'presencial'  => (float) $row->presencial,
+                'no_precisa'  => (float) $row->no_precisa,
+            ]);
 
         return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
+            'data'      => $data,
             'trendData' => $trendData,
             'filters'   => $filters,
             'meta'      => [
@@ -122,10 +130,12 @@ class JobModalityIndicatorController extends Controller
                     : "Semestre 2 – Julio a Diciembre {$year}",
                 'total_vacantes' => $totalVacantes,
             ],
-            'data' => $data,
         ]);
     }
 
+    /* =====================================================
+       AUTOCOMPLETADOS
+    ===================================================== */
     public function searchRegions(Request $request)
     {
         $term = trim($request->get('q', ''));

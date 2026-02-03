@@ -11,7 +11,7 @@ use App\Models\TechnologyMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
-
+use App\Services\ScraperRunService;
 
 class ArbeitnowByTechnologiesCommand extends Command
 {
@@ -36,47 +36,65 @@ class ArbeitnowByTechnologiesCommand extends Command
         'remote' => ['city' => 'Remoto', 'lat' => 0.0000, 'lng' => 0.0000, 'country' => 'Remote'],
     ];
 
-  public function handle()
+public function handle()
 {
-  $technologies = Technology::select('technologies.id', 'technologies.name')
-    ->whereIn('technologies.id', function ($q) {
-        $q->select('course_technology.technology_id')
-            ->from('course_technology')
-            ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-    })
-    ->pluck('name', 'id');
+    // 🧾 Iniciar tracking del scraper
+    $run = ScraperRunService::start(
+        $this->signature, // arbeitnow:technologies (ejemplo)
+        'Arbeitnow',
+        'technologies'
+    );
+
+    // 📊 Contadores globales
+    $totalFoundAll   = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $technologies = Technology::select('technologies.id', 'technologies.name')
+        ->whereIn('technologies.id', function ($q) {
+            $q->select('course_technology.technology_id')
+                ->from('course_technology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+        })
+        ->pluck('name', 'id');
 
     $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
 
-    foreach ($technologies as $techId => $techName) {
-        $this->warn("\n💡 Procesando tecnología: {$techName}");
+    try {
+        foreach ($technologies as $techId => $techName) {
+            $this->warn("\n💡 Procesando tecnología: {$techName}");
 
-        $totalFound = 0;
-        $totalNew = 0;
-        $countries = [];
-        $modalities = [];
+            $totalFound = 0;
+            $totalNew = 0;
+            $countries = [];
+            $modalities = [];
 
-        try {
-            $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', [
-                'search' => $techName,
-            ]);
+            $response = Http::timeout(25)->get(
+                'https://www.arbeitnow.com/api/job-board-api',
+                ['search' => $techName]
+            );
 
             if ($response->failed()) {
                 $this->error("❌ Falló la API para {$techName}");
                 continue;
             }
 
-            $jobs = $response->json()['data'] ?? $response->json() ?? [];
+            $jobs = $response->json()['data'] ?? [];
             $totalFound = count($jobs);
+            $totalFoundAll += $totalFound;
 
             foreach ($jobs as $job) {
-                $title = $job['title'] ?? 'N/A';
-                $company = $job['company_name'] ?? null;
-                $location = trim($job['location'] ?? '');
-                $isRemote = $job['remote'] ?? false;
-                $urlJob = $job['url'] ?? null;
+                $title     = $job['title'] ?? 'N/A';
+                $company   = $job['company_name'] ?? null;
+                $location  = trim($job['location'] ?? '');
+                $isRemote  = $job['remote'] ?? false;
+                $urlJob    = $job['url'] ?? null;
 
-                // 🌍 Detección de país y coordenadas
+                // 🧭 Modalidad (robusta)
+                $modality = $this->extractModality($location, $isRemote);
+                $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+
+                // 🌍 País y coordenadas
                 $countryCode = $this->detectCountryCode($location, $isRemote);
                 [$city, $lat, $lng, $country] = $this->getCoordsFromCountry($location, $countryCode);
 
@@ -84,46 +102,35 @@ class ArbeitnowByTechnologiesCommand extends Command
                     if (isset($this->capitalMap[$countryCode])) {
                         $capital = $this->capitalMap[$countryCode];
                         $city = $capital['city'];
-                        $lat = $capital['lat'];
-                        $lng = $capital['lng'];
-                        $country = $capital['country'];
+                        $lat  = $capital['lat'];
+                        $lng  = $capital['lng'];
+                        $country = $capital['country'] ?? $country;
                         $this->stats['fallback']++;
                     } else {
+                        $totalSkippedAll++;
                         continue;
                     }
                 }
 
-                $modality = $this->extractModality($location, $isRemote);
-                $countries[$country ?? 'Unknown'] = ($countries[$country ?? 'Unknown'] ?? 0) + 1;
-                $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                $countries[$country ?? 'Unknown'] =
+                    ($countries[$country ?? 'Unknown'] ?? 0) + 1;
 
                 $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
 
-                // 🧩 Validar duplicados o asociar tecnología existente
+                // 🔍 Duplicados
                 $existingOffer = JobOffer::where('source', 'Arbeitnow')
-                    ->where(function ($q) use ($externalId, $title, $company, $country, $techName, $urlJob) {
-                        $q->where('external_id', $externalId)
-                          ->orWhere(function ($q2) use ($title, $company, $country, $techName, $urlJob) {
-                              $q2->where('title', $title)
-                                 ->where('company', $company)
-                                 ->where('country', $country ?? 'Unknown')
-                                 ->where('search_query', $techName)
-                                 ->where(function ($q3) use ($urlJob) {
-                                     $q3->where('url', $urlJob)
-                                        ->orWhere('url', 'like', '%' . substr($urlJob, -25) . '%');
-                                 });
-                          });
-                    })
+                    ->where('external_id', $externalId)
                     ->first();
 
                 if ($existingOffer) {
-                    // 🧩 Asociar la tecnología si no está vinculada
                     $existingOffer->technologies()->syncWithoutDetaching([$techId]);
+                    $totalSkippedAll++;
                     continue;
                 }
-$region = RegionHelper::fromCountry($country);
 
-                // 💾 Crear nueva oferta si no existe
+                $region = RegionHelper::fromCountry($country);
+
+                // 💾 Crear oferta
                 $offer = JobOffer::create([
                     'title'        => $title,
                     'company'      => $company,
@@ -139,53 +146,62 @@ $region = RegionHelper::fromCountry($country);
                     'salary_min'   => null,
                     'salary_max'   => null,
                     'search_query' => $techName,
-                       'published_at' => isset($job['created_at'])
-    ? (is_numeric($job['created_at'])
-        ? Carbon::createFromTimestamp($job['created_at'])
-        : Carbon::parse($job['created_at']))
-    : now(),
-
+                    'published_at' => isset($job['created_at'])
+                        ? (is_numeric($job['created_at'])
+                            ? Carbon::createFromTimestamp($job['created_at'])
+                            : Carbon::parse($job['created_at']))
+                        : now(),
                     'created_at'   => now(),
                     'updated_at'   => now(),
-                    'region' => $region,
-
+                    'region'       => $region,
                 ]);
 
-                // 🔗 Asociar tecnología ↔ oferta
                 $offer->technologies()->syncWithoutDetaching([$techId]);
+
                 $totalNew++;
+                $totalInsertedAll++;
             }
 
-            // 📊 Registrar métricas si aún no existen hoy
+            // 📊 Métricas diarias
             $today = now()->toDateString();
-            $existsToday = TechnologyMetric::whereDate('run_date', $today)
+            if (!TechnologyMetric::whereDate('run_date', $today)
                 ->where('technology_id', $techId)
                 ->where('source', 'Arbeitnow')
-                ->exists();
+                ->exists()) {
 
-            if (!$existsToday) {
                 TechnologyMetric::create([
-                    'technology_id'      => $techId,
-                    'technology_name'    => $techName,
-                    'jobs_found_count'   => $totalFound,
-                    'jobs_new_count'     => $totalNew,
-                    'countries_breakdown'=> $countries,
-                    'modality_breakdown' => $modalities,
-                    'run_date'           => Carbon::today(),
-                    'source'             => 'Arbeitnow',
+                    'technology_id'       => $techId,
+                    'technology_name'     => $techName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
+                    'run_date'            => Carbon::today(),
+                    'source'              => 'Arbeitnow',
                 ]);
             }
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-        } catch (\Throwable $th) {
-            Log::error("⚠️ Error en {$techName}: " . $th->getMessage());
+            sleep(1.5);
         }
 
-        sleep(1.5);
-    }
+        // ✅ Marcar ejecución exitosa (UNA sola vez)
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
 
-    $this->info("\n🎯 Proceso completado: métricas registradas en `technology_metrics`.");
+        $this->info("\n🎯 Proceso completado correctamente.");
+
+    } catch (\Throwable $e) {
+        // ❌ Fallo global del comando
+        ScraperRunService::failed($run, $e);
+        throw $e;
+    }
 }
+
 
 
     // 🔍 Detección del país por texto
@@ -261,23 +277,51 @@ $region = RegionHelper::fromCountry($country);
 
  protected function extractModality(string $location, bool $isRemote): string
 {
-    $loc = strtolower($location);
+    $text = strtolower($location);
 
-    return match (true) {
-        // 🌎 100% remoto (sin restricción de país)
-        $isRemote,
-        str_contains($loc, 'remote'),
-        str_contains($loc, 'anywhere'),
-        str_contains($loc, 'work from home'),
-        str_contains($loc, 'home office') => 'remote',
+    /* =========================
+       1️⃣ REMOTO EXPLÍCITO
+    ========================= */
+    if (
+        $isRemote ||
+        str_contains($text, 'remote') ||
+        str_contains($text, 'anywhere') ||
+        str_contains($text, 'work from home') ||
+        str_contains($text, 'home office') ||
+        str_contains($text, 'teletrabajo')
+    ) {
+        return 'remote';
+    }
 
-        // 🏠 Híbrido
-        str_contains($loc, 'hybrid'),
-        str_contains($loc, 'híbrido') => 'hybrid',
+    /* =========================
+       2️⃣ HÍBRIDO
+    ========================= */
+    if (
+        str_contains($text, 'hybrid') ||
+        str_contains($text, 'híbrido') ||
+        str_contains($text, 'mix') ||
+        str_contains($text, 'partial remote')
+    ) {
+        return 'hybrid';
+    }
 
-        // 🏢 Presencial o sin indicio de remoto
-        default => 'no_precisa',
-    };
+    /* =========================
+       3️⃣ PRESENCIAL EXPLÍCITO
+    ========================= */
+    if (
+        str_contains($text, 'on-site') ||
+        str_contains($text, 'onsite') ||
+        str_contains($text, 'office') ||
+        str_contains($text, 'in office') ||
+        str_contains($text, 'presencial') ||
+        str_contains($text, 'oficina')
+    ) {
+        return 'presencial';
+    }
+
+    /* =========================
+       4️⃣ NO PRECISA
+    ========================= */
+    return 'no_precisa';
 }
-
 }

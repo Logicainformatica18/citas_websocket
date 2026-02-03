@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
+use App\Services\ScraperRunService;
 
 class JoobleByLanguagesCommand extends Command
 {
@@ -25,18 +26,34 @@ class JoobleByLanguagesCommand extends Command
         'skipped'   => 0,
     ];
 
-    public function handle()
-    {
+   public function handle()
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Jooble',
+        'languages'
+    );
+
+    try {
+
         $apiKey = config('services.jooble.key');
 
         if (!$apiKey) {
             $this->error("❌ No existe JOOBLE_API_KEY en .env");
+            ScraperRunService::failed($run, new \Exception('Missing Jooble API Key'));
             return;
         }
 
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
-        $pages = (int)$this->option('pages');
+        $pages = (int) $this->option('pages');
 
+        // 🔢 Contadores GLOBALES
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        // 🔹 Lenguajes vinculados a carreras
         $languages = Language::whereIn('languages.id', function ($q) {
             $q->select('course_language.language_id')
               ->from('course_language')
@@ -49,7 +66,8 @@ class JoobleByLanguagesCommand extends Command
 
             $this->warn("🔎 Procesando lenguaje: {$languageName}");
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $totalFound = 0;
+            $totalNew   = 0;
 
             for ($page = 1; $page <= $pages; $page++) {
 
@@ -67,6 +85,7 @@ class JoobleByLanguagesCommand extends Command
 
                     if ($response->failed()) {
                         $this->error("❌ Error página {$page}: {$response->body()}");
+                        $totalSkippedAll++;
                         continue;
                     }
 
@@ -83,24 +102,21 @@ class JoobleByLanguagesCommand extends Command
                         $externalId = $job['id'];
 
                         // -----------------------
-                        // MODALIDAD REAL
+                        // MODALIDAD
                         // -----------------------
                         $modality = $this->detectModality($location, $desc);
-
-                        $isRemote = in_array($modality, ['remote', 'fully_remote']);
+                        $isRemote = in_array($modality, ['remote', 'fully_remote'], true);
 
                         // -----------------------
                         // LOCALIZACIÓN
                         // -----------------------
                         [$rawCity, $rawCountry] = $this->splitLocation($location);
 
-                        // Convertir estados de USA (OH, CA, TX...) → país real
-                        if (strlen($rawCountry) == 2 && ctype_alpha($rawCountry)) {
-                            $rawCountry = "United States";
+                        if (strlen($rawCountry) === 2 && ctype_alpha($rawCountry)) {
+                            $rawCountry = 'United States';
                         }
 
-                        // si no viene país
-                        if ($rawCountry === 'Unknown' || $rawCountry === null || $rawCountry === '') {
+                        if (!$rawCountry || $rawCountry === 'Unknown') {
                             $rawCountry = $joobleCountry;
                         }
 
@@ -110,19 +126,15 @@ class JoobleByLanguagesCommand extends Command
                         // -----------------------
                         // GEOLOCALIZACIÓN
                         // -----------------------
-
                         if ($isRemote) {
-                            // ✔ REGLA 100% EXACTA SOLICITADA
-                            $finalCity = "Remote";
+                            $finalCity = 'Remote';
                             $lat = null;
                             $lng = null;
                         } else {
-                            // Primero buscar city real
                             [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $countryCode);
 
-                            // ❌ Si no es remote y NO hay lat/lng → DESCARTAR OFERTA
                             if (!$lat || !$lng) {
-                                $this->stats['skipped']++;
+                                $totalSkippedAll++;
                                 continue;
                             }
                         }
@@ -133,7 +145,7 @@ class JoobleByLanguagesCommand extends Command
                         $existing = JobOffer::where('external_id', $externalId)->first();
                         if ($existing) {
                             $existing->languages()->syncWithoutDetaching([$languageId]);
-                            $totalDuplicates++;
+                            $totalSkippedAll++;
                             continue;
                         }
 
@@ -169,39 +181,53 @@ class JoobleByLanguagesCommand extends Command
                         $offer->languages()->syncWithoutDetaching([$languageId]);
 
                         $totalNew++;
+                        $totalInsertedAll++;
                     }
 
                     sleep(1);
+
                 } catch (\Throwable $e) {
                     Log::error("❌ Error en {$languageName}: {$e->getMessage()}");
+                    $totalSkippedAll++;
                 }
             }
 
-            // MÉTRICAS
-            $today = now()->toDateString();
-            if (!LanguageMetric::whereDate('run_date', $today)
-                ->where('language_id', $languageId)
-                ->where('source', 'Jooble')
-                ->exists())
-            {
-                LanguageMetric::create([
-                    'language_id'       => $languageId,
-                    'language_name'     => $languageName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'run_date'          => $today,
-                    'source'            => 'Jooble',
-                ]);
-            }
+            // 📊 Métrica diaria
+            LanguageMetric::updateOrCreate(
+                [
+                    'language_id' => $languageId,
+                    'run_date'    => now()->toDateString(),
+                    'source'      => 'Jooble',
+                ],
+                [
+                    'language_name'    => $languageName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count'   => $totalNew,
+                    'updated_at'       => now(),
+                ]
+            );
 
             $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} encontradas");
+
+            $totalFoundAll += $totalFound;
         }
 
-        $this->info("🎯 Proceso completado");
-        $this->line("🛰️ API hits: {$this->stats['api_hits']}");
-        $this->line("🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("⏭️ Skipped: {$this->stats['skipped']}");
+        // ✅ Finalizar RUN exitoso
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("🎯 Proceso Jooble completado correctamente");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     // --------------------------------------
     // HELPERS
@@ -252,16 +278,44 @@ class JoobleByLanguagesCommand extends Command
         return [null, null, null];
     }
 
-    protected function detectModality(string $location, string $desc): string
-    {
-        $txt = strtolower($location . ' ' . $desc);
+   protected function detectModality(string $location, string $desc): string
+{
+    $txt = strtolower($location . ' ' . $desc);
 
-        return match (true) {
-            str_contains($txt, 'fully remote') => 'fully_remote',
-            str_contains($txt, 'remote') => 'remote',
-            default => 'no_precisa',
-        };
-    }
+    return match (true) {
+
+        // 🌍 Remoto global / sin país
+        str_contains($txt, 'fully remote'),
+        str_contains($txt, 'remote worldwide'),
+        str_contains($txt, 'work from anywhere'),
+        str_contains($txt, 'anywhere') 
+            => 'fully_remote',
+
+        // 🏠 Remoto con referencia local
+        str_contains($txt, 'remote'),
+        str_contains($txt, 'work from home'),
+        str_contains($txt, 'teletrabajo'),
+        str_contains($txt, 'home office')
+            => 'remote',
+
+        // 🧩 Híbrido
+        str_contains($txt, 'hybrid'),
+        str_contains($txt, 'híbrido'),
+        str_contains($txt, 'mixto')
+            => 'hybrid',
+
+        // 🏢 Presencial explícito
+        str_contains($txt, 'onsite'),
+        str_contains($txt, 'on-site'),
+        str_contains($txt, 'office'),
+        str_contains($txt, 'presencial')
+            => 'presencial',
+
+        // ⚪ No se puede inferir
+        default => 'no_precisa',
+    };
+}
+
 
     protected function extractMinSalary(string $salary): ?float
     {

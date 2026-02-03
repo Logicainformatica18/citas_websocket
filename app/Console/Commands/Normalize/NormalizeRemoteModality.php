@@ -11,7 +11,7 @@ class NormalizeRemoteModality extends Command
                             {--limit=5000 : Cantidad de registros por lote}
                             {--dry-run : Solo muestra conteos, no ejecuta updates}';
 
-    protected $description = 'Normaliza modalidad laboral (remote / presencial / no_remote raspado)';
+    protected $description = 'Normaliza modalidad laboral desde no_remote (remote / hybrid / no_precisa)';
 
     public function handle()
     {
@@ -19,61 +19,82 @@ class NormalizeRemoteModality extends Command
         $dryRun = $this->option('dry-run');
 
         /*
-        |--------------------------------------------------------------------------
-        | 1. REMOTE inferido (no tocar NULL)
-        |--------------------------------------------------------------------------
+        |==========================================================
+        | WHERE BASE: SOLO PARTIMOS DE no_remote
+        |==========================================================
+        */
+
+        /*
+        |----------------------------------------------------------
+        | 1️⃣ no_remote → remote (evidencia explícita)
+        |----------------------------------------------------------
         */
         $remoteWhere = "
-            modality IS NOT NULL
-            AND LOWER(modality) NOT IN ('remote', 'remote_local', 'fully_remote')
+            modality = 'no_remote'
             AND (
-                LOWER(title)       REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
-             OR LOWER(description) REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
-             OR LOWER(benefits)    REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
-             OR LOWER(location)   REGEXP 'remote|anywhere'
+                LOWER(title)        REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
+             OR LOWER(description)  REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
+             OR LOWER(benefits)     REGEXP 'remote|work from home|wfh|home office|teletrabajo|remoto'
+             OR LOWER(remote_type)  REGEXP 'remote|full'
             )
         ";
 
         /*
-        |--------------------------------------------------------------------------
-        | 2. PRESENCIAL inferido DESDE no_remote
-        |--------------------------------------------------------------------------
+        |----------------------------------------------------------
+        | 2️⃣ no_remote → hybrid (evidencia explícita)
+        |----------------------------------------------------------
         */
-        $presencialFromNoRemoteWhere = "
+        $hybridWhere = "
             modality = 'no_remote'
             AND (
-                LOWER(title) REGEXP
-                    'on[ -]?site|in[ -]?office|office[ -]?based|must be (located|based)|local candidates|relocation|required'
-             OR LOWER(description) REGEXP
-                    'on[ -]?site|in[ -]?office|office[ -]?based|must be (located|based)|local candidates|relocation|required'
-             OR LOWER(description) REGEXP
-                    'presencial|residir|ubicado en|vivir en|en oficina|traslado requerido'
+                LOWER(title)        REGEXP 'hybrid|h[ií]brido'
+             OR LOWER(description)  REGEXP 'hybrid|h[ií]brido'
+             OR LOWER(benefits)     REGEXP 'hybrid|h[ií]brido'
+             OR LOWER(remote_type)  REGEXP 'hybrid'
             )
         ";
 
+        /*
+        |----------------------------------------------------------
+        | 3️⃣ no_remote → no_precisa
+        | (NO hay evidencia presencial explícita)
+        |----------------------------------------------------------
+        */
+        $noPrecisaWhere = "
+            modality = 'no_remote'
+            AND NOT (
+                LOWER(title)        REGEXP 'on[- ]?site|onsite|presencial|in office|office based|local candidates|relocation|required'
+             OR LOWER(description)  REGEXP 'on[- ]?site|onsite|presencial|in office|office based|local candidates|relocation|required'
+             OR LOWER(description)  REGEXP 'residir|ubicado en|vivir en|en oficina|traslado requerido'
+             OR LOWER(location)     REGEXP 'office|on[- ]?site|onsite'
+            )
+        ";
+
+        /*
+        |==========================================================
+        | DRY RUN (conteos)
+        |==========================================================
+        */
         if ($dryRun) {
-            $remoteCount = DB::table('ws.job_offers')
-                ->whereRaw($remoteWhere)
-                ->count();
+            $remoteCount = DB::table('job_offers')->whereRaw($remoteWhere)->count();
+            $hybridCount = DB::table('job_offers')->whereRaw($hybridWhere)->count();
+            $noPrecisaCount = DB::table('job_offers')->whereRaw($noPrecisaWhere)->count();
 
-            $presencialCount = DB::table('ws.job_offers')
-                ->whereRaw($presencialFromNoRemoteWhere)
-                ->count();
-
-            $this->info("🔎 DRY RUN");
-            $this->info("• Remote inferido: {$remoteCount}");
-            $this->info("• Presencial desde no_remote: {$presencialCount}");
+            $this->info("🔎 DRY RUN — normalize:remote-modality");
+            $this->info("• no_remote → remote     : {$remoteCount}");
+            $this->info("• no_remote → hybrid     : {$hybridCount}");
+            $this->info("• no_remote → no_precisa : {$noPrecisaCount}");
 
             return Command::SUCCESS;
         }
 
         /*
-        |--------------------------------------------------------------------------
+        |==========================================================
         | EXEC 1: REMOTE
-        |--------------------------------------------------------------------------
+        |==========================================================
         */
         $remoteUpdated = DB::update("
-            UPDATE ws.job_offers
+            UPDATE job_offers
             SET
                 modality = 'remote',
                 remote_type = 'inferred',
@@ -82,26 +103,46 @@ class NormalizeRemoteModality extends Command
             LIMIT {$limit}
         ");
 
-        $this->info("✅ Remote inferido: {$remoteUpdated}");
+        $this->info("✅ no_remote → remote: {$remoteUpdated}");
 
         /*
-        |--------------------------------------------------------------------------
-        | EXEC 2: PRESENCIAL desde no_remote
-        |--------------------------------------------------------------------------
+        |==========================================================
+        | EXEC 2: HYBRID
+        |==========================================================
         */
-        $presencialUpdated = DB::update("
-            UPDATE ws.job_offers
+        $hybridUpdated = DB::update("
+            UPDATE job_offers
             SET
-                modality = 'presencial',
+                modality = 'hybrid',
                 remote_type = 'inferred',
                 updated_at = NOW()
-            WHERE {$presencialFromNoRemoteWhere}
+            WHERE {$hybridWhere}
             LIMIT {$limit}
         ");
 
-        $this->info("✅ Presencial desde no_remote: {$presencialUpdated}");
+        $this->info("✅ no_remote → hybrid: {$hybridUpdated}");
 
-        if ($remoteUpdated === 0 && $presencialUpdated === 0) {
+        /*
+        |==========================================================
+        | EXEC 3: NO_PRECISA
+        |==========================================================
+        */
+        $noPrecisaUpdated = DB::update("
+            UPDATE job_offers
+            SET
+                modality = 'no_precisa',
+                updated_at = NOW()
+            WHERE {$noPrecisaWhere}
+            LIMIT {$limit}
+        ");
+
+        $this->info("✅ no_remote → no_precisa: {$noPrecisaUpdated}");
+
+        if (
+            $remoteUpdated === 0 &&
+            $hybridUpdated === 0 &&
+            $noPrecisaUpdated === 0
+        ) {
             $this->warn("⚠️ No hay más registros para normalizar.");
         }
 

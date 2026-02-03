@@ -15,6 +15,30 @@ type TrendItem = {
   hibrido: number;
   presencial: number;
 };
+const CustomLegend = ({ payload }: any) => {
+  return (
+    <div className="flex justify-center gap-6 pt-2">
+      {payload.map((entry: any) => (
+        <div
+          key={entry.value}
+          className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+        >
+          <span
+            className="inline-block h-3 w-6 rounded-sm"
+            style={{
+              backgroundColor: entry.color,
+              borderTop:
+                entry.value === "Híbrido"
+                  ? `2px dashed ${entry.color}`
+                  : `2px solid ${entry.color}`,
+            }}
+          />
+          {entry.value}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function ModalityTrendChart({
   data,
@@ -72,7 +96,7 @@ export default function ModalityTrendChart({
 
             <Legend
               verticalAlign="bottom"
-              height={36}
+              content={<CustomLegend />}
             />
 
             {/* ===== SERIES ===== */}
@@ -81,7 +105,7 @@ export default function ModalityTrendChart({
               dataKey="remoto"
               name="Remoto"
               stroke="#00B6E8"
-              strokeWidth={2.5}
+              strokeWidth={3}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
             />
@@ -91,7 +115,8 @@ export default function ModalityTrendChart({
               dataKey="hibrido"
               name="Híbrido"
               stroke="#22C55E"
-              strokeWidth={2.5}
+              strokeWidth={3}
+              strokeDasharray="6 4"
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
             />
@@ -101,9 +126,9 @@ export default function ModalityTrendChart({
               dataKey="presencial"
               name="Presencial"
               stroke="#3B82F6"
-              strokeWidth={2.5}
-              dot={{ r: 3 }}
-              activeDot={{ r: 5 }}
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
             />
           </LineChart>
         </ResponsiveContainer>

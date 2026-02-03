@@ -1,25 +1,30 @@
-import { BarChart3, Home, Laptop, Users } from "lucide-react";
+import {
+  Home,
+  Laptop,
+  Users,
+  HelpCircle,
+} from "lucide-react";
 
 interface ModalityItem {
-  modalidad: string;
+  modalidad: "remoto" | "híbrido" | "presencial" | "no_precisa";
   vacantes: number;
   porcentaje: number;
 }
 
 interface ModalityKpiGridProps {
   data: ModalityItem[];
-  totalVacantes: number;
 }
 
 export default function ModalityKpiGrid({
   data,
-  totalVacantes,
 }: ModalityKpiGridProps) {
-  const getValue = (key: string) =>
+
+  const getValue = (key: ModalityItem["modalidad"]) =>
     data.find((d) => d.modalidad === key)?.porcentaje ?? 0;
 
   const kpis = [
     {
+      key: "remoto",
       label: "Trabajo remoto",
       value: `${getValue("remoto").toFixed(1)}%`,
       icon: Laptop,
@@ -27,6 +32,7 @@ export default function ModalityKpiGrid({
       bg: "bg-[#E6F7FD] dark:bg-[#0F2A3A]",
     },
     {
+      key: "híbrido",
       label: "Modalidad híbrida",
       value: `${getValue("híbrido").toFixed(1)}%`,
       icon: Users,
@@ -34,6 +40,7 @@ export default function ModalityKpiGrid({
       bg: "bg-emerald-50 dark:bg-emerald-900/20",
     },
     {
+      key: "presencial",
       label: "Trabajo presencial",
       value: `${getValue("presencial").toFixed(1)}%`,
       icon: Home,
@@ -41,11 +48,12 @@ export default function ModalityKpiGrid({
       bg: "bg-orange-50 dark:bg-orange-900/20",
     },
     {
-      label: "Vacantes analizadas",
-      value: totalVacantes.toLocaleString(),
-      icon: BarChart3,
-      color: "text-slate-700 dark:text-slate-200",
-      bg: "bg-slate-50 dark:bg-slate-800",
+      key: "no_precisa",
+      label: "Modalidad no precisada",
+      value: `${getValue("no_precisa").toFixed(1)}%`,
+      icon: HelpCircle,
+      color: "text-slate-500",
+      bg: "bg-slate-100 dark:bg-slate-800",
     },
   ];
 
@@ -53,7 +61,7 @@ export default function ModalityKpiGrid({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (
         <div
-          key={kpi.label}
+          key={kpi.key}
           className={`
             relative
             overflow-hidden

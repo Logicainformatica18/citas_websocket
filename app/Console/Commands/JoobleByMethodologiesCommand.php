@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
+use App\Services\ScraperRunService;
 
 class JoobleByMethodologiesCommand extends Command
 {
@@ -25,118 +26,123 @@ class JoobleByMethodologiesCommand extends Command
         'skipped'   => 0,
     ];
 
-    public function handle()
-    {
+   public function handle()
+{
+    // ▶️ INICIAR RUN
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Jooble',
+        'methodologies'
+    );
+
+    try {
+
         $apiKey = config('services.jooble.key');
         if (!$apiKey) {
-            $this->error("❌ No existe JOOBLE_API_KEY en .env");
-            return;
+            throw new \Exception("No existe JOOBLE_API_KEY en .env");
         }
 
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
-        $pages = (int)$this->option('pages');
+        $pages = (int) $this->option('pages');
 
-        // 🔍 obtener metodologías con vínculo académico real
+        // 🔹 Metodologías vinculadas a carreras
         $methodologies = Methodology::whereIn('id', function ($q) {
             $q->select('course_methodology.methodology_id')
               ->from('course_methodology')
               ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
         })->pluck('name', 'id');
 
-        $this->info("🧭 Importando Jooble por metodologías ({$joobleCountry})…");
+        $this->info("🧭 Jooble ({$joobleCountry}) → {$methodologies->count()} metodologías");
+
+        // 🔢 CONTADORES GLOBALES
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
 
         foreach ($methodologies as $methodologyId => $methodologyName) {
 
-            $this->warn("🔎 Procesando metodología: {$methodologyName}");
+            $this->warn("🔎 {$methodologyName}");
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $totalFound = 0;
+            $totalNew   = 0;
 
             for ($page = 1; $page <= $pages; $page++) {
 
                 $payload = [
-                    "keywords" => $methodologyName,
-                    "location" => $joobleCountry,
-                    "page"     => $page
+                    'keywords' => $methodologyName,
+                    'location' => $joobleCountry,
+                    'page'     => $page,
                 ];
 
                 try {
-                    $response = Http::timeout(25)->post(
-                        "https://jooble.org/api/{$apiKey}",
-                        $payload
-                    );
+                    $response = Http::timeout(25)
+                        ->post("https://jooble.org/api/{$apiKey}", $payload);
 
                     if ($response->failed()) {
-                        $this->error("❌ Error página {$page}: {$response->body()}");
+                        $totalSkippedAll++;
                         continue;
                     }
 
-                    $jobs = $response->json()['jobs'] ?? [];
+                    $jobs = $response->json('jobs') ?? [];
                     $totalFound += count($jobs);
 
                     foreach ($jobs as $job) {
 
-                        $title      = $job['title'] ?? 'N/A';
-                        $company    = $job['company'] ?? null;
-                        $location   = $job['location'] ?? $joobleCountry;
-                        $desc       = strtolower($job['snippet'] ?? '');
-                        $urlJob     = $job['link'] ?? null;
                         $externalId = $job['id'];
 
-                        // -----------------------
-                        // MODALIDAD
-                        // -----------------------
+                        // 🔁 DUPLICADO
+                        $existing = JobOffer::where('external_id', $externalId)
+                            ->where('source', 'Jooble')
+                            ->first();
+
+                        if ($existing) {
+                            $existing->methodologies()
+                                ->syncWithoutDetaching([$methodologyId]);
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $title    = $job['title'] ?? 'N/A';
+                        $company  = $job['company'] ?? null;
+                        $location = $job['location'] ?? $joobleCountry;
+                        $desc     = strtolower($job['snippet'] ?? '');
+                        $urlJob   = $job['link'] ?? null;
+
+                        // 🧭 MODALIDAD
                         $modality = $this->detectModality($location, $desc);
                         $isRemote = in_array($modality, ['remote', 'fully_remote']);
 
-                        // -----------------------
-                        // LOCATION
-                        // -----------------------
+                        // 🌍 LOCATION
                         [$rawCity, $rawCountry] = $this->splitLocation($location);
 
-                        if (strlen($rawCountry) == 2 && ctype_alpha($rawCountry)) {
-                            $rawCountry = "United States"; // OH, CA, TX...
+                        if (strlen($rawCountry) === 2 && ctype_alpha($rawCountry)) {
+                            $rawCountry = 'United States';
                         }
 
-                        if ($rawCountry === 'Unknown' || !$rawCountry) {
+                        if (!$rawCountry || $rawCountry === 'Unknown') {
                             $rawCountry = $joobleCountry;
                         }
 
                         $countryFull = CountryNormalizer::normalize($rawCountry);
                         $countryCode = $this->countryCodeIso($rawCountry);
 
-                        // -----------------------
-                        // GEOLOCALIZACIÓN
-                        // -----------------------
+                        // 📍 GEO
                         if ($isRemote) {
-                            // ✔ regla exacta pedida
-                            $finalCity = "Remote";
+                            $finalCity = 'Remote';
                             $lat = null;
                             $lng = null;
                         } else {
                             [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $countryCode);
 
-                            // ❌ descartar ofertas sin lat/lng
                             if (!$lat || !$lng) {
-                                $this->stats['skipped']++;
+                                $totalSkippedAll++;
                                 continue;
                             }
                         }
 
-                        // -----------------------
-                        // DUPLICADOS
-                        // -----------------------
-                        $existing = JobOffer::where('external_id', $externalId)->first();
-                        if ($existing) {
-                            $existing->methodologies()->syncWithoutDetaching([$methodologyId]);
-                            $totalDuplicates++;
-                            continue;
-                        }
-
                         $region = RegionHelper::fromCountry($countryFull);
 
-                        // -----------------------
-                        // CREAR
-                        // -----------------------
+                        // 💾 CREAR
                         $offer = JobOffer::create([
                             'title'             => $title,
                             'company'           => $company,
@@ -161,7 +167,8 @@ class JoobleByMethodologiesCommand extends Command
                             'region'            => $region,
                         ]);
 
-                        $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
+                        $offer->methodologies()
+                            ->syncWithoutDetaching([$methodologyId]);
 
                         $totalNew++;
                     }
@@ -169,37 +176,49 @@ class JoobleByMethodologiesCommand extends Command
                     sleep(1);
 
                 } catch (\Throwable $e) {
-                    Log::error("⚠️ Error {$methodologyName}: " . $e->getMessage());
+                    Log::error("Jooble {$methodologyName}: {$e->getMessage()}");
+                    $totalSkippedAll++;
                 }
             }
 
-            // -----------------------
-            // MÉTRICAS
-            // -----------------------
-            $today = now()->toDateString();
-            if (!MethodologyMetric::whereDate('run_date', $today)
-                ->where('methodology_id', $methodologyId)
-                ->where('source', 'Jooble')
-                ->exists()) {
+            // 📊 MÉTRICAS
+            MethodologyMetric::updateOrCreate(
+                [
+                    'methodology_id' => $methodologyId,
+                    'run_date'       => now()->toDateString(),
+                    'source'         => 'Jooble',
+                ],
+                [
+                    'methodology_name' => $methodologyName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count'   => $totalNew,
+                ]
+            );
 
-                MethodologyMetric::create([
-                    'methodology_id'    => $methodologyId,
-                    'methodology_name'  => $methodologyName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'run_date'          => $today,
-                    'source'            => 'Jooble',
-                ]);
-            }
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
 
-            $this->info("✅ {$methodologyName}: {$totalNew} nuevas / {$totalFound} encontradas");
+            $this->info("✔ {$methodologyName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        $this->info("🎯 Proceso completado");
-        $this->line("🛰️ API hits: {$this->stats['api_hits']}");
-        $this->line("🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("⏭️ Skipped: {$this->stats['skipped']}");
+        // ✅ RUN OK
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("🎯 Jooble finalizado correctamente");
+
+    } catch (\Throwable $e) {
+
+        // ❌ RUN FAILED
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     // --------------------------------------
     // HELPERS
@@ -245,16 +264,43 @@ class JoobleByMethodologiesCommand extends Command
         return [null, null, null];
     }
 
-    protected function detectModality(string $location, string $desc): string
-    {
-        $txt = strtolower($location . ' ' . $desc);
+   protected function detectModality(string $location, string $desc): string
+{
+    $txt = strtolower($location . ' ' . $desc);
 
-        return match (true) {
-            str_contains($txt, 'fully remote') => 'fully_remote',
-            str_contains($txt, 'remote') => 'remote',
-            default => 'no_precisa',
-        };
-    }
+    return match (true) {
+
+        // 🌍 Remoto global / sin país
+        str_contains($txt, 'fully remote'),
+        str_contains($txt, 'remote worldwide'),
+        str_contains($txt, 'work from anywhere'),
+        str_contains($txt, 'anywhere') 
+            => 'fully_remote',
+
+        // 🏠 Remoto con referencia local
+        str_contains($txt, 'remote'),
+        str_contains($txt, 'work from home'),
+        str_contains($txt, 'teletrabajo'),
+        str_contains($txt, 'home office')
+            => 'remote',
+
+        // 🧩 Híbrido
+        str_contains($txt, 'hybrid'),
+        str_contains($txt, 'híbrido'),
+        str_contains($txt, 'mixto')
+            => 'hybrid',
+
+        // 🏢 Presencial explícito
+        str_contains($txt, 'onsite'),
+        str_contains($txt, 'on-site'),
+        str_contains($txt, 'office'),
+        str_contains($txt, 'presencial')
+            => 'presencial',
+
+        // ⚪ No se puede inferir
+        default => 'no_precisa',
+    };
+}
 
     protected function extractMinSalary(string $salary): ?float
     {

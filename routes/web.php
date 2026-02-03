@@ -55,6 +55,8 @@ use App\Http\Controllers\Dashboard\CompanyIndicatorController;
 use App\Http\Controllers\Dashboard\JobDemandGeoIndicatorController;
 use App\Http\Controllers\Dashboard\MacroTrendsIndicatorController;
 use App\Http\Controllers\Dashboard\PeAlignmentIndicatorController;
+use App\Http\Controllers\Dashboard\JobMarketStatusController;
+
 
 
 
@@ -109,6 +111,8 @@ Route::middleware(['auth'])->group(function () {
 
  Route::prefix('dashboard')->group(function () {
 
+
+ Route::get('/job-market/status', [JobMarketStatusController::class, 'index']);
  Route::get(
         '/indicators/pe-alignment',
         [PeAlignmentIndicatorController::class, 'index']
