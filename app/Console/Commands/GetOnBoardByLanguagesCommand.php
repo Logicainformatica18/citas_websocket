@@ -47,16 +47,38 @@ class GetOnBoardByLanguagesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // 🔹 Solo lenguajes realmente vinculados a carreras
-        $languages = Language::whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-              ->from('course_language')
-              ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })->pluck('name', 'id');
+
+        $lastLanguageId = LanguageMetric::where('source', 'GetOnBoard')
+    ->orderByDesc('created_at')
+    ->value('language_id');
+
+    $baseQuery = Language::whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+          ->from('course_language')
+          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->orderBy('languages.id');
+
+$languagesQuery = clone $baseQuery;
+
+if ($lastLanguageId) {
+    $languagesQuery->where('languages.id', '>', $lastLanguageId);
+}
+
+$languages = $languagesQuery->get();
+
+if ($languages->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $languages = $baseQuery->get();
+}
+
 
         $this->info("🔎 Iniciando scraping de GetOnBoard para {$languages->count()} lenguajes...");
 
-        foreach ($languages as $languageId => $languageName) {
+     foreach ($languages as $language) {
+    $languageId   = $language->id;
+    $languageName = $language->name;
+
 
             $this->warn("\n💡 Procesando lenguaje: {$languageName}");
 

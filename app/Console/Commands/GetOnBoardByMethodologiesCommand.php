@@ -43,16 +43,38 @@ protected function normalizeGetOnBoardModality(?string $raw): string
 {
     $pages = (int) $this->option('pages');
 
-    // ✅ Solo metodologías realmente asociadas a carreras
-    $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
+    $lastMethodologyId = MethodologyMetric::where('source', 'GetOnBoard')
+    ->orderByDesc('created_at')
+    ->value('methodology_id');
+
+    $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
         $q->select('course_methodology.methodology_id')
           ->from('course_methodology')
           ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-    })->pluck('name', 'id');
+    })
+    ->orderBy('methodologies.id');
+
+$methodologiesQuery = clone $baseQuery;
+
+if ($lastMethodologyId) {
+    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+}
+
+$methodologies = $methodologiesQuery->get();
+
+if ($methodologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $methodologies = $baseQuery->get();
+}
+
 
     $this->info("🔎 Iniciando scraping de GetOnBoard por metodología ({$methodologies->count()} metodologías)...");
 
-    foreach ($methodologies as $methodologyId => $methodologyName) {
+   foreach ($methodologies as $methodology) {
+
+    $methodologyId   = $methodology->id;
+    $methodologyName = $methodology->name;
+
 
         $this->warn("\n💡 Procesando metodología: {$methodologyName}");
 

@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 
+
 class WantedlyByTechnologiesCommand extends Command
 {
     protected $signature = 'wantedly:technologies {--pages=1} {--lang=es}';
@@ -34,114 +35,155 @@ class WantedlyByTechnologiesCommand extends Command
         'SG' => ['city' => 'Singapur',  'lat' => 1.3521,  'lng' => 103.8198],
     ];
 
-    public function handle()
-    {
-        $pages      = (int) $this->option('pages');
-        $targetLang = strtolower($this->option('lang'));
+   public function handle()
+{
+    /* ===============================
+       INIT RUN
+    =============================== */
+    $run = \App\Services\ScraperRunService::start(
+        $this->signature,
+        'Wantedly',
+        'technologies'
+    );
 
-        // ✔️ Solo tecnologías reales de la malla
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-            $q->select('course_technology.technology_id')
-              ->from('course_technology')
-              ->join('career_course','career_course.course_id','=','course_technology.course_id');
-        })->pluck('name','id');
+    try {
 
-        $this->info("🌏 Importando Wantedly por tecnologías → Traduciendo a: {$targetLang}");
+        $targetLang = strtolower($this->option('lang', 'es'));
 
-        foreach ($technologies as $techId => $techName) {
+        /* ===============================
+           CURSOR
+        =============================== */
+        $lastTechnologyId = TechnologyMetric::where('source', 'wantedly')
+            ->orderByDesc('created_at')
+            ->value('technology_id');
+
+        /* ===============================
+           BASE QUERY (INMUTABLE)
+        =============================== */
+        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+                $q->select('ct.technology_id')
+                  ->from('course_technology as ct')
+                  ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id');
+            })
+            ->orderBy('technologies.id');
+
+        $query = clone $baseQuery;
+
+        if ($lastTechnologyId) {
+            $query->where('technologies.id', '>', $lastTechnologyId);
+        }
+
+        $technologies = $query->get();
+
+        // 🔁 reinicio automático
+        if ($technologies->isEmpty()) {
+            $this->warn('🔁 Cursor agotado, reiniciando tecnologías');
+            $technologies = $baseQuery->get();
+        }
+
+        $this->info("🌏 Wantedly → {$technologies->count()} tecnologías | traducción: {$targetLang}");
+
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        /* ===============================
+           LOOP POR TECNOLOGÍA
+        =============================== */
+        foreach ($technologies as $technology) {
+
+            $techId   = $technology->id;
+            $techName = $technology->name;
 
             $this->warn("\n💡 Tecnología: {$techName}");
 
-            $totalFound = $totalNew = 0;
+            $page = 1;
+            $emptyPages = 0;
+            $maxEmptyPages = 2;
+
+            $totalFound = 0;
+            $totalNew   = 0;
             $countries  = [];
             $modalities = [];
 
-            for ($page = 1; $page <= $pages; $page++) {
+            while ($page <= 20) { // límite de seguridad
 
-                $url = "https://www.wantedly.com/api/v1/projects?keyword=" . urlencode($techName) . "&page={$page}";
+                $url = "https://www.wantedly.com/api/v1/projects?keyword="
+                    . urlencode($techName)
+                    . "&page={$page}";
 
                 try {
 
                     $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) continue;
+                    $this->stats['api_hits']++;
+
+                    if ($response->failed()) break;
 
                     $results = $response->json('data') ?? [];
-                    $totalFound += count($results);
+                    if (empty($results)) break;
+
+                    $newInPage = 0;
+                    $totalFound     += count($results);
+                    $totalFoundAll += count($results);
 
                     foreach ($results as $job) {
 
                         $externalId = $job['id'] ?? null;
+                        if (!$externalId) continue;
 
-                        // ✔️ evitar duplicados
-                        $existing = JobOffer::where('source','Wantedly')
-                                            ->where('external_id',$externalId)
-                                            ->first();
+                        $existing = JobOffer::where('source', 'wantedly')
+                            ->where('external_id', $externalId)
+                            ->first();
 
-                        // Si ya existe → agregar pivot technology_job
                         if ($existing) {
-                            $existing->technologies()->syncWithoutDetaching([$techId]);
+                            $existing->technologies()
+                                ->syncWithoutDetaching([$techId]);
+                            $totalSkippedAll++;
                             continue;
                         }
 
-                        // ----------------------------------------
-                        //   DATOS BASE
-                        // ----------------------------------------
+                        /* ================= BASE ================= */
                         $title     = $job['title'] ?? 'N/A';
                         $company   = $job['company']['name'] ?? null;
                         $desc      = strip_tags($job['description'] ?? '');
                         $cityRaw   = $job['location'] ?? 'Tokyo';
-                        $urlJob    = "https://www.wantedly.com/projects/" . ($job['id'] ?? '');
+                        $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
                         $published = isset($job['published_at'])
-                                      ? Carbon::parse($job['published_at'])
-                                      : now();
+                            ? Carbon::parse($job['published_at'])
+                            : now();
 
-                        // ----------------------------------------
-                        //   PAÍS
-                        // ----------------------------------------
-                        $countryIso = $this->detectCountryFromCity($cityRaw); // JP | SG
-                       $country = CountryNormalizer::normalize($this->detectCountryFromCity($cityRaw));
-
+                        /* ================= GEO ================= */
+                        $countryIso = $this->detectCountryFromCity($cityRaw);
+                        $country    = CountryNormalizer::normalize($countryIso);
                         $region     = RegionHelper::fromCountry($country);
+                        $modality   = $this->detectModality($title, $desc, $cityRaw);
 
-                        // ----------------------------------------
-                        //   MODALIDAD
-                        // ----------------------------------------
-                        $modality = $this->detectModality($title, $desc, $cityRaw);
+                        [$city, $latitude, $longitude] =
+                            $this->getCoordsFromCountry($cityRaw, $countryIso);
 
-                        // ----------------------------------------
-                        //   GEOLOCALIZACIÓN
-                        // ----------------------------------------
-                        [$city,$latitude,$longitude] = $this->getCoordsFromCountry($cityRaw, $countryIso);
-
-                        if (!$latitude || !$longitude) {
-                            if (isset($this->capitalMap[$countryIso])) {
-                                $c = $this->capitalMap[$countryIso];
-                                $city      = $c['city'];
-                                $latitude  = $c['lat'];
-                                $longitude = $c['lng'];
-                                $this->stats['fallback']++;
-                            }
+                        if ((!$latitude || !$longitude) && isset($this->capitalMap[$countryIso])) {
+                            $c = $this->capitalMap[$countryIso];
+                            $city      = $c['city'];
+                            $latitude  = $c['lat'];
+                            $longitude = $c['lng'];
+                            $this->stats['fallback']++;
                         }
 
-                        // ----------------------------------------
-                        //   TRADUCCIÓN
-                        // ----------------------------------------
-                        if ($this->stats['translated'] % 5 === 0) usleep(800000);
+                        if ($modality === 'remote') {
+                            $latitude = $longitude = null;
+                        }
 
-                        $titleTranslated = $this->translateText($title,'auto',$targetLang);
-                        $descTranslated  = $this->translateText($desc,'auto',$targetLang);
+                        /* ================= TRADUCCIÓN ================= */
+                        $titleTranslated = $this->translateText($title, 'auto', $targetLang);
+                        $descTranslated  = $this->translateText($desc,  'auto', $targetLang);
 
-                        // ----------------------------------------
-                        //   EXTRACCIÓN DE PERFIL
-                        // ----------------------------------------
+                        /* ================= EXTRACCIÓN ================= */
                         $experience     = $this->extractExperience($desc);
                         $education      = $this->extractEducation($desc);
                         $certifications = $this->extractCertifications($desc);
                         $skills         = $this->extractSkills($desc);
 
-                        // ----------------------------------------
-                        //   CREAR OFERTA
-                        // ----------------------------------------
+                        /* ================= CREATE ================= */
                         $offer = JobOffer::create([
                             'title'            => $title,
                             'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
@@ -155,7 +197,6 @@ class WantedlyByTechnologiesCommand extends Command
                             'longitude'        => $longitude,
                             'modality'         => $modality,
 
-                            // Wantedly NO tiene salario
                             'salary_min'       => null,
                             'salary_max'       => null,
                             'currency'         => null,
@@ -166,7 +207,7 @@ class WantedlyByTechnologiesCommand extends Command
                             'skills'           => $skills,
                             'requirements'     => $desc,
 
-                            'source'           => 'Wantedly',
+                            'source'           => 'wantedly',
                             'external_id'      => $externalId,
                             'url'              => $urlJob,
                             'search_query'     => $techName,
@@ -178,32 +219,39 @@ class WantedlyByTechnologiesCommand extends Command
                             'published_at'     => $published,
                         ]);
 
-                        // ✔️ asociar pivot technology_job
-                        $offer->technologies()->syncWithoutDetaching([$techId]);
+                        $offer->technologies()
+                            ->syncWithoutDetaching([$techId]);
 
-                        // ----------------------------------------
-                        //   METRICAS
-                        // ----------------------------------------
+                        $newInPage++;
                         $totalNew++;
-                        $countries[$country] = ($countries[$country] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                        $totalInsertedAll++;
 
-                        $this->stats['translated']++;
+                        $countries[$country]   = ($countries[$country] ?? 0) + 1;
+                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                     }
 
+                    if ($newInPage === 0) {
+                        $emptyPages++;
+                        if ($emptyPages >= $maxEmptyPages) break;
+                    } else {
+                        $emptyPages = 0;
+                    }
+
+                    $page++;
+                    sleep(1);
+
                 } catch (\Throwable $e) {
-                    Log::error("❌ Error Wantedly tech {$techName} p{$page}: ".$e->getMessage());
+                    Log::error("❌ Wantedly tech {$techName} p{$page}: ".$e->getMessage());
+                    break;
                 }
             }
 
-            // ----------------------------------------
-            //   MÉTRICAS DIARIAS
-            // ----------------------------------------
+            /* ================= METRIC ================= */
             TechnologyMetric::updateOrCreate(
                 [
                     'technology_id' => $techId,
                     'run_date'      => Carbon::today(),
-                    'source'        => 'Wantedly',
+                    'source'        => 'wantedly',
                 ],
                 [
                     'technology_name'     => $techName,
@@ -211,14 +259,28 @@ class WantedlyByTechnologiesCommand extends Command
                     'jobs_new_count'      => $totalNew,
                     'countries_breakdown' => $countries,
                     'modality_breakdown'  => $modalities,
+                    'updated_at'          => now(),
                 ]
             );
 
-            $this->info("✔️ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+            $this->info("✔ {$techName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        $this->info("\n🎯 Importación completada.");
+        \App\Services\ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🟢 WANTEDLY TECNOLOGÍAS COMPLETADO");
+
+    } catch (\Throwable $e) {
+        \App\Services\ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     // ---------------------------------------------------
     //   DETECT PAÍS

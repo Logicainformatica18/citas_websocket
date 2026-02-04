@@ -47,16 +47,39 @@ class GetOnBoardByTechnologiesCommand extends Command
             $totalInsertedAll = 0;
             $totalSkippedAll  = 0;
 
-            // 🔹 Solo tecnologías realmente vinculadas a carreras
-            $technologies = Technology::whereIn('technologies.id', function ($q) {
-                $q->select('course_technology.technology_id')
-                  ->from('course_technology')
-                  ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-            })->pluck('name', 'id');
+            $lastTechnologyId = TechnologyMetric::where('source', 'GetOnBoard')
+    ->orderByDesc('created_at')
+    ->value('technology_id');
+
+
+          $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+          ->from('course_technology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+    })
+    ->orderBy('technologies.id');
+
+$technologiesQuery = clone $baseQuery;
+
+if ($lastTechnologyId) {
+    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+}
+
+$technologies = $technologiesQuery->get();
+
+if ($technologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $technologies = $baseQuery->get();
+}
+
 
             $this->info("🔎 Iniciando scraping de GetOnBoard para {$technologies->count()} tecnologías...");
 
-            foreach ($technologies as $technologyId => $technologyName) {
+         foreach ($technologies as $technology) {
+
+    $technologyId   = $technology->id;
+    $technologyName = $technology->name;
+
 
                 $this->warn("\n💡 Procesando tecnología: {$technologyName}");
 

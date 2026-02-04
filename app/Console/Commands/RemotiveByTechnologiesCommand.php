@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
+use App\Services\ScraperRunService;
 
 class RemotiveByTechnologiesCommand extends Command
 {
@@ -19,170 +20,212 @@ class RemotiveByTechnologiesCommand extends Command
     protected $description = 'Importa ofertas desde Remotive por tecnologías, con geolocalización estricta.';
 
     protected $stats = [
-        'api_hits'  => 0,
-        'mapped'    => 0,
-        'skipped'   => 0,
+        'api_hits' => 0,
+        'mapped'   => 0,
+        'skipped'  => 0,
     ];
 
     public function handle()
     {
-        // Solo tecnologías relacionadas a carreras ISIL
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-            $q->select('course_technology.technology_id')
-                ->from('course_technology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })->pluck('name', 'id');
+        // ▶️ INICIAR RUN
+        $run = ScraperRunService::start(
+            $this->signature,
+            'Remotive',
+            'technologies'
+        );
 
-        $this->info("🌎 Importando desde Remotive para {$technologies->count()} tecnologías…");
+        try {
 
-        foreach ($technologies as $techId => $techName) {
+            /* =====================================================
+               1️⃣ CURSOR – ÚLTIMA TECNOLOGÍA
+            ===================================================== */
+            $lastTechnologyId = TechnologyMetric::where('source', 'Remotive')
+                ->orderByDesc('created_at')
+                ->value('technology_id');
 
-            $this->warn("\n🔎 Procesando: {$techName}");
+            /* =====================================================
+               2️⃣ QUERY BASE (SOLO ISIL)
+            ===================================================== */
+            $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+                    $q->select('course_technology.technology_id')
+                      ->from('course_technology')
+                      ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+                })
+                ->orderBy('technologies.id');
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $query = clone $baseQuery;
 
-            try {
-                // Petición Remotive
-                $response = Http::timeout(20)
-                    ->get("https://remotive.com/api/remote-jobs", [
-                        'search' => $techName
-                    ]);
+            if ($lastTechnologyId) {
+                $query->where('technologies.id', '>', $lastTechnologyId);
+            }
 
-                if ($response->failed()) {
-                    $this->error("❌ Error API Remotive");
-                    continue;
-                }
+            $technologies = $query->get();
 
-                $jobs = $response->json()['jobs'] ?? [];
-                $totalFound = count($jobs);
+            // 🔁 Reinicio automático
+            if ($technologies->isEmpty()) {
+                $technologies = $baseQuery->get();
+            }
 
-                foreach ($jobs as $job) {
+            $this->info("🌎 Remotive → procesando {$technologies->count()} tecnologías");
 
-                    $externalId = $job['id'] ?? null;
-                    $title      = $job['title'] ?? 'N/A';
-                    $company    = $job['company_name'] ?? null;
-                    $urlJob     = $job['url'] ?? null;
-                    $desc       = strtolower(strip_tags($job['description'] ?? ''));
+            /* =====================================================
+               3️⃣ CONTADORES GLOBALES
+            ===================================================== */
+            $totalFoundAll    = 0;
+            $totalInsertedAll = 0;
+            $totalSkippedAll  = 0;
 
-                    // ==============================
-                    // MODALIDAD
-                    // ==============================
-                    $modality = $this->detectModality($job);
-                    $isRemote = ($modality === 'remote');
+            foreach ($technologies as $technology) {
 
-                    // ==============================
-                    // UBICACIÓN REMOTIVE
-                    // ==============================
-                    $location = $job['candidate_required_location'] ?? 'Unknown';
-                    [$rawCity, $rawCountryRaw] = $this->extractLocation($location);
+                $techId   = $technology->id;
+                $techName = $technology->name;
 
-                    // normalizar país
-                    $country = RemotiveCountry::normalize($rawCountryRaw);
+                $this->warn("\n🔎 {$techName}");
 
-                    // ==============================
-                    // GEOLOCALIZACIÓN
-                    // ==============================
-                    if ($isRemote) {
-                        $finalCity = "Remote";
-                        $lat = $lng = null;
-                    } else {
-                        [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
-                            continue;
-                        }
-                    }
+                $totalFound = 0;
+                $totalNew   = 0;
 
-                    // ==============================
-                    // DUPLICADOS
-                    // ==============================
-                    $existing = JobOffer::where('external_id', $externalId)
-                        ->where('source', 'Remotive')
-                        ->first();
+                try {
+                    // 📡 Remotive API
+                    $response = Http::timeout(20)
+                        ->get('https://remotive.com/api/remote-jobs', [
+                            'search' => $techName
+                        ]);
 
-                    if ($existing) {
-                        $existing->technologies()->syncWithoutDetaching([$techId]);
-                        $totalDuplicates++;
+                    $this->stats['api_hits']++;
+
+                    if ($response->failed()) {
+                        $this->error("❌ Error API Remotive");
                         continue;
                     }
 
-                    // ==============================
-                    // REGIÓN
-                    // ==============================
-                    $region = RegionMapper::resolve($country);
+                    $jobs = $response->json()['jobs'] ?? [];
+                    $totalFound = count($jobs);
+                    $totalFoundAll += $totalFound;
 
-                    // ==============================
-                    // CREAR JOB OFFER
-                    // ==============================
-                    $offer = JobOffer::create([
-                        'title'             => $title,
-                        'company'           => $company,
-                        'country'           => $country,
-                        'city'              => $finalCity,
-                        'latitude'          => $lat,
-                        'longitude'         => $lng,
-                        'modality'          => $modality,
-                        'salary_min'        => $this->extractMinSalary($job['salary'] ?? ''),
-                        'salary_max'        => $this->extractMaxSalary($job['salary'] ?? ''),
-                        'experience_level'  => $this->extractExperience($desc),
-                        'education_level'   => $this->extractEducation($desc),
-                        'certifications'    => $this->extractCertifications($desc),
-                        'skills'            => $this->extractSkills($desc),
-                        'requirements'      => $desc,
-                        'source'            => 'Remotive',
-                        'external_id'       => $externalId,
-                        'url'               => $urlJob,
-                        'search_query'      => $techName,
-               'published_at'      => isset($job['publication_date'])
+                    foreach ($jobs as $job) {
+
+                        $externalId = $job['id'] ?? null;
+
+                        // 🔁 DEDUPE
+                        $existing = JobOffer::where('external_id', $externalId)
+                            ->where('source', 'Remotive')
+                            ->first();
+
+                        if ($existing) {
+                            $existing->technologies()->syncWithoutDetaching([$techId]);
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $title   = $job['title'] ?? 'N/A';
+                        $company = $job['company_name'] ?? null;
+                        $urlJob  = $job['url'] ?? null;
+                        $desc    = strtolower(strip_tags($job['description'] ?? ''));
+
+                        /* =================================================
+                           MODALIDAD
+                        ================================================= */
+                        $modality = $this->detectModality($job);
+                        $isRemote = ($modality === 'remote');
+
+                        /* =================================================
+                           UBICACIÓN
+                        ================================================= */
+                        $location = $job['candidate_required_location'] ?? 'Unknown';
+                        [$rawCity, $rawCountryRaw] = $this->extractLocation($location);
+                        $country = RemotiveCountry::normalize($rawCountryRaw);
+
+                        if ($isRemote) {
+                            $finalCity = 'Remote';
+                            $lat = $lng = null;
+                        } else {
+                            [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
+                            if (!$lat || !$lng) {
+                                $totalSkippedAll++;
+                                continue;
+                            }
+                        }
+
+                        $region = RegionMapper::resolve($country);
+
+                        /* =================================================
+                           CREAR OFERTA
+                        ================================================= */
+                        $offer = JobOffer::create([
+                            'title'            => $title,
+                            'company'          => $company,
+                            'country'          => $country,
+                            'city'             => $finalCity,
+                            'latitude'         => $lat,
+                            'longitude'        => $lng,
+                            'modality'         => $modality,
+                            'salary_min'       => $this->extractMinSalary($job['salary'] ?? ''),
+                            'salary_max'       => $this->extractMaxSalary($job['salary'] ?? ''),
+                            'experience_level' => $this->extractExperience($desc),
+                            'education_level'  => $this->extractEducation($desc),
+                            'certifications'   => $this->extractCertifications($desc),
+                            'skills'           => $this->extractSkills($desc),
+                            'requirements'     => $desc,
+                            'source'           => 'Remotive',
+                            'external_id'      => $externalId,
+                            'url'              => $urlJob,
+                            'search_query'     => $techName,
+                            'published_at'     => isset($job['publication_date'])
                                 ? Carbon::parse($job['publication_date'])
                                 : now(),
-                        'region'            => $region,
-                    ]);
+                            'region'           => $region,
+                        ]);
 
-                    // Pivot technology_job
-                    $offer->technologies()->syncWithoutDetaching([$techId]);
+                        $offer->technologies()->syncWithoutDetaching([$techId]);
 
-                    $totalNew++;
+                        $totalNew++;
+                        $totalInsertedAll++;
+                    }
+
+                } catch (\Throwable $e) {
+                    Log::error("❌ Remotive {$techName}: ".$e->getMessage());
                 }
 
-            } catch (\Throwable $e) {
-                Log::error("❌ Error Remotive {$techName}: ".$e->getMessage());
+                /* =====================================================
+                   MÉTRICA DIARIA (UNA POR TECNOLOGÍA)
+                ===================================================== */
+                TechnologyMetric::updateOrCreate(
+                    [
+                        'technology_id' => $techId,
+                        'run_date'      => now()->toDateString(),
+                        'source'        => 'Remotive',
+                    ],
+                    [
+                        'technology_name' => $techName,
+                        'jobs_found_count'=> $totalFound,
+                        'jobs_new_count'  => $totalNew,
+                        'updated_at'      => now(),
+                    ]
+                );
+
+                $this->info("✔ {$techName}: {$totalNew} nuevas / {$totalFound}");
             }
 
-            // ==============================
-            // MÉTRICAS
-            // ==============================
-            $today = now()->toDateString();
+            // ✅ RUN OK
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
 
-            if (!TechnologyMetric::where('technology_id', $techId)
-                    ->whereDate('run_date', $today)
-                    ->where('source', 'Remotive')
-                    ->exists())
-            {
-                TechnologyMetric::create([
-                    'technology_id'     => $techId,
-                    'technology_name'   => $techName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'run_date'          => $today,
-                    'source'            => 'Remotive',
-                ]);
-            }
+            $this->info("\n🟢 Remotive (tecnologías) finalizado correctamente");
 
-            $this->info("✅ {$techName}: {$totalNew} nuevas / {$totalFound} encontradas");
+        } catch (\Throwable $e) {
+            ScraperRunService::failed($run, $e);
+            throw $e;
         }
-
-        $this->line("\n🎯 COMPLETADO");
-        $this->line("🛰️ API hits: {$this->stats['api_hits']}");
-        $this->line("🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("⏭️ Skipped: {$this->stats['skipped']}");
     }
 
-
-
-    // ---------------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------------
+    /* =====================================================
+       HELPERS (SIN CAMBIOS)
+    ===================================================== */
 
     protected function extractLocation(string $txt): array
     {
@@ -201,7 +244,6 @@ class RemotiveByTechnologiesCommand extends Command
             return [null, null, null];
         }
 
-        // 1. Tabla cities
         $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
             ->first();
 
@@ -210,11 +252,10 @@ class RemotiveByTechnologiesCommand extends Command
             return [$found->city, $found->lat, $found->lng];
         }
 
-        // 2. Nominatim
         try {
             $res = Http::withHeaders(['User-Agent' => 'Observatorio/1.0'])
                 ->timeout(10)
-                ->get("https://nominatim.openstreetmap.org/search", [
+                ->get('https://nominatim.openstreetmap.org/search', [
                     'q' => "$city, $country",
                     'format' => 'json',
                     'limit' => 1

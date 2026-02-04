@@ -12,11 +12,12 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
+use App\Services\ScraperRunService;
 
 class RemotiveByLanguagesCommand extends Command
 {
     protected $signature = 'remotive:languages';
-    protected $description = 'Importa ofertas desde Remotive por lenguajes con geolocalización estricta.';
+    protected $description = '🌎 Importa ofertas desde Remotive por lenguajes con geolocalización estricta.';
 
     protected $stats = [
         'api_hits'  => 0,
@@ -26,160 +27,192 @@ class RemotiveByLanguagesCommand extends Command
 
     public function handle()
     {
-        // solo lenguajes usados en carreras ISIL
-        $languages = Language::whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-                ->from('course_language')
-                ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })->pluck('name', 'id');
+        // ▶️ INICIAR RUN
+        $run = ScraperRunService::start(
+            $this->signature,
+            'Remotive',
+            'languages'
+        );
 
-        $this->info("🌎 Importando desde Remotive para {$languages->count()} lenguajes…");
+        try {
 
-        foreach ($languages as $languageId => $languageName) {
+            // 🔹 Cursor: último lenguaje procesado
+            $lastLanguageId = LanguageMetric::where('source', 'Remotive')
+                ->orderByDesc('created_at')
+                ->value('language_id');
 
-            $this->warn("\n🔎 Procesando: {$languageName}");
+            // 🔹 Query base (lenguajes ISIL)
+            $baseQuery = Language::whereIn('languages.id', function ($q) {
+                    $q->select('course_language.language_id')
+                      ->from('course_language')
+                      ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+                })
+                ->orderBy('languages.id');
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $languagesQuery = clone $baseQuery;
 
-            try {
-                $response = Http::timeout(20)
-                    ->get("https://remotive.com/api/remote-jobs", [
-                        'search' => $languageName
-                    ]);
+            if ($lastLanguageId) {
+                $languagesQuery->where('languages.id', '>', $lastLanguageId);
+            }
 
-                if ($response->failed()) {
-                    $this->error("❌ Error API Remotive");
-                    continue;
-                }
+            $languages = $languagesQuery->get();
 
-                $jobs = $response->json()['jobs'] ?? [];
-                $totalFound = count($jobs);
+            // 🔁 Reinicio automático
+            if ($languages->isEmpty()) {
+                $languages = $baseQuery->get();
+            }
 
-                foreach ($jobs as $job) {
+            $this->info("🌎 Remotive → procesando {$languages->count()} lenguajes");
 
-                    $externalId = $job['id'] ?? null;
-                    $title      = $job['title'] ?? 'N/A';
-                    $company    = $job['company_name'] ?? null;
-                    $urlJob     = $job['url'] ?? null;
-                    $desc       = strtolower($job['description'] ?? '');
+            // 🔢 CONTADORES GLOBALES
+            $totalFoundAll    = 0;
+            $totalInsertedAll = 0;
+            $totalSkippedAll  = 0;
 
-                    // -----------------------
-                    // MODALIDAD
-                    // -----------------------
-                    $modality = $this->detectModality($job);
-                    $isRemote = ($modality === 'remote');
+            foreach ($languages as $language) {
 
-                    // -----------------------
-                    // UBICACIÓN REMOTIVE
-                    // -----------------------
-                    $locationStr = $job['candidate_required_location'] ?? 'Unknown';
-                    [$rawCity, $rawCountryRaw] = $this->extractLocation($locationStr);
+                $languageId   = $language->id;
+                $languageName = $language->name;
 
-                    $country = RemotiveCountry::normalize($rawCountryRaw);
+                $this->warn("\n🔎 {$languageName}");
 
-                    // -----------------------
-                    // GEOLOCALIZACIÓN
-                    // -----------------------
-                    if ($isRemote) {
-                        $finalCity = "Remote";
-                        $lat = $lng = null;
-                    } else {
-                        [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
+                $totalFound = 0;
+                $totalNew   = 0;
 
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
-                            continue;
-                        }
-                    }
+                try {
+                    $response = Http::timeout(20)
+                        ->get('https://remotive.com/api/remote-jobs', [
+                            'search' => $languageName
+                        ]);
 
-                    // -----------------------
-                    // DUPLICADOS
-                    // -----------------------
-                    $existing = JobOffer::where('external_id', $externalId)
-                        ->where('source', 'Remotive')
-                        ->first();
+                    $this->stats['api_hits']++;
 
-                    if ($existing) {
-                        $existing->languages()->syncWithoutDetaching([$languageId]);
-                        $totalDuplicates++;
+                    if ($response->failed()) {
+                        $this->error("❌ Error API Remotive");
                         continue;
                     }
 
-                    // -----------------------
-                    // REGIÓN
-                    // -----------------------
-                    $region = RegionMapper::resolve($country);
+                    $jobs = $response->json()['jobs'] ?? [];
+                    $totalFound = count($jobs);
+                    $totalFoundAll += $totalFound;
 
-                    // -----------------------
-                    // INSERT JOB
-                    // -----------------------
-                    $offer = JobOffer::create([
-                        'title'             => $title,
-                        'company'           => $company,
-                        'country'           => $country,
-                        'city'              => $finalCity,
-                        'latitude'          => $lat,
-                        'longitude'         => $lng,
-                        'modality'          => $modality,
-                        'salary_min'        => $this->extractMinSalary($job['salary'] ?? ''),
-                        'salary_max'        => $this->extractMaxSalary($job['salary'] ?? ''),
-                        'experience_level'  => $this->extractExperience($desc),
-                        'education_level'   => $this->extractEducation($desc),
-                        'certifications'    => $this->extractCertifications($desc),
-                        'skills'            => $this->extractSkills($desc),
-                        'requirements'      => strip_tags($desc),
-                        'source'            => 'Remotive',
-                        'external_id'       => $externalId,
-                        'url'               => $urlJob,
-                        'search_query'      => $languageName,
-                        'published_at'      => isset($job['publication_date'])
+                    foreach ($jobs as $job) {
+
+                        $externalId = $job['id'] ?? null;
+
+                        // 🔁 DEDUPE
+                        $existing = JobOffer::where('external_id', $externalId)
+                            ->where('source', 'Remotive')
+                            ->first();
+
+                        if ($existing) {
+                            $existing->languages()->syncWithoutDetaching([$languageId]);
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $title   = $job['title'] ?? 'N/A';
+                        $company = $job['company_name'] ?? null;
+                        $urlJob  = $job['url'] ?? null;
+                        $desc    = strtolower($job['description'] ?? '');
+
+                        // 🧭 MODALIDAD
+                        $modality = $this->detectModality($job);
+                        $isRemote = ($modality === 'remote');
+
+                        // 🌍 UBICACIÓN
+                        $locationStr = $job['candidate_required_location'] ?? 'Unknown';
+                        [$rawCity, $rawCountryRaw] = $this->extractLocation($locationStr);
+
+                        $country = RemotiveCountry::normalize($rawCountryRaw);
+
+                        // 📍 GEO
+                        if ($isRemote) {
+                            $finalCity = 'Remote';
+                            $lat = $lng = null;
+                        } else {
+                            [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
+                            if (!$lat || !$lng) {
+                                $totalSkippedAll++;
+                                continue;
+                            }
+                        }
+
+                        $region = RegionMapper::resolve($country);
+
+                        // 💾 CREAR OFERTA
+                        $offer = JobOffer::create([
+                            'title'            => $title,
+                            'company'          => $company,
+                            'country'          => $country,
+                            'city'             => $finalCity,
+                            'latitude'         => $lat,
+                            'longitude'        => $lng,
+                            'modality'         => $modality,
+                            'salary_min'       => $this->extractMinSalary($job['salary'] ?? ''),
+                            'salary_max'       => $this->extractMaxSalary($job['salary'] ?? ''),
+                            'experience_level' => $this->extractExperience($desc),
+                            'education_level'  => $this->extractEducation($desc),
+                            'certifications'   => $this->extractCertifications($desc),
+                            'skills'           => $this->extractSkills($desc),
+                            'requirements'     => strip_tags($desc),
+                            'source'           => 'Remotive',
+                            'external_id'      => $externalId,
+                            'url'              => $urlJob,
+                            'search_query'     => $languageName,
+                            'published_at'     => isset($job['publication_date'])
                                 ? Carbon::parse($job['publication_date'])
                                 : now(),
-                        'region'            => $region,
-                    ]);
+                            'region'           => $region,
+                        ]);
 
-                    $offer->languages()->syncWithoutDetaching([$languageId]);
+                        $offer->languages()->syncWithoutDetaching([$languageId]);
 
-                    $totalNew++;
+                        $totalNew++;
+                        $totalInsertedAll++;
+                    }
+
+                } catch (\Throwable $e) {
+                    Log::error("❌ Remotive {$languageName}: {$e->getMessage()}");
                 }
 
-            } catch (\Throwable $e) {
-                Log::error("❌ Error Remotive {$languageName}: " . $e->getMessage());
+                // 📊 MÉTRICA DIARIA (UNA POR LENGUAJE)
+                LanguageMetric::updateOrCreate(
+                    [
+                        'language_id' => $languageId,
+                        'run_date'    => now()->toDateString(),
+                        'source'      => 'Remotive',
+                    ],
+                    [
+                        'language_name'    => $languageName,
+                        'jobs_found_count' => $totalFound,
+                        'jobs_new_count'   => $totalNew,
+                        'updated_at'       => now(),
+                    ]
+                );
+
+                $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
             }
 
-            // -----------------------
-            // MÉTRICAS
-            // -----------------------
-            $today = now()->toDateString();
+            // ✅ RUN OK
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
 
-            if (!LanguageMetric::where('language_id', $languageId)
-                    ->whereDate('run_date', $today)
-                    ->where('source', 'Remotive')
-                    ->exists())
-            {
-                LanguageMetric::create([
-                    'language_id'       => $languageId,
-                    'language_name'     => $languageName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'source'            => 'Remotive',
-                    'run_date'          => $today,
-                ]);
-            }
+            $this->info("\n🟢 Remotive finalizado correctamente");
 
-            $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} encontradas");
+        } catch (\Throwable $e) {
+            ScraperRunService::failed($run, $e);
+            throw $e;
         }
-
-        $this->line("\n🎯 COMPLETADO");
-        $this->line("🛰️ API hits: {$this->stats['api_hits']}");
-        $this->line("🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("⏭️ Skipped: {$this->stats['skipped']}");
     }
 
-
-    // -----------------------------------------------------
-    // HELPERS
-    // -----------------------------------------------------
+    // =====================================================
+    // HELPERS (SIN CAMBIOS FUNCIONALES)
+    // =====================================================
 
     protected function extractLocation(string $txt): array
     {
@@ -198,20 +231,17 @@ class RemotiveByLanguagesCommand extends Command
             return [null, null, null];
         }
 
-        // 1) Buscar en cities DB
-        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-            ->first();
+        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->first();
 
         if ($found) {
             $this->stats['mapped']++;
             return [$found->city, $found->lat, $found->lng];
         }
 
-        // 2) Nominatim
         try {
             $res = Http::withHeaders(['User-Agent' => 'Observatorio/1.0'])
                 ->timeout(10)
-                ->get("https://nominatim.openstreetmap.org/search", [
+                ->get('https://nominatim.openstreetmap.org/search', [
                     'q' => "$city, $country",
                     'format' => 'json',
                     'limit' => 1,
@@ -227,7 +257,6 @@ class RemotiveByLanguagesCommand extends Command
         return [null, null, null];
     }
 
-
     protected function detectModality(array $job): string
     {
         $cat   = strtolower($job['job_type'] ?? '');
@@ -238,11 +267,9 @@ class RemotiveByLanguagesCommand extends Command
             str_contains($cat, 'remote'),
             str_contains($title, 'remote'),
             str_contains($desc, 'remote') => 'remote',
-
             default => 'no_precisa',
         };
     }
-
 
     protected function extractMinSalary(string $salary): ?float
     {
@@ -255,7 +282,6 @@ class RemotiveByLanguagesCommand extends Command
         preg_match_all('/(\d+)/', $salary, $m);
         return $m[1][1] ?? ($m[1][0] ?? null);
     }
-
 
     protected function extractExperience(string $text): ?string
     {

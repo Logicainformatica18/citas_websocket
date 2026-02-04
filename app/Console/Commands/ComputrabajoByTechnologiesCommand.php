@@ -67,6 +67,7 @@ class ComputrabajoByTechnologiesCommand extends Command
             return;
         }
 
+        
         // 🔹 Tecnologías reales (vinculadas a carreras)
         $technologies = Technology::whereIn('technologies.id', function ($q) {
             $q->select('course_technology.technology_id')

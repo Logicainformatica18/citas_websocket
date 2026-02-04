@@ -53,16 +53,35 @@ class JoobleByLanguagesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // 🔹 Lenguajes vinculados a carreras
-        $languages = Language::whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-              ->from('course_language')
-              ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })->pluck('name', 'id');
+       $lastLanguageId = LanguageMetric::where('source', 'Jooble')
+    ->orderByDesc('created_at')
+    ->value('language_id');
+$baseQuery = Language::whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+          ->from('course_language')
+          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->orderBy('languages.id');
+$languagesQuery = clone $baseQuery;
+
+if ($lastLanguageId) {
+    $languagesQuery->where('languages.id', '>', $lastLanguageId);
+}
+
+$languages = $languagesQuery->get();
+if ($languages->isEmpty()) {
+    // 🔁 Se terminó el ciclo → reiniciar
+    $languages = $baseQuery->get();
+}
+
 
         $this->info("🌎 Importando desde Jooble ({$joobleCountry})…");
 
-        foreach ($languages as $languageId => $languageName) {
+       foreach ($languages as $language) {
+    $languageId   = $language->id;
+    $languageName = $language->name;
+ 
+
 
             $this->warn("🔎 Procesando lenguaje: {$languageName}");
 
@@ -278,43 +297,43 @@ class JoobleByLanguagesCommand extends Command
         return [null, null, null];
     }
 
-   protected function detectModality(string $location, string $desc): string
+protected function detectModality(string $location, string $desc): string
 {
-    $txt = strtolower($location . ' ' . $desc);
+    $text = strtolower($location . ' ' . $desc);
 
     return match (true) {
 
-        // 🌍 Remoto global / sin país
-        str_contains($txt, 'fully remote'),
-        str_contains($txt, 'remote worldwide'),
-        str_contains($txt, 'work from anywhere'),
-        str_contains($txt, 'anywhere') 
-            => 'fully_remote',
-
-        // 🏠 Remoto con referencia local
-        str_contains($txt, 'remote'),
-        str_contains($txt, 'work from home'),
-        str_contains($txt, 'teletrabajo'),
-        str_contains($txt, 'home office')
+        // 🌍 REMOTO (todas las variantes)
+        str_contains($text, 'fully remote'),
+        str_contains($text, 'remote worldwide'),
+        str_contains($text, 'work from anywhere'),
+        str_contains($text, 'anywhere'),
+        str_contains($text, 'remote'),
+        str_contains($text, 'teletrabajo'),
+        str_contains($text, 'work from home'),
+        str_contains($text, 'home office')
             => 'remote',
 
-        // 🧩 Híbrido
-        str_contains($txt, 'hybrid'),
-        str_contains($txt, 'híbrido'),
-        str_contains($txt, 'mixto')
+        // 🏠 HÍBRIDO
+        str_contains($text, 'hybrid'),
+        str_contains($text, 'híbrido'),
+        str_contains($text, 'mixto'),
+        str_contains($text, 'partial remote')
             => 'hybrid',
 
-        // 🏢 Presencial explícito
-        str_contains($txt, 'onsite'),
-        str_contains($txt, 'on-site'),
-        str_contains($txt, 'office'),
-        str_contains($txt, 'presencial')
+        // 🏢 PRESENCIAL
+        str_contains($text, 'onsite'),
+        str_contains($text, 'on-site'),
+        str_contains($text, 'office'),
+        str_contains($text, 'presencial'),
+        str_contains($text, 'in office')
             => 'presencial',
 
-        // ⚪ No se puede inferir
+        // ❓ NO PRECISA
         default => 'no_precisa',
     };
 }
+
 
 
     protected function extractMinSalary(string $salary): ?float

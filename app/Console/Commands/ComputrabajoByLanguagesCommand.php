@@ -59,18 +59,38 @@ protected $currencyMap = [
     $totalSkippedAll  = 0;
 
     try {
-        $languages = Language::select(
-            'languages.id',
-            'languages.name',
-            'semantic_contexts.search_context'
-        )
-        ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
-        ->whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-              ->from('course_language')
-              ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })
-        ->get();
+
+    $lastLanguageId = LanguageMetric::where('source', 'Computrabajo')
+    ->orderByDesc('created_at')
+    ->value('language_id');
+
+
+      $baseQuery = Language::select(
+        'languages.id',
+        'languages.name',
+        'semantic_contexts.search_context'
+    )
+    ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
+    ->whereIn('languages.id', function ($q) {
+        $q->select('course_language.language_id')
+          ->from('course_language')
+          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+    })
+    ->orderBy('languages.id');
+
+$languagesQuery = clone $baseQuery;
+
+if ($lastLanguageId) {
+    $languagesQuery->where('languages.id', '>', $lastLanguageId);
+}
+
+$languages = $languagesQuery->get();
+
+if ($languages->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $languages = $baseQuery->get();
+}
+
 
         $pages = (int) $this->option('pages');
 

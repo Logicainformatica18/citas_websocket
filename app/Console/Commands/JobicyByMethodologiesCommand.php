@@ -55,12 +55,34 @@ class JobicyByMethodologiesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // 🔹 Solo metodologías asociadas a carreras ISIL
-        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-              ->from('course_methodology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+        $lastMethodologyId = MethodologyMetric::where('source', 'Jobicy')
+    ->orderByDesc('created_at')
+    ->value('methodology_id');
+$baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+        $q->select('course_methodology.methodology_id')
+          ->from('course_methodology')
+          ->join(
+              'career_course',
+              'career_course.course_id',
+              '=',
+              'course_methodology.course_id'
+          );
+    })
+    ->orderBy('methodologies.id');
+
+$methodsQuery = clone $baseQuery;
+
+if ($lastMethodologyId) {
+    $methodsQuery->where('methodologies.id', '>', $lastMethodologyId);
+}
+
+$methodologies = $methodsQuery->pluck('name', 'id');
+
+if ($methodologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $methodologies = $baseQuery->pluck('name', 'id');
+}
+
 
         $this->info("🌍 Iniciando importación desde Jobicy para {$methodologies->count()} metodologías...");
 

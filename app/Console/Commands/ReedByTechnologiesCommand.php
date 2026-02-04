@@ -11,6 +11,7 @@ use App\Models\TechnologyMetric;
 use App\Models\City;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
+use App\Services\ScraperRunService;
 
 class ReedByTechnologiesCommand extends Command
 {
@@ -22,67 +23,138 @@ class ReedByTechnologiesCommand extends Command
         'mapped'    => 0,
         'skipped'   => 0,
     ];
+ protected function detectModality(string $location, string $desc, string $title): string
+{
+    $text = strtolower($location . ' ' . $desc . ' ' . $title);
 
-    public function handle()
-    {
-        // Solo tecnologías que están vinculadas a carreras
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-            $q->select('course_technology.technology_id')
-              ->from('course_technology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })->pluck('name', 'id');
+    return match (true) {
+
+        // 🌍 REMOTO
+        str_contains($text, 'remote'),
+        str_contains($text, 'work from home'),
+        str_contains($text, 'home based'),
+        str_contains($text, 'fully remote'),
+        str_contains($text, 'hybrid remote')
+            => 'remote',
+
+        // 🧩 HÍBRIDO
+        str_contains($text, 'hybrid')
+            => 'hybrid',
+
+        // 🏢 PRESENCIAL
+        str_contains($text, 'onsite'),
+        str_contains($text, 'on-site'),
+        str_contains($text, 'office based'),
+        str_contains($text, 'in office')
+            => 'presencial',
+
+        // ❓ NO PRECISA
+        default => 'no_precisa',
+    };
+}
+  public function handle()
+{
+    // ▶️ INICIAR RUN
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Reed',
+        'technologies'
+    );
+
+    try {
+
+        // 🔹 Última tecnología procesada (cursor)
+        $lastTechnologyId = TechnologyMetric::where('source', 'reed')
+            ->orderByDesc('created_at')
+            ->value('technology_id');
+
+        // 🔹 Query base (solo tecnologías ISIL)
+        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+                $q->select('course_technology.technology_id')
+                  ->from('course_technology')
+                  ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+            })
+            ->orderBy('technologies.id');
+
+        $technologiesQuery = clone $baseQuery;
+
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+        }
+
+        $technologies = $technologiesQuery->get();
+
+        // 🔁 Reinicio automático
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->get();
+        }
 
         $this->info("🇬🇧 Importando desde Reed para {$technologies->count()} tecnologías…");
 
-        foreach ($technologies as $technologyId => $technologyName) {
+        // 🔢 CONTADORES GLOBALES
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        foreach ($technologies as $technology) {
+
+            $technologyId   = $technology->id;
+            $technologyName = $technology->name;
 
             $this->warn("\n🔎 Buscando tecnología: {$technologyName}");
 
-            for ($page = 0; $page < (int)$this->option('pages'); $page++) {
+            $totalFound = 0;
+            $totalNew   = 0;
 
-                // API REED
+            for ($page = 0; $page < (int) $this->option('pages'); $page++) {
+
+                // 🌐 API REED
                 $response = Http::withBasicAuth(env('REED_API_KEY'), '')
                     ->get('https://www.reed.co.uk/api/1.0/search', [
-                        'keywords'         => $technologyName,
-                        'resultsToTake'    => 100,
-                        'resultsToSkip'    => $page * 100,
+                        'keywords'      => $technologyName,
+                        'resultsToTake' => 100,
+                        'resultsToSkip' => $page * 100,
                     ]);
 
                 $this->stats['api_hits']++;
 
                 if ($response->failed()) {
-                    $this->error("❌ Error API en {$technologyName}, página {$page}");
+                    $this->error("❌ Error API {$technologyName}, page {$page}");
+                    $totalSkippedAll++;
                     continue;
                 }
 
                 $jobs = $response->json()['results'] ?? [];
 
                 if (empty($jobs)) {
-                    $this->info("⚠️ Sin resultados");
                     break;
                 }
 
                 foreach ($jobs as $job) {
 
-                    $externalId = "reed-" . $job['jobId'];
+                    $totalFound++;
+                    $totalFoundAll++;
 
-                    // 🛑 DEDUPE
+                    $externalId = 'reed-' . $job['jobId'];
+
+                    // 🔁 DEDUPE
                     $existing = JobOffer::where('external_id', $externalId)
                         ->where('source', 'reed')
                         ->first();
 
                     if ($existing) {
-                        // Asociar tecnología en pivot
-                        $existing->technologies()->syncWithoutDetaching([$technologyId]);
+                        $existing->technologies()
+                            ->syncWithoutDetaching([$technologyId]);
                         $this->stats['skipped']++;
+                        $totalSkippedAll++;
                         continue;
                     }
 
-                    // 🌍 Reed = Reino Unido
-                    $countryIso = "GB";
-                    $country = CountryNormalizer::normalize("GB");
+                    // 🇬🇧 UK
+                    $countryIso = 'GB';
+                    $country    = CountryNormalizer::normalize('GB');
 
-                    // 🏙️ Ubicación
+                    // 🏙️ UBICACIÓN
                     $locationRaw = $job['locationName'] ?? null;
 
                     $cityMatch = City::where('city_ascii', $locationRaw)
@@ -90,63 +162,90 @@ class ReedByTechnologiesCommand extends Command
                         ->first();
 
                     if ($cityMatch) {
-                        $lat = $cityMatch->lat;
-                        $lng = $cityMatch->lng;
-                        $city = $cityMatch->city;
+                        $city    = $cityMatch->city;
+                        $lat     = $cityMatch->lat;
+                        $lng     = $cityMatch->lng;
                         $country = CountryNormalizer::normalize($cityMatch->country);
                     } else {
                         $fallback = $this->fallbackCapital($countryIso);
-                        $lat = $fallback['lat'];
-                        $lng = $fallback['lng'];
-                        $city = $fallback['city'];
-                        $country = $fallback['country'];
+                        $city     = $fallback['city'];
+                        $lat      = $fallback['lat'];
+                        $lng      = $fallback['lng'];
+                        $country  = $fallback['country'];
                     }
 
-                    // 📅 FECHA segura
+                    // 🧭 MODALIDAD
+                    $modality = $this->detectModality(
+                        $locationRaw ?? '',
+                        $job['jobDescription'] ?? '',
+                        $job['jobTitle'] ?? ''
+                    );
+
+                    // 📅 FECHA
                     $publishedAt = $this->parseReedDate($job['date'] ?? null);
 
-                    // 💾 Crear oferta
+                    // 💾 CREAR OFERTA
                     $offer = JobOffer::create([
-                        'title'          => $job['jobTitle'] ?? '',
-                        'company'        => $job['employerName'] ?? '',
-                        'country'        => $country,
-                        'city'           => $city,
-                        'latitude'       => $lat,
-                        'longitude'      => $lng,
-                        'modality'       => 'no_remote',
-                        'salary_min'     => $job['minimumSalary'] ?? null,
-                        'salary_max'     => $job['maximumSalary'] ?? null,
-                        'currency'       => null,
-                        'compensation_type' => null,
-                        'source'         => 'reed',
-                        'external_id'    => $externalId,
-                        'url'            => $job['jobUrl'] ?? null,
-                        'search_query'   => $technologyName,
-                        'published_at'   => $publishedAt,
+                        'title'        => $job['jobTitle'] ?? '',
+                        'company'      => $job['employerName'] ?? '',
+                        'country'      => $country,
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => $modality,
+                        'salary_min'   => $job['minimumSalary'] ?? null,
+                        'salary_max'   => $job['maximumSalary'] ?? null,
+                        'source'       => 'reed',
+                        'external_id'  => $externalId,
+                        'url'          => $job['jobUrl'] ?? null,
+                        'search_query' => $technologyName,
+                        'published_at' => $publishedAt,
                     ]);
 
-                    // 🔗 Asociar tecnología
-                    $offer->technologies()->syncWithoutDetaching([$technologyId]);
+                    // 🔗 PIVOT
+                    $offer->technologies()
+                        ->syncWithoutDetaching([$technologyId]);
 
-                    // 📊 Métrica
-                    TechnologyMetric::create([
-                        'technology_id' => $technologyId,
-                        'total'         => 1,
-                        'country'       => $country,
-                        'source'        => 'reed',
-                        'run_date'      => now()->toDateString(),
-                    ]);
-
+                    $totalNew++;
+                    $totalInsertedAll++;
                     $this->stats['mapped']++;
                 }
             }
+
+            // 📊 MÉTRICA DIARIA (UNA POR TECNOLOGÍA)
+            TechnologyMetric::updateOrCreate(
+                [
+                    'technology_id' => $technologyId,
+                    'run_date'      => now()->toDateString(),
+                    'source'        => 'reed',
+                ],
+                [
+                    'technology_name' => $technologyName,
+                    'jobs_found_count'=> $totalFound,
+                    'jobs_new_count'  => $totalNew,
+                    'updated_at'      => now(),
+                ]
+            );
         }
 
+        // ✅ RUN OK
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
         $this->info("\n🟢 REED (TECNOLOGÍAS) COMPLETADO");
-        $this->info("API Hits: {$this->stats['api_hits']}");
-        $this->info("Ofertas nuevas: {$this->stats['mapped']}");
-        $this->info("Saltadas: {$this->stats['skipped']}");
+
+    } catch (\Throwable $e) {
+
+        // ❌ RUN FAILED
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
 
 

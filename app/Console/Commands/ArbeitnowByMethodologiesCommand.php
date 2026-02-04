@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+use App\Models\LanguageMetric;
 
 class ArbeitnowByMethodologiesCommand extends Command
 {
@@ -53,14 +54,32 @@ public function handle()
     $totalSkippedAll  = 0;
 
     try {
-        // 🔹 Solo metodologías vinculadas a carreras
-        $methodologies = Methodology::select('methodologies.id', 'methodologies.name')
-            ->whereIn('methodologies.id', function ($q) {
-                $q->select('course_methodology.methodology_id')
-                    ->from('course_methodology')
-                    ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-            })
-            ->get();
+
+$lastMethodologyId = MethodologyMetric::where('source', 'Arbeitnow')
+    ->orderByDesc('created_at')
+    ->value('methodology_id');
+
+
+$baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+        $q->select('course_methodology.methodology_id')
+          ->from('course_methodology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+    })
+    ->orderBy('methodologies.id');
+
+$methodologiesQuery = clone $baseQuery;
+
+if ($lastMethodologyId) {
+    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+}
+
+$methodologies = $methodologiesQuery->get();
+
+if ($methodologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $methodologies = $baseQuery->get();
+}
+
 
         $this->info("🌐 Iniciando scraping de Arbeitnow por metodología ({$methodologies->count()} metodologías)...");
 
@@ -209,24 +228,22 @@ public function handle()
             /* ============================
                📊 MÉTRICAS
             ============================ */
-            $today = now()->toDateString();
-            $existsToday = MethodologyMetric::whereDate('run_date', $today)
-                ->where('methodology_id', $methodologyId)
-                ->where('source', 'Arbeitnow')
-                ->exists();
+           
+          MethodologyMetric::updateOrCreate(
+    [
+        'methodology_id' => $methodologyId,
+        'run_date'       => now()->toDateString(),
+        'source'         => 'Arbeitnow',
+    ],
+    [
+        'methodology_name'    => $methodologyName,
+        'jobs_found_count'    => $totalFound,
+        'jobs_new_count'      => $totalNew,
+        'countries_breakdown' => $countries,
+        'modality_breakdown'  => $modalities,
+    ]
+);
 
-            if (!$existsToday) {
-                MethodologyMetric::create([
-                    'methodology_id'      => $methodologyId,
-                    'methodology_name'    => $methodologyName,
-                    'jobs_found_count'    => $totalFound,
-                    'jobs_new_count'      => $totalNew,
-                    'countries_breakdown' => $countries,
-                    'modality_breakdown'  => $modalities,
-                    'run_date'            => Carbon::today(),
-                    'source'              => 'Arbeitnow',
-                ]);
-            }
 
             $totalFoundAll += $totalFound;
 

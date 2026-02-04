@@ -11,6 +11,7 @@ use App\Models\MethodologyMetric;
 use App\Models\City;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
+use App\Services\ScraperRunService;
 
 class ReedByMethodologiesCommand extends Command
 {
@@ -23,67 +24,138 @@ class ReedByMethodologiesCommand extends Command
         'skipped'   => 0,
     ];
 
-    public function handle()
-    {
-        // 🔍 Solo metodologías que están vinculadas a carreras
-        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-              ->from('course_methodology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+     protected function detectModality(string $location, string $desc, string $title): string
+{
+    $text = strtolower($location . ' ' . $desc . ' ' . $title);
+
+    return match (true) {
+
+        // 🌍 REMOTO
+        str_contains($text, 'remote'),
+        str_contains($text, 'work from home'),
+        str_contains($text, 'home based'),
+        str_contains($text, 'fully remote'),
+        str_contains($text, 'hybrid remote')
+            => 'remote',
+
+        // 🧩 HÍBRIDO
+        str_contains($text, 'hybrid')
+            => 'hybrid',
+
+        // 🏢 PRESENCIAL
+        str_contains($text, 'onsite'),
+        str_contains($text, 'on-site'),
+        str_contains($text, 'office based'),
+        str_contains($text, 'in office')
+            => 'presencial',
+
+        // ❓ NO PRECISA
+        default => 'no_precisa',
+    };
+}
+  public function handle()
+{
+    // ▶️ INICIAR RUN
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Reed',
+        'methodologies'
+    );
+
+    try {
+
+        // 🔹 Última metodología procesada (cursor)
+        $lastMethodologyId = MethodologyMetric::where('source', 'reed')
+            ->orderByDesc('created_at')
+            ->value('methodology_id');
+
+        // 🔹 Query base (solo metodologías ISIL)
+        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+                $q->select('course_methodology.methodology_id')
+                  ->from('course_methodology')
+                  ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+            })
+            ->orderBy('methodologies.id');
+
+        $methodologiesQuery = clone $baseQuery;
+
+        if ($lastMethodologyId) {
+            $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+        }
+
+        $methodologies = $methodologiesQuery->get();
+
+        // 🔁 Reinicio automático
+        if ($methodologies->isEmpty()) {
+            $methodologies = $baseQuery->get();
+        }
 
         $this->info("🇬🇧 Importando desde Reed para {$methodologies->count()} metodologías…");
 
-        foreach ($methodologies as $methodologyId => $methodologyName) {
+        // 🔢 CONTADORES GLOBALES
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        foreach ($methodologies as $methodology) {
+
+            $methodologyId   = $methodology->id;
+            $methodologyName = $methodology->name;
 
             $this->warn("\n🔎 Buscando metodología: {$methodologyName}");
 
-            for ($page = 0; $page < (int)$this->option('pages'); $page++) {
+            $totalFound = 0;
+            $totalNew   = 0;
 
-                // API REED
+            for ($page = 0; $page < (int) $this->option('pages'); $page++) {
+
+                // 🌐 API REED
                 $response = Http::withBasicAuth(env('REED_API_KEY'), '')
                     ->get('https://www.reed.co.uk/api/1.0/search', [
-                        'keywords'         => $methodologyName,
-                        'resultsToTake'    => 100,
-                        'resultsToSkip'    => $page * 100,
+                        'keywords'      => $methodologyName,
+                        'resultsToTake' => 100,
+                        'resultsToSkip' => $page * 100,
                     ]);
 
                 $this->stats['api_hits']++;
 
                 if ($response->failed()) {
-                    $this->error("❌ Error API en {$methodologyName}, página {$page}");
+                    $this->error("❌ Error API {$methodologyName}, page {$page}");
+                    $totalSkippedAll++;
                     continue;
                 }
 
                 $jobs = $response->json()['results'] ?? [];
 
                 if (empty($jobs)) {
-                    $this->info("⚠️ Sin resultados");
                     break;
                 }
 
                 foreach ($jobs as $job) {
 
-                    // ID único
-                    $externalId = "reed-" . $job['jobId'];
+                    $totalFound++;
+                    $totalFoundAll++;
 
-                    // 🛑 DEDUPE
+                    $externalId = 'reed-' . $job['jobId'];
+
+                    // 🔁 DEDUPE
                     $existing = JobOffer::where('external_id', $externalId)
                         ->where('source', 'reed')
                         ->first();
 
                     if ($existing) {
-                        // Asociar la metodología al pivot
-                        $existing->methodologies()->syncWithoutDetaching([$methodologyId]);
+                        $existing->methodologies()
+                            ->syncWithoutDetaching([$methodologyId]);
                         $this->stats['skipped']++;
+                        $totalSkippedAll++;
                         continue;
                     }
 
-                    // 🌍 Reed = Reino Unido
-                    $countryIso = "GB";
-                    $country = CountryNormalizer::normalize("GB");
+                    // 🇬🇧 UK
+                    $countryIso = 'GB';
+                    $country    = CountryNormalizer::normalize('GB');
 
-                    // 🏙️ City
+                    // 🏙️ UBICACIÓN
                     $locationRaw = $job['locationName'] ?? null;
 
                     $cityMatch = City::where('city_ascii', $locationRaw)
@@ -91,64 +163,90 @@ class ReedByMethodologiesCommand extends Command
                         ->first();
 
                     if ($cityMatch) {
-                        $lat = $cityMatch->lat;
-                        $lng = $cityMatch->lng;
-                        $city = $cityMatch->city;
+                        $city    = $cityMatch->city;
+                        $lat     = $cityMatch->lat;
+                        $lng     = $cityMatch->lng;
                         $country = CountryNormalizer::normalize($cityMatch->country);
                     } else {
-                        // fallback a Londres
                         $fallback = $this->fallbackCapital($countryIso);
-                        $lat = $fallback['lat'];
-                        $lng = $fallback['lng'];
-                        $city = $fallback['city'];
-                        $country = $fallback['country'];
+                        $city     = $fallback['city'];
+                        $lat      = $fallback['lat'];
+                        $lng      = $fallback['lng'];
+                        $country  = $fallback['country'];
                     }
 
-                    // Fecha DD/MM/YYYY → Carbon
+                    // 🧭 MODALIDAD
+                    $modality = $this->detectModality(
+                        $locationRaw ?? '',
+                        $job['jobDescription'] ?? '',
+                        $job['jobTitle'] ?? ''
+                    );
+
+                    // 📅 FECHA
                     $publishedAt = $this->parseReedDate($job['date'] ?? null);
 
-                    // 💾 Crear OFERTA
+                    // 💾 CREAR OFERTA
                     $offer = JobOffer::create([
-                        'title'          => $job['jobTitle'] ?? '',
-                        'company'        => $job['employerName'] ?? '',
-                        'country'        => $country,
-                        'city'           => $city,
-                        'latitude'       => $lat,
-                        'longitude'      => $lng,
-                        'modality'       => 'no_remote',
-                        'salary_min'     => $job['minimumSalary'] ?? null,
-                        'salary_max'     => $job['maximumSalary'] ?? null,
-                        'currency'       => null,
-                        'compensation_type' => null,
-                        'source'         => 'reed',
-                        'external_id'    => $externalId,
-                        'url'            => $job['jobUrl'] ?? null, // ✔ URL correcta
-                        'search_query'   => $methodologyName,
-                        'published_at'   => $publishedAt,
+                        'title'        => $job['jobTitle'] ?? '',
+                        'company'      => $job['employerName'] ?? '',
+                        'country'      => $country,
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => $modality,
+                        'salary_min'   => $job['minimumSalary'] ?? null,
+                        'salary_max'   => $job['maximumSalary'] ?? null,
+                        'source'       => 'reed',
+                        'external_id'  => $externalId,
+                        'url'          => $job['jobUrl'] ?? null,
+                        'search_query' => $methodologyName,
+                        'published_at' => $publishedAt,
                     ]);
 
-                    // 🔗 Asociar metodología
-                    $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
+                    // 🔗 PIVOT
+                    $offer->methodologies()
+                        ->syncWithoutDetaching([$methodologyId]);
 
-                    // 📊 MÉTRICA
-                    MethodologyMetric::create([
-                        'methodology_id' => $methodologyId,
-                        'total'          => 1,
-                        'country'        => $country,
-                        'source'         => 'reed',
-                        'run_date'       => now()->toDateString(),
-                    ]);
-
+                    $totalNew++;
+                    $totalInsertedAll++;
                     $this->stats['mapped']++;
                 }
             }
+
+            // 📊 MÉTRICA DIARIA (UNA POR METODOLOGÍA)
+            MethodologyMetric::updateOrCreate(
+                [
+                    'methodology_id' => $methodologyId,
+                    'run_date'       => now()->toDateString(),
+                    'source'         => 'reed',
+                ],
+                [
+                    'methodology_name' => $methodologyName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count'   => $totalNew,
+                    'updated_at'       => now(),
+                ]
+            );
         }
 
+        // ✅ RUN OK
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
         $this->info("\n🟢 REED (METODOLOGÍAS) COMPLETADO");
-        $this->info("API Hits: {$this->stats['api_hits']}");
-        $this->info("Ofertas nuevas: {$this->stats['mapped']}");
-        $this->info("Saltadas: {$this->stats['skipped']}");
+
+    } catch (\Throwable $e) {
+
+        // ❌ RUN FAILED
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
 
     // --- Helpers ---

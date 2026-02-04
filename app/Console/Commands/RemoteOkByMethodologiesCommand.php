@@ -11,11 +11,12 @@ use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
+use App\Services\ScraperRunService;
 
 class RemoteOkByMethodologiesCommand extends Command
 {
     protected $signature = 'remoteok:methodologies';
-    protected $description = '🧭 Importa empleos 100% remotos desde RemoteOK, clasificando país y región por metodología.';
+    protected $description = '🧭 Importa empleos 100% remotos desde RemoteOK por metodología';
 
     protected $stats = [
         'found'   => 0,
@@ -25,148 +26,164 @@ class RemoteOkByMethodologiesCommand extends Command
 
     public function handle()
     {
-        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-                ->from('course_methodology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+        // ▶️ INICIAR RUN
+        $run = ScraperRunService::start(
+            $this->signature,
+            'RemoteOK',
+            'methodologies'
+        );
 
-        $this->info("🚀 Iniciando importación desde RemoteOK (solo empleos 100% remotos) para {$methodologies->count()} metodologías...");
+        try {
 
-        foreach ($methodologies as $methodologyId => $methodologyName) {
-            $this->warn("\n💡 Procesando metodología: {$methodologyName}");
+            // 🔹 Última metodología procesada (cursor)
+            $lastMethodologyId = MethodologyMetric::where('source', 'RemoteOK')
+                ->orderByDesc('created_at')
+                ->value('methodology_id');
 
-            $totalFound = 0;
-            $totalNew = 0;
+            // 🔹 Query base (solo metodologías ISIL)
+            $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+                    $q->select('course_methodology.methodology_id')
+                      ->from('course_methodology')
+                      ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+                })
+                ->orderBy('methodologies.id');
 
-            try {
-                // 📡 Llamada a la API principal
-                $response = Http::timeout(25)->get('https://remoteok.com/api');
-                if ($response->failed()) {
-                    $this->warn("❌ Falló la API para {$methodologyName}");
-                    continue;
-                }
+            $methodologiesQuery = clone $baseQuery;
 
-                $jobs = collect($response->json())
-                    ->skip(1) // Ignorar aviso legal
-                    ->filter(fn($j) => isset($j['position']));
+            if ($lastMethodologyId) {
+                $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+            }
+
+            $methodologies = $methodologiesQuery->get();
+
+            // 🔁 Reinicio automático
+            if ($methodologies->isEmpty()) {
+                $methodologies = $baseQuery->get();
+            }
+
+            $this->info("🚀 RemoteOK → procesando {$methodologies->count()} metodologías");
+
+            // 🔢 CONTADORES GLOBALES
+            $totalFoundAll    = 0;
+            $totalInsertedAll = 0;
+            $totalSkippedAll  = 0;
+
+            // 📡 RemoteOK API (una sola llamada)
+            $response = Http::timeout(25)->get('https://remoteok.com/api');
+
+            if ($response->failed()) {
+                throw new \Exception('RemoteOK API no respondió');
+            }
+
+            $jobs = collect($response->json())
+                ->skip(1) // aviso legal
+                ->filter(fn ($j) => isset($j['position']));
+
+            foreach ($methodologies as $methodology) {
+
+                $methodologyId   = $methodology->id;
+                $methodologyName = $methodology->name;
+
+                $this->warn("\n🔎 {$methodologyName}");
+
+                $totalFound = 0;
+                $totalNew   = 0;
 
                 foreach ($jobs as $job) {
-                    $title       = $job['position'] ?? 'N/A';
-                    $company     = $job['company'] ?? null;
-                    $urlJob      = $job['url'] ?? null;
-                    $externalId  = $job['id'] ?? null;
-                    $tags        = $job['tags'] ?? [];
-                    $locationRaw = trim($job['location'] ?? '');
 
-                    // 🧠 Validar relación con la metodología
+                    $title = $job['position'] ?? '';
+                    $tags  = $job['tags'] ?? [];
+
                     $text = strtolower($title . ' ' . implode(' ', $tags));
+
+                    // 🧠 Match por metodología
                     if (!str_contains($text, strtolower($methodologyName))) {
                         continue;
                     }
 
-                    // ⚙️ Validar que el empleo sea realmente remoto
-                    $isRemote = str_contains(strtolower($locationRaw), 'remote')
-                        || str_contains(strtolower($locationRaw), 'anywhere')
-                        || str_contains(strtolower($locationRaw), 'worldwide')
-                        || str_contains(strtolower($locationRaw), 'global');
-
-                    if (!$isRemote) {
-                        continue; // ❌ ignorar empleos no remotos
-                    }
-
                     $totalFound++;
+                    $totalFoundAll++;
 
-                    // 🔍 Evitar duplicados
+                    $externalId = $job['id'] ?? null;
+
+                    // 🔁 DEDUPE
                     if ($externalId && JobOffer::where('source', 'RemoteOK')
                         ->where('external_id', $externalId)
                         ->exists()) {
+
+                        $totalSkippedAll++;
                         continue;
                     }
 
-                    // ==========================
-                    // 🧹 Limpieza avanzada del campo "location"
-                    // ==========================
-                    $location = strtolower($locationRaw);
-                    $country  = 'Remote';
-                    $region   = 'REMOTE';
+                    // 🧭 MODALIDAD (RemoteOK = remote)
+                    $modality = 'remote';
 
-                    if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $location, $m)) {
-                        // Ej: "Remote - us", "Remote/greece"
+                    // 🌍 COUNTRY / REGION
+                    $locationRaw = strtolower(trim($job['location'] ?? ''));
+                    $country = 'Remote';
+
+                    if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $locationRaw, $m)) {
                         $country = CountryNormalizer::normalize(trim($m[1]));
-                    } elseif (preg_match('/(.+)\s*(or|,)?\s*remote$/i', $location, $m)) {
-                        // Ej: "Los angeles or remote"
-                        $country = CountryNormalizer::normalize(trim($m[1]));
-                    } elseif (preg_match('/remote\s+(europe|asia|latam|africa|north america)/i', $location, $m)) {
-                        // Ej: "Remote europe, remote asia"
-                        $country = ucfirst($m[1]);
-                    } elseif (preg_match('/mundial|global/i', $location)) {
-                        // Ej: "Mundial" o "Global remote"
-                        $country = 'Remote';
                     }
 
-                    // 🗺️ Determinar región
                     $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
 
-                    // ==========================
-                    // 💾 Insertar oferta remota
-                    // ==========================
+                    // 💾 CREAR OFERTA
                     JobOffer::create([
-                        'title'        => $title,
-                        'company'      => $company,
+                        'title'        => $title ?: 'N/A',
+                        'company'      => $job['company'] ?? null,
                         'country'      => $country,
                         'region'       => $region,
                         'city'         => null,
                         'latitude'     => null,
                         'longitude'    => null,
-                        'modality'     => 'remote',
+                        'modality'     => $modality,
                         'source'       => 'RemoteOK',
                         'search_query' => $methodologyName,
                         'external_id'  => $externalId,
-                        'url'          => $urlJob,
+                        'url'          => $job['url'] ?? null,
                         'published_at' => isset($job['date'])
                             ? Carbon::parse($job['date'])
                             : now(),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
                     ]);
 
                     $totalNew++;
+                    $totalInsertedAll++;
                 }
 
-                // ==========================
-                // 📊 Guardar métricas
-                // ==========================
-                if ($totalFound > 0) {
-                    MethodologyMetric::updateOrCreate(
-                        [
-                            'methodology_id' => $methodologyId,
-                            'run_date'       => Carbon::today(),
-                            'source'         => 'RemoteOK',
-                        ],
-                        [
-                            'methodology_name'      => $methodologyName,
-                            'jobs_found_count'      => $totalFound,
-                            'jobs_new_count'        => $totalNew,
-                            'countries_breakdown'   => ['remote' => $totalFound],
-                            'modality_breakdown'    => ['remote' => $totalFound],
-                            'updated_at'            => now(),
-                        ]
-                    );
+                // 📊 MÉTRICA DIARIA (UNA POR METODOLOGÍA)
+                MethodologyMetric::updateOrCreate(
+                    [
+                        'methodology_id' => $methodologyId,
+                        'run_date'       => now()->toDateString(),
+                        'source'         => 'RemoteOK',
+                    ],
+                    [
+                        'methodology_name' => $methodologyName,
+                        'jobs_found_count' => $totalFound,
+                        'jobs_new_count'   => $totalNew,
+                        'updated_at'       => now(),
+                    ]
+                );
 
-                    $this->info("✅ {$methodologyName}: {$totalNew} nuevas / {$totalFound} remotas detectadas");
-                } else {
-                    $this->warn("⚠️ No se encontraron empleos remotos válidos para {$methodologyName}");
-                }
-
-                sleep(1.2);
-
-            } catch (\Throwable $th) {
-                Log::error("⚠️ Error procesando {$methodologyName}: " . $th->getMessage());
-                $this->error("❌ {$methodologyName}: " . $th->getMessage());
+                $this->info("✔ {$methodologyName}: {$totalNew} nuevas / {$totalFound}");
             }
-        }
 
-        $this->info("\n🎯 Finalizado: métricas guardadas solo con empleos 100% remotos y países limpios.");
+            // ✅ RUN OK
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            $this->info("\n🟢 RemoteOK (methodologies) finalizado correctamente");
+
+        } catch (\Throwable $e) {
+
+            // ❌ RUN FAILED
+            ScraperRunService::failed($run, $e);
+            throw $e;
+        }
     }
 }

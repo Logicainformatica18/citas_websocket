@@ -12,11 +12,12 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 class WantedlyByMethodologiesCommand extends Command
 {
     protected $signature = 'wantedly:methodologies {--pages=1} {--lang=es}';
-    protected $description = '🇯🇵 Importa ofertas desde Wantedly (JP/SG) por metodología, con traducción, modalidad, país, región y geolocalización.';
+    protected $description = '🇯🇵 Importa ofertas desde Wantedly por metodologías con traducción y geolocalización.';
 
     protected $stats = [
         'api_hits'   => 0,
@@ -28,200 +29,245 @@ class WantedlyByMethodologiesCommand extends Command
 
     protected static array $translationCache = [];
 
-    // ✔️ ISO2 como Wantedly Languages
     protected $capitalMap = [
-        'JP' => ['city' => 'Tokio',     'lat' => 35.6895, 'lng' => 139.6917],
-        'SG' => ['city' => 'Singapur',  'lat' => 1.3521,  'lng' => 103.8198],
+        'JP' => ['city' => 'Tokio',    'lat' => 35.6895, 'lng' => 139.6917],
+        'SG' => ['city' => 'Singapur', 'lat' => 1.3521,  'lng' => 103.8198],
     ];
 
-    public function handle()
-    {
-        $pages      = (int) $this->option('pages');
-        $targetLang = strtolower($this->option('lang'));
+   public function handle()
+{
+    /* ===============================
+       INIT RUN
+    =============================== */
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Wantedly',
+        'methodologies'
+    );
 
-        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-                ->from('course_methodology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+    try {
 
-        $this->info("🌏 Importando Wantedly por metodologías → Traduciendo: {$targetLang}");
+        $targetLang = strtolower($this->option('lang', 'es'));
 
-        foreach ($methodologies as $methId => $methName) {
+        /* ===============================
+           CURSOR
+        =============================== */
+        $lastMethodologyId = MethodologyMetric::where('source', 'wantedly')
+            ->orderByDesc('created_at')
+            ->value('methodology_id');
 
-            $totalFound = $totalNew = 0;
+        /* ===============================
+           BASE QUERY (INMUTABLE)
+        =============================== */
+        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+                $q->select('cm.methodology_id')
+                  ->from('course_methodology as cm')
+                  ->join('career_course as cc', 'cc.course_id', '=', 'cm.course_id');
+            })
+            ->orderBy('methodologies.id');
+
+        $query = clone $baseQuery;
+
+        if ($lastMethodologyId) {
+            $query->where('methodologies.id', '>', $lastMethodologyId);
+        }
+
+        $methodologies = $query->get();
+
+        if ($methodologies->isEmpty()) {
+            $this->warn('🔁 Cursor agotado, reiniciando metodologías');
+            $methodologies = $baseQuery->get();
+        }
+
+        $this->info("🌏 Wantedly → {$methodologies->count()} metodologías | traducción: {$targetLang}");
+
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        /* ===============================
+           LOOP POR METODOLOGÍA
+        =============================== */
+        foreach ($methodologies as $methodology) {
+
+            $methId   = $methodology->id;
+            $methName = $methodology->name;
+
+            $this->warn("\n🔎 Metodología: {$methName}");
+
+            $page = 1;
+            $emptyPages = 0;
+            $maxEmptyPages = 2;
+
+            $totalFound = 0;
+            $totalNew   = 0;
             $countries  = [];
             $modalities = [];
 
-            $this->warn("🔎 Metodología: {$methName}");
+            while ($page <= 20) { // safety limit
 
-            for ($page = 1; $page <= $pages; $page++) {
+                $url = "https://www.wantedly.com/api/v1/projects?keyword="
+                    . urlencode($methName)
+                    . "&page={$page}";
 
-                $url = "https://www.wantedly.com/api/v1/projects?keyword=" . urlencode($methName) . "&page={$page}";
+                $response = Http::timeout(25)->get($url);
+                $this->stats['api_hits']++;
 
-                try {
+                if ($response->failed()) break;
 
-                    $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) continue;
+                $results = $response->json('data') ?? [];
+                if (empty($results)) break;
 
-                    $results = $response->json('data') ?? [];
-                    $totalFound += count($results);
+                $newInPage = 0;
+                $totalFound     += count($results);
+                $totalFoundAll += count($results);
 
-                    foreach ($results as $job) {
+                foreach ($results as $job) {
 
-                        $externalId = $job['id'] ?? null;
+                    $externalId = $job['id'] ?? null;
+                    if (!$externalId) continue;
 
-                        // ✔️ evitar duplicados
-                        $existing = JobOffer::where('source','Wantedly')
-                                            ->where('external_id',$externalId)
-                                            ->first();
+                    $existing = JobOffer::where('source', 'wantedly')
+                        ->where('external_id', $externalId)
+                        ->first();
 
-                        // ✔️ pivot methodology_job
-                        if ($existing) {
-                            $existing->methodologies()->syncWithoutDetaching([$methId]);
-                            continue;
-                        }
-
-                        // ----------------------------------------
-                        //   DATOS BASE
-                        // ----------------------------------------
-                        $title     = $job['title'] ?? 'N/A';
-                        $company   = $job['company']['name'] ?? null;
-                        $desc      = strip_tags($job['description'] ?? '');
-                        $cityRaw   = $job['location'] ?? 'Tokyo';
-                        $urlJob    = "https://www.wantedly.com/projects/" . ($job['id'] ?? '');
-                        $published = isset($job['published_at'])
-                            ? Carbon::parse($job['published_at'])
-                            : now();
-
-                        // ----------------------------------------
-                        //   PAÍS
-                        // ----------------------------------------
-                        $countryIso = $this->detectCountryFromCity($cityRaw);
-                        $country = CountryNormalizer::normalize($this->detectCountryFromCity($cityRaw));
-
-                        $region     = RegionHelper::fromCountry($country);
-
-                        // ----------------------------------------
-                        //   MODALIDAD
-                        // ----------------------------------------
-                        $modality = $this->detectModality($title, $desc, $cityRaw);
-
-                        // ----------------------------------------
-                        //   GEOLOCALIZACIÓN
-                        // ----------------------------------------
-                        [$city, $latitude, $longitude] =
-                            $this->getCoordsFromCountry($cityRaw, $countryIso);
-
-                        if (!$latitude || !$longitude) {
-                            if (isset($this->capitalMap[$countryIso])) {
-                                $capital = $this->capitalMap[$countryIso];
-                                $city      = $capital['city'];
-                                $latitude  = $capital['lat'];
-                                $longitude = $capital['lng'];
-                                $this->stats['fallback']++;
-                            }
-                        }
-
-                        // ----------------------------------------
-                        //   TRADUCCIÓN
-                        // ----------------------------------------
-                        if ($this->stats['translated'] % 5 === 0) {
-                            usleep(800000);
-                        }
-
-                        $titleTranslated = $this->translateText($title, 'auto', $targetLang);
-                        $descTranslated  = $this->translateText($desc,  'auto', $targetLang);
-
-                        // ----------------------------------------
-                        //   SKILLS Y PERFIL (igual que languages)
-                        // ----------------------------------------
-                        $experience     = $this->extractExperience($desc);
-                        $education      = $this->extractEducation($desc);
-                        $certifications = $this->extractCertifications($desc);
-                        $skills         = $this->extractSkills($desc);
-
-                        // ----------------------------------------
-                        //   GUARDAR OFERTA
-                        // ----------------------------------------
-                        $offer = JobOffer::create([
-                            'title'            => $title,
-                            'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
-                            'title_en'         => $targetLang === 'en' ? $titleTranslated : null,
-
-                            'company'          => $company,
-                            'country'          => $country,
-                            'region'           => $region,
-                            'city'             => $city,
-                            'latitude'         => $latitude,
-                            'longitude'        => $longitude,
-                            'modality'         => $modality,
-
-                            'salary_min'       => null,
-                            'salary_max'       => null,
-                            'currency'         => null,
-
-                            'experience_level' => $experience,
-                            'education_level'  => $education,
-                            'certifications'   => $certifications,
-                            'skills'           => $skills,
-                            'requirements'     => $desc,
-
-                            'source'           => 'Wantedly',
-                            'external_id'      => $externalId,
-                            'url'              => $urlJob,
-                            'search_query'     => $methName,
-
-                            'description'      => $desc,
-                            'description_es'   => $targetLang === 'es' ? $descTranslated : null,
-                            'description_en'   => $targetLang === 'en' ? $descTranslated : null,
-
-                            'published_at'     => $published,
-                        ]);
-
-                        // ✔️ pivot methodology_job
-                        $offer->methodologies()->syncWithoutDetaching([$methId]);
-
-                        // ----------------------------------------
-                        //   MÉTRICAS
-                        // ----------------------------------------
-                        $totalNew++;
-                        $countries[$country] = ($countries[$country] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-
-                        $this->stats['translated']++;
+                    if ($existing) {
+                        $existing->methodologies()
+                            ->syncWithoutDetaching([$methId]);
+                        $totalSkippedAll++;
+                        continue;
                     }
 
-                } catch (\Throwable $e) {
-                    Log::error("❌ Error Wantedly metodología {$methName} página {$page}: " . $e->getMessage());
+                    /* ================= BASE ================= */
+                    $title     = $job['title'] ?? 'N/A';
+                    $company   = $job['company']['name'] ?? null;
+                    $desc      = strip_tags($job['description'] ?? '');
+                    $cityRaw   = $job['location'] ?? 'Tokyo';
+                    $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
+                    $published = isset($job['published_at'])
+                        ? Carbon::parse($job['published_at'])
+                        : now();
+
+                    /* ================= GEO ================= */
+                    $countryIso = $this->detectCountryFromCity($cityRaw);
+                    $country    = CountryNormalizer::normalize($countryIso);
+                    $region     = RegionHelper::fromCountry($country);
+                    $modality   = $this->detectModality($title, $desc, $cityRaw);
+
+                    [$city, $lat, $lng] =
+                        $this->getCoordsFromCountry($cityRaw, $countryIso);
+
+                    if ((!$lat || !$lng) && isset($this->capitalMap[$countryIso])) {
+                        $cap  = $this->capitalMap[$countryIso];
+                        $city = $cap['city'];
+                        $lat  = $cap['lat'];
+                        $lng  = $cap['lng'];
+                        $this->stats['fallback']++;
+                    }
+
+                    if ($modality === 'remote') {
+                        $lat = $lng = null;
+                    }
+
+                    /* ================= TRADUCCIÓN ================= */
+                    $titleTranslated = $this->translateCached($title, $targetLang);
+                    $descTranslated  = $this->translateCached($desc,  $targetLang);
+
+                    /* ================= EXTRACCIÓN ================= */
+                    $experience     = $this->extractExperience($desc);
+                    $education      = $this->extractEducation($desc);
+                    $certifications = $this->extractCertifications($desc);
+                    $skills         = $this->extractSkills($desc);
+
+                    /* ================= CREATE ================= */
+                    $offer = JobOffer::create([
+                        'title'            => $title,
+                        'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
+                        'title_en'         => $targetLang === 'en' ? $titleTranslated : null,
+                        'company'          => $company,
+                        'country'          => $country,
+                        'region'           => $region,
+                        'city'             => $city,
+                        'latitude'         => $lat,
+                        'longitude'        => $lng,
+                        'modality'         => $modality,
+                        'experience_level' => $experience,
+                        'education_level'  => $education,
+                        'certifications'   => $certifications,
+                        'skills'           => $skills,
+                        'requirements'     => $desc,
+                        'source'           => 'wantedly',
+                        'external_id'      => $externalId,
+                        'url'              => $urlJob,
+                        'search_query'     => $methName,
+                        'description'      => $desc,
+                        'description_es'   => $targetLang === 'es' ? $descTranslated : null,
+                        'description_en'   => $targetLang === 'en' ? $descTranslated : null,
+                        'published_at'     => $published,
+                    ]);
+
+                    $offer->methodologies()
+                        ->syncWithoutDetaching([$methId]);
+
+                    $newInPage++;
+                    $totalNew++;
+                    $totalInsertedAll++;
+
+                    $countries[$country]   = ($countries[$country] ?? 0) + 1;
+                    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                 }
+
+                if ($newInPage === 0) {
+                    $emptyPages++;
+                    if ($emptyPages >= $maxEmptyPages) break;
+                } else {
+                    $emptyPages = 0;
+                }
+
+                $page++;
+                sleep(1);
             }
 
-            // GUARDAR MÉTRICAS
+            /* ================= METRIC ================= */
             MethodologyMetric::updateOrCreate(
                 [
                     'methodology_id' => $methId,
                     'run_date'       => Carbon::today(),
-                    'source'         => 'Wantedly',
+                    'source'         => 'wantedly',
                 ],
                 [
-                    'methodology_name'     => $methName,
-                    'jobs_found_count'     => $totalFound,
-                    'jobs_new_count'       => $totalNew,
-                    'countries_breakdown'  => $countries,
-                    'modality_breakdown'   => $modalities,
+                    'methodology_name'    => $methName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
+                    'updated_at'          => now(),
                 ]
             );
 
-            $this->info("✔️ {$methName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+            $this->info("✔ {$methName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        $this->info("\n🎯 FIN DEL PROCESO");
-    }
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
 
-    // ----------------------------------------
-    //   DETECT COUNTRY
-    // ----------------------------------------
+        $this->info("\n🟢 WANTEDLY METODOLOGÍAS COMPLETADO");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
+    }
+}
+
+
+    /* =====================================================
+       HELPERS (idénticos a WantedlyByLanguages)
+    ===================================================== */
+
     protected function detectCountryFromCity(?string $city): string
     {
         $city = strtolower(trim($city ?? ''));
@@ -234,42 +280,87 @@ class WantedlyByMethodologiesCommand extends Command
             str_contains($city, 'osaka'),
             str_contains($city, 'nagoya'),
             str_contains($city, 'japan'),
-            str_contains($city, 'japón') => 'JP',
+            str_contains($city, 'japón')    => 'JP',
 
             default => 'JP',
         };
     }
+protected function translateCached(string $text, string $lang): ?string
+{
+    if (!isset(self::$translationCache[$text])) {
 
-    // ----------------------------------------
-    //   MODALIDAD
-    // ----------------------------------------
+        if ($this->stats['translated'] > 0 && $this->stats['translated'] % 5 === 0) {
+            usleep(800000);
+        }
+
+        self::$translationCache[$text] = $this->translateText($text, 'auto', $lang);
+        $this->stats['translated']++;
+    }
+
+    return self::$translationCache[$text];
+}
+
+protected function translateText(string $text, string $source, string $target): ?string
+{
+    $text = trim($text);
+    if ($text === '' || $source === $target) return $text;
+
+    try {
+        $res = Http::timeout(10)->get(
+            'https://translate.googleapis.com/translate_a/single',
+            [
+                'client' => 'gtx',
+                'sl' => $source,
+                'tl' => $target,
+                'dt' => 't',
+                'q'  => $text,
+            ]
+        );
+
+        if (!$res->ok()) return $text;
+
+        $data = $res->json();
+        if (!isset($data[0])) return $text;
+
+        $translated = '';
+        foreach ($data[0] as $part) {
+            $translated .= $part[0] ?? '';
+        }
+
+        return trim($translated) ?: $text;
+
+    } catch (\Throwable $e) {
+        Log::warning('Translate failed', [
+            'error' => $e->getMessage(),
+        ]);
+        return $text;
+    }
+}
+
     protected function detectModality(string $title, string $description, ?string $city = null): string
     {
-        $text = strtolower($title . ' ' . $description . ' ' . ($city ?? ''));
+        $text = strtolower($title.' '.$description.' '.($city ?? ''));
 
         return match (true) {
             str_contains($text, 'full remote'),
-            str_contains($text, '完全リモート'),
-            str_contains($text, 'work from anywhere'),
-            str_contains($text, '100% remote') => 'remote',
+            str_contains($text, '100% remote'),
+            str_contains($text, '完全リモート') => 'remote',
 
             str_contains($text, 'hybrid'),
-            str_contains($text, 'リモート可'),
-            str_contains($text, 'partly remote') => 'hybrid',
+            str_contains($text, 'リモート可')   => 'hybrid',
 
             default => 'no_precisa',
         };
     }
 
-    // ----------------------------------------
-    //   GEOLOCALIZACIÓN
-    // ----------------------------------------
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)
     {
         if ($city && strtolower($city) !== 'remote') {
 
             $foundCity = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-                ->when($countryCode, fn($q) => $q->whereRaw('LOWER(iso2) = ?', [strtolower($countryCode)]))
+                ->when($countryCode, fn($q) =>
+                    $q->whereRaw('LOWER(iso2) = ?', [strtolower($countryCode)])
+                )
                 ->first();
 
             if ($foundCity) {
@@ -303,21 +394,14 @@ class WantedlyByMethodologiesCommand extends Command
                 $d = $res->json()[0];
                 return [(float)$d['lat'], (float)$d['lon']];
             }
-
-        } catch (\Throwable $t) {
-            Log::warning("🌍 Error geocodificando {$city}, {$country}: " . $t->getMessage());
-        }
+        } catch (\Throwable $t) {}
 
         return [null, null];
     }
 
-    // -------------------------------
-    //   EXTRACT EXPERIENCE
-    // -------------------------------
     protected function extractExperience(string $text): ?string
     {
         $t = strtolower($text);
-
         return match (true) {
             str_contains($t, 'senior') => 'senior',
             str_contains($t, 'mid')    => 'mid',
@@ -326,13 +410,9 @@ class WantedlyByMethodologiesCommand extends Command
         };
     }
 
-    // -------------------------------
-    //   EDUCATION
-    // -------------------------------
     protected function extractEducation(string $text): ?string
     {
         $t = strtolower($text);
-
         return match (true) {
             str_contains($t, 'bachelor'),
             str_contains($t, 'licencia') => 'bachelor',
@@ -350,9 +430,6 @@ class WantedlyByMethodologiesCommand extends Command
         };
     }
 
-    // -------------------------------
-    //   CERTIFICATIONS
-    // -------------------------------
     protected function extractCertifications(string $text): ?string
     {
         $t = strtolower($text);
@@ -365,9 +442,6 @@ class WantedlyByMethodologiesCommand extends Command
         return $found ? implode(', ', $found) : null;
     }
 
-    // -------------------------------
-    //   SKILLS
-    // -------------------------------
     protected function extractSkills(string $text): ?string
     {
         $t = strtolower($text);
@@ -380,4 +454,3 @@ class WantedlyByMethodologiesCommand extends Command
         return $skills ? implode(', ', $skills) : null;
     }
 }
-

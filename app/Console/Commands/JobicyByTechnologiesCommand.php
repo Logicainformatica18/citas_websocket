@@ -55,12 +55,34 @@ class JobicyByTechnologiesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // 🔹 Solo tecnologías asociadas a carreras ISIL
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-            $q->select('course_technology.technology_id')
-              ->from('course_technology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })->pluck('name', 'id');
+        $lastTechnologyId = TechnologyMetric::where('source', 'Jobicy')
+    ->orderByDesc('created_at')
+    ->value('technology_id');
+$baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+          ->from('course_technology')
+          ->join(
+              'career_course',
+              'career_course.course_id',
+              '=',
+              'course_technology.course_id'
+          );
+    })
+    ->orderBy('technologies.id');
+
+$technologiesQuery = clone $baseQuery;
+
+if ($lastTechnologyId) {
+    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+}
+
+$technologies = $technologiesQuery->pluck('name', 'id');
+
+if ($technologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $technologies = $baseQuery->pluck('name', 'id');
+}
+
 
         $this->info("🌍 Iniciando importación desde Jobicy para {$technologies->count()} tecnologías...");
 

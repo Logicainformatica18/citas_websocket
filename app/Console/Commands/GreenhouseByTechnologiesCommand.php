@@ -5,17 +5,22 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Technology;
+ 
 use App\Models\JobOffer;
-use App\Models\TechnologyMetric;
+ 
 use App\Models\City;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
+use App\Models\Technology;
 use App\Services\ScraperRunService;
+use App\Models\TechnologyMetric;
+
+
+
 class GreenhouseByTechnologiesCommand extends Command
 {
     protected $signature = 'greenhouse:technologies {--company=*}';
-    protected $description = '🌱 Importa ofertas desde Greenhouse con búsqueda por tecnología o contexto semántico.';
+    protected $description = '🌱 Importa ofertas desde Greenhouse con búsqueda por tecnología + contexto semántico.';
 
     protected $stats = [
         'mapped'   => 0,
@@ -25,37 +30,55 @@ class GreenhouseByTechnologiesCommand extends Command
   public function handle()
 {
     // ▶️ Iniciar RUN del scraper
-    $run = ScraperRunService::start(
-        $this->signature,
-        'Greenhouse',
-        'technologies'
-    );
+ $run = ScraperRunService::start(
+    $this->signature,
+    'Greenhouse',
+    'technologies'
+);
+
 
     try {
 
         $companies = $this->option('company');
 
         if (empty($companies)) {
-            $this->error("❌ Debes pasar empresas: --company=stripe --company=cloudflare");
+            $this->error("❌ Debes pasar empresas, ejemplo: --company=stripe --company=cloudflare");
             return;
         }
 
-        // 🔢 Contadores GLOBALES
+        // 🔢 Contadores GLOBALES del run
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // ✔ Solo tecnologías habilitadas + asociadas a carreras
-        $techs = Technology::with('context')
-            ->where('enabled', 1)
-            ->whereIn('technologies.id', function ($q) {
-                $q->select('course_technology.technology_id')
-                    ->from('course_technology')
-                    ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-            })
-            ->get();
 
-        $this->info("🔧 Importando desde Greenhouse para {$techs->count()} tecnologías…");
+        $lastTechnologyId = TechnologyMetric::where('source', 'Greenhouse')
+    ->orderByDesc('created_at')
+    ->value('technology_id');
+
+$baseQuery = Technology::where('enabled', 1)
+    ->whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+            ->from('course_technology')
+            ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+    })
+    ->orderBy('technologies.id');
+
+$technologiesQuery = clone $baseQuery;
+
+if ($lastTechnologyId) {
+    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+}
+
+$technologies = $technologiesQuery->get();
+
+if ($technologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $technologies = $baseQuery->get();
+}
+
+
+        $this->info("🌱 Importando desde Greenhouse para {$technologies->count()} tecnologías…");
 
         foreach ($companies as $companySlug) {
 
@@ -63,139 +86,139 @@ class GreenhouseByTechnologiesCommand extends Command
 
             $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
 
-            try {
-                $response = Http::timeout(20)->get($url);
+            $response = Http::timeout(20)->get($url);
 
-                if ($response->failed()) {
-                    $this->error("❌ No se pudo obtener datos de la empresa {$companySlug}");
-                    $totalSkippedAll++;
-                    continue;
-                }
+            if ($response->failed()) {
+                $this->error("❌ No se pudo obtener datos de: {$companySlug}");
+                $totalSkippedAll++;
+                continue;
+            }
 
-                $jobs = $response->json('jobs') ?? [];
-                $contentAvailable = $this->companyHasContent($jobs);
+            $jobs = $response->json('jobs') ?? [];
+            $contentAvailable = $this->companyHasContent($jobs);
 
-                foreach ($techs as $tech) {
+            $this->line($contentAvailable
+                ? "✔ Esta empresa SÍ expone descripción"
+                : "⚠ Solo título (sin descripción)");
 
-                    // ⚡ Patrón real de búsqueda
-                    $pattern = $this->getSearchPattern($tech);
-                    $escaped = preg_quote($pattern, '/');
-                    $regex   = "/{$escaped}/i";
+            foreach ($technologies as $tech) {
 
-                    $results = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
-                        $title   = $job['title'] ?? '';
-                        $content = $contentAvailable ? ($job['content'] ?? '') : '';
-                        return preg_match($regex, $title)
-                            || ($contentAvailable && preg_match($regex, $content));
-                    });
+                $pattern = $tech->name;
+                $escaped = preg_quote($pattern, '/');
+                $regex   = "/{$escaped}/i";
 
-                    $this->line("\n🔎 {$tech->name} (buscando: '{$pattern}') → " . count($results));
+                // 🔍 Filtrar vacantes por tecnología
+                $resultsForTech = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
 
-                    $new = [];
+                    $title   = $job['title'] ?? '';
+                    $content = $contentAvailable ? ($job['content'] ?? '') : '';
 
-                    foreach ($results as $job) {
+                    return preg_match($regex, $title)
+                        || ($contentAvailable && preg_match($regex, $content));
+                });
 
-                        $totalFoundAll++;
+                $this->line("\n🔎 {$tech->name} → " . count($resultsForTech));
 
-                        $content     = $contentAvailable ? ($job['content'] ?? '') : '';
-                        $title       = $job['title'] ?? 'N/A';
-                        $companyName = $job['company_name'] ?? ucfirst($companySlug);
+                $totalFoundAll += count($resultsForTech);
 
-                        // 📍 ubicación
-                        $loc = strtolower($job['location']['name'] ?? '');
+                $newForTech = 0;
 
-                        // 🧭 Modalidad (tu helper, sin tocar)
-                        $modality = $this->detectModality($loc, $content);
+                foreach ($resultsForTech as $job) {
 
-                        // 🌍 Ciudad + país
-                        $city        = $this->extractCity($loc);
-                        $countryCode = $this->extractCountryCodeOrNull($loc);
+                    $content     = $contentAvailable ? ($job['content'] ?? '') : '';
+                    $title       = $job['title'] ?? 'N/A';
+                    $companyName = $job['company_name'] ?? ucfirst($companySlug);
+                    $urlJob      = $job['absolute_url'] ?? null;
 
-                        if (!$countryCode) {
-                            $this->stats['skipped']++;
-                            $totalSkippedAll++;
-                            continue;
-                        }
+                    // Ubicación
+                    $loc = strtolower($job['location']['name'] ?? '');
 
-                        $countryFull = CountryNormalizer::normalize($countryCode);
-
-                        // 📍 Coordenadas reales
-                        [$cityClean, $lat, $lng] = $this->getCoords($city, $countryCode);
-
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        $externalId = $job['id'];
-
-                        // 🚫 Duplicado
-                        $existing = JobOffer::where('external_id', $externalId)
-                            ->where('source', 'Greenhouse')
-                            ->first();
-
-                        if ($existing) {
-                            $existing->technologies()
-                                ->syncWithoutDetaching([$tech->id]);
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        $region = RegionHelper::fromCountry($countryFull);
-
-                        // 💾 Crear oferta
-                        $offer = JobOffer::create([
-                            'title'        => $title,
-                            'company'      => $companyName,
-                            'country'      => $countryFull,
-                            'city'         => $cityClean,
-                            'latitude'     => $lat,
-                            'longitude'    => $lng,
-                            'modality'     => $modality,
-                            'requirements' => strip_tags($content),
-                            'source'       => 'Greenhouse',
-                            'external_id'  => $externalId,
-                            'url'          => $job['absolute_url'] ?? null,
-                            'search_query' => $pattern,
-                            'published_at' => $job['updated_at'] ?? now(),
-                            'region'       => $region,
-                        ]);
-
-                        $offer->technologies()
-                              ->syncWithoutDetaching([$tech->id]);
-
-                        $new[] = $externalId;
-                        $totalInsertedAll++;
+                    // País
+                    $countryCode = $this->extractCountryCodeOrNull($loc);
+                    if (!$countryCode) {
+                        $totalSkippedAll++;
+                        continue;
                     }
 
-                    // 📊 Métricas por tecnología
-                    TechnologyMetric::updateOrCreate(
-                        [
-                            'technology_id' => $tech->id,
-                            'run_date'      => now()->toDateString(),
-                            'source'        => 'Greenhouse'
-                        ],
-                        [
-                            'technology_name'    => $tech->name,
-                            'jobs_found_count'   => count($results),
-                            'jobs_new_count'     => count($new),
-                            'countries_breakdown'=> [],
-                            'modality_breakdown' => [],
-                        ]
-                    );
+                    $countryFull = CountryNormalizer::normalize($countryCode);
 
-                    $this->info("✔ {$tech->name}: " . count($new) . " nuevas");
+                    // Ciudad + coords
+                    $cityRaw = $this->extractCity($loc);
+                    [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
+
+                    if (!$lat || !$lng) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    // Modalidad
+                    $modality = $this->detectModality($loc, $content);
+
+                    $externalId = $job['id'];
+
+                    // Duplicado
+                    $existing = JobOffer::where('external_id', $externalId)
+                        ->where('source', 'Greenhouse')
+                        ->first();
+
+                    if ($existing) {
+                        $existing->technologies()->syncWithoutDetaching([$tech->id]);
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $region = RegionHelper::fromCountry($countryFull);
+
+                    // 💾 Crear oferta
+                    $offer = JobOffer::create([
+                        'title'             => $title,
+                        'company'           => $companyName,
+                        'country'           => $countryFull,
+                        'city'              => $cityClean,
+                        'latitude'          => $lat,
+                        'longitude'         => $lng,
+                        'modality'          => $modality,
+                        'experience_level'  => $this->extractExperience($content),
+                        'education_level'   => $this->extractEducation($content),
+                        'skills'            => $this->extractSkills($content),
+                        'certifications'    => $this->extractCertifications($content),
+                        'requirements'      => strip_tags($content),
+                        'source'            => 'Greenhouse',
+                        'external_id'       => $externalId,
+                        'url'               => $urlJob,
+                        'search_query'      => $tech->name,
+                        'published_at'      => $job['updated_at'] ?? now(),
+                        'region'            => $region,
+                    ]);
+
+                    $offer->technologies()->syncWithoutDetaching([$tech->id]);
+
+                    $newForTech++;
+                    $totalInsertedAll++;
                 }
 
-            } catch (\Throwable $e) {
-                $totalSkippedAll++;
-                Log::error("Greenhouse technologies error ({$companySlug}): " . $e->getMessage());
-                $this->error("⚠️ Error: " . $e->getMessage());
+                // 📊 Métrica diaria por tecnología
+                TechnologyMetric::updateOrCreate(
+                    [
+                        'technology_id' => $tech->id,
+                        'run_date'      => now()->toDateString(),
+                        'source'        => 'Greenhouse',
+                    ],
+                    [
+                        'technology_name'     => $tech->name,
+                        'jobs_found_count'    => count($resultsForTech),
+                        'jobs_new_count'      => $newForTech,
+                        'countries_breakdown' => [],
+                        'modality_breakdown'  => [],
+                        'updated_at'          => now(),
+                    ]
+                );
+
+                $this->info("✔ {$tech->name}: {$newForTech} nuevas");
             }
         }
 
-        // ✅ Finalizar RUN exitoso
+        // ✅ Finalizar RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -203,26 +226,28 @@ class GreenhouseByTechnologiesCommand extends Command
             $totalSkippedAll
         );
 
-        $this->newLine();
-        $this->info("🎯 Finalizado. Skipped: {$totalSkippedAll}");
+        $this->info("\n🎯 Greenhouse → Tecnologías finalizado correctamente.");
 
     } catch (\Throwable $e) {
-        // ❌ RUN fallido
+        // ❌ Fallo crítico
         ScraperRunService::failed($run, $e);
         throw $e;
     }
 }
 
 
-    // ==========================
-    // 🔥 UTILIDADES
-    // ==========================
 
-    protected function getSearchPattern($tech)
+    /* =======================================================
+     *                    HELPERS
+     * ======================================================= */
+
+    protected function getSearchPattern($language)
     {
-        return ($tech->context_id && $tech->context && $tech->context->search_context)
-            ? $tech->name . ' ' . $tech->context->search_context
-            : $tech->name;
+        if ($language->context_id && $language->context && $language->context->search_context) {
+            return $language->name . ' ' . $language->context->search_context;
+        }
+
+        return $language->name;
     }
 
     protected function companyHasContent(array $jobs): bool
@@ -246,24 +271,27 @@ class GreenhouseByTechnologiesCommand extends Command
         $lower = strtolower($loc);
 
         $map = [
-            'united states' => 'us', 'usa' => 'us', 'us' => 'us',
-            'canada' => 'ca',
-            'mexico' => 'mx',
-            'brazil' => 'br',
-            'spain' => 'es',
-            'france' => 'fr',
-            'germany' => 'de',
-            'italy' => 'it',
-            'argentina' => 'ar',
-            'chile' => 'cl',
-            'peru' => 'pe',
-            'colombia' => 'co',
-            'united kingdom' => 'gb', 'uk' => 'gb',
-            'ireland' => 'ie',
-            'australia' => 'au',
-            'new zealand' => 'nz',
-            'india' => 'in',
-            'singapore' => 'sg',
+            'united states' => 'us',
+            'usa'           => 'us',
+            'us'            => 'us',
+            'canada'        => 'ca',
+            'mexico'        => 'mx',
+            'brazil'        => 'br',
+            'spain'         => 'es',
+            'france'        => 'fr',
+            'germany'       => 'de',
+            'italy'         => 'it',
+            'argentina'     => 'ar',
+            'chile'         => 'cl',
+            'peru'          => 'pe',
+            'colombia'      => 'co',
+            'uk'            => 'gb',
+            'united kingdom'=> 'gb',
+            'ireland'       => 'ie',
+            'australia'     => 'au',
+            'new zealand'   => 'nz',
+            'india'         => 'in',
+            'singapore'     => 'sg',
         ];
 
         foreach ($map as $keyword => $code) {
@@ -277,18 +305,20 @@ class GreenhouseByTechnologiesCommand extends Command
 
     protected function getCoords($city, $code)
     {
-        if (!$city) return [null,null,null];
+        if (!$city) return [null, null, null];
 
         $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
             ->whereRaw('LOWER(iso2) = ?', [strtolower($code)])
             ->first();
 
-        return $found
-            ? [$found->city, $found->lat, $found->lng]
-            : [null,null,null];
+        if ($found) {
+            return [$found->city, $found->lat, $found->lng];
+        }
+
+        return [null, null, null];
     }
 
-  protected function detectModality(string $loc, string $desc): string
+   protected function detectModality(string $loc, string $desc): string
 {
     $t = strtolower($loc . ' ' . $desc);
 
@@ -320,4 +350,52 @@ class GreenhouseByTechnologiesCommand extends Command
     };
 }
 
+
+    protected function extractExperience($text)
+    {
+        $t = strtolower($text);
+
+        return match (true) {
+            str_contains($t, 'senior') => 'senior',
+            str_contains($t, 'mid')    => 'mid',
+            str_contains($t, 'junior') => 'junior',
+            default => null,
+        };
+    }
+
+    protected function extractEducation($text)
+    {
+        $t = strtolower($text);
+
+        return match (true) {
+            str_contains($t, 'bachelor') => 'bachelor',
+            str_contains($t, 'master')   => 'master',
+            str_contains($t, 'phd')      => 'phd',
+            default                      => null,
+        };
+    }
+
+    protected function extractSkills($text)
+    {
+        $t = strtolower($text);
+        $skills = [];
+
+        foreach (['python','java','php','laravel','react','vue','sql','docker','aws','git','node'] as $skill) {
+            if (str_contains($t, $skill)) $skills[] = strtoupper($skill);
+        }
+
+        return !empty($skills) ? implode(', ', $skills) : null;
+    }
+
+    protected function extractCertifications($text)
+    {
+        $t = strtolower($text);
+        $found = [];
+
+        foreach (['aws','azure','google cloud','scrum','pmp','ccna','itil'] as $cert) {
+            if (str_contains($t, $cert)) $found[] = strtoupper($cert);
+        }
+
+        return !empty($found) ? implode(', ', $found) : null;
+    }
 }

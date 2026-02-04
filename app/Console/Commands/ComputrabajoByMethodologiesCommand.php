@@ -51,13 +51,41 @@ class ComputrabajoByMethodologiesCommand extends Command
     $totalInsertedAll = 0;
     $totalSkippedAll  = 0;
 
-    $methodologies = Methodology::pluck('name', 'id');
+   $lastMethodologyId = MethodologyMetric::where('source', 'Computrabajo')
+    ->orderByDesc('created_at')
+    ->value('methodology_id');
+
+    $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+        $q->select('course_methodology.methodology_id')
+          ->from('course_methodology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+    })
+    ->orderBy('methodologies.id');
+
+$methodologiesQuery = clone $baseQuery;
+
+if ($lastMethodologyId) {
+    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+}
+
+$methodologies = $methodologiesQuery->get();
+
+if ($methodologies->isEmpty()) {
+    // 🔁 ciclo completo → volver al inicio
+    $methodologies = $baseQuery->get();
+}
+
+
+    
 
     $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
 
     try {
 
-        foreach ($methodologies as $methodId => $methodName) {
+       foreach ($methodologies as $methodology) {
+    $methodId   = $methodology->id;
+    $methodName = $methodology->name;
+
 
             $this->warn("\n💡 Metodología actual: {$methodName}");
 

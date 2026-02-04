@@ -76,13 +76,34 @@ public function handle()
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
 
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
-            $q->select('course_technology.technology_id')
-                ->from('course_technology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })
-        ->orderBy('id')
-        ->pluck('name', 'id');
+
+        $lastTechnologyId = TechnologyMetric::where('source', 'Adzuna')
+    ->orderByDesc('created_at')
+    ->value('technology_id');
+
+$baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+          ->from('course_technology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+    })
+    ->orderBy('technologies.id');
+$technologiesQuery = clone $baseQuery;
+
+if ($lastTechnologyId) {
+    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+}
+
+$technologies = $technologiesQuery->pluck('name', 'id');
+if ($technologies->isEmpty()) {
+    // 🔁 Ciclo completo → reinicia desde la primera tecnología
+    $technologies = $baseQuery->pluck('name', 'id');
+}
+
+
+
+
+
+
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
@@ -195,6 +216,21 @@ public function handle()
             }
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+            TechnologyMetric::updateOrCreate(
+    [
+        'technology_id' => $techId,
+        'run_date'      => now()->toDateString(),
+        'source'        => 'Adzuna',
+    ],
+    [
+        'technology_name'    => $techName,
+        'jobs_found_count'   => $totalFound,
+        'jobs_new_count'     => $totalNew,
+        'countries_breakdown' => $countries,
+        'modality_breakdown'  => $modalities,
+    ]
+);
+
         }
 
         /* =========================================

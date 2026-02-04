@@ -45,12 +45,28 @@ class JoobleByTechnologiesCommand extends Command
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
         $pages = (int) $this->option('pages');
 
-        // 🔹 Tecnologías con vínculo académico real
-        $technologies = Technology::whereIn('id', function ($q) {
-            $q->select('course_technology.technology_id')
-              ->from('course_technology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })->pluck('name', 'id');
+      $lastTechnologyId = TechnologyMetric::where('source', 'Jooble')
+    ->orderByDesc('created_at')
+    ->value('technology_id');
+$baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $q->select('course_technology.technology_id')
+          ->from('course_technology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+    })
+    ->orderBy('technologies.id');
+$technologiesQuery = clone $baseQuery;
+
+if ($lastTechnologyId) {
+    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+}
+
+$technologies = $technologiesQuery->get();
+if ($technologies->isEmpty()) {
+    $technologies = $baseQuery->get();
+}
+
+
+
 
         $this->info("💻 Jooble ({$joobleCountry}) → {$technologies->count()} tecnologías");
 
@@ -59,7 +75,10 @@ class JoobleByTechnologiesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        foreach ($technologies as $technologyId => $technologyName) {
+       foreach ($technologies as $technology) {
+    $technologyId   = $technology->id;
+    $technologyName = $technology->name;
+
 
             $this->warn("🧩 {$technologyName}");
 
@@ -68,11 +87,11 @@ class JoobleByTechnologiesCommand extends Command
 
             for ($page = 1; $page <= $pages; $page++) {
 
-                $payload = [
-                    'keywords' => $technologyName,
-                    'location' => $joobleCountry,
-                    'page'     => $page,
-                ];
+               $payload = [
+    'keywords' => $technologyName,
+    'location' => $joobleCountry,
+];
+
 
                 try {
                     $response = Http::timeout(25)

@@ -5,65 +5,93 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use App\Models\City;
+
 use App\Helpers\RegionHelper;
+use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
+
 class GreenhouseByMethodologiesCommand extends Command
 {
     protected $signature = 'greenhouse:methodologies {--company=*}';
-    protected $description = '🌱 Importa ofertas desde Greenhouse con búsqueda por metodología o contexto semántico.';
+    protected $description = '🌱 Importa ofertas desde Greenhouse con búsqueda por metodología + contexto semántico.';
 
-    protected $stats = [
-        'mapped'   => 0,
-        'skipped'  => 0,
-        'fallback' => 0,
-    ];
+    public function handle()
+    {
+        // ▶️ Iniciar RUN del scraper
+        $run = ScraperRunService::start(
+            $this->signature,
+            'Greenhouse',
+            'methodologies'
+        );
 
- public function handle()
-{
-    // ▶️ Iniciar RUN del scraper
-    $run = ScraperRunService::start(
-        $this->signature,
-        'Greenhouse',
-        'methodologies'
-    );
+        try {
 
-    try {
+            $companies = $this->option('company');
 
-        $companies = $this->option('company');
+            if (empty($companies)) {
+                $this->error("❌ Debes pasar empresas: --company=stripe --company=cloudflare");
+                return;
+            }
 
-        if (empty($companies)) {
-            $this->error("❌ Debes pasar empresas: --company=stripe --company=cloudflare");
-            return;
-        }
+            // 🔢 Contadores globales
+            $totalFoundAll    = 0;
+            $totalInsertedAll = 0;
+            $totalSkippedAll  = 0;
 
-        // 🔢 Contadores GLOBALES
-        $totalFoundAll    = 0;
-        $totalInsertedAll = 0;
-        $totalSkippedAll  = 0;
+            /*
+            |--------------------------------------------------------------------------
+            | 🔁 CURSOR CÍCLICO POR METODOLOGÍA
+            |--------------------------------------------------------------------------
+            */
+            $lastMethodologyId = MethodologyMetric::where('source', 'Greenhouse')
+                ->orderByDesc('created_at')
+                ->value('methodology_id');
 
-        // ✔ Solo metodologías activas + asociadas a carreras
-        $methods = Methodology::with('context')
-            ->where('enabled', 1)
-            ->whereIn('methodologies.id', function ($q) {
-                $q->select('course_methodology.methodology_id')
-                    ->from('course_methodology')
-                    ->join('career_course','career_course.course_id','=','course_methodology.course_id');
-            })
-            ->get();
+            $baseQuery = Methodology::with('context')
+                ->where('enabled', 1)
+                ->whereIn('methodologies.id', function ($q) {
+                    $q->select('course_methodology.methodology_id')
+                        ->from('course_methodology')
+                        ->join(
+                            'career_course',
+                            'career_course.course_id',
+                            '=',
+                            'course_methodology.course_id'
+                        );
+                })
+                ->orderBy('methodologies.id');
 
-        $this->info("🌱 Importando desde Greenhouse para {$methods->count()} metodologías…");
+            $methodsQuery = clone $baseQuery;
 
-        foreach ($companies as $companySlug) {
+            if ($lastMethodologyId) {
+                $methodsQuery->where('methodologies.id', '>', $lastMethodologyId);
+            }
 
-            $this->warn("\n🏢 Empresa: {$companySlug}");
+            $methods = $methodsQuery->get();
 
-            $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
+            if ($methods->isEmpty()) {
+                // 🔁 volver al inicio
+                $methods = $baseQuery->get();
+            }
 
-            try {
+            $this->info("🌱 Importando desde Greenhouse para {$methods->count()} metodologías…");
+
+            /*
+            |--------------------------------------------------------------------------
+            | 🏢 EMPRESAS
+            |--------------------------------------------------------------------------
+            */
+            foreach ($companies as $companySlug) {
+
+                $this->warn("\n🏢 Empresa: {$companySlug}");
+
+                $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
+
                 $response = Http::timeout(20)->get($url);
 
                 if ($response->failed()) {
@@ -75,14 +103,17 @@ class GreenhouseByMethodologiesCommand extends Command
                 $jobs = $response->json('jobs') ?? [];
                 $contentAvailable = $this->companyHasContent($jobs);
 
+                /*
+                |--------------------------------------------------------------------------
+                | 🔍 LOOP POR METODOLOGÍA
+                |--------------------------------------------------------------------------
+                */
                 foreach ($methods as $method) {
 
-                    // 🔥 Patrón real de búsqueda
                     $pattern = $this->getSearchPattern($method);
                     $escaped = preg_quote($pattern, '/');
                     $regex   = "/{$escaped}/i";
 
-                    // 🔎 Filtrar trabajos
                     $results = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
                         $title   = $job['title'] ?? '';
                         $content = $contentAvailable ? ($job['content'] ?? '') : '';
@@ -92,36 +123,30 @@ class GreenhouseByMethodologiesCommand extends Command
 
                     $this->line("\n🔎 {$method->name} (buscando: {$pattern}) → " . count($results));
 
-                    $new = [];
+                    $newForMethod = 0;
+                    $totalFoundAll += count($results);
 
                     foreach ($results as $job) {
-
-                        $totalFoundAll++;
 
                         $content     = $contentAvailable ? ($job['content'] ?? '') : '';
                         $title       = $job['title'] ?? 'N/A';
                         $companyName = $job['company_name'] ?? ucfirst($companySlug);
+                        $loc         = strtolower($job['location']['name'] ?? '');
 
-                        // 📍 ubicación cruda
-                        $loc = strtolower($job['location']['name'] ?? '');
-
-                        $city        = $this->extractCity($loc);
+                        // 🌍 País
                         $countryCode = $this->extractCountryCodeOrNull($loc);
-
-                        // ❌ sin país
                         if (!$countryCode) {
-                            $this->stats['skipped']++;
                             $totalSkippedAll++;
                             continue;
                         }
 
-                        $countryFull = \App\Helpers\CountryNormalizer::normalize($countryCode);
+                        $countryFull = CountryNormalizer::normalize($countryCode);
 
-                        // 🌍 Coordenadas
-                        [$cityClean, $lat, $lng] = $this->getCoords($city, $countryCode);
+                        // 🏙 Ciudad + coords
+                        $cityRaw = $this->extractCity($loc);
+                        [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
 
                         if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
                             $totalSkippedAll++;
                             continue;
                         }
@@ -132,8 +157,8 @@ class GreenhouseByMethodologiesCommand extends Command
                         $externalId = $job['id'];
 
                         // 🚫 Duplicado
-                        $existing = JobOffer::where('external_id',$externalId)
-                            ->where('source','Greenhouse')
+                        $existing = JobOffer::where('external_id', $externalId)
+                            ->where('source', 'Greenhouse')
                             ->first();
 
                         if ($existing) {
@@ -142,8 +167,6 @@ class GreenhouseByMethodologiesCommand extends Command
                             $totalSkippedAll++;
                             continue;
                         }
-
-                        $region = RegionHelper::fromCountry($countryFull);
 
                         // 💾 Crear oferta
                         $offer = JobOffer::create([
@@ -160,68 +183,59 @@ class GreenhouseByMethodologiesCommand extends Command
                             'url'          => $job['absolute_url'] ?? null,
                             'search_query' => $pattern,
                             'published_at' => $job['updated_at'] ?? now(),
-                            'region'       => $region,
+                            'region'       => RegionHelper::fromCountry($countryFull),
                         ]);
 
                         $offer->methodologies()
-                              ->syncWithoutDetaching([$method->id]);
+                            ->syncWithoutDetaching([$method->id]);
 
-                        $new[] = $externalId;
+                        $newForMethod++;
                         $totalInsertedAll++;
                     }
 
-                    // 📊 Métricas por metodología
+                    // 📊 Métrica diaria por metodología
                     MethodologyMetric::updateOrCreate(
                         [
                             'methodology_id' => $method->id,
                             'run_date'       => now()->toDateString(),
-                            'source'         => 'Greenhouse'
+                            'source'         => 'Greenhouse',
                         ],
                         [
-                            'methodology_name'   => $method->name,
-                            'jobs_found_count'   => count($results),
-                            'jobs_new_count'     => count($new),
+                            'methodology_name'    => $method->name,
+                            'jobs_found_count'    => count($results),
+                            'jobs_new_count'      => $newForMethod,
                             'countries_breakdown'=> [],
-                            'modality_breakdown' => [],
+                            'modality_breakdown'  => [],
+                            'updated_at'          => now(),
                         ]
                     );
 
-                    $this->info("✔ {$method->name}: " . count($new) . " nuevas");
+                    $this->info("✔ {$method->name}: {$newForMethod} nuevas");
                 }
-
-            } catch (\Throwable $e) {
-                $totalSkippedAll++;
-                Log::error("Greenhouse error ({$companySlug}): " . $e->getMessage());
-                $this->error("⚠️ Error: " . $e->getMessage());
             }
+
+            // ✅ RUN exitoso
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            $this->info("\n🎯 Greenhouse → Metodologías finalizado correctamente.");
+
+        } catch (\Throwable $e) {
+            ScraperRunService::failed($run, $e);
+            throw $e;
         }
-
-        // ✅ RUN exitoso
-        ScraperRunService::success(
-            $run,
-            $totalFoundAll,
-            $totalInsertedAll,
-            $totalSkippedAll
-        );
-
-        $this->newLine();
-        $this->info("🎯 Finalizado. Métodos procesados.");
-
-    } catch (\Throwable $e) {
-        // ❌ RUN fallido
-        ScraperRunService::failed($run, $e);
-        throw $e;
     }
-}
 
-
-    // =====================================================
-    // 🔥 UTILIDADES
-    // =====================================================
+    /* =====================================================
+     * HELPERS
+     * ===================================================== */
 
     protected function getSearchPattern($method)
     {
-        // Combinar metodología + contexto
         if ($method->context_id && $method->context && $method->context->search_context) {
             return $method->name . ' ' . $method->context->search_context;
         }
@@ -258,10 +272,8 @@ class GreenhouseByMethodologiesCommand extends Command
             'india'=>'in','singapore'=>'sg',
         ];
 
-        foreach ($map as $keyword => $code) {
-            if (str_contains($lower, $keyword)) {
-                return $code;
-            }
+        foreach ($map as $k => $code) {
+            if (str_contains($lower, $k)) return $code;
         }
 
         return null;
@@ -269,7 +281,7 @@ class GreenhouseByMethodologiesCommand extends Command
 
     protected function getCoords($city, $code)
     {
-        if (!$city) return [null,null,null];
+        if (!$city) return [null, null, null];
 
         $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
             ->whereRaw('LOWER(iso2) = ?', [strtolower($code)])
@@ -277,39 +289,30 @@ class GreenhouseByMethodologiesCommand extends Command
 
         return $found
             ? [$found->city, $found->lat, $found->lng]
-            : [null,null,null];
+            : [null, null, null];
     }
 
     protected function detectModality(string $loc, string $desc): string
-{
-    $t = strtolower($loc . ' ' . $desc);
+    {
+        $t = strtolower($loc . ' ' . $desc);
 
-    return match (true) {
+        return match (true) {
+            str_contains($t, 'remote'),
+            str_contains($t, 'work from home'),
+            str_contains($t, 'home office'),
+            str_contains($t, 'teletrabajo'),
+            str_contains($t, 'anywhere') => 'remote',
 
-        // 🌍 REMOTO
-        str_contains($t, 'remote'),
-        str_contains($t, 'work from home'),
-        str_contains($t, 'home office'),
-        str_contains($t, 'teletrabajo'),
-        str_contains($t, 'anywhere') => 'remote',
+            str_contains($t, 'hybrid'),
+            str_contains($t, 'híbrido'),
+            str_contains($t, 'mixto'),
+            str_contains($t, 'partial remote') => 'hybrid',
 
-        // 🏠 HÍBRIDO
-        str_contains($t, 'hybrid'),
-        str_contains($t, 'híbrido'),
-        str_contains($t, 'mixto'),
-        str_contains($t, 'partial remote') => 'hybrid',
+            str_contains($t, 'onsite'),
+            str_contains($t, 'office'),
+            str_contains($t, 'presencial') => 'presencial',
 
-        // 🏢 PRESENCIAL
-        str_contains($t, 'onsite'),
-        str_contains($t, 'on-site'),
-        str_contains($t, 'office'),
-        str_contains($t, 'presencial'),
-        str_contains($t, 'in office'),
-        str_contains($t, 'oficina') => 'presencial',
-
-        // ❓ NO PRECISA
-        default => 'no_precisa',
-    };
-}
-
+            default => 'no_precisa',
+        };
+    }
 }

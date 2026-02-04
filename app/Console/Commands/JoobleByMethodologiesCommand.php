@@ -46,11 +46,27 @@ class JoobleByMethodologiesCommand extends Command
         $pages = (int) $this->option('pages');
 
         // 🔹 Metodologías vinculadas a carreras
-        $methodologies = Methodology::whereIn('id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-              ->from('course_methodology')
-              ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+ $lastMethodologyId = MethodologyMetric::where('source', 'Jooble')
+    ->orderByDesc('created_at')
+    ->value('methodology_id');
+
+$baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+        $q->select('course_methodology.methodology_id')
+          ->from('course_methodology')
+          ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+    })
+    ->orderBy('methodologies.id');
+$methodologiesQuery = clone $baseQuery;
+
+if ($lastMethodologyId) {
+    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+}
+
+$methodologies = $methodologiesQuery->get();
+if ($methodologies->isEmpty()) {
+    $methodologies = $baseQuery->get();
+}
+
 
         $this->info("🧭 Jooble ({$joobleCountry}) → {$methodologies->count()} metodologías");
 
@@ -59,7 +75,10 @@ class JoobleByMethodologiesCommand extends Command
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        foreach ($methodologies as $methodologyId => $methodologyName) {
+        foreach ($methodologies as $methodology) {
+    $methodologyId   = $methodology->id;
+    $methodologyName = $methodology->name;
+
 
             $this->warn("🔎 {$methodologyName}");
 
@@ -68,15 +87,17 @@ class JoobleByMethodologiesCommand extends Command
 
             for ($page = 1; $page <= $pages; $page++) {
 
-                $payload = [
-                    'keywords' => $methodologyName,
-                    'location' => $joobleCountry,
-                    'page'     => $page,
-                ];
+             // Jooble NO pagina por page
+$payload = [
+    'keywords' => $methodologyName,
+    'location' => $joobleCountry,
+];
+
 
                 try {
                     $response = Http::timeout(25)
                         ->post("https://jooble.org/api/{$apiKey}", $payload);
+
 
                     if ($response->failed()) {
                         $totalSkippedAll++;

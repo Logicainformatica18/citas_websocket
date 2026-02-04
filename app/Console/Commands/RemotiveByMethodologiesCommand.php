@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
+use App\Services\ScraperRunService;
 
 class RemotiveByMethodologiesCommand extends Command
 {
@@ -19,168 +20,211 @@ class RemotiveByMethodologiesCommand extends Command
     protected $description = 'Importa ofertas desde Remotive por metodologías con geolocalización estricta.';
 
     protected $stats = [
-        'api_hits'  => 0,
-        'mapped'    => 0,
-        'skipped'   => 0,
+        'api_hits' => 0,
+        'mapped'   => 0,
+        'skipped'  => 0,
     ];
 
     public function handle()
     {
-        // SOLO metodologías usadas en carreras ISIL
-        $methodologies = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-                ->from('course_methodology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })->pluck('name', 'id');
+        // ▶️ INICIAR RUN
+        $run = ScraperRunService::start(
+            $this->signature,
+            'Remotive',
+            'methodologies'
+        );
 
-        $this->info("🌎 Importando desde Remotive para {$methodologies->count()} metodologías…");
+        try {
 
-        foreach ($methodologies as $methodologyId => $methodologyName) {
+            /* =====================================================
+               1️⃣ CURSOR – ÚLTIMA METODOLOGÍA
+            ===================================================== */
+            $lastMethodologyId = MethodologyMetric::where('source', 'Remotive')
+                ->orderByDesc('created_at')
+                ->value('methodology_id');
 
-            $this->warn("\n🔎 Procesando: {$methodologyName}");
+            /* =====================================================
+               2️⃣ QUERY BASE (ISIL)
+            ===================================================== */
+            $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+                    $q->select('course_methodology.methodology_id')
+                      ->from('course_methodology')
+                      ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+                })
+                ->orderBy('methodologies.id');
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $query = clone $baseQuery;
 
-            try {
-                $response = Http::timeout(20)
-                    ->get("https://remotive.com/api/remote-jobs", [
-                        'search' => $methodologyName
-                    ]);
+            if ($lastMethodologyId) {
+                $query->where('methodologies.id', '>', $lastMethodologyId);
+            }
 
-                if ($response->failed()) {
-                    $this->error("❌ Error API Remotive");
-                    continue;
-                }
+            $methodologies = $query->get();
 
-                $jobs = $response->json()['jobs'] ?? [];
-                $totalFound = count($jobs);
+            // 🔁 Reinicio automático
+            if ($methodologies->isEmpty()) {
+                $methodologies = $baseQuery->get();
+            }
 
-                foreach ($jobs as $job) {
+            $this->info("🌎 Remotive → procesando {$methodologies->count()} metodologías");
 
-                    $externalId = $job['id'] ?? null;
-                    $title      = $job['title'] ?? 'N/A';
-                    $company    = $job['company_name'] ?? null;
-                    $urlJob     = $job['url'] ?? null;
-                    $desc       = strtolower(strip_tags($job['description'] ?? ''));
+            /* =====================================================
+               3️⃣ CONTADORES GLOBALES
+            ===================================================== */
+            $totalFoundAll    = 0;
+            $totalInsertedAll = 0;
+            $totalSkippedAll  = 0;
 
-                    // -----------------------
-                    // MODALIDAD
-                    // -----------------------
-                    $modality = $this->detectModality($job);
-                    $isRemote = ($modality === 'remote');
+            foreach ($methodologies as $methodology) {
 
-                    // -----------------------
-                    // LOCATION
-                    // -----------------------
-                    $location = $job['candidate_required_location'] ?? 'Unknown';
-                    [$rawCity, $rawCountryRaw] = $this->extractLocation($location);
+                $methodologyId   = $methodology->id;
+                $methodologyName = $methodology->name;
 
-                    // normalizar país
-                    $country = RemotiveCountry::normalize($rawCountryRaw);
+                $this->warn("\n🔎 {$methodologyName}");
 
-                    // -----------------------
-                    // GEOLOCALIZACIÓN
-                    // -----------------------
-                    if ($isRemote) {
-                        $finalCity = "Remote";
-                        $lat = $lng = null;
-                    } else {
-                        [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
+                $totalFound = 0;
+                $totalNew   = 0;
 
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
-                            continue;
-                        }
-                    }
+                try {
+                    $response = Http::timeout(20)
+                        ->get('https://remotive.com/api/remote-jobs', [
+                            'search' => $methodologyName
+                        ]);
 
-                    // -----------------------
-                    // DUPLICADOS
-                    // -----------------------
-                    $existing = JobOffer::where('external_id', $externalId)
-                        ->where('source', 'Remotive')
-                        ->first();
+                    $this->stats['api_hits']++;
 
-                    if ($existing) {
-                        $existing->methodologies()->syncWithoutDetaching([$methodologyId]);
-                        $totalDuplicates++;
+                    if ($response->failed()) {
+                        $this->error("❌ Error API Remotive");
                         continue;
                     }
 
-                    // -----------------------
-                    // REGION
-                    // -----------------------
-                    $region = RegionMapper::resolve($country);
+                    $jobs = $response->json()['jobs'] ?? [];
+                    $totalFound = count($jobs);
+                    $totalFoundAll += $totalFound;
 
-                    // -----------------------
-                    // CREAR JOB
-                    // -----------------------
-                    $offer = JobOffer::create([
-                        'title'             => $title,
-                        'company'           => $company,
-                        'country'           => $country,
-                        'city'              => $finalCity,
-                        'latitude'          => $lat,
-                        'longitude'         => $lng,
-                        'modality'          => $modality,
-                        'salary_min'        => $this->extractMinSalary($job['salary'] ?? ''),
-                        'salary_max'        => $this->extractMaxSalary($job['salary'] ?? ''),
-                        'experience_level'  => $this->extractExperience($desc),
-                        'education_level'   => $this->extractEducation($desc),
-                        'certifications'    => $this->extractCertifications($desc),
-                        'skills'            => $this->extractSkills($desc),
-                        'requirements'      => $desc,
-                        'source'            => 'Remotive',
-                        'external_id'       => $externalId,
-                        'url'               => $urlJob,
-                        'search_query'      => $methodologyName,
-                          'published_at'      => isset($job['publication_date'])
+                    foreach ($jobs as $job) {
+
+                        $externalId = $job['id'] ?? null;
+
+                        // 🔁 DEDUPE
+                        $existing = JobOffer::where('external_id', $externalId)
+                            ->where('source', 'Remotive')
+                            ->first();
+
+                        if ($existing) {
+                            $existing->methodologies()->syncWithoutDetaching([$methodologyId]);
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $title   = $job['title'] ?? 'N/A';
+                        $company = $job['company_name'] ?? null;
+                        $urlJob  = $job['url'] ?? null;
+                        $desc    = strtolower(strip_tags($job['description'] ?? ''));
+
+                        /* =================================================
+                           MODALIDAD
+                        ================================================= */
+                        $modality = $this->detectModality($job);
+                        $isRemote = ($modality === 'remote');
+
+                        /* =================================================
+                           UBICACIÓN
+                        ================================================= */
+                        $location = $job['candidate_required_location'] ?? 'Unknown';
+                        [$rawCity, $rawCountry] = $this->extractLocation($location);
+                        $country = RemotiveCountry::normalize($rawCountry);
+
+                        if ($isRemote) {
+                            $finalCity = 'Remote';
+                            $lat = $lng = null;
+                        } else {
+                            [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
+                            if (!$lat || !$lng) {
+                                $totalSkippedAll++;
+                                continue;
+                            }
+                        }
+
+                        $region = RegionMapper::resolve($country);
+
+                        /* =================================================
+                           CREAR OFERTA
+                        ================================================= */
+                        $offer = JobOffer::create([
+                            'title'            => $title,
+                            'company'          => $company,
+                            'country'          => $country,
+                            'city'             => $finalCity,
+                            'latitude'         => $lat,
+                            'longitude'        => $lng,
+                            'modality'         => $modality,
+                            'salary_min'       => $this->extractMinSalary($job['salary'] ?? ''),
+                            'salary_max'       => $this->extractMaxSalary($job['salary'] ?? ''),
+                            'experience_level' => $this->extractExperience($desc),
+                            'education_level'  => $this->extractEducation($desc),
+                            'certifications'   => $this->extractCertifications($desc),
+                            'skills'           => $this->extractSkills($desc),
+                            'requirements'     => $desc,
+                            'source'           => 'Remotive',
+                            'external_id'      => $externalId,
+                            'url'              => $urlJob,
+                            'search_query'     => $methodologyName,
+                            'published_at'     => isset($job['publication_date'])
                                 ? Carbon::parse($job['publication_date'])
                                 : now(),
-                        'region'            => $region,
-                    ]);
+                            'region'           => $region,
+                        ]);
 
-                    $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
+                        $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
 
-                    $totalNew++;
+                        $totalNew++;
+                        $totalInsertedAll++;
+                    }
+
+                } catch (\Throwable $e) {
+                    Log::error("❌ Remotive {$methodologyName}: ".$e->getMessage());
                 }
 
-            } catch (\Throwable $e) {
-                Log::error("❌ Error Remotive {$methodologyName}: ".$e->getMessage());
+                /* =====================================================
+                   MÉTRICA DIARIA (UNA POR METODOLOGÍA)
+                ===================================================== */
+                MethodologyMetric::updateOrCreate(
+                    [
+                        'methodology_id' => $methodologyId,
+                        'run_date'       => now()->toDateString(),
+                        'source'         => 'Remotive',
+                    ],
+                    [
+                        'methodology_name' => $methodologyName,
+                        'jobs_found_count' => $totalFound,
+                        'jobs_new_count'   => $totalNew,
+                        'updated_at'       => now(),
+                    ]
+                );
+
+                $this->info("✔ {$methodologyName}: {$totalNew} nuevas / {$totalFound}");
             }
 
-            // -----------------------
-            // MÉTRICAS
-            // -----------------------
-            $today = now()->toDateString();
+            // ✅ RUN OK
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
 
-            if (!MethodologyMetric::where('methodology_id', $methodologyId)
-                    ->whereDate('run_date', $today)
-                    ->where('source', 'Remotive')
-                    ->exists())
-            {
-                MethodologyMetric::create([
-                    'methodology_id'     => $methodologyId,
-                    'methodology_name'   => $methodologyName,
-                    'jobs_found_count'   => $totalFound,
-                    'jobs_new_count'     => $totalNew,
-                    'run_date'           => $today,
-                    'source'             => 'Remotive',
-                ]);
-            }
+            $this->info("\n🟢 Remotive (metodologías) finalizado correctamente");
 
-            $this->info("✅ {$methodologyName}: {$totalNew} nuevas / {$totalFound} encontradas");
+        } catch (\Throwable $e) {
+            ScraperRunService::failed($run, $e);
+            throw $e;
         }
-
-        $this->line("\n🎯 COMPLETADO");
-        $this->line("🛰️ API hits: {$this->stats['api_hits']}");
-        $this->line("🗺️ Mapeadas: {$this->stats['mapped']}");
-        $this->line("⏭️ Skipped: {$this->stats['skipped']}");
     }
 
-
-    // ---------------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------------
+    /* =====================================================
+       HELPERS (SIN CAMBIOS)
+    ===================================================== */
 
     protected function extractLocation(string $txt): array
     {
@@ -199,8 +243,7 @@ class RemotiveByMethodologiesCommand extends Command
             return [null, null, null];
         }
 
-        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-            ->first();
+        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->first();
 
         if ($found) {
             $this->stats['mapped']++;
@@ -210,7 +253,7 @@ class RemotiveByMethodologiesCommand extends Command
         try {
             $res = Http::withHeaders(['User-Agent' => 'Observatorio/1.0'])
                 ->timeout(10)
-                ->get("https://nominatim.openstreetmap.org/search", [
+                ->get('https://nominatim.openstreetmap.org/search', [
                     'q' => "$city, $country",
                     'format' => 'json',
                     'limit' => 1,

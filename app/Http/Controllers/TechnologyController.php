@@ -24,7 +24,7 @@ class TechnologyController extends Controller
             ->when($search, fn ($q) =>
                 $q->where('name', 'like', "%{$search}%")
             )
-            ->orderBy('id', 'desc')
+            ->orderBy('name', 'asc')
             ->paginate(10)
             ->withQueryString();
 
@@ -66,7 +66,7 @@ class TechnologyController extends Controller
             ->when($search, fn ($q) =>
                 $q->where('name', 'like', "%{$search}%")
             )
-            ->orderBy('id', 'desc')
+            ->orderBy('name', 'asc')
             ->paginate(10)
             ->withQueryString();
 

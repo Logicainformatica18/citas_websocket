@@ -11,6 +11,7 @@ use App\Models\LanguageMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
+use App\Services\ScraperRunService;
 
 class RemoteOkByLanguagesCommand extends Command
 {
@@ -24,148 +25,165 @@ class RemoteOkByLanguagesCommand extends Command
     ];
 
     public function handle()
-    {
-        $languages = Language::whereIn('languages.id', function ($q) {
-            $q->select('course_language.language_id')
-                ->from('course_language')
-                ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-        })->pluck('name', 'id');
+{
+    // ▶️ INICIAR RUN
+    $run = \App\Services\ScraperRunService::start(
+        $this->signature,
+        'RemoteOK',
+        'languages'
+    );
 
-        $this->info("🚀 Iniciando importación desde RemoteOK (solo empleos 100% remotos) para {$languages->count()} lenguajes...");
+    try {
 
-        foreach ($languages as $languageId => $languageName) {
-            $this->warn("\n💡 Procesando lenguaje: {$languageName}");
+        // 🔹 Último lenguaje procesado (cursor)
+        $lastLanguageId = LanguageMetric::where('source', 'RemoteOK')
+            ->orderByDesc('created_at')
+            ->value('language_id');
+
+        // 🔹 Query base (solo lenguajes ISIL)
+        $baseQuery = Language::whereIn('languages.id', function ($q) {
+                $q->select('course_language.language_id')
+                  ->from('course_language')
+                  ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+            })
+            ->orderBy('languages.id');
+
+        $languagesQuery = clone $baseQuery;
+
+        if ($lastLanguageId) {
+            $languagesQuery->where('languages.id', '>', $lastLanguageId);
+        }
+
+        $languages = $languagesQuery->get();
+
+        // 🔁 Reinicio automático
+        if ($languages->isEmpty()) {
+            $languages = $baseQuery->get();
+        }
+
+        $this->info("🚀 RemoteOK → procesando {$languages->count()} lenguajes");
+
+        // 🔢 CONTADORES GLOBALES
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        // 📡 RemoteOK API (una sola llamada)
+        $response = Http::timeout(25)->get('https://remoteok.com/api');
+
+        if ($response->failed()) {
+            throw new \Exception('RemoteOK API no respondió');
+        }
+
+        $jobs = collect($response->json())
+            ->skip(1) // aviso legal
+            ->filter(fn ($j) => isset($j['position']));
+
+        foreach ($languages as $language) {
+
+            $languageId   = $language->id;
+            $languageName = $language->name;
+
+            $this->warn("\n🔎 {$languageName}");
 
             $totalFound = 0;
-            $totalNew = 0;
+            $totalNew   = 0;
 
-            try {
-                // 📡 Llamada a la API de RemoteOK
-                $response = Http::timeout(25)->get('https://remoteok.com/api');
-                if ($response->failed()) {
-                    $this->warn("❌ Falló la API para {$languageName}");
+            foreach ($jobs as $job) {
+
+                $title       = $job['position'] ?? '';
+                $tags        = $job['tags'] ?? [];
+                $text        = strtolower($title . ' ' . implode(' ', $tags));
+
+                // 🧠 Match por lenguaje
+                if (!str_contains($text, strtolower($languageName))) {
                     continue;
                 }
 
-                $jobs = collect($response->json())
-                    ->skip(1) // ignora aviso legal inicial
-                    ->filter(fn($j) => isset($j['position']));
+                $totalFound++;
+                $totalFoundAll++;
 
-                foreach ($jobs as $job) {
-                    $title = $job['position'] ?? 'N/A';
-                    $company = $job['company'] ?? null;
-                    $urlJob = $job['url'] ?? null;
-                    $externalId = $job['id'] ?? null;
-                    $tags = $job['tags'] ?? [];
-                    $locationRaw = trim($job['location'] ?? '');
+                $externalId = $job['id'] ?? null;
 
-                    // 🧠 Verificar si el título o tags mencionan el lenguaje
-                    $text = strtolower($title . ' ' . implode(' ', $tags));
-                    if (!str_contains($text, strtolower($languageName))) {
-                        continue;
-                    }
+                // 🔁 DEDUPE
+                if ($externalId && JobOffer::where('source', 'RemoteOK')
+                    ->where('external_id', $externalId)
+                    ->exists()) {
 
-                    // ⚙️ Filtrar solo ofertas realmente remotas
-                    $isRemote = str_contains(strtolower($locationRaw), 'remote')
-                        || str_contains(strtolower($locationRaw), 'anywhere')
-                        || str_contains(strtolower($locationRaw), 'worldwide')
-                        || str_contains(strtolower($locationRaw), 'global');
-
-                    if (!$isRemote) {
-                        continue;
-                    }
-
-                    $totalFound++;
-
-                    // 🔍 Evitar duplicados
-                    if ($externalId && JobOffer::where('source', 'RemoteOK')
-                        ->where('external_id', $externalId)
-                        ->exists()) {
-                        continue;
-                    }
-
-                    // ==========================
-                    // 🧹 Limpieza avanzada del campo "location"
-                    // ==========================
-                    $location = strtolower($locationRaw);
-                    $country = 'Remote';
-                    $region  = 'REMOTE';
-
-                    if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $location, $m)) {
-                        // Ej: "Remote - us", "Remote/greece"
-                        $country = CountryNormalizer::normalize(trim($m[1]));
-                    } elseif (preg_match('/(.+)\s*(or|,)?\s*remote$/i', $location, $m)) {
-                        // Ej: "Los angeles or remote"
-                        $country = CountryNormalizer::normalize(trim($m[1]));
-                    } elseif (preg_match('/remote\s+(europe|asia|latam|africa|north america)/i', $location, $m)) {
-                        // Ej: "Remote europe, remote asia"
-                        $country = ucfirst($m[1]);
-                    } elseif (preg_match('/mundial|global/i', $location)) {
-                        // Ej: "Mundial" o "Global remote"
-                        $country = 'Remote';
-                    }
-
-                    // 🗺️ Determinar región
-                    $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
-
-                    // ==========================
-                    // 💾 Insertar oferta
-                    // ==========================
-                    JobOffer::create([
-                        'title'        => $title,
-                        'company'      => $company,
-                        'country'      => $country,
-                        'region'       => $region,
-                        'city'         => null,
-                        'latitude'     => null,
-                        'longitude'    => null,
-                        'modality'     => 'remote',
-                        'source'       => 'RemoteOK',
-                        'search_query' => $languageName,
-                        'external_id'  => $externalId,
-                        'url'          => $urlJob,
-                        'published_at' => isset($job['date'])
-                            ? Carbon::parse($job['date'])
-                            : now(),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
-                    ]);
-
-                    $totalNew++;
+                    $totalSkippedAll++;
+                    continue;
                 }
 
-                // ==========================
-                // 📊 Registrar métricas
-                // ==========================
-                if ($totalFound > 0) {
-                    LanguageMetric::updateOrCreate(
-                        [
-                            'language_id' => $languageId,
-                            'run_date'    => Carbon::today(),
-                            'source'      => 'RemoteOK',
-                        ],
-                        [
-                            'language_name'       => $languageName,
-                            'jobs_found_count'    => $totalFound,
-                            'jobs_new_count'      => $totalNew,
-                            'countries_breakdown' => ['remote' => $totalFound],
-                            'modality_breakdown'  => ['remote' => $totalFound],
-                            'updated_at'          => now(),
-                        ]
-                    );
+                // 🧭 MODALIDAD (RemoteOK = remote)
+                $modality = 'remote';
 
-                    $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} remotas detectadas");
-                } else {
-                    $this->warn("⚠️ No se encontraron empleos remotos válidos para {$languageName}");
+                // 🌍 COUNTRY / REGION (limpieza simple)
+                $locationRaw = strtolower(trim($job['location'] ?? ''));
+                $country = 'Remote';
+
+                if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $locationRaw, $m)) {
+                    $country = CountryNormalizer::normalize(trim($m[1]));
                 }
 
-                sleep(1.2);
-            } catch (\Throwable $th) {
-                Log::error("⚠️ Error procesando {$languageName}: " . $th->getMessage());
-                $this->error("❌ {$languageName}: " . $th->getMessage());
+                $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
+
+                // 💾 CREAR OFERTA
+                JobOffer::create([
+                    'title'        => $title ?: 'N/A',
+                    'company'      => $job['company'] ?? null,
+                    'country'      => $country,
+                    'region'       => $region,
+                    'city'         => null,
+                    'latitude'     => null,
+                    'longitude'    => null,
+                    'modality'     => $modality,
+                    'source'       => 'RemoteOK',
+                    'search_query' => $languageName,
+                    'external_id'  => $externalId,
+                    'url'          => $job['url'] ?? null,
+                    'published_at' => isset($job['date'])
+                        ? Carbon::parse($job['date'])
+                        : now(),
+                ]);
+
+                $totalNew++;
+                $totalInsertedAll++;
             }
+
+            // 📊 MÉTRICA DIARIA (UNA POR LENGUAJE)
+            LanguageMetric::updateOrCreate(
+                [
+                    'language_id' => $languageId,
+                    'run_date'    => now()->toDateString(),
+                    'source'      => 'RemoteOK',
+                ],
+                [
+                    'language_name'    => $languageName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count'   => $totalNew,
+                    'updated_at'       => now(),
+                ]
+            );
+
+            $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        $this->info("\n🎯 Finalizado: métricas guardadas solo con empleos 100 % remotos y países limpios.");
+        // ✅ RUN OK
+        \App\Services\ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🟢 RemoteOK finalizado correctamente");
+
+    } catch (\Throwable $e) {
+
+        // ❌ RUN FAILED
+        \App\Services\ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 }
