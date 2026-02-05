@@ -81,7 +81,7 @@ export function MacroTrendsHeader({ meta }: HeaderProps) {
                      <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
   Identifica macro-tendencias tecnológicas mediante la frecuencia de términos
   en ofertas laborales y reportes internacionales, considerando únicamente
-  aquellos presentes en ambas fuentes. 
+  aquellos presentes en ambas fuentes.
 </p>
 
 
@@ -126,7 +126,7 @@ export function MacroTrendsHeader({ meta }: HeaderProps) {
           focus:outline-none
         "
                                     >
-                                        {[2024, 2025, 2026].map((y) => (
+                                        {[ 2025, 2026].map((y) => (
                                             <option key={y} value={y}>
                                                 {y}
                                             </option>

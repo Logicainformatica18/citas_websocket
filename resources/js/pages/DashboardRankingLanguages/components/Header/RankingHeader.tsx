@@ -92,7 +92,7 @@ export function Header({ meta, weights, onEditWeights }: HeaderProps) {
                     onChange={(e) => onChange({ year: Number(e.target.value) })}
                     className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold shadow-sm"
                   >
-                    {[2024, 2025, 2026].map((y) => (
+                    {[ 2025, 2026].map((y) => (
                       <option key={y} value={y}>
                         {y}
                       </option>

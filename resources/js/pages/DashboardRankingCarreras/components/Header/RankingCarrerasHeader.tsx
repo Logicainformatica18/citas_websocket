@@ -118,7 +118,7 @@ export function RankingCarrerasHeader({ meta }: HeaderProps) {
                                         onChange={(e) => onChange({ year: Number(e.target.value) })}
                                         className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none dark:text-slate-100"
                                     >
-                                        {[2024, 2025, 2026].map((y) => (
+                                        {[ 2025, 2026].map((y) => (
                                             <option key={y} value={y}>
                                                 {y}
                                             </option>

@@ -70,8 +70,8 @@ export function SeniorityHeader({ meta }: HeaderProps) {
     };
 
     return (
-       
-        
+
+
         <header
             className="
         relative
@@ -139,7 +139,7 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                                         onChange={(e) => onChange({ year: Number(e.target.value) })}
                                         className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
                                     >
-                                        {[2024, 2025, 2026].map((y) => (
+                                        {[ 2025, 2026].map((y) => (
                                             <option key={y} value={y}>
                                                 {y}
                                             </option>
@@ -186,7 +186,7 @@ export function SeniorityHeader({ meta }: HeaderProps) {
 
                             {/* Badges */}
                             <div className="flex flex-wrap items-center gap-3">
-                               
+
 
                                 <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
                                     <Database className="h-3 w-3 text-[#00B6E8]" />
@@ -303,9 +303,9 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                 </div>
             </div>
         </header>
-        
-       
 
- 
+
+
+
     );
 }

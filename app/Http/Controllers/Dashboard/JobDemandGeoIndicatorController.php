@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Services\JobMarketStatusBuilder;
 
 class JobDemandGeoIndicatorController extends Controller
 {
@@ -151,6 +152,12 @@ $ranking->getCollection()->transform(function ($row) use ($totalJobs) {
             'top5_concentration' => $top5Concentration,
         ];
 
+        $jobMarketStatus = JobMarketStatusBuilder::build([
+    'mode'   => 'market',   // 🔥 indicador transversal
+    'year'   => $year,
+    'period' => $period,
+]);
+
         /* =====================================================
            7️⃣ Response Inertia
         ===================================================== */
@@ -164,6 +171,7 @@ $ranking->getCollection()->transform(function ($row) use ($totalJobs) {
                 'country' => $country,
             ],
             'regions' => $regions,
+            'jobMarketStatus' => $jobMarketStatus,
         ]);
     }
 

@@ -1,0 +1,268 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Database,
+  Calendar,
+  Activity,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  CalendarClock,
+  HelpCircle,
+} from "lucide-react";
+
+/* =====================================================
+   Props
+===================================================== */
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  data?: any;           // JobMarketStatusBuilder
+  scrapingStatus?: any; // ScrapingStatusService (rankings)
+}
+
+/* =====================================================
+   Component
+===================================================== */
+export function JobMarketStatusModal({
+  open,
+  onOpenChange,
+  data,
+  scrapingStatus,
+}: Props) {
+  if (!open) return null;
+
+  const global = data?.global;
+  const period = data?.period;
+
+  /**
+   * 🔥 FUENTE UNIFICADA DE ESTADO
+   * - Rankings → scrapingStatus
+   * - Indicadores → data.scraping
+   */
+  const systemStatus = scrapingStatus ?? data?.scraping ?? null;
+
+  /* =====================================================
+     ESTADO DEL SISTEMA
+  ===================================================== */
+
+  const StatusIcon = () => {
+    if (!systemStatus) return null;
+    if (systemStatus.is_running)
+      return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+    if (systemStatus.is_failed)
+      return <AlertTriangle className="h-4 w-4 text-red-500" />;
+    return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+  };
+
+  const StatusLabel = () => {
+    if (!systemStatus) return "Sin información";
+    if (systemStatus.is_running) return "Actualización en ejecución";
+    if (systemStatus.is_failed) return "Última actualización fallida";
+    return "Sistema actualizado";
+  };
+
+  const SourceBadge = () => {
+    if (!systemStatus?.source) return null;
+    return (
+      <Badge className="bg-[#E6F7FD] text-[#005F7A]">
+        Fuente: {systemStatus.source}
+      </Badge>
+    );
+  };
+
+  /* =====================================================
+     TOOLTIP HELP
+  ===================================================== */
+
+  const Help = ({ text }: { text: string }) => (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-help">
+            <HelpCircle className="h-4 w-4 text-slate-400 hover:text-[#00B6E8]" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-xs text-xs leading-relaxed"
+        >
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
+  /* =====================================================
+     CARD ITEM
+  ===================================================== */
+
+  const Item = ({
+    icon: Icon,
+    label,
+    value,
+    hint,
+    help,
+  }: {
+    icon: any;
+    label: string;
+    value: string | number;
+    hint?: string;
+    help?: string;
+  }) => (
+    <div className="flex gap-3 rounded-xl border bg-[#F8FCFE] p-4 dark:bg-[#0F2A3A]">
+      <Icon className="mt-1 h-4 w-4 text-[#00B6E8]" />
+
+      <div className="flex-1 space-y-0.5">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
+            {label}
+          </p>
+          {help && <Help text={help} />}
+        </div>
+
+        <p className="text-sm font-bold text-[#0A2540] dark:text-slate-100">
+          {value}
+        </p>
+
+        {hint && (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            {hint}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  /* =====================================================
+     RENDER
+  ===================================================== */
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl p-0">
+        {/* ================= HEADER ================= */}
+        <DialogHeader className="border-b px-6 py-4">
+          <DialogTitle className="flex items-center gap-3">
+            <Database className="h-5 w-5 text-[#00B6E8]" />
+            Estado del mercado laboral
+          </DialogTitle>
+
+          {systemStatus && (
+            <div className="mt-2 flex items-center gap-3 rounded-lg bg-slate-50 px-4 py-2 dark:bg-slate-900">
+              <StatusIcon />
+              <span className="text-sm font-medium">{StatusLabel()}</span>
+
+              {systemStatus.updated_human && (
+                <span className="text-xs text-slate-500">
+                  · Actualizado {systemStatus.updated_human}
+                </span>
+              )}
+            </div>
+          )}
+        </DialogHeader>
+
+        {/* ================= BODY ================= */}
+        <div className="px-6 py-6 space-y-8">
+
+          {/* ÚLTIMA ACTUALIZACIÓN */}
+          {systemStatus?.updated_at && (
+            <div className="rounded-xl border bg-[#F8FCFE] p-5 dark:bg-[#0F2A3A] space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#00B6E8]" />
+                <p className="text-sm font-semibold text-[#005F7A]">
+                  Última actualización del mercado
+                </p>
+                <Help text="Fecha y hora de la última actualización de datos del mercado laboral, independientemente del indicador." />
+              </div>
+
+              <p className="text-lg font-bold text-[#0A2540] dark:text-slate-100">
+                {systemStatus.updated_at}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <SourceBadge />
+              </div>
+            </div>
+          )}
+
+          {/* MÉTRICAS GLOBALES */}
+          <div className="space-y-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#00B6E8]">
+              Métricas globales
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Item
+                icon={Database}
+                label="Total histórico de ofertas"
+                value={global?.offers_total?.toLocaleString() ?? "—"}
+                hint={
+                  global?.history_age
+                    ? `Histórico de ${global.history_age}`
+                    : undefined
+                }
+                help="Cantidad total de ofertas laborales recolectadas históricamente por el sistema."
+              />
+
+              <Item
+                icon={CalendarClock}
+                label="Nuevas ofertas este mes"
+                value={
+                  global?.offers_new_month
+                    ? `+${global.offers_new_month.toLocaleString()}`
+                    : "—"
+                }
+                help="Número de ofertas nuevas incorporadas desde el inicio del mes actual."
+              />
+            </div>
+          </div>
+
+          {/* PERÍODO */}
+          {period && (
+            <div className="space-y-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#00B6E8]">
+                Período analizado
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Item
+                  icon={Activity}
+                  label="Ofertas analizadas"
+                  value={period.offers_analysed.toLocaleString()}
+                  hint={`${period.date_range.from} → ${period.date_range.to}`}
+                  help="Cantidad de ofertas laborales consideradas dentro del período seleccionado."
+                />
+
+                <Item
+                  icon={TrendingUp}
+                  label="Promedio diario"
+                  value={`${Math.round(period.avg_per_day).toLocaleString()} ofertas/día`}
+                  hint={`${period.days_covered} días cubiertos`}
+                  help="Promedio de ofertas publicadas por día dentro del período analizado."
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ================= FOOTER ================= */}
+        <div className="border-t px-6 py-3 text-xs text-slate-500 dark:text-slate-400">
+          Datos del mercado laboral y estado operativo del sistema.
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

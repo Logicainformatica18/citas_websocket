@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use App\Services\JobMarketStatusBuilder;
+
 
 class CompanyIndicatorController extends Controller
 {
@@ -148,27 +150,35 @@ class CompanyIndicatorController extends Controller
     'concentracion_top_3'    => $concentracionTop3,
 ];
 
+$jobMarketStatus = JobMarketStatusBuilder::build([
+    'mode'   => 'market',   // 🔥 indicador transversal
+    'year'   => $year,
+    'period' => $period,
+]);
 
         /* =========================================
            7️⃣ Response Inertia
         ========================================= */
-        return Inertia::render(
-            'DashboardCompanies/Index',
-            [
-                'ranking' => $companies,
-                'meta'    => $meta,
-                'filters' => [
-                    'year'    => $year,
-                    'period'  => $period,
-                    'region'  => $region,
-                    'country' => $country,
-                    'perPage' => $perPage,
-                ],
-                'regions' => $regions,
-            ]
-        );
-    }
+      return Inertia::render(
+    'DashboardCompanies/Index',
+    [
+        'ranking' => $companies,
+        'meta'    => $meta,
 
+        // 🔥 MISMO CONTRATO QUE SENIORITY / RANKINGS
+        'jobMarketStatus' => $jobMarketStatus,
+
+        'filters' => [
+            'year'    => $year,
+            'period'  => $period,
+            'region'  => $region,
+            'country' => $country,
+            'perPage' => $perPage,
+        ],
+        'regions' => $regions,
+    ]
+);
+}
     /* =====================================================
        2️⃣ Buscador incremental de países (respeta región)
     ===================================================== */

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Services\JobMarketStatusBuilder;
 
 class JobModalityIndicatorController extends Controller
 {
@@ -87,22 +88,22 @@ class JobModalityIndicatorController extends Controller
                 MONTH(published_at) AS month_num,
 
                 ROUND(
-                    SUM(modality IN ('remote','fully_remote','remote_local')) 
+                    SUM(modality IN ('remote','fully_remote','remote_local'))
                     / COUNT(*) * 100,
                 1) AS remoto,
 
                 ROUND(
-                    SUM(modality = 'hybrid') 
+                    SUM(modality = 'hybrid')
                     / COUNT(*) * 100,
                 1) AS hibrido,
 
                 ROUND(
-                    SUM(modality = 'no_remote') 
+                    SUM(modality = 'no_remote')
                     / COUNT(*) * 100,
                 1) AS presencial,
 
                 ROUND(
-                    SUM(modality = 'no_precisa' OR modality IS NULL) 
+                    SUM(modality = 'no_precisa' OR modality IS NULL)
                     / COUNT(*) * 100,
                 1) AS no_precisa
             ")
@@ -118,20 +119,29 @@ class JobModalityIndicatorController extends Controller
                 'no_precisa'  => (float) $row->no_precisa,
             ]);
 
-        return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
-            'data'      => $data,
-            'trendData' => $trendData,
-            'filters'   => $filters,
-            'meta'      => [
-                'year'   => $year,
-                'period' => $period,
-                'periodo_label' => $period === 's1'
-                    ? "Semestre 1 – Enero a Junio {$year}"
-                    : "Semestre 2 – Julio a Diciembre {$year}",
-                'total_vacantes' => $totalVacantes,
-            ],
-        ]);
-    }
+            $jobMarketStatus = JobMarketStatusBuilder::build([
+    'mode'   => 'market',
+    'year'   => $year,
+    'period' => $period,
+]);
+
+return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
+    'data'      => $data,
+    'trendData' => $trendData,
+    'filters'   => $filters,
+    'meta'      => [
+        'year'   => $year,
+        'period' => $period,
+        'periodo_label' => $period === 's1'
+            ? "Semestre 1 – Enero a Junio {$year}"
+            : "Semestre 2 – Julio a Diciembre {$year}",
+        'total_vacantes' => $totalVacantes,
+    ],
+
+    // 🔥 CLAVE (MISMO NOMBRE, MISMA ESTRUCTURA)
+    'jobMarketStatus' => $jobMarketStatus,
+]);
+}
 
     /* =====================================================
        AUTOCOMPLETADOS
