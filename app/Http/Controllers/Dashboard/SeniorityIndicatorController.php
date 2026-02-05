@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use App\Services\JobMarketStatusBuilder;
+
 
 class SeniorityIndicatorController extends Controller
 {
@@ -51,6 +53,15 @@ class SeniorityIndicatorController extends Controller
             ->orderBy('name')
             ->get(['id','name','slug']);
 
+
+$jobMarketStatus = JobMarketStatusBuilder::build([
+    'mode'   => 'market', // ✅ AHORA SÍ
+    'year'   => $year,
+    'period' => $period,
+]);
+
+
+
         return Inertia::render('DashboardSeniority/Index', [
             'filters' => [
                 'year'   => $year,
@@ -67,6 +78,8 @@ class SeniorityIndicatorController extends Controller
                         : "Semestre 2 – Julio a Diciembre {$year}",
                 'vacantes_analizadas' => $vacantesAnalizadas,
             ],
+                // 🔥 MISMO NOMBRE, MISMA FORMA
+    'jobMarketStatus' => $jobMarketStatus,
         ]);
     }
 

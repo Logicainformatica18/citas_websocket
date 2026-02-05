@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
+use App\Services\ScrapingStatusService;
+use App\Http\Controllers\Dashboard\JobMarketStatusController;
+
 
 class RankingLenguajesController extends Controller
 {
@@ -49,6 +52,12 @@ class RankingLenguajesController extends Controller
     ================================================== */
 public function index(Request $request)
 {
+/* ==================================================
+   ESTADO DE RECOLECCIÓN DE DATOS – LENGUAJES
+================================================== */
+
+$scrapingStatus = ScrapingStatusService::getByEntity('languages');
+
     /* ================= PARÁMETROS BASE ================= */
     $year    = (int) $request->get('year', 2026);
     $period  = $request->get('period', 's1');
@@ -252,6 +261,10 @@ public function index(Request $request)
                 'ranking_type' => $rankingType,
             ],
             'availableCareers' => $availableCareers,
+            'scrapingStatus' => $scrapingStatus,
+            'jobMarketStatus' => JobMarketStatusController::get($year, $period),
+
+
             'weights' => [
                 'laborWeight' => round($laborWeight * 100, 1),
                 'trendWeight' => round($trendWeight * 100, 1),

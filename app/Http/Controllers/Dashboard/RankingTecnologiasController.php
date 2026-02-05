@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
+use App\Services\ScrapingStatusService;
+use App\Http\Controllers\Dashboard\JobMarketStatusController;
+
 
 class RankingTecnologiasController extends Controller
 {
@@ -50,6 +53,13 @@ class RankingTecnologiasController extends Controller
     ================================================== */
    public function index(Request $request)
 {
+
+/* ==================================================
+   ESTADO DE RECOLECCIÓN DE DATOS – TECNOLOGÍAS
+================================================== */
+
+$scrapingStatus = ScrapingStatusService::getByEntity('technologies');
+
     /* ==================================================
        0. Parámetros base
     ================================================== */
@@ -382,6 +392,8 @@ if ($rankingType === 'trend' && $request->filled('trend_category')) {
             'availableCategories' => $availableCategories,
             'availableCareers'    => $availableCareers,
             'availableTrendCategories' => $availableTrendCategories,
+            'scrapingStatus' => $scrapingStatus,
+            'jobMarketStatus' => JobMarketStatusController::get($year, $period),
 
             'weights' => [
                 'laborWeight'  => round($laborWeight * 100, 1),

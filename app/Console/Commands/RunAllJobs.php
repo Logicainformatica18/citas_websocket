@@ -33,7 +33,7 @@ class RunAllJobs extends Command
 // 'computrabajo:technologies --country=ve --pages=1',
 // 'computrabajo:technologies --country=cl --pages=1',
 
-  'computrabajo:languages --pages=1',
+//  'computrabajo:languages --pages=1',
 // 'computrabajo:methodologies --pages=1',
 
 
@@ -184,19 +184,19 @@ class RunAllJobs extends Command
 // 'computrabajo:technologies --country=ve --pages=1',
 // 'computrabajo:technologies --country=cl --pages=1',
 
-//  'adzuna:certifications --country=us --pages=1',
-//  'adzuna:certifications --country=ca --pages=1',
-//  'adzuna:certifications --country=mx --pages=1',
-//  'adzuna:certifications --country=br --pages=1',
+ 'adzuna:certifications --country=us --pages=1',
+ 'adzuna:certifications --country=ca --pages=1',
+ 'adzuna:certifications --country=mx --pages=1',
+ 'adzuna:certifications --country=br --pages=1',
 
-//  'adzuna:certifications --country=es --pages=1',
-//  'adzuna:certifications --country=fr --pages=1',
-//  'adzuna:certifications --country=de --pages=1',
-//  'adzuna:certifications --country=it --pages=1',
-//  'adzuna:certifications --country=gb --pages=1',
-//  'adzuna:certifications --country=nl --pages=1',
-//  'adzuna:certifications --country=ch --pages=1',
-//  'adzuna:certifications --country=pl --pages=1',
+ 'adzuna:certifications --country=es --pages=1',
+ 'adzuna:certifications --country=fr --pages=1',
+ 'adzuna:certifications --country=de --pages=1',
+ 'adzuna:certifications --country=it --pages=1',
+ 'adzuna:certifications --country=gb --pages=1',
+ 'adzuna:certifications --country=nl --pages=1',
+ 'adzuna:certifications --country=ch --pages=1',
+ 'adzuna:certifications --country=pl --pages=1',
 
 //  'adzuna:certifications --country=in --pages=1',
 //  'adzuna:certifications --country=sg --pages=1',

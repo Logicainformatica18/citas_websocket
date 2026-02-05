@@ -71,10 +71,13 @@ class JobMarketStatusController
                     'to'   => $periodEnd->toDateString(),
                 ],
                 'offers_analysed' => $offersInPeriod,
-                'days_covered' => $daysCovered,
-                'avg_per_day' => $daysCovered > 0
-                    ? round($offersInPeriod / $daysCovered, 2)
-                    : 0,
+               'days_covered' => (int) round($daysCovered),
+ 
+
+               'avg_per_day' => $daysCovered > 0
+    ? (int) round($offersInPeriod / $daysCovered)
+    : 0,
+
             ];
         }
 

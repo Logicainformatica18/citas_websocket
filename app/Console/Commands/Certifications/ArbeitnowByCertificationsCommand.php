@@ -11,6 +11,7 @@ use App\Models\CertificationMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 class ArbeitnowByCertificationsCommand extends Command
 {
@@ -21,8 +22,8 @@ class ArbeitnowByCertificationsCommand extends Command
     protected $stats = [
         'api_hits' => 0,
         'fallback' => 0,
-        'mapped'   => 0,
-        'skipped'  => 0,
+        'mapped' => 0,
+        'skipped' => 0,
     ];
 
     protected $capitalMap = [
@@ -40,21 +41,59 @@ class ArbeitnowByCertificationsCommand extends Command
 
     public function handle()
     {
-        $certifications = Certification::where('enabled', 1)
-            ->pluck('name', 'id');
+        $run = ScraperRunService::start(
+            $this->signature,
+            'Arbeitnow',
+            'certifications'
+        );
 
-        $this->info("🏅 Iniciando Arbeitnow para {$certifications->count()} certificaciones");
+        $totalFoundAll = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll = 0;
 
-        foreach ($certifications as $certId => $certName) {
-            $this->warn("\n💡 Procesando certificación: {$certName}");
+        try {
 
-            $totalFound = 0;
-            $totalNew  = 0;
-            $countries = [];
-            $modalities = [];
+            /* =====================================================
+               🔁 BASE QUERY
+            ===================================================== */
+            $baseQuery = Certification::where('enabled', 1)
+                ->orderBy('id');
 
-            try {
-                // 🔎 Búsqueda directa
+            /* =====================================================
+               ▶️ REANUDAR DESDE ÚLTIMA CERTIFICACIÓN
+            ===================================================== */
+            $lastCertificationId = CertificationMetric::where('source', 'Arbeitnow')
+                ->orderByDesc('created_at')
+                ->value('certification_id');
+
+            $certificationsQuery = clone $baseQuery;
+
+            if ($lastCertificationId) {
+                $certificationsQuery->where('id', '>', $lastCertificationId);
+            }
+
+            $certifications = $certificationsQuery->pluck('name', 'id');
+
+            if ($certifications->isEmpty()) {
+                // 🔁 ciclo completo → reiniciar
+                $certifications = $baseQuery->pluck('name', 'id');
+            }
+
+            $this->info("🏅 Iniciando Arbeitnow para {$certifications->count()} certificaciones");
+
+            foreach ($certifications as $certId => $certName) {
+
+                $this->warn("\n💡 Certificación: {$certName}");
+
+                $totalFound = 0;
+                $totalNew = 0;
+
+                $countries = [];
+                $modalities = [];
+
+                /* =====================================================
+                   🔎 BÚSQUEDA PRINCIPAL
+                ===================================================== */
                 $response = Http::timeout(25)->get(
                     'https://www.arbeitnow.com/api/job-board-api',
                     ['search' => $certName]
@@ -62,7 +101,9 @@ class ArbeitnowByCertificationsCommand extends Command
 
                 $jobs = $response->json('data') ?? [];
 
-                // 🔁 Fallback: búsqueda global + filtro texto
+                /* =====================================================
+                   🔁 FALLBACK GLOBAL + FILTRO TEXTO
+                ===================================================== */
                 if (count($jobs) === 0) {
                     $fallback = Http::timeout(25)->get(
                         'https://www.arbeitnow.com/api/job-board-api'
@@ -70,13 +111,10 @@ class ArbeitnowByCertificationsCommand extends Command
 
                     $jobs = collect($fallback->json('data') ?? [])
                         ->filter(function ($job) use ($certName) {
-                            $text = strtolower(
-                                strip_tags(
-                                    ($job['title'] ?? '') . ' ' .
-                                    ($job['description'] ?? '')
-                                )
-                            );
-
+                            $text = strtolower(strip_tags(
+                                ($job['title'] ?? '') . ' ' .
+                                ($job['description'] ?? '')
+                            ));
                             return str_contains($text, strtolower($certName));
                         })
                         ->values()
@@ -102,13 +140,22 @@ class ArbeitnowByCertificationsCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        // 🔗 Asociar certificación si no existe
                         $existing->certifications()
                             ->syncWithoutDetaching([$certId]);
                         continue;
                     }
 
-                    // 📍 Ubicación
+                    /* ===============================
+                       MODALIDAD
+                    =============================== */
+                    $modality = $this->detectModality(
+                        $job['location'] ?? '',
+                        $job['remote'] ?? false
+                    );
+
+                    /* ===============================
+                       UBICACIÓN
+                    =============================== */
                     $location = $job['location'] ?? '';
                     $countryCode = $this->detectCountryCode(
                         $location,
@@ -125,34 +172,30 @@ class ArbeitnowByCertificationsCommand extends Command
                         if (isset($this->capitalMap[$countryCode])) {
                             $cap = $this->capitalMap[$countryCode];
                             $city = $cap['city'];
-                            $lat  = $cap['lat'];
-                            $lng  = $cap['lng'];
+                            $lat = $cap['lat'];
+                            $lng = $cap['lng'];
                         } else {
-                            $this->stats['skipped']++;
+                            $totalSkippedAll++;
                             continue;
                         }
                     }
 
                     $offer = JobOffer::create([
-                        'title'        => $job['title'] ?? 'N/A',
-                        'company'      => $job['company_name'] ?? null,
-                        'country'      => $country,
-                        'city'         => $city,
-                        'latitude'     => $lat,
-                        'longitude'    => $lng,
-                        'modality'     => $this->detectModality(
-                            $location,
-                            $job['remote'] ?? false
-                        ),
+                        'title' => $job['title'] ?? 'N/A',
+                        'company' => $job['company_name'] ?? null,
+                        'country' => $country,
+                        'city' => $city,
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'modality' => $modality,
                         'requirements' => strip_tags($job['description'] ?? null),
-                        'source'       => 'Arbeitnow',
-                        'external_id'  => $externalId,
-                        'url'          => $job['url'] ?? null,
+                        'source' => 'Arbeitnow',
+                        'external_id' => $externalId,
+                        'url' => $job['url'] ?? null,
                         'published_at' => Carbon::parse($job['created_at'] ?? now()),
-                        'region'       => RegionHelper::fromCountry($country),
+                        'region' => RegionHelper::fromCountry($country),
                     ]);
 
-                    // 🔗 Pivot certification
                     $offer->certifications()
                         ->syncWithoutDetaching([$certId]);
 
@@ -161,61 +204,77 @@ class ArbeitnowByCertificationsCommand extends Command
                     $countries[$country] =
                         ($countries[$country] ?? 0) + 1;
 
-                    $modalities[$offer->modality] =
-                        ($modalities[$offer->modality] ?? 0) + 1;
+                    $modalities[$modality] =
+                        ($modalities[$modality] ?? 0) + 1;
                 }
 
-                // 📊 Métrica diaria (MISMO patrón Adzuna)
+                /* =====================================================
+                   📊 MÉTRICA DIARIA
+                ===================================================== */
                 CertificationMetric::firstOrCreate(
                     [
                         'certification_id' => $certId,
-                        'run_date'         => now()->toDateString(),
-                        'source'           => 'Arbeitnow',
+                        'run_date' => now()->toDateString(),
+                        'source' => 'Arbeitnow',
                     ],
                     [
                         'certification_name' => $certName,
-                        'jobs_found_count'   => $totalFound,
-                        'jobs_new_count'     => $totalNew,
-                        'countries_breakdown'=> $countries,
+                        'jobs_found_count' => $totalFound,
+                        'jobs_new_count' => $totalNew,
+                        'countries_breakdown' => $countries,
                         'modality_breakdown' => $modalities,
                     ]
                 );
 
-                $this->info("✅ {$certName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+                $totalFoundAll += $totalFound;
+                $totalInsertedAll += $totalNew;
 
-            } catch (\Throwable $e) {
-                Log::error("Arbeitnow Cert {$certName}: {$e->getMessage()}");
+                $this->info("✅ {$certName}: {$totalNew} nuevas | {$totalFound} encontradas");
+
+                sleep(1);
             }
 
-            sleep(1);
-        }
+            ScraperRunService::success(
+                $run,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
 
-        $this->info("\n🎯 Proceso Arbeitnow por certificaciones completado");
+            $this->info("🎯 Arbeitnow certificaciones finalizado");
+
+        } catch (\Throwable $e) {
+            ScraperRunService::failed($run, $e);
+            throw $e;
+        }
     }
+
 
     /* ================= HELPERS ================= */
 
     protected function extractCity(?string $location): ?string
     {
-        if (!$location) return null;
+        if (!$location)
+            return null;
         return trim(explode(',', $location)[0]);
     }
 
     protected function detectCountryCode(string $location, bool $remote): ?string
     {
-        if ($remote) return 'remote';
+        if ($remote)
+            return 'remote';
 
         $loc = strtolower($location);
 
         return match (true) {
             str_contains($loc, 'germany') => 'de',
-            str_contains($loc, 'spain')   => 'es',
-            str_contains($loc, 'france')  => 'fr',
-            str_contains($loc, 'italy')   => 'it',
+            str_contains($loc, 'spain') => 'es',
+            str_contains($loc, 'france') => 'fr',
+            str_contains($loc, 'italy') => 'it',
             str_contains($loc, 'netherlands') => 'nl',
-            str_contains($loc, 'poland')  => 'pl',
+            str_contains($loc, 'poland') => 'pl',
             str_contains($loc, 'uk'),
-            str_contains($loc, 'london')  => 'gb',
+            str_contains($loc, 'london') => 'gb',
             str_contains($loc, 'ireland') => 'ie',
             str_contains($loc, 'switzerland') => 'ch',
             default => null,
@@ -226,7 +285,9 @@ class ArbeitnowByCertificationsCommand extends Command
     {
         if ($city) {
             $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-                ->when($countryCode, fn ($q) =>
+                ->when(
+                    $countryCode,
+                    fn($q) =>
                     $q->whereRaw('LOWER(iso2) = ?', [$countryCode])
                 )
                 ->first();
@@ -247,16 +308,35 @@ class ArbeitnowByCertificationsCommand extends Command
 
     protected function detectModality(string $location, bool $remote): string
     {
-        $loc = strtolower($location);
+        $text = strtolower($location);
 
-        return match (true) {
-            $remote,
-            str_contains($loc, 'remote'),
-            str_contains($loc, 'home office') => 'remote',
+        // 🌐 REMOTO
+        if (
+            $remote ||
+            str_contains($text, 'remote') ||
+            str_contains($text, 'home office') ||
+            str_contains($text, 'anywhere')
+        ) {
+            return 'remote';
+        }
 
-            str_contains($loc, 'hybrid') => 'hybrid',
+        // 🔀 HÍBRIDO
+        if (
+            str_contains($text, 'hybrid') ||
+            str_contains($text, 'híbrido')
+        ) {
+            return 'hybrid';
+        }
 
-            default => 'no_precisa',
-        };
+        // 🏢 PRESENCIAL EXPLÍCITO
+        if (
+            str_contains($text, 'on-site') ||
+            str_contains($text, 'onsite') ||
+            str_contains($text, 'office')
+        ) {
+            return 'presencial';
+        }
+
+        return 'no_precisa';
     }
 }

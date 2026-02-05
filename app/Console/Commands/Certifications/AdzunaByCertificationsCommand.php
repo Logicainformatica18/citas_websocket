@@ -11,6 +11,7 @@ use App\Models\CertificationMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
 
 class AdzunaByCertificationsCommand extends Command
 {
@@ -54,25 +55,64 @@ class AdzunaByCertificationsCommand extends Command
         'za' => ['city' => 'Pretoria', 'lat' => -25.7461, 'lng' => 28.1881],
     ];
 
-    public function handle()
-    {
+   public function handle()
+{
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Adzuna',
+        'certifications'
+    );
+
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    try {
+
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
 
-        $certifications = Certification::where('enabled', 1)
-            ->pluck('name', 'id');
+        /* =====================================================
+           🔁 BASE QUERY (solo certificaciones usadas en cursos)
+        ===================================================== */
+        $baseQuery = Certification::where('enabled', 1)
+            ->orderBy('id');
+
+        /* =====================================================
+           ▶️ REANUDAR DESDE ÚLTIMA CERTIFICACIÓN
+        ===================================================== */
+        $lastCertificationId = CertificationMetric::where('source', 'Adzuna')
+            ->orderByDesc('created_at')
+            ->value('certification_id');
+
+        $certificationsQuery = clone $baseQuery;
+
+        if ($lastCertificationId) {
+            $certificationsQuery->where('id', '>', $lastCertificationId);
+        }
+
+        $certifications = $certificationsQuery->pluck('name', 'id');
+
+        if ($certifications->isEmpty()) {
+            // 🔁 ciclo completo → reiniciar
+            $certifications = $baseQuery->pluck('name', 'id');
+        }
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
         $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
 
-        $this->info("🏅 Iniciando importación desde Adzuna para {$certifications->count()} certificaciones...");
+        $this->info("🏅 Iniciando Adzuna para {$certifications->count()} certificaciones");
 
         foreach ($certifications as $certId => $certName) {
-            $this->warn("\n💡 Procesando certificación: {$certName}");
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
-            $countries = [];
+            $this->warn("\n💡 Certificación: {$certName}");
+
+            $totalFound     = 0;
+            $totalNew       = 0;
+            $totalDuplicate = 0;
+
+            $countries  = [];
             $modalities = [];
 
             for ($page = 1; $page <= $pages; $page++) {
@@ -82,123 +122,104 @@ class AdzunaByCertificationsCommand extends Command
                     . "&results_per_page=100"
                     . "&what=" . urlencode($certName);
 
-                try {
-                    $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) continue;
+                $response = Http::timeout(25)->get($url);
 
-                    $results = $response->json('results') ?? [];
-                    $totalFound += count($results);
+                if ($response->failed()) {
+                    $this->error("❌ API error {$certName} page {$page}");
+                    continue;
+                }
 
-                    foreach ($results as $job) {
+                $results = $response->json('results') ?? [];
+                $totalFound += count($results);
 
-                        $desc = strtolower($job['description'] ?? '');
+                foreach ($results as $job) {
 
-                        // 🔎 Validación real por texto
-                        if (!str_contains($desc, strtolower($certName))) {
-                            continue;
-                        }
+                    $desc = strtolower($job['description'] ?? '');
 
-                        $externalId = $job['id'] ?? null;
-
-                       $existing = JobOffer::where('external_id', $externalId)->first();
-
-if ($existing) {
-
-    // 🔍 Verificar si YA existe la relación
-    $alreadyLinked = $existing->certifications()
-        ->where('certification_id', $certId)
-        ->exists();
-
-    if (!$alreadyLinked) {
-        $existing->certifications()->attach($certId);
-
-        Log::info('🧩 CERT LINKED', [
-            'job_offer_id' => $existing->id,
-            'certification_id' => $certId,
-            'certification' => $certName,
-        ]);
-    } else {
-        Log::debug('ℹ️ CERT ALREADY LINKED', [
-            'job_offer_id' => $existing->id,
-            'certification_id' => $certId,
-        ]);
-    }
-
-    $totalDuplicates++;
-    continue;
-}
-
-
-                        // 📍 Ubicación
-                        $area = $job['location']['area'] ?? [];
-                        $city = $area[1] ?? ($area[0] ?? null);
-                        $countryName = $area[0] ?? $country;
-
-                        $countryCode = strtoupper($countryName);
-                        $countryFull = ucfirst(strtolower($countryName));
-
-                        [$city, $lat, $lng] =
-                            $this->getCoordsFromCountry($city, strtolower($countryCode));
-
-                        if (!$lat || !$lng) {
-                            if (isset($this->capitalMap[strtolower($countryCode)])) {
-                                $cap = $this->capitalMap[strtolower($countryCode)];
-                                $city = $cap['city'];
-                                $lat  = $cap['lat'];
-                                $lng  = $cap['lng'];
-                                $this->stats['fallback']++;
-                            } else {
-                                $this->stats['skipped']++;
-                                continue;
-                            }
-                        }
-
-                        $offer = JobOffer::create([
-                            'title'            => $job['title'] ?? 'N/A',
-                            'company'          => $job['company']['display_name'] ?? null,
-                            'country'          => $countryFull,
-                            'city'             => $city,
-                            'latitude'         => $lat,
-                            'longitude'        => $lng,
-                            'modality'         => $this->detectModality(
-                                strtolower($job['title'] ?? ''),
-                                $desc
-                            ),
-                            'experience_level' => $this->extractExperience($desc),
-                            'education_level'  => $this->extractEducation($desc),
-                            'requirements'     => strip_tags($job['description'] ?? null),
-                            'source'           => 'Adzuna',
-                            'external_id'      => $externalId,
-                            'url'              => $job['redirect_url'] ?? null,
-                            'published_at'     => Carbon::parse($job['created'] ?? now()),
-                            'region'           => RegionHelper::fromCountry($countryFull),
-                        ]);
-
-
-                        // 🔗 Pivot certification
-                        $offer->certifications()
-                            ->syncWithoutDetaching([$certId]);
-
-                            $offer->certifications()->attach($certId);
-
-
-
-                        $totalNew++;
-
-                        $countries[$countryCode] =
-                            ($countries[$countryCode] ?? 0) + 1;
-
-                        $modalities[$offer->modality] =
-                            ($modalities[$offer->modality] ?? 0) + 1;
+                    // 🔍 Validación real por texto
+                    if (!str_contains($desc, strtolower($certName))) {
+                        continue;
                     }
 
-                    sleep(1);
-                } catch (\Throwable $e) {
-                    Log::error("Cert {$certName}: {$e->getMessage()}");
+                    $externalId = $job['id'] ?? null;
+
+                    $existing = JobOffer::where('external_id', $externalId)->first();
+
+                    if ($existing) {
+                        $existing->certifications()->syncWithoutDetaching([$certId]);
+                        $totalDuplicate++;
+                        continue;
+                    }
+
+                    /* ===============================
+                       MODALIDAD
+                    =============================== */
+                    $title = strtolower($job['title'] ?? '');
+                    $modality = $this->detectModality($title, $desc);
+
+                    /* ===============================
+                       UBICACIÓN
+                    =============================== */
+                    $area = $job['location']['area'] ?? [];
+                    $city = $area[1] ?? ($area[0] ?? null);
+
+                    $countryCode = strtoupper($area[0] ?? $country);
+                    $countryFull = ucfirst(strtolower($countryCode));
+
+                    [$city, $lat, $lng] =
+                        $this->getCoordsFromCountry($city, strtolower($countryCode));
+
+                    if (!$lat || !$lng) {
+                        if (isset($this->capitalMap[strtolower($countryCode)])) {
+                            $cap = $this->capitalMap[strtolower($countryCode)];
+                            $city = $cap['city'];
+                            $lat  = $cap['lat'];
+                            $lng  = $cap['lng'];
+                        } else {
+                            $totalSkippedAll++;
+                            continue;
+                        }
+                    }
+
+                    $offer = JobOffer::create([
+                        'title'        => $job['title'] ?? 'N/A',
+                        'company'      => $job['company']['display_name'] ?? null,
+                        'country'      => $countryFull,
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => $modality,
+                        'requirements' => strip_tags($job['description'] ?? null),
+                        'source'       => 'Adzuna',
+                        'external_id'  => $externalId,
+                        'url'          => $job['redirect_url'] ?? null,
+                        'search_query' => $certName,
+                        'published_at' => isset($job['created'])
+                            ? Carbon::parse($job['created'])
+                            : now(),
+                        'region'       => RegionHelper::fromCountry($countryFull),
+                    ]);
+
+                    $offer->certifications()->syncWithoutDetaching([$certId]);
+
+                    $totalNew++;
+                    $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
+                    $modalities[$modality]   = ($modalities[$modality] ?? 0) + 1;
                 }
+
+                sleep(1);
             }
 
-            // 📊 Métrica diaria
+            /* ===============================
+               ACUMULADOS GLOBALES
+            =============================== */
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
+            $totalSkippedAll  += $totalDuplicate;
+
+            /* ===============================
+               MÉTRICA DIARIA
+            =============================== */
             CertificationMetric::firstOrCreate(
                 [
                     'certification_id' => $certId,
@@ -214,29 +235,67 @@ if ($existing) {
                 ]
             );
 
-            $this->info("✅ {$certName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+            $this->info("✅ {$certName}: {$totalNew} nuevas | {$totalFound} encontradas");
         }
 
-        $this->info("\n🎯 Proceso de certificaciones completado");
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("🎯 Scraper de certificaciones finalizado");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     /* ================= HELPERS ================= */
 
-    protected function detectModality(string $title, string $description): string
-    {
-        $text = "{$title} {$description}";
+  protected function detectModality(string $title, string $description): string
+{
+    $text = strtolower($title . ' ' . $description);
 
-        return match (true) {
-            str_contains($text, 'remote'),
-            str_contains($text, 'home office'),
-            str_contains($text, 'teletrabajo') => 'remote',
-
-            str_contains($text, 'hybrid'),
-            str_contains($text, 'híbrido') => 'hybrid',
-
-            default => 'no_precisa',
-        };
+    // 🌐 REMOTO
+    if (
+        str_contains($text, 'remote') ||
+        str_contains($text, 'work from home') ||
+        str_contains($text, 'home office') ||
+        str_contains($text, 'teletrabajo') ||
+        str_contains($text, 'anywhere') ||
+        str_contains($text, 'fully remote')
+    ) {
+        return 'remote';
     }
+
+    // 🔀 HÍBRIDO
+    if (
+        str_contains($text, 'hybrid') ||
+        str_contains($text, 'híbrido') ||
+        str_contains($text, 'mixto')
+    ) {
+        return 'hybrid';
+    }
+
+    // 🏢 PRESENCIAL EXPLÍCITO
+    if (
+        str_contains($text, 'on-site') ||
+        str_contains($text, 'onsite') ||
+        str_contains($text, 'presencial') ||
+        str_contains($text, 'in office') ||
+        str_contains($text, 'office based') ||
+        str_contains($text, 'en oficina')
+    ) {
+        return 'presencial';
+    }
+
+    return 'no_precisa';
+}
+
 
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)
     {

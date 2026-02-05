@@ -10,6 +10,7 @@ use App\Models\Prueba;
 use Illuminate\Support\Facades\Log;
 use App\Services\Ranking\CertificationLaborScoreService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
+use App\Services\ScrapingStatusService;
 
 class RankingCertificacionesController extends Controller
 {
@@ -68,6 +69,23 @@ class RankingCertificacionesController extends Controller
     public function index(Request $request)
     {
 
+/* ==================================================
+   ESTADO DE SCRAPING DEL INDICADOR (CERTIFICATIONS)
+================================================== */
+
+$scrapingStatus = ScrapingStatusService::getByEntity('certifications');
+
+Log::info('🟦 [CERTIFICATIONS] ScrapingStatus RAW', [
+    'scrapingStatus' => $scrapingStatus,
+]);
+Log::info('🟨 [CERTIFICATIONS] ScrapingStatus fechas', [
+    'status'            => $scrapingStatus['status'] ?? null,
+    'started_at'        => $scrapingStatus['started_at'] ?? null,
+    'finished_at'       => $scrapingStatus['finished_at'] ?? null,
+    'last_finished_at'  => $scrapingStatus['last_finished_at'] ?? null,
+    'last_run_human'    => $scrapingStatus['last_run_human'] ?? null,
+    'source'            => $scrapingStatus['source'] ?? null,
+]);
 
         /* ==================================================
            0. Parámetros base
@@ -395,6 +413,8 @@ DB::raw("
                     'trendsWeight' => round($trendWeight * 100, 1),
                 ],
                 'jobMarketStatus' => JobMarketStatusController::get($year, $period),
+                'scrapingStatus' => $scrapingStatus,
+
                 'meta' => [
                     'year' => $year,
                     'period' => $period,

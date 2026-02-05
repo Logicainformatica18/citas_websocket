@@ -11,7 +11,6 @@ import { useSeniorityData } from "./components/hooks/useSeniorityData";
 import { useSeniorityModalityData } from "./components/hooks/useSeniorityModalityData";
 import { SeniorityFilters } from "./components/Filters/SeniorityFilters";
 
-
 /* =====================================================
    Breadcrumbs
 ===================================================== */
@@ -21,30 +20,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 /* =====================================================
-   Types
-===================================================== */
-interface PageProps {
-  meta: {
-    year: number;
-    period: "s1" | "s2";
-    periodo_label: string;
-    vacantes_analizadas: number;
-  };
-}
-
-
-/* =====================================================
    Page
 ===================================================== */
 export default function SeniorityIndicatorPage() {
-  
-const { meta, availableCareers } = usePage<PageProps & {
-  availableCareers: {
-    id: number;
-    name: string;
-    slug: string;
-  }[];
-}>().props;
+  const {
+    meta,
+    availableCareers,
+    jobMarketStatus, // ✅ CLAVE
+  } = usePage<{
+    meta: {
+      year: number;
+      period: "s1" | "s2";
+      periodo_label: string;
+      vacantes_analizadas: number;
+    };
+    availableCareers: {
+      id: number;
+      name: string;
+      slug: string;
+    }[];
+    jobMarketStatus: any;
+  }>().props;
+
   const { data, loading } = useSeniorityData();
   const { data: modalityData } = useSeniorityModalityData();
 
@@ -53,10 +50,16 @@ const { meta, availableCareers } = usePage<PageProps & {
       <Head title="Distribución de Seniority" />
 
       <div className="flex flex-col gap-6">
-        {/* HEADER */}
-        <SeniorityHeader meta={meta} />
-<SeniorityFilters careers={availableCareers} />
-        {/* CONTENT */}
+        {/* ================= HEADER ================= */}
+        <SeniorityHeader
+          meta={meta}
+          jobMarketStatus={jobMarketStatus} // ✅ PASADO AL HEADER
+        />
+
+        {/* ================= FILTERS ================= */}
+        <SeniorityFilters careers={availableCareers} />
+
+        {/* ================= CONTENT ================= */}
         {loading ? (
           <div className="px-6 py-4 text-sm text-slate-500">
             Cargando indicador…
