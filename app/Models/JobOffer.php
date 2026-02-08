@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models;
-
+use App\Models\MarketEntity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Certification;
@@ -50,7 +50,15 @@ class JobOffer extends Model
         'salary_max'   => 'decimal:2',
         'published_at' => 'datetime',
     ];
-
+public function marketEntities()
+{
+    return $this->belongsToMany(
+        MarketEntity::class,
+        'job_offer_market_entity', // pivot
+        'job_offer_id',
+        'market_entity_id'
+    );
+}
     /**
      * 📊 Accesor opcional: retorna skills como array
      */
@@ -152,6 +160,18 @@ public function trendLinks()
         TechnologyTrendJob::class,
         'job_offer_id'
     );
+}
+// App\Models\JobOffer.php
+
+public function marketCertifications()
+{
+    return $this->belongsToMany(
+        MarketEntity::class,
+        'certification_job',     // 👈 tabla real
+        'job_offer_id',          // FK actual
+        'market_entity_id'       // FK a market_entities
+    )
+    ->withTimestamps();
 }
 
 }

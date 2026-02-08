@@ -33,8 +33,8 @@ export default function CertificationCard({
     /* =========================================
        TIPO DE ITEM (FUENTE ÚNICA)
     ========================================= */
-    const isTrend = data.entity_type === "trend";
-
+  const isIsil = Boolean(data.has_isil);
+const isTrend = !isIsil;
 
     /* =========================================
        BLINDAJE DE DATOS
@@ -64,13 +64,30 @@ export default function CertificationCard({
             className={`
     group rounded-2xl border bg-white p-6
     relative overflow-hidden transition-all duration-300
-    ${!isTrend ? "hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]" : "opacity-95"}
+   ${
+  isIsil
+    ? "hover:border-[#1CBCE8]"
+    : "hover:border-purple-500"
+}
+
+
     dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
   `}
         >
 
             {/* Barra decorativa */}
-            <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
+         <div
+  className={`
+    absolute top-0 left-0 h-1 w-full
+    ${
+      isIsil
+        ? "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
+        : "bg-gradient-to-r from-purple-500 to-fuchsia-500"
+    }
+  `}
+/>
+
+
 
             {/* BADGE TIPO (CLAVE PARA VER QUE SE JUNTAN) */}
 
@@ -193,9 +210,8 @@ onAction?.("laboral", data);
     e.stopPropagation();
     console.log("CLICK TENDENCIA CARD", data.id, data.entity_type);
 
-    if (!hasTrend) return;
+  onAction?.("trend", data);
 
-    onAction?.("trend", data);
   }}
   title={!hasTrend ? "No hay reportes de tendencia" : "Ver reportes de tendencia"}
   className={`
@@ -268,22 +284,24 @@ onAction?.("laboral", data);
                 </div>
             )}
             {/* BADGE ISIL (solo certificaciones, abajo) */}
-            {!isTrend && (
-                <div className="pt-4 flex justify-end">
-                    <span
-                        className="
-        inline-flex items-center
-        rounded-full px-3 py-1
-        text-[11px] font-semibold uppercase tracking-widest
-        bg-sky-100 text-sky-700
-        dark:bg-[#14384F]
-        dark:text-[#7DD3FC]
-      "
-                    >
-                        ISIL
-                    </span>
-                </div>
-            )}
+         <div className="pt-4 flex justify-end">
+  <span
+    className={`
+      inline-flex items-center
+      rounded-full px-3 py-1
+      text-[11px] font-semibold uppercase tracking-widest
+      ${
+        isIsil
+          ? "bg-sky-100 text-sky-700 dark:bg-[#14384F] dark:text-[#7DD3FC]"
+          : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+      }
+    `}
+  >
+    {isIsil ? "ISIL" : "TREND"}
+  </span>
+</div>
+
+
 
         </div>
     );

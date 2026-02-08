@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Certification;
 use App\Models\JobOffer;
 use App\Models\CertificationMetric;
+use App\Models\MarketEntity;
+use App\Models\MarketEntityMetric;
+
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
@@ -55,12 +58,12 @@ class AdzunaByCertificationsCommand extends Command
         'za' => ['city' => 'Pretoria', 'lat' => -25.7461, 'lng' => 28.1881],
     ];
 
-   public function handle()
+ public function handle()
 {
     $run = ScraperRunService::start(
         $this->signature,
         'Adzuna',
-        'certifications'
+        'market_entities'
     );
 
     $totalFoundAll    = 0;
@@ -73,40 +76,43 @@ class AdzunaByCertificationsCommand extends Command
         $pages   = (int) $this->option('pages');
 
         /* =====================================================
-           🔁 BASE QUERY (solo certificaciones usadas en cursos)
+           🔁 BASE QUERY (Market Entities tipo certification)
         ===================================================== */
-        $baseQuery = Certification::where('enabled', 1)
-            ->orderBy('id');
+     $baseQuery = MarketEntity::where('entity_type', 'certification')
+    ->orderBy('id');
+
 
         /* =====================================================
-           ▶️ REANUDAR DESDE ÚLTIMA CERTIFICACIÓN
+           ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD PROCESADA
         ===================================================== */
-        $lastCertificationId = CertificationMetric::where('source', 'Adzuna')
-            ->orderByDesc('created_at')
-            ->value('certification_id');
+       $lastEntityId = MarketEntityMetric::where('source', 'Adzuna')
+    ->orderByDesc('created_at')
+    ->value('market_entity_id');
+$entitiesQuery = clone $baseQuery;
 
-        $certificationsQuery = clone $baseQuery;
+if ($lastEntityId) {
+    $entitiesQuery->where('id', '>', $lastEntityId);
+}
 
-        if ($lastCertificationId) {
-            $certificationsQuery->where('id', '>', $lastCertificationId);
-        }
 
-        $certifications = $certificationsQuery->pluck('name', 'id');
 
-        if ($certifications->isEmpty()) {
-            // 🔁 ciclo completo → reiniciar
-            $certifications = $baseQuery->pluck('name', 'id');
-        }
+$entities = $entitiesQuery->pluck('name', 'id');
+
+if ($entities->isEmpty()) {
+    // 🔁 ciclo completo → reiniciar
+    $entities = $baseQuery->pluck('name', 'id');
+}
+
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
         $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
 
-        $this->info("🏅 Iniciando Adzuna para {$certifications->count()} certificaciones");
+        $this->info("🏅 Iniciando Adzuna para {$entities->count()} market certifications");
 
-        foreach ($certifications as $certId => $certName) {
+        foreach ($entities as $entityId => $entityName) {
 
-            $this->warn("\n💡 Certificación: {$certName}");
+            $this->warn("\n💡 Market certification: {$entityName}");
 
             $totalFound     = 0;
             $totalNew       = 0;
@@ -120,12 +126,19 @@ class AdzunaByCertificationsCommand extends Command
                 $url = "{$baseUrl}/{$country}/search/{$page}"
                     . "?app_id={$appId}&app_key={$appKey}"
                     . "&results_per_page=100"
-                    . "&what=" . urlencode($certName);
+                    . "&what=" . urlencode($entityName);
 
-                $response = Http::timeout(25)->get($url);
+             try {
+    $response = Http::timeout(30)->get($url);
+} catch (\Illuminate\Http\Client\ConnectionException $e) {
+    $this->error("⏱️ Timeout Adzuna ({$entityName}) page {$page}");
+    sleep(5); // backoff
+    continue;
+}
+
 
                 if ($response->failed()) {
-                    $this->error("❌ API error {$certName} page {$page}");
+                    $this->error("❌ API error {$entityName} page {$page}");
                     continue;
                 }
 
@@ -137,7 +150,7 @@ class AdzunaByCertificationsCommand extends Command
                     $desc = strtolower($job['description'] ?? '');
 
                     // 🔍 Validación real por texto
-                    if (!str_contains($desc, strtolower($certName))) {
+                    if (!str_contains($desc, strtolower($entityName))) {
                         continue;
                     }
 
@@ -146,7 +159,9 @@ class AdzunaByCertificationsCommand extends Command
                     $existing = JobOffer::where('external_id', $externalId)->first();
 
                     if ($existing) {
-                        $existing->certifications()->syncWithoutDetaching([$certId]);
+                        // 👉 asociar entidad de mercado
+                   $existing->marketCertifications()->syncWithoutDetaching([$entityId]);
+
                         $totalDuplicate++;
                         continue;
                     }
@@ -193,14 +208,16 @@ class AdzunaByCertificationsCommand extends Command
                         'source'       => 'Adzuna',
                         'external_id'  => $externalId,
                         'url'          => $job['redirect_url'] ?? null,
-                        'search_query' => $certName,
+                        'search_query' => $entityName,
                         'published_at' => isset($job['created'])
                             ? Carbon::parse($job['created'])
                             : now(),
                         'region'       => RegionHelper::fromCountry($countryFull),
                     ]);
 
-                    $offer->certifications()->syncWithoutDetaching([$certId]);
+                    // 👉 asociar market entity
+                  $offer->marketCertifications()->syncWithoutDetaching([$entityId]);
+
 
                     $totalNew++;
                     $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
@@ -218,16 +235,16 @@ class AdzunaByCertificationsCommand extends Command
             $totalSkippedAll  += $totalDuplicate;
 
             /* ===============================
-               MÉTRICA DIARIA
+               MÉTRICA DIARIA (Market Entity)
             =============================== */
-            CertificationMetric::firstOrCreate(
+            MarketEntityMetric::firstOrCreate(
                 [
-                    'certification_id' => $certId,
+                    'market_entity_id' => $entityId,
                     'run_date'         => now()->toDateString(),
                     'source'           => 'Adzuna',
                 ],
                 [
-                    'certification_name' => $certName,
+                    'entity_name'        => $entityName,
                     'jobs_found_count'   => $totalFound,
                     'jobs_new_count'     => $totalNew,
                     'countries_breakdown'=> $countries,
@@ -235,7 +252,7 @@ class AdzunaByCertificationsCommand extends Command
                 ]
             );
 
-            $this->info("✅ {$certName}: {$totalNew} nuevas | {$totalFound} encontradas");
+            $this->info("✅ {$entityName}: {$totalNew} nuevas | {$totalFound} encontradas");
         }
 
         ScraperRunService::success(
@@ -245,7 +262,7 @@ class AdzunaByCertificationsCommand extends Command
             $totalSkippedAll
         );
 
-        $this->info("🎯 Scraper de certificaciones finalizado");
+        $this->info("🎯 Scraper de market certifications finalizado");
 
     } catch (\Throwable $e) {
         ScraperRunService::failed($run, $e);

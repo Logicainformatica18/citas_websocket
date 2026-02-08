@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
-use Illuminate\Support\Facades\Log;
-use App\Services\Ranking\CertificationLaborScoreService;
- 
+
+
+
 use Illuminate\Pagination\LengthAwarePaginator;
 
 use App\Services\ScrapingStatusService;
@@ -18,12 +18,8 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 
 class RankingCertificacionesController extends Controller
 {
-    protected CertificationLaborScoreService $laborService;
 
-    public function __construct(CertificationLaborScoreService $laborService)
-    {
-        $this->laborService = $laborService;
-    }
+
     public function storeWeights(Request $request)
     {
         /* ==================================================
@@ -219,10 +215,16 @@ private function getBaseContext(Request $request): array
 }
 private function getCertificationsRanking(array $ctx)
 {
+    /* ==================================================
+       1. SUBQUERY: TENDENCIAS
+    ================================================== */
     $reportsSub = $this->getDirectCertificationTrendsSubquery(
         $ctx['range']
     );
 
+    /* ==================================================
+       2. SUBQUERY: LABORAL
+    ================================================== */
     $laborSub = DB::table('certification_job as cj')
         ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
         ->whereBetween('j.published_at', [
@@ -230,13 +232,21 @@ private function getCertificationsRanking(array $ctx)
             $ctx['range']['end'],
         ])
         ->select(
-            'cj.certification_id',
+            'cj.market_entity_id',
             DB::raw('COUNT(DISTINCT cj.job_offer_id) as offers')
         )
-        ->groupBy('cj.certification_id');
+        ->groupBy('cj.market_entity_id');
 
+    /* ==================================================
+       3. NORMALIZADORES
+    ================================================== */
     $maxLabor = max(
-        DB::table('certification_job')->count(),
+        DB::query()->fromSub($laborSub, 'x')->max('offers'),
+        1
+    );
+
+    $maxTrend = max(
+        DB::query()->fromSub($reportsSub, 'r')->max('report_mentions'),
         1
     );
 
@@ -245,26 +255,42 @@ private function getCertificationsRanking(array $ctx)
         1
     );
 
+    /* ==================================================
+       4. QUERY PRINCIPAL
+    ================================================== */
     $query = DB::table('market_entities as me')
-        ->leftJoinSub($laborSub, 'labor', 'labor.certification_id', '=', 'me.id')
-        ->leftJoinSub($reportsSub, 'reports', 'reports.certification_id', '=', 'me.id')
+        ->leftJoinSub($laborSub, 'labor', function ($j) {
+            $j->on('labor.market_entity_id', '=', 'me.id');
+        })
+        ->leftJoinSub($reportsSub, 'reports', function ($j) {
+            $j->on('reports.certification_id', '=', 'me.id');
+        })
         ->where('me.entity_type', 'certification');
 
+    /* ==================================================
+       5. FILTRO ÁREAS
+    ================================================== */
     if (!empty($ctx['areas'])) {
         $query->whereIn('me.category', $ctx['areas']);
     }
 
-    if (!empty($ctx['careers'])) {
-        $query->whereExists(function ($q) use ($ctx) {
-            $q->select(DB::raw(1))
-              ->from('certification_course as cc')
-              ->join('career_course as crc', 'crc.course_id', '=', 'cc.course_id')
-              ->join('careers as ca', 'ca.id', '=', 'crc.career_id')
-              ->whereColumn('cc.certification_id', 'me.id')
-              ->whereIn('ca.slug', $ctx['careers']);
-        });
-    }
+    /* ==================================================
+       6. FILTRO CARRERAS (LEGACY, OK)
+    ================================================== */
+   if (!empty($ctx['careers'])) {
+    $query->whereExists(function ($q) use ($ctx) {
+        $q->select(DB::raw(1))
+          ->from('market_entity_career as mec')
+          ->join('careers as ca', 'ca.id', '=', 'mec.career_id')
+          ->whereColumn('mec.market_entity_id', 'me.id')
+          ->whereIn('ca.slug', $ctx['careers']);
+    });
+}
 
+
+    /* ==================================================
+       7. SELECT FINAL
+    ================================================== */
     return $query->select(
         DB::raw("'certification' as entity_type"),
         'me.id',
@@ -272,6 +298,18 @@ private function getCertificationsRanking(array $ctx)
         'me.vendor',
         'me.level',
         'me.category',
+
+        // 🔥 CLASIFICACIÓN REAL
+        'me.has_isil',
+        'me.has_trend',
+        DB::raw("
+            CASE
+                WHEN me.has_isil = 1 AND me.has_trend = 1 THEN 'isil+trend'
+                WHEN me.has_isil = 1 THEN 'isil'
+                WHEN me.has_trend = 1 THEN 'trend'
+                ELSE 'market'
+            END as classification
+        "),
 
         DB::raw('COALESCE(labor.offers,0) as total_jobs'),
         DB::raw('COALESCE(reports.report_mentions,0) as trend_reports'),
@@ -284,7 +322,7 @@ private function getCertificationsRanking(array $ctx)
 
         DB::raw("
             ROUND(
-                (COALESCE(reports.report_mentions,0) / {$totalReports}) * 100,
+                (LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100,
             1) as trend_score
         "),
 
@@ -297,22 +335,21 @@ private function getCertificationsRanking(array $ctx)
                 ),
             1) as final_score
         ")
-    )->get();
+    )
+    ->get()
+    ->sortByDesc('final_score')
+    ->values();
 }
- private function mergeRankingForFrontend($certs, $trends, array $ctx)
-{
-    return collect($certs)
-        ->filter(fn ($row) => $row->entity_type === 'certification')
-        ->sortByDesc('final_score')
-        ->values();
-}
+
 
 private function paginate($items, int $perPage)
 {
-    $page = request()->get('page', 1);
+    $page = LengthAwarePaginator::resolveCurrentPage();
+
+    $items = $items->values(); // 🔥 reindexar bien
 
     return new LengthAwarePaginator(
-        $items->forPage($page, $perPage),
+        $items->slice(($page - 1) * $perPage, $perPage)->values(),
         $items->count(),
         $perPage,
         $page,
@@ -322,6 +359,65 @@ private function paginate($items, int $perPage)
         ]
     );
 }
+/* ==================================================
+   JOBS POR CERTIFICACIÓN (LABORAL)
+================================================== */
+public function jobsByCertification(Request $request, int $marketEntityId)
+{
+    $perPage = min((int) $request->get('per_page', 10), 50);
+    $page    = (int) $request->get('page', 1);
+
+
+       $jobs = DB::table('certification_job as cj')
+    ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
+    ->where('cj.market_entity_id', $marketEntityId)
+    ->select(
+        'j.id',
+        'j.title',
+        'j.company',
+        'j.city',
+        'j.country',
+        'j.url'
+    )
+    ->orderByDesc('j.published_at')
+    ->paginate($perPage, ['*'], 'page', $page);
+
+
+
+    // 🔥 ESTO ES LO QUE TU FRONTEND ESPERA
+    return response()->json([
+        'data' => $jobs,
+    ]);
+}
+
+
+/* ==================================================
+   REPORTES / TENDENCIAS POR CERTIFICACIÓN
+================================================== */
+public function trendDetail(Request $request, int $marketEntityId)
+{
+    $perPage = min((int) $request->get('per_page', 10), 50);
+    $page    = (int) $request->get('page', 1);
+
+    $trends = DB::table('entity_trends')
+        ->where('market_entity_id', $marketEntityId)
+        ->orderByDesc('trend_score')
+        ->paginate($perPage, [
+            'id',
+            'trend_score',
+            'source_title',
+            'source_url',
+            'source_type',
+            'created_at',
+        ], 'page', $page);
+
+    return response()->json([
+        'data' => $trends,
+    ]);
+}
+
+
+
 private function getDirectCertificationTrendsSubquery(array $range)
 {
     return DB::table('entity_trends as et')
@@ -355,8 +451,8 @@ private function getPeriodRange(string $period, int $year): array
     ];
 }
 
- 
- 
+
+
 private function getTrendReportsCountByRange(array $range): int
 {
     return DB::table('entity_trends as et')

@@ -10,14 +10,18 @@ class MarketEntity extends Model
 
     public $timestamps = false;
 
-    protected $fillable = [
-        'entity_type',
-        'name',
-        'vendor',
-        'category',
-        'has_trend',
-        
-    ];
+protected $fillable = [
+    'name',
+    'slug',
+    'entity_type',
+    'origin',
+    'category',
+    'vendor',
+    'level',
+    'has_isil',
+    'has_trend',
+];
+
 
     protected $casts = [
         'has_trend' => 'boolean',

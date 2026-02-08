@@ -37,7 +37,7 @@ export default function TrendDetailModal({
         <div className="px-6 py-4 border-b dark:border-[#1E3A4A] flex justify-between items-start">
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Detalle de la tendencia
+              📈 Detalle de la tendencia
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Evidencia externa utilizada en el ranking
@@ -53,7 +53,7 @@ export default function TrendDetailModal({
         </div>
 
         {/* CONTENT */}
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-5 space-y-6">
           {/* NOMBRE */}
           <div>
             <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -61,27 +61,27 @@ export default function TrendDetailModal({
             </h4>
 
             {trend.category && (
-              <p className="text-sm text-slate-500 mt-1">
-                Categoría: {trend.category}
+              <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                🏷️ {trend.category}
               </p>
             )}
           </div>
 
           {/* SCORES */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl border p-4 dark:border-[#1E3A4A]">
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Score de tendencia
+              <p className="text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                🔥 Score de tendencia
               </p>
               <p className="mt-1 text-2xl font-semibold text-purple-600">
                 {trend.trend_score}
               </p>
             </div>
 
-            {trend.final_score && (
+            {trend.final_score !== undefined && (
               <div className="rounded-xl border p-4 dark:border-[#1E3A4A]">
-                <p className="text-xs uppercase tracking-wider text-slate-500">
-                  Score final ponderado
+                <p className="text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  ⚖️ Score final ponderado
                 </p>
                 <p className="mt-1 text-2xl font-semibold text-[#1CBCE8]">
                   {trend.final_score}
@@ -91,16 +91,16 @@ export default function TrendDetailModal({
           </div>
 
           {/* CONTEXTO */}
-          <div className="flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
             {trend.year && trend.quarter && (
-              <span>
-                📅 Periodo: {trend.year} · Q{trend.quarter}
+              <span className="flex items-center gap-1">
+                📅 {trend.year} · Q{trend.quarter}
               </span>
             )}
 
             {trend.trend_reports !== undefined && (
-              <span>
-                📊 Reportes analizados: {trend.trend_reports}
+              <span className="flex items-center gap-1">
+                📊 {trend.trend_reports} reportes
               </span>
             )}
           </div>
@@ -108,8 +108,8 @@ export default function TrendDetailModal({
           {/* FUENTE */}
           {(trend.source_title || trend.source_url) && (
             <div className="rounded-xl border p-4 bg-slate-50 dark:bg-[#102C3C] dark:border-[#1E3A4A]">
-              <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">
-                Fuente
+              <p className="text-xs uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1">
+                🧾 Fuente
               </p>
 
               {trend.source_title && (
@@ -125,14 +125,14 @@ export default function TrendDetailModal({
               )}
 
               {trend.source_url && (
-                <div className="mt-2">
+                <div className="mt-3">
                   <a
                     href={trend.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-medium text-[#1CBCE8] hover:underline"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-[#1CBCE8] hover:underline"
                   >
-                    Ver fuente original ↗
+                    🔗 Ver fuente original
                   </a>
                 </div>
               )}
