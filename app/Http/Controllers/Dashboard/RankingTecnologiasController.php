@@ -51,59 +51,166 @@ class RankingTecnologiasController extends Controller
     /* ==================================================
        RANKING PRINCIPAL
     ================================================== */
-   public function index(Request $request)
+public function index(Request $request)
 {
-
-/* ==================================================
-   ESTADO DE RECOLECCIÓN DE DATOS – TECNOLOGÍAS
-================================================== */
-
-$scrapingStatus = ScrapingStatusService::getByEntity('technologies');
-
     /* ==================================================
-       0. Parámetros base
+       0. CONTEXTO BASE
     ================================================== */
-    $year        = (int) $request->get('year', 2025);
-    $period      = $request->get('period', 's2');
-    $quarter     = $period === 's1' ? 1 : 4;
-
-$rankingType = $request->get('ranking_type');
-
-if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
-    $rankingType = 'all';
-}
-
-    $categories = array_filter((array) $request->get('category', []));
-    $careers    = array_filter((array) $request->get('career', []));
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+    $quarter = $period === 's1' ? 1 : 4;
 
     $range = $this->getPeriodRange($period, $year);
 
     /* ==================================================
-       0.1 Ponderaciones activas
+       0.1 FILTROS (INERTIA SAFE)
     ================================================== */
-    try {
-        $activeWeights = Prueba::getActive('technologies');
-    } catch (\Throwable $e) {
-        $activeWeights = null;
+    $careers = $request->filled('career')
+        ? (array) $request->career
+        : [];
+
+    $rankingType = $request->get('ranking_type', 'all');
+    if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
+        $rankingType = 'all';
     }
 
-    $laborWeight = (float) ($activeWeights?->labor_weight ?? 0.70);
-    $trendWeight = (float) ($activeWeights?->trend_weight ?? 0.30);
+    /* ==================================================
+       0.2 PONDERACIONES
+    ================================================== */
+    try {
+        $weights = Prueba::getActive('technologies');
+    } catch (\Throwable $e) {
+        $weights = null;
+    }
+
+    $laborWeight = (float) ($weights?->labor_weight ?? 0.7);
+    $trendWeight = (float) ($weights?->trend_weight ?? 0.3);
 
     /* ==================================================
-       Catálogos
+       0.3 CATÁLOGOS
     ================================================== */
-    $availableCategories = DB::table('technology_categories')
-        ->orderBy('name')
-        ->pluck('name');
-
     $availableCareers = DB::table('careers')
         ->where('active', 1)
         ->orderBy('name')
         ->get(['id', 'name', 'slug']);
 
     /* ==================================================
-       Vacantes analizadas
+       1. DEMANDA LABORAL (technology_job)
+    ================================================== */
+    $laborSub = DB::table('technology_job as tj')
+        ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
+        ->whereBetween('j.published_at', [$range['start'], $range['end']])
+        ->groupBy('tj.market_entity_id')
+        ->select(
+            'tj.market_entity_id',
+            DB::raw('COUNT(DISTINCT tj.job_offer_id) as offers')
+        );
+
+    $maxLabor = max(
+        DB::query()->fromSub($laborSub, 'x')->max('offers'),
+        1
+    );
+
+    /* ==================================================
+       2. TENDENCIAS REALES (entity_trends)
+    ================================================== */
+    $trendSub = DB::table('entity_trends as et')
+        ->where('et.year', $year)
+        ->where('et.quarter', $quarter)
+        ->groupBy('et.market_entity_id')
+        ->select(
+            'et.market_entity_id',
+            DB::raw('COUNT(et.id) as trend_reports'),
+            DB::raw('AVG(et.trend_score) as avg_trend_score')
+        );
+
+    $maxTrendReports = max(
+        DB::query()->fromSub($trendSub, 't')->max('trend_reports'),
+        1
+    );
+
+    /* ==================================================
+       3. QUERY BASE (market_entities)
+    ================================================== */
+    $query = DB::table('market_entities as me')
+        ->leftJoinSub($laborSub, 'labor', 'labor.market_entity_id', '=', 'me.id')
+        ->leftJoinSub($trendSub, 'trends', 'trends.market_entity_id', '=', 'me.id')
+        ->where('me.entity_type', 'technology');
+
+    /* ==================================================
+       4. FILTRO POR CARRERA (career_market_entity)
+    ================================================== */
+    if (!empty($careers)) {
+        $query->whereExists(function ($q) use ($careers) {
+            $q->select(DB::raw(1))
+              ->from('career_market_entity as cme')
+              ->join('careers as c', 'c.id', '=', 'cme.career_id')
+              ->whereColumn('cme.market_entity_id', 'me.id')
+              ->whereIn('c.slug', $careers);
+        });
+    }
+
+    /* ==================================================
+       5. SELECT + SCORES (NORMALIZADOS CORRECTOS)
+    ================================================== */
+    $ranking = $query->select(
+        DB::raw("'technology' as entity_type"),
+        'me.id',
+        'me.name',
+        'me.has_isil',
+        'me.has_trend',
+
+        DB::raw("
+            CASE
+                WHEN me.has_isil = 1 AND me.has_trend = 1 THEN 'isil+trend'
+                WHEN me.has_isil = 1 THEN 'isil'
+                WHEN me.has_trend = 1 THEN 'trend'
+                ELSE 'market'
+            END as classification
+        "),
+
+        DB::raw('COALESCE(labor.offers,0) as total_jobs'),
+        DB::raw('COALESCE(trends.trend_reports,0) as trend_reports'),
+
+        // 🔵 SCORE LABORAL (log)
+        DB::raw("
+            ROUND(
+                (LOG(COALESCE(labor.offers,0)+1)
+                 / LOG({$maxLabor}+1)) * 100,
+            1) as labor_score
+        "),
+
+        // 🟣 SCORE TENDENCIAS (log, NO global)
+        DB::raw("
+            ROUND(
+                (LOG(COALESCE(trends.trend_reports,0)+1)
+                 / LOG({$maxTrendReports}+1)) * 100,
+            1) as trend_score
+        "),
+
+        // ⭐ SCORE FINAL
+        DB::raw("
+            ROUND(
+                (
+                    (
+                        (LOG(COALESCE(labor.offers,0)+1)
+                         / LOG({$maxLabor}+1)) * 100 * {$laborWeight}
+                    )
+                  +
+                    (
+                        (LOG(COALESCE(trends.trend_reports,0)+1)
+                         / LOG({$maxTrendReports}+1)) * 100 * {$trendWeight}
+                    )
+                ),
+            1) as final_score
+        ")
+    )
+    ->orderByDesc('final_score')
+    ->paginate(10)
+    ->withQueryString();
+
+    /* ==================================================
+       6. METADATA
     ================================================== */
     $totalVacantesAnalizadas = DB::table('technology_job as tj')
         ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
@@ -111,306 +218,164 @@ if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
         ->distinct('tj.job_offer_id')
         ->count('tj.job_offer_id');
 
-    /* ==================================================
-       1. SUBQUERY DEMANDA LABORAL
-    ================================================== */
-    $laborSub = DB::table('technology_job as tj')
-        ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->select(
-            'tj.technology_id',
-            DB::raw('COUNT(DISTINCT tj.job_offer_id) as offers')
-        )
-        ->groupBy('tj.technology_id');
-
-    $maxLabor = DB::query()
-        ->fromSub($laborSub, 'x')
-        ->selectRaw('MAX(offers)')
-        ->value('MAX(offers)') ?: 1;
+    $totalReports = DB::table('entity_trends')
+        ->where('year', $year)
+        ->where('quarter', $quarter)
+        ->count();
 
     /* ==================================================
-       2. SUBQUERY TENDENCIAS (TECNOLOGÍAS)
+       7. RENDER
     ================================================== */
-   /* ==================================================
-   2. SUBQUERY TENDENCIAS (TECNOLOGÍAS REALES)
-================================================== */
-$reportsSub = DB::table('technology_trend_technology as ttt')
-    ->join('technology_trends as tt', 'tt.id', '=', 'ttt.technology_trend_id')
-    ->where('tt.year', $year)
-    ->where('tt.quarter', $quarter)
-    ->whereRaw(
-        "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
-    )
-    ->select(
-        'ttt.technology_id',
-        DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
-    )
-    ->groupBy('ttt.technology_id');
-
-
-
-  $totalReports = DB::table('technology_trends')
-    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.intent')) = 'technology_trend'")
-    ->where('year', $year)
-    ->where('quarter', $quarter)
-    ->distinct('id')
-    ->count('id');
-
-$totalReports = max($totalReports, 1);
-
-
-    /* ==================================================
-       3. TECNOLOGÍAS ISIL (asociadas a carrera)
-    ================================================== */
-    $isilQuery = DB::table('technologies as t')
-        ->leftJoinSub($laborSub, 'labor', 'labor.technology_id', '=', 't.id')
-        ->leftJoinSub($reportsSub, 'reports', 'reports.technology_id', '=', 't.id')
-
-        ->leftJoin('technology_categories as tc', 'tc.id', '=', 't.category_id')
-        ->where('t.enabled', 1)
-        ->whereExists(function ($q) {
-            $q->select(DB::raw(1))
-              ->from('course_technology as ct')
-              ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-              ->whereColumn('ct.technology_id', 't.id');
-        });
-
-    if (!empty($categories)) {
-        $isilQuery->whereIn('tc.name', $categories);
-    }
-
-    if (!empty($careers)) {
-        $isilQuery->whereExists(function ($q) use ($careers) {
-            $q->select(DB::raw(1))
-              ->from('course_technology as ct')
-              ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-              ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-              ->whereColumn('ct.technology_id', 't.id')
-              ->whereIn('ca.slug', $careers);
-        });
-    }
-
-  $isilQuery = $isilQuery->select(
-    DB::raw("'technology' as entity_type"),
-    DB::raw('1 as is_isil'),
-    DB::raw('0 as is_real_trend'),
-    't.id',
-    't.name',
-    'tc.name as category',
-
-    // métricas
-DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-DB::raw('COALESCE(reports.report_mentions,0) as trend_reports'), // 🔥 FALTABA
-
-DB::raw("
-    ROUND((COALESCE(labor.offers,0) / {$maxLabor}) * 100, 1)
-    as labor_score
-"),
-
-
-    DB::raw("
-        ROUND((COALESCE(reports.report_mentions,0) / {$totalReports}) * 100, 1)
-        as trend_score
-    "),
-
-    DB::raw("
-        ROUND(
-            (
-                ((COALESCE(labor.offers,0) / {$maxLabor}) * 100 * {$laborWeight})
-              + ((COALESCE(reports.report_mentions,0) / {$totalReports}) * 100 * {$trendWeight})
-            ),
-        1) as final_score
-    "),
-
-    // 🔥 CAMPOS DE CONTEXTO (dummy)
-    DB::raw('NULL as year'),
-    DB::raw('NULL as quarter'),
-    DB::raw('NULL as source_title'),
-    DB::raw('NULL as source_url'),
-    DB::raw('NULL as source_type'),
-    DB::raw('NULL as impacted_technologies'),
-
-);
-
-
-$trendTechnologiesSub = DB::table('technology_trend_technology as ttt')
-    ->join('technologies as t', 't.id', '=', 'ttt.technology_id')
-    ->select(
-        'ttt.technology_trend_id',
-        DB::raw("
-            GROUP_CONCAT(
-                DISTINCT t.name
-                ORDER BY t.name
-                SEPARATOR ', '
-            ) as impacted_technologies
-        ")
-    )
-    ->groupBy('ttt.technology_trend_id');
-    /* ==================================================
-       4. TECNOLOGÍAS EN TENDENCIA (NO ISIL)
-    ================================================== */
-    $trendJobsSub = DB::table('technology_trend_job')
-    ->select(
-        'technology_trend_id',
-        DB::raw('COUNT(DISTINCT job_offer_id) as total_jobs')
-    )
-    ->groupBy('technology_trend_id');
-
-$trendsQuery = DB::table('technology_trends as tt')
-    ->leftJoinSub(
-        $trendJobsSub,
-        'trend_jobs',
-        'trend_jobs.technology_trend_id',
-        '=',
-        'tt.id'
-    )
-    ->leftJoinSub(
-        $trendTechnologiesSub,
-        'trend_tech',
-        'trend_tech.technology_trend_id',
-        '=',
-        'tt.id'
-    )
-    ->whereRaw(
-        "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
-    )
-    ->where('tt.year', $year)
-    ->where('tt.quarter', $quarter)
-    ->whereNotNull('trend_tech.impacted_technologies')
-
-    ->select(
-        DB::raw("'trend' as entity_type"),
-        DB::raw('0 as is_isil'),
-        DB::raw('1 as is_real_trend'),
-
-        'tt.id',
-        'tt.topic_name as name',
-        DB::raw('NULL as category'),
-
-        // métricas
-        DB::raw('COALESCE(trend_jobs.total_jobs, 0) as total_jobs'),
-        DB::raw('1 as trend_reports'),
-
-        DB::raw("
-            ROUND(
-                LEAST(
-                    (COALESCE(trend_jobs.total_jobs,0) / {$maxLabor}) * 100,
-                    100
-                ),
-                1
-            ) as labor_score
-        "),
-
-        'tt.trend_score as trend_score',
-
-        DB::raw("
-            ROUND(
-                (
-                    LEAST(
-                        (COALESCE(trend_jobs.total_jobs,0) / {$maxLabor}) * 100,
-                        100
-                    ) * {$laborWeight}
-                ) + (tt.trend_score * {$trendWeight}),
-                1
-            ) as final_score
-        "),
-
-        // contexto
-        'tt.year',
-        'tt.quarter',
-        'tt.source_title',
-        'tt.source_url',
-        'tt.source_type',
-
-        // 🔥 CLAVE UX
-        'trend_tech.impacted_technologies'
-    );
-
-
-
-if ($rankingType === 'trend' && $request->filled('trend_category')) {
-    $trendsQuery->where('tt.topic_name', $request->trend_category);
-}
-
-    /* ==================================================
-       5. UNION + FILTRO
-    ================================================== */
-    if ($rankingType === 'technology') {
-
-    // 👉 Solo tecnologías ISIL
-    $rankingBase = DB::query()
-        ->fromSub($isilQuery, 'ranking');
-
-} elseif ($rankingType === 'trend') {
-
-    // 👉 Solo tendencias tecnológicas
-    $rankingBase = DB::query()
-        ->fromSub($trendsQuery, 'ranking');
-
-} else {
-
-    // 👉 Ranking general (ISIL + Tendencias)
-    $rankingBase = DB::query()
-        ->fromSub(
-            $isilQuery->unionAll($trendsQuery),
-            'ranking'
-        );
-}
-
-
-    $ranking = $rankingBase
-        ->orderByDesc('final_score')
-        ->paginate(10)
-        ->withQueryString();
-
-    /* ==================================================
-       Render
-    ================================================== */
-
-    $availableTrendCategories = DB::table('technology_trends')
-    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.intent')) = 'technology_trend'")
-    ->where('year', $year)
-    ->where('quarter', $quarter)
-    ->distinct()
-    ->orderBy('topic_name')
-    ->pluck('topic_name');
-
-
     return Inertia::render(
         'DashboardRankingTechnologies/RankingTecnologiasPage',
         [
             'ranking' => $ranking,
+
             'filters' => [
-                'year'         => $year,
-                'period'       => $period,
-                'category'     => $categories,
-                'career'       => $careers,
-              'ranking_type' => $rankingType,
-
-
+                'year'   => $year,
+                'period'=> $period,
+                'career'=> $careers,
+                'ranking_type' => $rankingType !== 'all' ? $rankingType : null,
             ],
-            'availableCategories' => $availableCategories,
-            'availableCareers'    => $availableCareers,
-            'availableTrendCategories' => $availableTrendCategories,
-            'scrapingStatus' => $scrapingStatus,
-            'jobMarketStatus' => JobMarketStatusController::get($year, $period),
+
+            'availableCareers' => $availableCareers,
+
+            'scrapingStatus' => ScrapingStatusService::getByEntity('technologies'),
+            'jobMarketStatus'=> JobMarketStatusController::get($year, $period),
 
             'weights' => [
-                'laborWeight'  => round($laborWeight * 100, 1),
-                'trendsWeight' => round($trendWeight * 100, 1),
+                'laborWeight' => round($laborWeight * 100, 1),
+                'trendWeight' => round($trendWeight * 100, 1),
             ],
+
             'meta' => [
                 'year'   => $year,
-                'period' => $period,
-                'periodo_label' => $period === 's1'
-                    ? "Semestre 1 – Enero a Junio {$year}"
-                    : "Semestre 2 – Julio a Diciembre {$year}",
+                'period'=> $period,
+                'periodo_label' =>
+                    $period === 's1'
+                        ? "Semestre 1 – Enero a Junio {$year}"
+                        : "Semestre 2 – Julio a Diciembre {$year}",
                 'vacantes_analizadas' => $totalVacantesAnalizadas,
                 'reportes_analizados' => $totalReports,
                 'actualizado' => now()->toDateTimeString(),
             ],
         ]
     );
+}
+
+
+
+public function trendsByTechnology(Request $request, int $technologyId)
+{
+    $year    = (int) $request->get('year', 2025);
+    $period  = $request->get('period', 's2');
+    $quarter = $period === 's1' ? 1 : 4;
+
+    $perPage = min((int) $request->get('per_page', 10), 50);
+
+    $trends = DB::table('technology_trends as tt')
+        ->join(
+            'technology_trend_technology as ttt',
+            'ttt.technology_trend_id',
+            '=',
+            'tt.id'
+        )
+        ->where('ttt.technology_id', $technologyId)
+        ->whereRaw(
+            "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
+        )
+        ->where('tt.year', $year)
+        ->where('tt.quarter', $quarter)
+        ->select(
+            'tt.id',
+            'tt.topic_name',
+            'tt.trend_score',
+            'tt.year',
+            'tt.quarter',
+            'tt.source_title',
+            'tt.source_url',
+            'tt.source_type',
+            'tt.created_at'
+        )
+        ->distinct()
+        ->orderByDesc('tt.trend_score')
+        ->paginate($perPage);
+
+    return response()->json([
+        'data' => $trends->items(),
+        'pagination' => [
+            'current_page' => $trends->currentPage(),
+            'last_page'    => $trends->lastPage(),
+            'per_page'     => $trends->perPage(),
+            'total'        => $trends->total(),
+            'prev_page_url'=> $trends->previousPageUrl(),
+            'next_page_url'=> $trends->nextPageUrl(),
+        ],
+    ]);
+}
+
+private function getBaseContext(Request $request): array
+{
+    /* ==================================================
+       AÑO / PERIODO
+    ================================================== */
+    $year   = (int) $request->get('year', 2025);
+    $period = $request->get('period', 's2');
+    $quarter = $period === 's1' ? 1 : 4;
+
+    /* ==================================================
+       RANGO DE FECHAS
+    ================================================== */
+    $range = $this->getPeriodRange($period, $year);
+
+    /* ==================================================
+       NORMALIZAR FILTROS (🔥 CLAVE INERTIA)
+    ================================================== */
+    $categories = $request->input('category');
+    $categories = $categories
+        ? (is_array($categories) ? $categories : [$categories])
+        : [];
+
+    $careers = $request->input('career');
+    $careers = $careers
+        ? (is_array($careers) ? $careers : [$careers])
+        : [];
+
+    $rankingType = $request->get('ranking_type', 'all');
+    if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
+        $rankingType = 'all';
+    }
+
+    /* ==================================================
+       PONDERACIONES ACTIVAS
+    ================================================== */
+    try {
+        $weights = Prueba::getActive('technologies');
+    } catch (\Throwable $e) {
+        $weights = null;
+    }
+
+    $laborWeight = (float) ($weights?->labor_weight ?? 0.70);
+    $trendWeight = (float) ($weights?->trend_weight ?? 0.30);
+
+    /* ==================================================
+       CONTEXTO FINAL
+    ================================================== */
+    return [
+        'year'        => $year,
+        'period'      => $period,
+        'quarter'     => $quarter,
+        'range'       => $range,
+
+        // filtros
+        'categories'  => $categories,
+        'careers'     => $careers,
+        'rankingType' => $rankingType,
+
+        // pesos
+        'laborWeight' => $laborWeight,
+        'trendWeight' => $trendWeight,
+    ];
 }
 
 public function reportsByTechnology(Request $request, int $technologyId)
