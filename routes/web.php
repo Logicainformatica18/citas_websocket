@@ -330,6 +330,7 @@ Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->na
             [RankingTecnologiasController::class, 'storeWeights']
         )->name('dashboard.ranking.technologies.weights');
 
+        
         Route::get(
     '/{technology}/reports',
     [RankingTecnologiasController::class, 'reportsByTechnology']

@@ -178,7 +178,7 @@ export default function RankingFilters() {
         </div> */}
 
         {/* ===== CATEGORÍA TECNOLÓGICA ===== */}
-        <div ref={categoryRef}>
+        {/* <div ref={categoryRef}>
           <Combo
             label="Categoría tecnológica"
             disabled={isTrendOnly}
@@ -190,7 +190,7 @@ export default function RankingFilters() {
             getValue={(v: string) => v}
             renderLabel={(v: string) => v}
           />
-        </div>
+        </div> */}
 
         {/* ===== CARRERA ISIL ===== */}
         <div ref={careerRef}>

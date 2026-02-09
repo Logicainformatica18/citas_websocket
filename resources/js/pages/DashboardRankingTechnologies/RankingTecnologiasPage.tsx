@@ -61,19 +61,27 @@ export default function RankingTecnologiasPage() {
      MODAL TENDENCIA
   ========================= */
   const [trendModal, setTrendModal] = useState<{
-    open: boolean;
-    trend: any | null;
-  }>({
-    open: false,
-    trend: null,
-  });
+  open: boolean;
+  technologyName: string | null;
+  reports: any[];
+}>({
+  open: false,
+  technologyName: null,
+  reports: [],
+});
 
-  const openTrendModal = (trend: any) => {
-    setTrendModal({
-      open: true,
-      trend,
-    });
-  };
+
+const openTrendModal = (payload: {
+  technologyName: string;
+  reports: any[];
+}) => {
+  setTrendModal({
+    open: true,
+    technologyName: payload.technologyName,
+    reports: payload.reports,
+  });
+};
+
 
   const closeTrendModal = () => {
     setTrendModal({
@@ -199,56 +207,50 @@ export default function RankingTecnologiasPage() {
               <RankingFilters />
 
               {/* ================= RANKING ================= */}
-              <RankingList
-                items={ranking.data}
-                pagination={ranking}
-                onSelectItem={(action, item) => {
-                  console.log("CLICK RANKING TEC:", action, item);
+             <RankingList
+  items={ranking.data}
+  pagination={ranking}
+  onSelectItem={(action, item) => {
+    console.log("CLICK RANKING TEC:", action, item);
 
-                  /* ========= TENDENCIA ========= */
-                  if (action === "trend") {
-                    if (!item.is_real_trend || item.trend_reports === 0) return;
+    /* ========= TENDENCIA ========= */
+    if (action === "trend") {
+      if (!item.trend_reports || item.trend_reports === 0) return;
 
-                    axios
-                      .get(
-                        `/dashboard/ranking/technologies/trend/${item.id}`
-                      )
-                      .then((res) => {
-                        const trend = res.data?.data;
-                        if (!trend) return;
+    axios.get(
+  `/dashboard/ranking/technologies/${item.id}/reports`,
+  {
+    params: {
+      year: meta.year,
+      period: meta.period,
+      page: 1,
+    },
+  }
+).then((res) => {
+  if (!res.data?.data?.length) return;
 
-                        openTrendModal({
-                          id: trend.id,
-                          name: trend.topic_name,
-                          trend_score: trend.trend_score,
-                          trend_reports: item.trend_reports,
-                          year: trend.year,
-                          quarter: trend.quarter,
-                          source_title: trend.source_title,
-                          source_url: trend.source_url,
-                          source_type: trend.source_type,
-                        });
-                      });
+  openTrendModal({
+    technologyId: item.id,
+    technologyName: item.name,
+    reports: res.data.data,
+    pagination: res.data.pagination,
+  });
+});
 
-                    return;
-                  }
 
-                  /* ========= LABORAL ========= */
-                  if (action === "laboral") {
-                    if (!item.total_jobs || item.total_jobs === 0) return;
+      return;
+    }
 
-                    if (item.entity_type === "technology") {
-                      openJobsModal("technology", item);
-                      return;
-                    }
+    /* ========= LABORAL ========= */
+    if (action === "laboral") {
+      if (!item.total_jobs || item.total_jobs === 0) return;
 
-                    if (item.entity_type === "trend") {
-                      openJobsModal("trend", item);
-                      return;
-                    }
-                  }
-                }}
-              />
+      openJobsModal("technology", item);
+      return;
+    }
+  }}
+/>
+
             </div>
           </div>
         </div>
@@ -290,13 +292,15 @@ export default function RankingTecnologiasPage() {
     </AppLayout>
 
     {/* ================= MODAL DETALLE TENDENCIA ================= */}
-    {trendModal.open && trendModal.trend && (
-      <TrendDetailModal
-        open={trendModal.open}
-        trend={trendModal.trend}
-        onClose={closeTrendModal}
-      />
-    )}
+   {trendModal.open && (
+  <TrendDetailModal
+    open
+    technologyName={trendModal.technologyName}
+    reports={trendModal.reports}
+    onClose={closeTrendModal}
+  />
+)}
+
   </>
 );
 }

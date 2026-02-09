@@ -1,27 +1,40 @@
-type Props = {
-  open: boolean;
-  trend: {
-    id: number;
-    name: string;
-    category?: string;
-    trend_score: number | string;
-    final_score?: number | string;
-    trend_reports?: number;
-    year?: number;
-    quarter?: number;
-    source_title?: string;
-    source_url?: string;
-    source_type?: string;
-  };
-  onClose: () => void;
+export type TrendReport = {
+  id: number;
+  trend_score: number | string;
+  source_title?: string;
+  source_url?: string;
+  source_type?: string;
+  created_at?: string;
 };
 
+type Pagination = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  prev_page_url?: string | null;
+  next_page_url?: string | null;
+};
+
+type Props = {
+  open: boolean;
+  technologyId: number;
+  technologyName: string | null;
+  reports: TrendReport[];
+  pagination?: Pagination;
+  onPageChange?: (page: number) => void;
+  onClose: () => void;
+};
 export default function TrendDetailModal({
   open,
-  trend,
+  technologyId,
+  technologyName,
+  reports,
+  pagination,
+  onPageChange,
   onClose,
 }: Props) {
-  if (!open || !trend) return null;
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -32,16 +45,22 @@ export default function TrendDetailModal({
       />
 
       {/* MODAL */}
-      <div className="relative w-full max-w-2xl mx-4 rounded-2xl bg-white dark:bg-[#0F2A3A] shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-3xl mx-4 rounded-2xl bg-white dark:bg-[#0F2A3A] shadow-xl overflow-hidden">
         {/* ================= HEADER ================= */}
         <div className="px-6 py-4 border-b dark:border-[#1E3A4A] flex justify-between items-start">
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Detalle de la tendencia tecnológica
+              Evidencia de tendencias tecnológicas
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Evidencia externa utilizada en el ranking
+              Reportes externos utilizados en el ranking
             </p>
+
+            {technologyName && (
+              <p className="mt-1 text-sm font-medium text-[#1CBCE8]">
+                {technologyName}
+              </p>
+            )}
           </div>
 
           <button
@@ -53,92 +72,103 @@ export default function TrendDetailModal({
         </div>
 
         {/* ================= CONTENT ================= */}
-        <div className="px-6 py-5 space-y-5">
-          {/* NOMBRE */}
-          <div>
-            <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {trend.name}
-            </h4>
+        <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
+          {reports.length === 0 && (
+            <p className="text-sm text-slate-500">
+              No se encontraron reportes de tendencia para esta tecnología.
+            </p>
+          )}
 
-            {trend.category && (
-              <p className="text-sm text-slate-500 mt-1">
-                Categoría: {trend.category}
-              </p>
-            )}
-          </div>
-
-          {/* SCORES */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border p-4 dark:border-[#1E3A4A]">
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Score de tendencia
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-purple-600">
-                {trend.trend_score}
-              </p>
-            </div>
-
-            {trend.final_score !== undefined && (
-              <div className="rounded-xl border p-4 dark:border-[#1E3A4A]">
+          {reports.map((report) => (
+            <div
+              key={report.id}
+              className="
+                rounded-xl border p-4
+                dark:border-[#1E3A4A]
+                bg-slate-50 dark:bg-[#102C3C]
+              "
+            >
+              {/* SCORE */}
+              <div className="flex justify-between items-center">
                 <p className="text-xs uppercase tracking-wider text-slate-500">
-                  Score final ponderado
+                  Score de tendencia
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-[#1CBCE8]">
-                  {trend.final_score}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* CONTEXTO */}
-          <div className="flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
-            {trend.year && trend.quarter && (
-              <span>
-                📅 Periodo: {trend.year} · Q{trend.quarter}
-              </span>
-            )}
-
-            {trend.trend_reports !== undefined && (
-              <span>
-                📊 Reportes analizados: {trend.trend_reports}
-              </span>
-            )}
-          </div>
-
-          {/* FUENTE */}
-          {(trend.source_title || trend.source_url) && (
-            <div className="rounded-xl border p-4 bg-slate-50 dark:bg-[#102C3C] dark:border-[#1E3A4A]">
-              <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">
-                Fuente
-              </p>
-
-              {trend.source_title && (
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {trend.source_title}
-                </p>
-              )}
-
-              {trend.source_type && (
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs bg-slate-200 dark:bg-[#1E3A4A] text-slate-600 dark:text-slate-300">
-                  {trend.source_type}
+                <span className="text-xl font-semibold text-purple-600">
+                  {report.trend_score}
                 </span>
-              )}
+              </div>
 
-              {trend.source_url && (
-                <div className="mt-2">
-                  <a
-                    href={trend.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-[#1CBCE8] hover:underline"
-                  >
-                    Ver fuente original ↗
-                  </a>
+              {/* META */}
+              <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
+                {report.source_type && (
+                  <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-slate-200 dark:bg-[#1E3A4A]">
+                    {report.source_type}
+                  </span>
+                )}
+
+                {report.created_at && (
+                  <span>
+                    📅 {new Date(report.created_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              {/* FUENTE */}
+              {(report.source_title || report.source_url) && (
+                <div className="mt-4 pt-3 border-t dark:border-[#1E3A4A]">
+                  {report.source_title && (
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {report.source_title}
+                    </p>
+                  )}
+
+                  {report.source_url && (
+                    <div className="mt-1">
+                      <a
+                        href={report.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[#1CBCE8] hover:underline"
+                      >
+                        Ver fuente original ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          ))}
         </div>
+
+        {/* ================= PAGINATION ================= */}
+        {pagination && onPageChange && (
+          <div className="px-6 py-3 border-t dark:border-[#1E3A4A] flex items-center justify-between">
+            <button
+              disabled={!pagination.prev_page_url}
+              onClick={() =>
+                onPageChange(pagination.current_page - 1)
+              }
+              className="px-3 py-1 rounded text-sm bg-slate-100 dark:bg-[#1E3A4A] disabled:opacity-40"
+            >
+              ← Anterior
+            </button>
+
+            <span className="text-xs text-slate-500">
+              Página {pagination.current_page} de {pagination.last_page} ·{" "}
+              {pagination.total} reportes
+            </span>
+
+            <button
+              disabled={!pagination.next_page_url}
+              onClick={() =>
+                onPageChange(pagination.current_page + 1)
+              }
+              className="px-3 py-1 rounded text-sm bg-slate-100 dark:bg-[#1E3A4A] disabled:opacity-40"
+            >
+              Siguiente →
+            </button>
+          </div>
+        )}
 
         {/* ================= FOOTER ================= */}
         <div className="px-6 py-3 border-t dark:border-[#1E3A4A] flex justify-end">

@@ -265,40 +265,30 @@ public function index(Request $request)
 
 
 
-public function trendsByTechnology(Request $request, int $technologyId)
+public function trendsByTechnology(Request $request, int $marketEntityId)
 {
-    $year    = (int) $request->get('year', 2025);
-    $period  = $request->get('period', 's2');
+    $year    = (int) $request->get('year', 2026);
+    $period  = $request->get('period', 's1');
     $quarter = $period === 's1' ? 1 : 4;
 
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-    $trends = DB::table('technology_trends as tt')
-        ->join(
-            'technology_trend_technology as ttt',
-            'ttt.technology_trend_id',
-            '=',
-            'tt.id'
-        )
-        ->where('ttt.technology_id', $technologyId)
-        ->whereRaw(
-            "JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'"
-        )
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
+    $trends = DB::table('entity_trends as et')
+        ->where('et.market_entity_id', $marketEntityId)
+        ->where('et.year', $year)
+        ->where('et.quarter', $quarter)
+        ->orderByDesc('et.trend_score')
         ->select(
-            'tt.id',
-            'tt.topic_name',
-            'tt.trend_score',
-            'tt.year',
-            'tt.quarter',
-            'tt.source_title',
-            'tt.source_url',
-            'tt.source_type',
-            'tt.created_at'
+            'et.id',
+            'et.topic_name',
+            'et.trend_score',
+            'et.year',
+            'et.quarter',
+            'et.source_title',
+            'et.source_url',
+            'et.source_type',
+            'et.created_at'
         )
-        ->distinct()
-        ->orderByDesc('tt.trend_score')
         ->paginate($perPage);
 
     return response()->json([
@@ -308,11 +298,10 @@ public function trendsByTechnology(Request $request, int $technologyId)
             'last_page'    => $trends->lastPage(),
             'per_page'     => $trends->perPage(),
             'total'        => $trends->total(),
-            'prev_page_url'=> $trends->previousPageUrl(),
-            'next_page_url'=> $trends->nextPageUrl(),
         ],
     ]);
 }
+
 
 private function getBaseContext(Request $request): array
 {
@@ -377,43 +366,48 @@ private function getBaseContext(Request $request): array
         'trendWeight' => $trendWeight,
     ];
 }
-
-public function reportsByTechnology(Request $request, int $technologyId)
+public function reportsByTechnology(Request $request, int $marketEntityId)
 {
-    $year    = (int) $request->get('year', 2025);
-    $period  = $request->get('period', 's2');
+    $year    = (int) $request->get('year', 2026);
+    $period  = $request->get('period', 's1');
     $quarter = $period === 's1' ? 1 : 4;
 
-    $reports = DB::table('technology_trends as tt')
-        ->join(
-            'technology_trend_technology as ttt',
-            'ttt.technology_trend_id',
-            '=',
-            'tt.id'
-        )
-        ->where('ttt.technology_id', $technologyId)
-        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(tt.raw_data, '$.intent')) = 'technology_trend'")
-        ->where('tt.year', $year)
-        ->where('tt.quarter', $quarter)
-        ->select(
-            'tt.id',
-            'tt.topic_name',
-            'tt.trend_score',
-            'tt.year',
-            'tt.quarter',
-            'tt.source_title',
-            'tt.source_url',
-            'tt.source_type'
-        )
-        ->distinct()
-        ->orderByDesc('tt.trend_score')
-        ->get();
+    $perPage = min((int) $request->get('per_page', 10), 50);
+
+    $paginator = DB::table('entity_trends')
+        ->where('market_entity_id', $marketEntityId)
+        ->where('year', $year)
+        ->where('quarter', $quarter)
+        ->orderByDesc('trend_score')
+        ->paginate(
+            $perPage,
+            [
+                'id',
+                'trend_score',
+                'source_title',
+                'source_url',
+                'source_type',
+                'created_at',
+            ]
+        );
 
     return response()->json([
-        'total' => $reports->count(),
-        'data'  => $reports,
+        // 👇 DATA PLANA (clave para React)
+        'data' => $paginator->items(),
+
+        // 👇 PAGINACIÓN SEPARADA
+        'pagination' => [
+            'current_page' => $paginator->currentPage(),
+            'last_page'    => $paginator->lastPage(),
+            'per_page'     => $paginator->perPage(),
+            'total'        => $paginator->total(),
+            'prev_page_url'=> $paginator->previousPageUrl(),
+            'next_page_url'=> $paginator->nextPageUrl(),
+        ],
     ]);
 }
+
+ 
 
 public function technologyTrendDetail(Request $request, int $trendId)
 {
@@ -468,32 +462,32 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
     /* ==================================================
        JOBS POR TECNOLOGÍA
     ================================================== */
-    public function jobsByTechnology(Request $request, int $technologyId)
-    {
-        $perPage = min((int) $request->get('per_page', 10), 50);
-        $page    = (int) $request->get('page', 1);
+   public function jobsByTechnology(Request $request, int $technologyId)
+{
+    $perPage = min((int) $request->get('per_page', 10), 50);
 
-        $jobs = DB::table('job_offers as j')
-            ->join('technology_job as tj', 'tj.job_offer_id', '=', 'j.id')
-            ->where('tj.technology_id', $technologyId)
-            ->select(
-                'j.id',
-                'j.title',
-                'j.company',
-                'j.location',
-                'j.country',
-                'j.modality',
-                'j.salary_min',
-                'j.salary_max',
-                'j.source',
-                'j.published_at',
-                'j.url'
-            )
-            ->orderByDesc('j.published_at')
-            ->paginate($perPage, ['*'], 'page', $page);
+    $jobs = DB::table('job_offers as j')
+        ->join('technology_job as tj', 'tj.job_offer_id', '=', 'j.id')
+        ->where('tj.market_entity_id', $technologyId)
+        ->orderByDesc('j.published_at')
+        ->select(
+            'j.id',
+            'j.title',
+            'j.company',
+            'j.location',
+            'j.country',
+            'j.modality',
+            'j.salary_min',
+            'j.salary_max',
+            'j.source',
+            'j.published_at',
+            'j.url'
+        )
+        ->paginate($perPage);
 
-        return response()->json($jobs);
-    }
+    return response()->json($jobs);
+}
+
 public function jobsByLanguage(Request $request, int $languageId)
 {
     $perPage = min((int) $request->get('per_page', 10), 50);

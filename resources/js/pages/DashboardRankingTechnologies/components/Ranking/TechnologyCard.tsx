@@ -1,4 +1,5 @@
-import { TechnologyRanking } from "../../types/ranking";
+import { TechnologyRanking } from "../../types/technologyRanking";
+
 import {
   TrendingUp,
   Briefcase,
@@ -30,11 +31,20 @@ export default function TechnologyCard({
   data,
   onAction,
 }: Props) {
+
   /* =========================================
-     TIPO DE ITEM (FUENTE ÚNICA)
+     CONTEXTO DEL ITEM
   ========================================= */
-  const isTrend = data.entity_type === "trend";
-  const isISIL  = Number(data.is_isil ?? 0) === 1;
+  const isTechnology = true; // 🔥 en este ranking siempre son tecnologías
+const classification = data.classification as
+  | "isil"
+  | "trend"
+  | "isil+trend"
+  | "market";
+
+const isISIL = classification === "isil" || classification === "isil+trend";
+const isTrend = classification === "trend" || classification === "isil+trend";
+
 
   /* =========================================
      BLINDAJE DE DATOS
@@ -44,13 +54,16 @@ export default function TechnologyCard({
   const trendScore   = Number(data.trend_score ?? 0);
   const totalJobs    = Number(data.total_jobs ?? 0);
   const trendReports = Number((data as any).trend_reports ?? 0);
+const hasTrendData = trendReports > 0;
 
-  /** 🔥 Regla clave:
-   * Solo hay tendencia REAL si existen reportes
-   */
-  const hasRealTrend = trendReports > 0;
+  /* =========================================
+     TENDENCIAS (REGLA ÚNICA)
+  ========================================= */
 
-  /* Etiqueta semántica */
+
+  /* =========================================
+     Etiqueta semántica
+  ========================================= */
   const scoreLabel =
     finalScore >= 70 ? "Alta" :
     finalScore >= 40 ? "Media" :
@@ -61,10 +74,10 @@ export default function TechnologyCard({
       className={`
         group rounded-2xl border bg-white p-6
         relative overflow-hidden transition-all duration-300
-        ${!isTrend
-  ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]"
-  : ""}
-
+        ${isTechnology
+          ? "cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:border-[#1CBCE8]"
+          : ""
+        }
         dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
       `}
     >
@@ -72,11 +85,7 @@ export default function TechnologyCard({
       <div
         className={`
           absolute top-0 left-0 h-1 w-full
-          ${
-            isTrend
-              ? "bg-gradient-to-r from-[#A855F7] to-[#C084FC]"
-              : "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
-          }
+          bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]
         `}
       />
 
@@ -100,7 +109,7 @@ export default function TechnologyCard({
             </h3>
 
             {/* BADGE ISIL */}
-            {isISIL && !isTrend && (
+            {isISIL && (
               <span
                 className="
                   ml-2 inline-flex items-center gap-1
@@ -117,40 +126,21 @@ export default function TechnologyCard({
 
             {/* BADGE TREND */}
             {isTrend && (
-              <span
-                className="
-                  ml-2 inline-flex items-center gap-1
-                  rounded-full bg-purple-100 px-2 py-0.5
-                  text-[10px] font-bold uppercase
-                  text-purple-700
-                  dark:bg-[#2A1B3D] dark:text-purple-300
-                "
-              >
-                <TrendingUp className="h-3 w-3" />
-                Tendencia
-              </span>
-            )}
+  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700 dark:bg-[#2A1B3D] dark:text-purple-300">
+    <TrendingUp className="h-3 w-3" />
+    Tendencia
+  </span>
+)}
+
           </div>
 
           {/* ================= SUBTÍTULO ================= */}
-      {/* ================= SUBTÍTULO ================= */}
-{data.entity_type === "technology" && (
-  <p className="text-sm text-slate-500">
-    {data.category ?? "Tecnología"}
-  </p>
-)}
-
-{data.entity_type === "trend" && (
-  <p className="text-sm text-slate-500 line-clamp-2">
-    {data.impacted_technologies
-      ? `Tecnologías asociadas: ${data.impacted_technologies}`
-      : "Tendencia tecnológica"}
-  </p>
-)}
-
+          <p className="text-sm text-slate-500">
+            {data.category ?? "Tecnología"}
+          </p>
 
           {/* ================= CATEGORÍA ================= */}
-          {!isTrend && data.category && (
+          {data.category && (
             <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-widest text-gray-700 dark:text-slate-300">
               <span className="w-2 h-2 rounded-full bg-[#1CBCE8]" />
               {data.category}
@@ -227,23 +217,18 @@ export default function TechnologyCard({
             <div
   onClick={(e) => {
     e.stopPropagation();
-
-    // ✅ si NO hay reportes, no hacer nada
-    if (!hasRealTrend) return;
-
-    // 👉 siempre permitir abrir detalle de tendencia
+    if (!hasTrendData) return;
     onAction?.("trend", data);
   }}
   className={`
     rounded-lg p-2 transition
     ${
-      hasRealTrend
+      hasTrendData
         ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-        : ""
+        : "opacity-40 cursor-not-allowed"
     }
   `}
 >
-
 
                 <div className="flex items-center gap-1 text-xs uppercase text-gray-500">
                   <TrendingUp className="h-3 w-3" />
@@ -259,11 +244,13 @@ export default function TechnologyCard({
 
                 <span className="text-[11px] text-gray-500 flex justify-between">
                   <span>Score: {trendScore.toFixed(1)}</span>
-                  {hasRealTrend && (
-                    <span className="text-gray-400">
-                      {trendReports} reporte{trendReports !== 1 ? "s" : ""}
-                    </span>
-                  )}
+                 {hasTrendData && (
+  <span className="text-gray-400">
+    {trendReports} reporte{trendReports !== 1 ? "s" : ""}
+  </span>
+)}
+
+
                 </span>
               </div>
             </div>
@@ -282,7 +269,7 @@ export default function TechnologyCard({
       </div>
 
       {/* ================= FOOTER ISIL ================= */}
-      {!isTrend && isISIL && (
+      {isISIL && (
         <div className="pt-4 flex justify-end">
           <span
             className="
