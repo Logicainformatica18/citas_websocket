@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
@@ -6,9 +6,8 @@ import axios from "axios";
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
-import TrendDetailModal from "./components/Ranking/TrendDetailModal";
 import LanguageJobsModal from "./components/Ranking/LanguageJobsModal";
-import LanguageTrendJobsModal from "./components/Ranking/LanguageTrendJobsModal";
+import LanguageTrendModal from "./components/Ranking/LanguageTrendModal";
 
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
 import {
@@ -57,81 +56,76 @@ export default function RankingLenguajesPage() {
   const { ranking, kpis, meta, weights } =
     usePage<PageProps>().props;
 
-  /* =========================
-     MODAL TENDENCIA (DETALLE)
-  ========================= */
+  /* =========================================================
+     MODAL LABORAL
+  ========================================================= */
+  const [jobsModal, setJobsModal] = useState<{
+    open: boolean;
+    language: any | null;
+  }>({ open: false, language: null });
+
+  /* =========================================================
+     MODAL TENDENCIAS (ENTITY_TRENDS)
+  ========================================================= */
   const [trendModal, setTrendModal] = useState<{
     open: boolean;
-    trend: any | null;
+    language: any | null;
+    trends: any[];
+    pagination: any | null;
+    page: number;
   }>({
     open: false,
-    trend: null,
+    language: null,
+    trends: [],
+    pagination: null,
+    page: 1,
   });
 
-  const openTrendModal = (trend: any) => {
-    setTrendModal({ open: true, trend });
+  /* =========================
+     ABRIR MODAL TENDENCIAS
+  ========================= */
+  const openTrendModal = async (language: any, page = 1) => {
+    try {
+      const res = await axios.get(
+        `/dashboard/ranking/languages/${language.id}/trends`,
+        { params: { page } }
+      );
+
+      setTrendModal({
+        open: true,
+        language,
+        trends: res.data?.data ?? [],
+        pagination: res.data?.pagination ?? null,
+        page,
+      });
+    } catch (e) {
+      console.error("❌ Error cargando tendencias", e);
+    }
   };
 
   const closeTrendModal = () => {
-    setTrendModal({ open: false, trend: null });
+    setTrendModal({
+      open: false,
+      language: null,
+      trends: [],
+      pagination: null,
+      page: 1,
+    });
   };
 
-  /* =========================
-     MODAL JOBS – LENGUAJE ISIL
-  ========================= */
-  const [jobsModal, setJobsModal] = useState<{
-    open: boolean;
-    item: any | null;
-  }>({
-    open: false,
-    item: null,
-  });
-
-  const openJobsModal = (item: any) => {
-    setJobsModal({ open: true, item });
-  };
-
-  const closeJobsModal = () => {
-    setJobsModal({ open: false, item: null });
-  };
-
-  /* =========================
-     MODAL JOBS – LENGUAJE EN TENDENCIA
-  ========================= */
-  const [trendJobsModal, setTrendJobsModal] = useState<{
-    open: boolean;
-    item: any | null;
-  }>({
-    open: false,
-    item: null,
-  });
-
-  const openTrendJobsModal = (item: any) => {
-    setTrendJobsModal({ open: true, item });
-  };
-
-  const closeTrendJobsModal = () => {
-    setTrendJobsModal({ open: false, item: null });
-  };
-
-  /* =========================
+  /* =========================================================
      MODAL PONDERACIONES
-  ========================= */
+  ========================================================= */
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendWeight !== 100) {
-      Swal.fire(
-        "Error",
-        "Las ponderaciones deben sumar 100%",
-        "error"
-      );
+      Swal.fire("Error", "Las ponderaciones deben sumar 100%", "error");
       return;
     }
 
     Swal.fire({
       title: "Aplicando metodología",
-      text: "Actualizando ranking de lenguajes…",
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
@@ -166,110 +160,66 @@ export default function RankingLenguajesPage() {
 
         <DashboardProvider>
           <div className="bg-background px-6 py-6">
-            <div className="flex gap-6">
-              <div className="flex-1 space-y-6">
+            <div className="space-y-6">
 
-                {/* ================= HEADER ================= */}
-                <RankingHeader
-                  weights={weights}
-                  onEditWeights={() => setIsWeightModalOpen(true)}
-                  meta={meta}
-                />
+              <RankingHeader
+                weights={weights}
+                onEditWeights={() => setIsWeightModalOpen(true)}
+                meta={meta}
+              />
 
-                {/* ================= KPIs ================= */}
-                <KpiGrid items={kpis} />
+              <KpiGrid items={kpis} />
 
-                {/* ================= DESCRIPCIÓN ================= */}
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    Ranking General de Lenguajes
-                  </h2>
+              <RankingFilters />
 
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                    Clasificación de lenguajes ISIL y lenguajes en tendencia,
-                    considerando demanda laboral real y presencia en reportes
-                    especializados.
-                  </p>
-                </div>
+              <RankingList
+                items={ranking.data}
+                pagination={ranking}
+                onSelectItem={(action, item) => {
 
-                {/* ================= FILTROS ================= */}
-                <RankingFilters />
+                  console.log("🔥 CLICK:", action, item);
 
-                {/* ================= RANKING ================= */}
-                <RankingList
-                  items={ranking.data}
-                  pagination={ranking}
-                  onSelectItem={(action, item) => {
+                  /* ---------- TENDENCIAS ---------- */
+                  if (action === "trend") {
+                    if (Number(item.trend_reports ?? 0) === 0) return;
+                    openTrendModal(item, 1);
+                    return;
+                  }
 
-                    /* ---------- DETALLE DE TENDENCIA ---------- */
-                    if (action === "trend") {
-                      if (!item.is_real_trend) return;
-
-                      axios
-                        .get(
-                          `/dashboard/ranking/languages/trend/${item.id}`
-                        )
-                        .then((res) => {
-                          const trend = res.data?.data;
-                          if (!trend) return;
-
-                          openTrendModal({
-                            id: trend.id,
-                            name: trend.topic_name,
-                            trend_score: trend.trend_score,
-                            year: trend.year,
-                            quarter: trend.quarter,
-                            source_title: trend.source_title,
-                            source_url: trend.source_url,
-                            source_type: trend.source_type,
-                          });
-                        });
-
-                      return;
-                    }
-
-                    /* ---------- LABORAL ---------- */
-                    if (action === "laboral") {
-
-                      // 🔵 LENGUAJE ISIL
-                      if (item.entity_type === "language") {
-                        openJobsModal(item);
-                        return;
-                      }
-
-                      // 🔴 LENGUAJE EN TENDENCIA
-                      if (item.entity_type === "trend") {
-                        if (!item.is_real_trend || Number(item.total_jobs) === 0) {
-                          return;
-                        }
-
-                        openTrendJobsModal(item);
-                        return;
-                      }
-                    }
-                  }}
-                />
-              </div>
+                  /* ---------- LABORAL ---------- */
+                  if (action === "laboral") {
+                    if (Number(item.total_jobs ?? 0) === 0) return;
+                    setJobsModal({ open: true, language: item });
+                    return;
+                  }
+                }}
+              />
             </div>
           </div>
 
-          {/* ================= MODAL JOBS – LENGUAJE ISIL ================= */}
-          {jobsModal.open && jobsModal.item && (
+          {/* ================= MODAL LABORAL ================= */}
+          {jobsModal.open && jobsModal.language && (
             <LanguageJobsModal
               open={jobsModal.open}
-              onClose={closeJobsModal}
-              languageId={jobsModal.item.id}
-              languageName={jobsModal.item.name}
+              onClose={() =>
+                setJobsModal({ open: false, language: null })
+              }
+              languageId={jobsModal.language.id}
+              languageName={jobsModal.language.name}
             />
           )}
 
-          {/* ================= MODAL JOBS – LENGUAJE EN TENDENCIA ================= */}
-          {trendJobsModal.open && trendJobsModal.item && (
-            <LanguageTrendJobsModal
-              open={trendJobsModal.open}
-              onClose={closeTrendJobsModal}
-              trendId={trendJobsModal.item.id}
-              title={trendJobsModal.item.name}
+          {/* ================= MODAL TENDENCIAS ================= */}
+          {trendModal.open && trendModal.language && (
+            <LanguageTrendModal
+              open={trendModal.open}
+              language={trendModal.language}
+              trends={trendModal.trends}
+              pagination={trendModal.pagination}
+              onClose={closeTrendModal}
+              onPageChange={(page) =>
+                openTrendModal(trendModal.language, page)
+              }
             />
           )}
 
@@ -282,15 +232,6 @@ export default function RankingLenguajesPage() {
           />
         </DashboardProvider>
       </AppLayout>
-
-      {/* ================= MODAL DETALLE TENDENCIA ================= */}
-      {trendModal.open && trendModal.trend && (
-        <TrendDetailModal
-          open={trendModal.open}
-          trend={trendModal.trend}
-          onClose={closeTrendModal}
-        />
-      )}
     </>
   );
 }

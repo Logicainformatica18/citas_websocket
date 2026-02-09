@@ -52,16 +52,13 @@ export default function RankingList({
             onAction={(action, data) => {
 
               /* ---------- DETALLE TENDENCIA ---------- */
-              if (action === "trend") {
-                // 🔒 Solo si es tendencia real
-                if (!data.is_real_trend) return;
+           if (action === "trend") {
+  // 🔒 Solo si hay reportes reales
+  if (Number(data.trend_reports ?? 0) === 0) return;
 
-                // 🔒 Sin reportes no tiene sentido
-                if (Number(data.trend_reports ?? 0) === 0) return;
-
-                onSelectItem?.("trend", data);
-                return;
-              }
+  onSelectItem?.("trend", data);
+  return;
+}
 
               /* ---------- LABORAL ---------- */
               if (action === "laboral") {

@@ -377,7 +377,10 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         '/trend/{trendId}',
         [RankingLenguajesController::class, 'languageTrendDetail']
     )->name('dashboard.ranking.languages.trend.detail');
-
+ Route::get('/{language}/trends', [
+        RankingLenguajesController::class,
+        'trendsByLanguage'
+    ]);
     Route::get(
     '/trend/{trend}/jobs',
     [RankingLenguajesController::class, 'jobsByTrendLanguage']

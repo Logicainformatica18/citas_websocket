@@ -108,12 +108,11 @@ const isISIL =
             {/* Subscores */}
             <div className="grid grid-cols-2 gap-4 pt-2">
               {/* Laboral */}
-           {/* Laboral */}
+          {/* Laboral */}
 <div
   onClick={(e) => {
     e.stopPropagation();
 
-    // 🔒 No abrir si no hay mercado real
     if (totalJobs === 0) return;
 
     onAction?.("laboral", data);
@@ -126,6 +125,7 @@ const isISIL =
     }
   `}
 >
+
 
                 <div className="flex items-center justify-between text-xs uppercase text-gray-500">
                   <span className="flex items-center gap-1">
@@ -150,25 +150,24 @@ const isISIL =
               </div>
 
               {/* Tendencias */}
-              <div
-              onClick={(e) => {
-  e.stopPropagation();
+            {/* Tendencias */}
+<div
+  onClick={(e) => {
+    e.stopPropagation();
 
-  // 🔒 Solo tendencias reales
-  if (!data.is_real_trend) return;
-  if (trendReports === 0) return;
+    if (trendReports === 0) return;
 
-  onAction?.("trend", data);
-}}
+    onAction?.("trend", data);
+  }}
+  className={`
+    rounded-lg p-2 transition
+    ${trendReports === 0
+      ? "opacity-40 cursor-not-allowed"
+      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+    }
+  `}
+>
 
-                className={`
-                  rounded-lg p-2 transition
-                  ${trendReports === 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-                  }
-                `}
-              >
                 <div className="flex items-center justify-between text-xs uppercase text-gray-500">
                   <span className="flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
