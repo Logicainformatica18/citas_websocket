@@ -7,7 +7,8 @@ import axios from "axios";
 import CareerFilter from "./components/Filters/CareerFilter";
 import PeAlignmentHeader from "./components/Header/PeAlignmentHeader";
 import PeAlignmentKpis from "./components/KPIs/PeAlignmentKpis";
-import CompetencyAlignmentTable from "./components/Table/CompetencyAlignmentTable";
+
+import CompetencyCard from "./components/Cards/CompetencyCard";
 
 import CompetencyJobsModal from "./components/Modals/CompetencyJobsModal";
 import CompetencyTrendsModal from "./components/Modals/CompetencyTrendsModal";
@@ -32,9 +33,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function PeAlignmentIndicatorPage() {
-  /* ======================================================
-     PROPS DESDE INERTIA
-  ====================================================== */
   const {
     summary,
     meta,
@@ -43,21 +41,17 @@ export default function PeAlignmentIndicatorPage() {
     availableCareers,
   } = usePage<any>().props;
 
-  /* ======================================================
-     STATE
-  ====================================================== */
   const [competencies, setCompetencies] = useState<any[]>([]);
-  const [loadingCompetencies, setLoadingCompetencies] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [jobsModal, setJobsModal] = useState<any>(null);
   const [trendsModal, setTrendsModal] = useState<any>(null);
-
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
   const hasCareer = Boolean(filters?.career_id);
 
   /* ======================================================
-     CARGAR COMPETENCIAS POR CARRERA
+     FETCH COMPETENCIAS
   ====================================================== */
   useEffect(() => {
     if (!filters?.career_id) {
@@ -65,7 +59,7 @@ export default function PeAlignmentIndicatorPage() {
       return;
     }
 
-    setLoadingCompetencies(true);
+    setLoading(true);
 
     axios
       .get(
@@ -75,16 +69,12 @@ export default function PeAlignmentIndicatorPage() {
       .then((res) => {
         setCompetencies(res.data.data ?? []);
       })
-      .catch(() => {
-        setCompetencies([]);
-      })
-      .finally(() => {
-        setLoadingCompetencies(false);
-      });
+      .catch(() => setCompetencies([]))
+      .finally(() => setLoading(false));
   }, [filters?.career_id, filters?.year, filters?.period]);
 
   /* ======================================================
-     GUARDAR PONDERACIONES
+     GUARDAR PESOS
   ====================================================== */
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
@@ -93,8 +83,7 @@ export default function PeAlignmentIndicatorPage() {
     }
 
     Swal.fire({
-      title: "Aplicando metodología",
-      text: "Actualizando indicador…",
+      title: "Actualizando metodología",
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
@@ -110,13 +99,11 @@ export default function PeAlignmentIndicatorPage() {
           Swal.fire({
             icon: "success",
             title: "Metodología actualizada",
-            timer: 1400,
+            timer: 1200,
             showConfirmButton: false,
           });
 
-          router.reload({
-            only: ["summary", "weights"],
-          });
+          router.reload({ only: ["summary", "weights"] });
         },
       }
     );
@@ -129,17 +116,17 @@ export default function PeAlignmentIndicatorPage() {
       <DashboardProvider>
         <div className="bg-background px-6 py-6 space-y-6">
 
-          {/* ================= HEADER ================= */}
+          {/* HEADER */}
           <PeAlignmentHeader
             meta={meta}
             weights={weights}
             onEditWeights={() => setIsWeightModalOpen(true)}
           />
 
-          {/* ================= FILTRO CARRERA ================= */}
+          {/* FILTRO */}
           <CareerFilter careers={availableCareers} filters={filters} />
 
-          {/* ================= KPIs ================= */}
+          {/* KPIs */}
           {summary ? (
             <PeAlignmentKpis
               market={summary.market}
@@ -147,53 +134,65 @@ export default function PeAlignmentIndicatorPage() {
               finalIndex={summary.final_index}
             />
           ) : (
-            <div className="text-sm text-slate-500">
-              Selecciona una carrera para ver el indicador.
+            <div className="text-sm text-muted-foreground">
+              Selecciona una carrera para analizar la alineación.
             </div>
           )}
 
-          {/* ================= TABLA COMPETENCIAS ================= */}
+          {/* GRID DE COMPETENCIAS */}
           {hasCareer && (
-            <CompetencyAlignmentTable
-              loading={loadingCompetencies}
-              competencies={competencies.map((c) => ({
-                id: c.competency_id,
-                name: c.competency_name,
-                market: c.market_match,
-                prospective: c.trend_match,
-                score: c.pe_score,
-              }))}
-              onViewJobs={(c) => {
-                axios
-                  .get(
-                    `/dashboard/indicators/pe-alignment/competency/${c.id}/jobs`,
-                    { params: filters }
-                  )
-                  .then((res) => {
-                    setJobsModal({
-                      competency: c,
-                      jobs: res.data.data,
-                    });
-                  });
-              }}
-              onViewTrends={(c) => {
-                axios
-                  .get(
-                    `/dashboard/indicators/pe-alignment/competency/${c.id}/trends`,
-                    { params: filters }
-                  )
-                  .then((res) => {
-                    setTrendsModal({
-                      competency: c,
-                      trends: res.data.data,
-                    });
-                  });
-              }}
-            />
+            <div className="space-y-4">
+              {loading && (
+                <div className="text-sm text-muted-foreground">
+                  Cargando competencias…
+                </div>
+              )}
+
+              {!loading && competencies.length === 0 && (
+                <div className="text-sm text-muted-foreground">
+                  No se encontraron competencias.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {competencies.map((c) => (
+                  <CompetencyCard
+                    key={c.id}
+                    competency={c}
+                    onViewJobs={() => {
+                      axios
+                        .get(
+                          `/dashboard/indicators/pe-alignment/competency/${c.id}/jobs`,
+                          { params: filters }
+                        )
+                        .then((res) =>
+                          setJobsModal({
+                            competency: c,
+                            jobs: res.data.data,
+                          })
+                        );
+                    }}
+                    onViewTrends={() => {
+                      axios
+                        .get(
+                          `/dashboard/indicators/pe-alignment/competency/${c.id}/trends`,
+                          { params: filters }
+                        )
+                        .then((res) =>
+                          setTrendsModal({
+                            competency: c,
+                            trends: res.data.data,
+                          })
+                        );
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* ================= MODALS ================= */}
+        {/* MODALS */}
         {jobsModal && (
           <CompetencyJobsModal
             competency={jobsModal.competency}
@@ -210,7 +209,6 @@ export default function PeAlignmentIndicatorPage() {
           />
         )}
 
-        {/* ================= MODAL PONDERACIONES ================= */}
         <WeightConfigModal
           open={isWeightModalOpen}
           onOpenChange={setIsWeightModalOpen}

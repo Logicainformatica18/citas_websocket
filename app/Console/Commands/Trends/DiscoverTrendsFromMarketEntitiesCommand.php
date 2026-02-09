@@ -106,27 +106,37 @@ public function handle()
                     continue;
                 }
 
-               EntityTrend::firstOrCreate(
-    [
-        'market_entity_id' => $entity['id'],
-        'year'             => $year,
-        'quarter'          => $quarter,
-        'trend_name'       => trim($trend['name']),
-    ],
-    [
-        'trend_score'      => (float) $trend['score'],
+     $sourceUrl = $trend['source']['url'] ?? null;
 
-        'source_title'     => $trend['source']['title'] ?? null,
-        'source_url'       => $trend['source']['url']   ?? null,
-        'source_type'      => $trend['source']['type']  ?? null,
+// ⛔ Si ya existe esta URL para esta entidad, no insertamos nada
+if ($sourceUrl) {
+    $exists = EntityTrend::where('market_entity_id', $entity['id'])
+        ->where('source_url', $sourceUrl)
+        ->exists();
 
-        'match_type'       => 'explicit',
-        'confidence_score' => 0.90,
+    if ($exists) {
+        continue;
+    }
+}
 
-        'discovered_by'    => 'gpt-search',
-        'discovered_at'    => now(),
-    ]
-);
+EntityTrend::create([
+    'market_entity_id' => $entity['id'],
+    'year'             => $year,
+    'quarter'          => $quarter,
+    'trend_name'       => trim($trend['name']),
+    'trend_score'      => (float) $trend['score'],
+
+    'source_title'     => $trend['source']['title'] ?? null,
+    'source_url'       => $sourceUrl,
+    'source_type'      => $trend['source']['type'] ?? null,
+
+    'match_type'       => 'explicit',
+    'confidence_score' => 0.90,
+
+    'discovered_by'    => 'gpt-search',
+    'discovered_at'    => now(),
+]);
+
 
             }
 

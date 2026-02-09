@@ -73,25 +73,30 @@ class DiscoverLanguageTrendsCommand extends Command
                         continue;
                     }
 
-                    EntityTrend::firstOrCreate(
-                        [
-                            'market_entity_id' => $language['id'],
-                            'year'             => $year,
-                            'quarter'          => $quarter,
-                            'trend_name'       => trim($trend['name']),
-                        ],
-                        [
-                            'trend_score'      => (float) $trend['score'],
-                            'source_title'     => $trend['source']['title'] ?? null,
-                            'source_url'       => $trend['source']['url']   ?? null,
-                            'source_type'      => $trend['source']['type']  ?? null,
+                  // ⛔ Si ya existe esta URL para este lenguaje, no hacemos nada
+$exists = EntityTrend::where('market_entity_id', $language['id'])
+    ->where('source_url', $trend['source']['url'] ?? null)
+    ->exists();
 
-                            'match_type'       => 'explicit',
-                            'confidence_score' => 0.90,
-                            'discovered_by'    => 'gpt-search',
-                            'discovered_at'    => now(),
-                        ]
-                    );
+if ($exists) {
+    continue;
+}
+
+EntityTrend::create([
+    'market_entity_id' => $language['id'],
+    'year'             => $year,
+    'quarter'          => $quarter,
+    'trend_name'       => trim($trend['name']),
+    'trend_score'      => (float) $trend['score'],
+    'source_title'     => $trend['source']['title'] ?? null,
+    'source_url'       => $trend['source']['url']   ?? null,
+    'source_type'      => $trend['source']['type']  ?? null,
+    'match_type'       => 'explicit',
+    'confidence_score' => 0.90,
+    'discovered_by'    => 'gpt-search',
+    'discovered_at'    => now(),
+]);
+
                 }
 
                 $this->info("✅ {$language['name']} procesado");

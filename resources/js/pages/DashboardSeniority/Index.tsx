@@ -72,9 +72,9 @@ export default function SeniorityIndicatorPage() {
             </div>
 
             {/* Charts */}
-            <div className="px-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="px-6 grid grid-cols-1 lg:grid-cols-1 gap-6">
               <SeniorityBarChart data={data} />
-              <SeniorityModalityPieChart data={modalityData} />
+              {/* <SeniorityModalityPieChart data={modalityData} /> */}
             </div>
           </>
         )}
