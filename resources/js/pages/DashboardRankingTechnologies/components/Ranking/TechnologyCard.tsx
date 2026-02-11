@@ -109,28 +109,9 @@ const hasTrendData = trendReports > 0;
             </h3>
 
             {/* BADGE ISIL */}
-            {isISIL && (
-              <span
-                className="
-                  ml-2 inline-flex items-center gap-1
-                  rounded-full bg-[#ECFAFD] px-2 py-0.5
-                  text-[10px] font-bold uppercase
-                  text-[#0284C7]
-                  dark:bg-[#14384F] dark:text-[#7DD3FC]
-                "
-              >
-                <GraduationCap className="h-3 w-3" />
-                ISIL
-              </span>
-            )}
+         
 
-            {/* BADGE TREND */}
-            {isTrend && (
-  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700 dark:bg-[#2A1B3D] dark:text-purple-300">
-    <TrendingUp className="h-3 w-3" />
-    Tendencia
-  </span>
-)}
+           
 
           </div>
 

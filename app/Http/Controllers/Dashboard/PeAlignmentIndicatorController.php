@@ -8,9 +8,141 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Models\Prueba;
+use App\Services\AI\CompetencyRecommendationService;
 
 class PeAlignmentIndicatorController extends Controller
 {
+/* =====================================================
+   IA – RECOMENDACIÓN POR COMPETENCIA
+===================================================== */
+public function analyzeCompetencyWithAI(
+    Request $request,
+    int $competencyId,
+    CompetencyRecommendationService $aiService
+) {
+    $careerId = (int) $request->get('career_id');
+    $year     = (int) $request->get('year', 2026);
+    $period   = $request->get('period', 's1');
+
+    if (!$careerId) {
+        return response()->json([
+            'error' => 'career_id es requerido'
+        ], 422);
+    }
+
+    /* ==================================================
+       1️⃣ CONTEXTO BASE
+    ================================================== */
+    $competency = DB::table('competencies')
+        ->where('id', $competencyId)
+        ->first(['id', 'name', 'career_id']);
+
+    if (!$competency || $competency->career_id !== $careerId) {
+        return response()->json([
+            'error' => 'Competencia no válida para la carrera'
+        ], 404);
+    }
+
+    /* ==================================================
+       2️⃣ BUSCAR ANÁLISIS YA GENERADO (CACHE)
+    ================================================== */
+    $cached = DB::table('competency_ai_analysis')
+        ->where('competency_id', $competencyId)
+        ->where('career_id', $careerId)
+        ->where('year', $year)
+        ->where('period', $period)
+        ->first();
+
+    if ($cached) {
+        return response()->json([
+            'source' => 'cache',
+            'analysis' => [
+                'diagnosis' => $cached->diagnosis,
+                'recommendation' => $cached->recommendation,
+                'generated_at' => $cached->generated_at,
+            ],
+        ]);
+    }
+
+    /* ==================================================
+       3️⃣ LENGUAJES Y TECNOLOGÍAS
+    ================================================== */
+    $entities = DB::table('competency_market_entity as cme')
+        ->join('market_entities as me', 'me.id', '=', 'cme.market_entity_id')
+        ->where('cme.competency_id', $competencyId)
+        ->select('me.entity_type', 'me.name')
+        ->get();
+
+    $languages = $entities
+        ->where('entity_type', 'language')
+        ->pluck('name')
+        ->values()
+        ->toArray();
+
+    $technologies = $entities
+        ->where('entity_type', 'technology')
+        ->pluck('name')
+        ->values()
+        ->toArray();
+
+    /* ==================================================
+       4️⃣ FLAGS (YA CALCULADOS POR TU SISTEMA)
+    ================================================== */
+    $marketMatch = DB::table('competency_market_entity as cme')
+        ->join('market_entities as me', 'me.id', '=', 'cme.market_entity_id')
+        ->leftJoin('language_job as lj', 'lj.market_entity_id', '=', 'me.id')
+        ->leftJoin('technology_job as tj', 'tj.market_entity_id', '=', 'me.id')
+        ->where('cme.competency_id', $competencyId)
+        ->exists();
+
+    $trendMatch = DB::table('competency_market_entity as cme')
+        ->join('entity_trends as et', 'et.market_entity_id', '=', 'cme.market_entity_id')
+        ->where('cme.competency_id', $competencyId)
+        ->exists();
+
+    /* ==================================================
+       5️⃣ IA – SOLO RECOMENDACIÓN
+    ================================================== */
+    $result = $aiService->analyze([
+        'competency'   => $competency->name,
+        'languages'    => $languages,
+        'technologies' => $technologies,
+        'market_match' => $marketMatch,
+        'trend_match'  => $trendMatch,
+    ]);
+
+    /* ==================================================
+       6️⃣ GUARDAR RESULTADO
+    ================================================== */
+    DB::table('competency_ai_analysis')->insert([
+        'competency_id' => $competencyId,
+        'career_id'     => $careerId,
+        'year'          => $year,
+        'period'        => $period,
+
+        'market_match'  => $marketMatch,
+        'trend_match'   => $trendMatch,
+
+        'languages'     => json_encode($languages),
+        'technologies'  => json_encode($technologies),
+
+        'diagnosis'     => $result['diagnosis'] ?? '',
+        'recommendation'=> $result['recommendation'] ?? '',
+
+        'model'         => config('ai.model', 'gpt-4'),
+        'generated_at'  => now(),
+    ]);
+
+    return response()->json([
+        'source' => 'ai',
+        'analysis' => [
+            'diagnosis' => $result['diagnosis'] ?? '',
+            'recommendation' => $result['recommendation'] ?? '',
+            'generated_at' => now(),
+        ],
+    ]);
+}
+
     /* =====================================================
        INDEX
     ===================================================== */
@@ -320,7 +452,11 @@ public function competenciesByCareer(Request $request, int $careerId)
     /* ==================================================
        5️⃣ ARMADO FINAL PARA CARDS
     ================================================== */
-    $data = $competencies->map(function ($c) use ($stack, $marketLookup, $trendLookup) {
+ /* ==================================================
+   5️⃣ ARMADO FINAL + ORDEN SEMÁNTICO
+================================================== */
+$data = $competencies
+    ->map(function ($c) use ($stack, $marketLookup, $trendLookup) {
 
         $entities = $stack[$c->id] ?? collect();
 
@@ -337,10 +473,15 @@ public function competenciesByCareer(Request $request, int $careerId)
         $market = isset($marketLookup[$c->id]);
         $trend  = isset($trendLookup[$c->id]);
 
-        $score = round(
-            ($market ? 0.7 : 0) + ($trend ? 0.3 : 0),
-            2
-        );
+        // 🔥 ORDEN SEMÁNTICO
+        // 1 = alineada, 2 = parcial, 3 = gap
+        if ($market && $trend) {
+            $order = 1;
+        } elseif ($market || $trend) {
+            $order = 2;
+        } else {
+            $order = 3;
+        }
 
         return [
             'id' => $c->id,
@@ -352,13 +493,16 @@ public function competenciesByCareer(Request $request, int $careerId)
             'market_match' => $market,
             'trend_match' => $trend,
 
-            'pe_score' => $score,
-
-            'status' => $score === 1.0
-                ? 'aligned'
-                : ($score > 0 ? 'partial' : 'gap'),
+            'order' => $order, // 👈 clave
         ];
-    })->values();
+    })
+    // 🔥 ORDEN FINAL: alineadas → parciales → GAP
+    ->sortBy([
+        ['order', 'asc'],
+        ['name', 'asc'],
+    ])
+    ->values();
+
 
     return response()->json([
         'data' => $data,

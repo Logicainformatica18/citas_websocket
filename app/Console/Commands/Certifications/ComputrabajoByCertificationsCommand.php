@@ -12,6 +12,11 @@ use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait;
 use App\Helpers\RegionHelper;
+use App\Services\ScraperRunService;
+use App\Models\MarketEntity;
+use App\Models\MarketEntityMetric;
+
+
 
 class ComputrabajoByCertificationsCommand extends Command
 {
@@ -47,27 +52,69 @@ class ComputrabajoByCertificationsCommand extends Command
     const DEFAULT_LNG = -77.042793;
 
     public function handle()
-    {
-        $certifications = Certification::where('enabled', 1)
-            ->select('id', 'name', 'keyword')
-            ->get();
+{
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Computrabajo',
+        'market_entities'
+    );
 
-        $pages = (int) $this->option('pages');
+    $pages = (int) $this->option('pages');
 
-        $this->info("🏅 Computrabajo | {$certifications->count()} certificaciones | {$pages} páginas");
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
 
-        foreach ($certifications as $cert) {
+    try {
 
-            $certId   = $cert->id;
-            $certName = $cert->name;
-            $keyword  = strtolower($cert->keyword ?? $cert->name);
+        /* =====================================================
+           🔁 BASE QUERY (Market Entities tipo certification)
+        ===================================================== */
+        $baseQuery = MarketEntity::where('entity_type', 'certification')
+            ->orderBy('id');
 
-            $this->warn("\n💡 Certificación: {$certName} | keyword: {$keyword}");
+        /* =====================================================
+           ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD PROCESADA
+        ===================================================== */
+        $lastEntityId = MarketEntityMetric::where('source', 'Computrabajo')
+            ->orderByDesc('created_at')
+            ->value('market_entity_id');
+
+        $entitiesQuery = clone $baseQuery;
+
+        if ($lastEntityId) {
+            $entitiesQuery->where('id', '>', $lastEntityId);
+        }
+
+        $entities = $entitiesQuery->get();
+
+        if ($entities->isEmpty()) {
+            // 🔁 ciclo completo
+            $entities = $baseQuery->get();
+        }
+
+        $this->info("🏅 Computrabajo | {$entities->count()} market certifications | {$pages} páginas");
+
+        foreach ($entities as $entity) {
+
+            $entityId   = $entity->id;
+            $entityName = $entity->name;
+
+            // 🔎 keyword de búsqueda (radar)
+            $keyword = strtolower(
+                $entity->vendor
+                    ? "{$entity->vendor} certification"
+                    : $entityName
+            );
+
+            $this->warn("\n💡 Market certification: {$entityName}");
+            $this->line("🔎 Keyword búsqueda: {$keyword}");
 
             $slug = $this->makeSearchSlug($keyword);
 
             $totalFound = 0;
             $totalNew   = 0;
+
             $countries  = [];
             $modalities = [];
 
@@ -94,9 +141,8 @@ class ComputrabajoByCertificationsCommand extends Command
                         if ($offers->count() === 0) continue;
 
                         $offers->each(function (Crawler $offer) use (
-                            $certId,
-                            $certName,
-                            $keyword,
+                            $entityId,
+                            $entityName,
                             $country,
                             $code,
                             &$totalFound,
@@ -110,8 +156,10 @@ class ComputrabajoByCertificationsCommand extends Command
                                 // 🚫 Filtrar no-tech
                                 if (!$this->isTechRelated($title)) return;
 
-                                // 🔎 Validación por keyword (flexible)
-                                if (!str_contains(strtolower($title), $keyword)) return;
+                                // 🔍 VALIDACIÓN FINAL POR NOMBRE (CRÍTICA)
+                                if (!str_contains(strtolower($title), strtolower($entityName))) {
+                                    return;
+                                }
 
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
@@ -144,8 +192,8 @@ class ComputrabajoByCertificationsCommand extends Command
                                     ->first();
 
                                 if ($existing) {
-                                    $existing->certifications()
-                                        ->syncWithoutDetaching([$certId]);
+                                    $existing->marketCertifications()
+                                        ->syncWithoutDetaching([$entityId]);
                                     return;
                                 }
 
@@ -179,8 +227,9 @@ class ComputrabajoByCertificationsCommand extends Command
                                     'published_at' => now(),
                                 ]);
 
-                                $job->certifications()
-                                    ->syncWithoutDetaching([$certId]);
+                                // 👉 asociar market entity
+                                $job->marketCertifications()
+                                    ->syncWithoutDetaching([$entityId]);
 
                                 $totalNew++;
 
@@ -193,7 +242,7 @@ class ComputrabajoByCertificationsCommand extends Command
                                 $this->line("✅ {$title} ({$countryNorm} - {$city})");
 
                             } catch (\Throwable $e) {
-                                Log::warning("⚠️ {$certName}: {$e->getMessage()}");
+                                Log::warning("⚠️ {$entityName}: {$e->getMessage()}");
                             }
                         });
 
@@ -207,14 +256,17 @@ class ComputrabajoByCertificationsCommand extends Command
                 sleep(3);
             }
 
-            CertificationMetric::updateOrCreate(
+            /* =====================================================
+               📊 MÉTRICA DIARIA (Market Entity)
+            ===================================================== */
+            MarketEntityMetric::updateOrCreate(
                 [
-                    'certification_id' => $certId,
+                    'market_entity_id' => $entityId,
                     'run_date'         => Carbon::today(),
                     'source'           => 'Computrabajo',
                 ],
                 [
-                    'certification_name' => $certName,
+                    'entity_name'        => $entityName,
                     'jobs_found_count'   => $totalFound,
                     'jobs_new_count'     => $totalNew,
                     'countries_breakdown'=> $countries,
@@ -222,11 +274,27 @@ class ComputrabajoByCertificationsCommand extends Command
                 ]
             );
 
-            $this->info("📊 {$certName}: {$totalNew} nuevas / {$totalFound} totales");
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
+
+            $this->info("📊 {$entityName}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        $this->info("\n🎯 Computrabajo por keyword COMPLETADO");
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("\n🎯 Computrabajo market certifications COMPLETADO");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
+
 
     /* ================= HELPERS ================= */
 

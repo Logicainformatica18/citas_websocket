@@ -11,8 +11,9 @@ use App\Models\CertificationMetric;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
-use App\Services\ScraperRunService;
-
+use App\Services\ScraperRunService; 
+use App\Models\MarketEntity;
+use App\Models\MarketEntityMetric;
 class ArbeitnowByCertificationsCommand extends Command
 {
     protected $signature = 'arbeitnow:certifications';
@@ -40,214 +41,235 @@ class ArbeitnowByCertificationsCommand extends Command
     ];
 
     public function handle()
-    {
-        $run = ScraperRunService::start(
-            $this->signature,
-            'Arbeitnow',
-            'certifications'
-        );
+{
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Arbeitnow',
+        'market_entities'
+    );
 
-        $totalFoundAll = 0;
-        $totalInsertedAll = 0;
-        $totalSkippedAll = 0;
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
 
-        try {
+    try {
+
+        /* =====================================================
+           🔁 BASE QUERY (Market Entities tipo certification)
+        ===================================================== */
+        $baseQuery = MarketEntity::where('entity_type', 'certification')
+            ->orderBy('id');
+
+        /* =====================================================
+           ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD PROCESADA
+        ===================================================== */
+        $lastEntityId = MarketEntityMetric::where('source', 'Arbeitnow')
+            ->orderByDesc('created_at')
+            ->value('market_entity_id');
+
+        $entitiesQuery = clone $baseQuery;
+
+        if ($lastEntityId) {
+            $entitiesQuery->where('id', '>', $lastEntityId);
+        }
+
+        $entities = $entitiesQuery->get();
+
+        if ($entities->isEmpty()) {
+            // 🔁 ciclo completo → reiniciar
+            $entities = $baseQuery->get();
+        }
+
+        $this->info("🏅 Iniciando Arbeitnow para {$entities->count()} market certifications");
+
+        foreach ($entities as $entity) {
+
+            $entityId   = $entity->id;
+            $entityName = $entity->name;
+
+            $this->warn("\n💡 Market certification: {$entityName}");
+
+            $totalFound = 0;
+            $totalNew   = 0;
+
+            $countries  = [];
+            $modalities = [];
 
             /* =====================================================
-               🔁 BASE QUERY
+               🔎 SEARCH TERMS (nombre + keyword)
             ===================================================== */
-            $baseQuery = Certification::where('enabled', 1)
-                ->orderBy('id');
+            $searchTerms = array_unique(array_filter([
+                $entityName,
+                $entity->vendor ? "{$entity->vendor} certification" : null,
+            ]));
 
-            /* =====================================================
-               ▶️ REANUDAR DESDE ÚLTIMA CERTIFICACIÓN
-            ===================================================== */
-            $lastCertificationId = CertificationMetric::where('source', 'Arbeitnow')
-                ->orderByDesc('created_at')
-                ->value('certification_id');
+            $jobsCollected = collect();
 
-            $certificationsQuery = clone $baseQuery;
+            foreach ($searchTerms as $term) {
 
-            if ($lastCertificationId) {
-                $certificationsQuery->where('id', '>', $lastCertificationId);
-            }
-
-            $certifications = $certificationsQuery->pluck('name', 'id');
-
-            if ($certifications->isEmpty()) {
-                // 🔁 ciclo completo → reiniciar
-                $certifications = $baseQuery->pluck('name', 'id');
-            }
-
-            $this->info("🏅 Iniciando Arbeitnow para {$certifications->count()} certificaciones");
-
-            foreach ($certifications as $certId => $certName) {
-
-                $this->warn("\n💡 Certificación: {$certName}");
-
-                $totalFound = 0;
-                $totalNew = 0;
-
-                $countries = [];
-                $modalities = [];
-
-                /* =====================================================
-                   🔎 BÚSQUEDA PRINCIPAL
-                ===================================================== */
                 $response = Http::timeout(25)->get(
                     'https://www.arbeitnow.com/api/job-board-api',
-                    ['search' => $certName]
+                    ['search' => $term]
                 );
 
-                $jobs = $response->json('data') ?? [];
+                $results = $response->json('data') ?? [];
 
-                /* =====================================================
-                   🔁 FALLBACK GLOBAL + FILTRO TEXTO
-                ===================================================== */
-                if (count($jobs) === 0) {
-                    $fallback = Http::timeout(25)->get(
-                        'https://www.arbeitnow.com/api/job-board-api'
-                    );
+                $jobsCollected = $jobsCollected->merge($results);
+            }
 
-                    $jobs = collect($fallback->json('data') ?? [])
-                        ->filter(function ($job) use ($certName) {
-                            $text = strtolower(strip_tags(
-                                ($job['title'] ?? '') . ' ' .
-                                ($job['description'] ?? '')
-                            ));
-                            return str_contains($text, strtolower($certName));
-                        })
-                        ->values()
-                        ->all();
+            /* =====================================================
+               🔁 FALLBACK GLOBAL + FILTRO TEXTO ESTRICTO
+            ===================================================== */
+            if ($jobsCollected->isEmpty()) {
+                $fallback = Http::timeout(25)->get(
+                    'https://www.arbeitnow.com/api/job-board-api'
+                );
 
-                    $this->stats['fallback'] += count($jobs);
-                }
+                $jobsCollected = collect($fallback->json('data') ?? []);
+                $this->stats['fallback'] += $jobsCollected->count();
+            }
 
-                $totalFound = count($jobs);
+            /* =====================================================
+               🔍 VALIDACIÓN FINAL POR NOMBRE
+            ===================================================== */
+            $jobs = $jobsCollected
+                ->unique('slug')
+                ->filter(function ($job) use ($entityName) {
+                    $text = strtolower(strip_tags(
+                        ($job['title'] ?? '') . ' ' .
+                        ($job['description'] ?? '')
+                    ));
+                    return str_contains($text, strtolower($entityName));
+                })
+                ->values();
 
-                if ($totalFound === 0) {
-                    $this->warn("⚠️ Sin resultados para {$certName}");
+            $totalFound = $jobs->count();
+
+            if ($totalFound === 0) {
+                $this->warn("⚠️ Sin resultados válidos para {$entityName}");
+                continue;
+            }
+
+            foreach ($jobs as $job) {
+
+                $externalId = $job['slug']
+                    ?? md5($job['url'] ?? uniqid('arbeitnow_'));
+
+                $existing = JobOffer::where('external_id', $externalId)
+                    ->where('source', 'Arbeitnow')
+                    ->first();
+
+                if ($existing) {
+                    $existing->marketCertifications()
+                        ->syncWithoutDetaching([$entityId]);
                     continue;
                 }
 
-                foreach ($jobs as $job) {
-
-                    $externalId = $job['slug']
-                        ?? md5($job['url'] ?? uniqid('arbeitnow_'));
-
-                    $existing = JobOffer::where('external_id', $externalId)
-                        ->where('source', 'Arbeitnow')
-                        ->first();
-
-                    if ($existing) {
-                        $existing->certifications()
-                            ->syncWithoutDetaching([$certId]);
-                        continue;
-                    }
-
-                    /* ===============================
-                       MODALIDAD
-                    =============================== */
-                    $modality = $this->detectModality(
-                        $job['location'] ?? '',
-                        $job['remote'] ?? false
-                    );
-
-                    /* ===============================
-                       UBICACIÓN
-                    =============================== */
-                    $location = $job['location'] ?? '';
-                    $countryCode = $this->detectCountryCode(
-                        $location,
-                        $job['remote'] ?? false
-                    );
-
-                    [$city, $lat, $lng, $country] =
-                        $this->getCoordsFromCountry(
-                            $this->extractCity($location),
-                            $countryCode
-                        );
-
-                    if (!$lat || !$lng) {
-                        if (isset($this->capitalMap[$countryCode])) {
-                            $cap = $this->capitalMap[$countryCode];
-                            $city = $cap['city'];
-                            $lat = $cap['lat'];
-                            $lng = $cap['lng'];
-                        } else {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-                    }
-
-                    $offer = JobOffer::create([
-                        'title' => $job['title'] ?? 'N/A',
-                        'company' => $job['company_name'] ?? null,
-                        'country' => $country,
-                        'city' => $city,
-                        'latitude' => $lat,
-                        'longitude' => $lng,
-                        'modality' => $modality,
-                        'requirements' => strip_tags($job['description'] ?? null),
-                        'source' => 'Arbeitnow',
-                        'external_id' => $externalId,
-                        'url' => $job['url'] ?? null,
-                        'published_at' => Carbon::parse($job['created_at'] ?? now()),
-                        'region' => RegionHelper::fromCountry($country),
-                    ]);
-
-                    $offer->certifications()
-                        ->syncWithoutDetaching([$certId]);
-
-                    $totalNew++;
-
-                    $countries[$country] =
-                        ($countries[$country] ?? 0) + 1;
-
-                    $modalities[$modality] =
-                        ($modalities[$modality] ?? 0) + 1;
-                }
-
-                /* =====================================================
-                   📊 MÉTRICA DIARIA
-                ===================================================== */
-                CertificationMetric::firstOrCreate(
-                    [
-                        'certification_id' => $certId,
-                        'run_date' => now()->toDateString(),
-                        'source' => 'Arbeitnow',
-                    ],
-                    [
-                        'certification_name' => $certName,
-                        'jobs_found_count' => $totalFound,
-                        'jobs_new_count' => $totalNew,
-                        'countries_breakdown' => $countries,
-                        'modality_breakdown' => $modalities,
-                    ]
+                /* ===============================
+                   MODALIDAD
+                =============================== */
+                $modality = $this->detectModality(
+                    $job['location'] ?? '',
+                    $job['remote'] ?? false
                 );
 
-                $totalFoundAll += $totalFound;
-                $totalInsertedAll += $totalNew;
+                /* ===============================
+                   UBICACIÓN
+                =============================== */
+                $location = $job['location'] ?? '';
+                $countryCode = $this->detectCountryCode(
+                    $location,
+                    $job['remote'] ?? false
+                );
 
-                $this->info("✅ {$certName}: {$totalNew} nuevas | {$totalFound} encontradas");
+                [$city, $lat, $lng, $country] =
+                    $this->getCoordsFromCountry(
+                        $this->extractCity($location),
+                        $countryCode
+                    );
 
-                sleep(1);
+                if (!$lat || !$lng) {
+                    if (isset($this->capitalMap[$countryCode])) {
+                        $cap = $this->capitalMap[$countryCode];
+                        $city = $cap['city'];
+                        $lat  = $cap['lat'];
+                        $lng  = $cap['lng'];
+                        $country = $countryCode;
+                    } else {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+                }
+
+                $offer = JobOffer::create([
+                    'title'        => $job['title'] ?? 'N/A',
+                    'company'      => $job['company_name'] ?? null,
+                    'country'      => ucfirst(strtolower($country)),
+                    'city'         => $city,
+                    'latitude'     => $lat,
+                    'longitude'    => $lng,
+                    'modality'     => $modality,
+                    'requirements' => strip_tags($job['description'] ?? null),
+                    'source'       => 'Arbeitnow',
+                    'external_id'  => $externalId,
+                    'url'          => $job['url'] ?? null,
+                    'published_at' => Carbon::parse($job['created_at'] ?? now()),
+                    'region'       => RegionHelper::fromCountry($country),
+                ]);
+
+                // 👉 asociar market entity
+                $offer->marketCertifications()
+                    ->syncWithoutDetaching([$entityId]);
+
+                $totalNew++;
+
+                $countries[$country] =
+                    ($countries[$country] ?? 0) + 1;
+
+                $modalities[$modality] =
+                    ($modalities[$modality] ?? 0) + 1;
             }
 
-            ScraperRunService::success(
-                $run,
-                $totalFoundAll,
-                $totalInsertedAll,
-                $totalSkippedAll
+            /* =====================================================
+               📊 MÉTRICA DIARIA (Market Entity)
+            ===================================================== */
+            MarketEntityMetric::firstOrCreate(
+                [
+                    'market_entity_id' => $entityId,
+                    'run_date'         => now()->toDateString(),
+                    'source'           => 'Arbeitnow',
+                ],
+                [
+                    'entity_name'        => $entityName,
+                    'jobs_found_count'   => $totalFound,
+                    'jobs_new_count'     => $totalNew,
+                    'countries_breakdown'=> $countries,
+                    'modality_breakdown' => $modalities,
+                ]
             );
 
-            $this->info("🎯 Arbeitnow certificaciones finalizado");
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
 
-        } catch (\Throwable $e) {
-            ScraperRunService::failed($run, $e);
-            throw $e;
+            $this->info("✅ {$entityName}: {$totalNew} nuevas | {$totalFound} encontradas");
+
+            sleep(1);
         }
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        $this->info("🎯 Arbeitnow market certifications finalizado");
+
+    } catch (\Throwable $e) {
+        ScraperRunService::failed($run, $e);
+        throw $e;
     }
+}
 
 
     /* ================= HELPERS ================= */

@@ -111,6 +111,11 @@ Route::middleware(['auth'])->group(function () {
 
  Route::prefix('dashboard')->group(function () {
 
+Route::get(
+            '/indicators/pe-alignment/competency/{competency}/analyze',
+            [PeAlignmentIndicatorController::class, 'analyzeCompetencyWithAI']
+        )->name('pe-alignment.competency.analyze');
+
 
  Route::get('/job-market/status', [JobMarketStatusController::class, 'index']);
  Route::get(

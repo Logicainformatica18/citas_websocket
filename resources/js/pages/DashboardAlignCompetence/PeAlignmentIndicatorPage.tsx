@@ -8,10 +8,8 @@ import CareerFilter from "./components/Filters/CareerFilter";
 import PeAlignmentHeader from "./components/Header/PeAlignmentHeader";
 import PeAlignmentKpis from "./components/KPIs/PeAlignmentKpis";
 
-import CompetencyCard from "./components/Cards/CompetencyCard";
-
-import CompetencyJobsModal from "./components/Modals/CompetencyJobsModal";
-import CompetencyTrendsModal from "./components/Modals/CompetencyTrendsModal";
+import CompetencyAlignmentChart from "./components/Charts/CompetencyAlignmentChart";
+import CompetencyGapCard from "./components/Cards/CompetencyGapCard";
 
 import {
   WeightConfigModal,
@@ -19,19 +17,10 @@ import {
 } from "./components/Header/WeightConfigModal";
 
 import Swal from "sweetalert2";
-import { type BreadcrumbItem } from "@/types";
 
 /* ======================================================
-   Breadcrumbs
+   PAGE
 ====================================================== */
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: "Dashboard", href: "/dashboard" },
-  {
-    title: "Alineación Perfil de Egreso",
-    href: "/dashboard/indicators/pe-alignment",
-  },
-];
-
 export default function PeAlignmentIndicatorPage() {
   const {
     summary,
@@ -43,9 +32,6 @@ export default function PeAlignmentIndicatorPage() {
 
   const [competencies, setCompetencies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const [jobsModal, setJobsModal] = useState<any>(null);
-  const [trendsModal, setTrendsModal] = useState<any>(null);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
   const hasCareer = Boolean(filters?.career_id);
@@ -72,6 +58,67 @@ export default function PeAlignmentIndicatorPage() {
       .catch(() => setCompetencies([]))
       .finally(() => setLoading(false));
   }, [filters?.career_id, filters?.year, filters?.period]);
+
+  /* ======================================================
+     IA – ANALIZAR / REANALIZAR COMPETENCIA
+  ====================================================== */
+  const analyzeCompetency = async (competency: {
+    id: number;
+    name: string;
+  }) => {
+    // 🔥 marcar loading en el card
+    setCompetencies((prev) =>
+      prev.map((c) =>
+        c.id === competency.id
+          ? {
+              ...c,
+              analysis: { status: "loading" },
+            }
+          : c
+      )
+    );
+
+    try {
+      const res = await axios.post(
+        `/dashboard/indicators/pe-alignment/competency/${competency.id}/analyze`,
+        {
+          career_id: filters.career_id,
+          year: filters.year,
+          period: filters.period,
+        }
+      );
+
+      const analysis = res.data.data;
+
+      setCompetencies((prev) =>
+        prev.map((c) =>
+          c.id === competency.id
+            ? {
+                ...c,
+                analysis: {
+                  diagnosis: analysis.diagnosis,
+                  recommendation: analysis.recommendation,
+                  updated_at: analysis.updated_at,
+                  source: analysis.source,
+                  status: "ready",
+                },
+              }
+            : c
+        )
+      );
+    } catch (e) {
+      setCompetencies((prev) =>
+        prev.map((c) =>
+          c.id === competency.id
+            ? {
+                ...c,
+                analysis: { status: "error" },
+              }
+            : c
+        )
+      );
+    }
+  };
 
   /* ======================================================
      GUARDAR PESOS
@@ -110,12 +157,19 @@ export default function PeAlignmentIndicatorPage() {
   };
 
   return (
-    <AppLayout breadcrumbs={breadcrumbs}>
+    <AppLayout
+      breadcrumbs={[
+        { title: "Dashboard", href: "/dashboard" },
+        {
+          title: "Alineación Perfil de Egreso",
+          href: "/dashboard/indicators/pe-alignment",
+        },
+      ]}
+    >
       <Head title="Alineación del Perfil de Egreso | Observatorio ISIL" />
 
       <DashboardProvider>
         <div className="bg-background px-6 py-6 space-y-6">
-
           {/* HEADER */}
           <PeAlignmentHeader
             meta={meta}
@@ -139,76 +193,31 @@ export default function PeAlignmentIndicatorPage() {
             </div>
           )}
 
-          {/* GRID DE COMPETENCIAS */}
+          {/* VISUALIZACIÓN */}
           {hasCareer && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {loading && (
                 <div className="text-sm text-muted-foreground">
-                  Cargando competencias…
+                  Cargando análisis de competencias…
                 </div>
               )}
 
-              {!loading && competencies.length === 0 && (
-                <div className="text-sm text-muted-foreground">
-                  No se encontraron competencias.
-                </div>
-              )}
+              {!loading && competencies.length > 0 && (
+                <>
+                  <CompetencyAlignmentChart competencies={competencies} />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {competencies.map((c) => (
-                  <CompetencyCard
-                    key={c.id}
-                    competency={c}
-                    onViewJobs={() => {
-                      axios
-                        .get(
-                          `/dashboard/indicators/pe-alignment/competency/${c.id}/jobs`,
-                          { params: filters }
-                        )
-                        .then((res) =>
-                          setJobsModal({
-                            competency: c,
-                            jobs: res.data.data,
-                          })
-                        );
-                    }}
-                    onViewTrends={() => {
-                      axios
-                        .get(
-                          `/dashboard/indicators/pe-alignment/competency/${c.id}/trends`,
-                          { params: filters }
-                        )
-                        .then((res) =>
-                          setTrendsModal({
-                            competency: c,
-                            trends: res.data.data,
-                          })
-                        );
-                    }}
+                  <CompetencyGapCard
+                    competencies={competencies}
+                    onAutoAnalyze={analyzeCompetency}
+                    onReanalyze={analyzeCompetency}
                   />
-                ))}
-              </div>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* MODALS */}
-        {jobsModal && (
-          <CompetencyJobsModal
-            competency={jobsModal.competency}
-            jobs={jobsModal.jobs}
-            onClose={() => setJobsModal(null)}
-          />
-        )}
-
-        {trendsModal && (
-          <CompetencyTrendsModal
-            competency={trendsModal.competency}
-            trends={trendsModal.trends}
-            onClose={() => setTrendsModal(null)}
-          />
-        )}
-
+        {/* MODAL PESOS */}
         <WeightConfigModal
           open={isWeightModalOpen}
           onOpenChange={setIsWeightModalOpen}
