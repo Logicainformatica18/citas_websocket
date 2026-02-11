@@ -240,6 +240,8 @@ class RunAllJobs extends Command
 //  'adzuna:trends-languages --country=gb',
 
 
+
+
 'normalize:asia-countries',
 'normalize:europe-countries',
 'joboffers:normalize-regions',

@@ -127,16 +127,22 @@ $availableCareers = DB::table('careers')
     /* ==================================================
        2. SUBQUERY TENDENCIAS (entity_trends)
     ================================================== */
-    $reportsSub = DB::table('entity_trends as et')
-        ->join('market_entities as me', function ($j) {
-            $j->on('me.id', '=', 'et.market_entity_id')
-              ->where('me.entity_type', 'language');
-        })
-        ->whereBetween('et.created_at', [
-            $range['start'],
-            $range['end'],
-        ])
-        ->select(
+   $quarter = $period === 's1' ? 1 : 2;
+
+$reportsSub = DB::table('entity_trends as et')
+    ->join('market_entities as me', function ($j) {
+        $j->on('me.id', '=', 'et.market_entity_id')
+          ->where('me.entity_type', 'language');
+    })
+    // año del análisis
+    ->where('et.year', $year)
+    ->where('et.quarter', $quarter)
+
+    // 🔥 año real de la fuente
+    ->where(function ($q) use ($year) {
+    $q->whereNull('et.year') // compatibilidad vieja
+      ->orWhere('et.year', '>=', $year - 1);
+}) ->select(
             'me.id as language_id',
             DB::raw('COUNT(DISTINCT et.id) as report_mentions')
         )
@@ -161,10 +167,13 @@ $availableCareers = DB::table('careers')
                 $j->on('me.id', '=', 'et.market_entity_id')
                   ->where('me.entity_type', 'language');
             })
-            ->whereBetween('et.created_at', [
-                $range['start'],
-                $range['end'],
-            ])
+            ->where('et.year', $year)
+->where('et.quarter', $quarter)
+->where(function ($q) use ($year) {
+    $q->whereNull('et.year')
+      ->orWhere('et.year', '>=', $year - 1);
+})
+
             ->count('et.id'),
         1
     );
@@ -536,8 +545,18 @@ public function trendsByLanguage(Request $request, int $marketEntityId)
 {
     $perPage = min((int) $request->get('per_page', 10), 50);
 
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+    $quarter = $period === 's1' ? 1 : 2;
+
     $trends = DB::table('entity_trends')
         ->where('market_entity_id', $marketEntityId)
+        ->where('year', $year)
+        ->where('quarter', $quarter)
+        ->where(function ($q) use ($year) {
+            $q->whereNull('year')
+              ->orWhere('year', '>=', $year - 1);
+        })
         ->orderByDesc('trend_score')
         ->paginate($perPage, [
             'id',
@@ -549,20 +568,16 @@ public function trendsByLanguage(Request $request, int $marketEntityId)
         ]);
 
     return response()->json([
-        // 👇 ARRAY PLANO (esto evita el error)
         'data' => $trends->items(),
-
-        // 👇 PAGINACIÓN SEPARADA
         'pagination' => [
             'current_page' => $trends->currentPage(),
             'last_page'    => $trends->lastPage(),
             'per_page'     => $trends->perPage(),
             'total'        => $trends->total(),
-            'prev_page_url'=> $trends->previousPageUrl(),
-            'next_page_url'=> $trends->nextPageUrl(),
         ],
     ]);
 }
+
 
 
 private function getBaseContext(Request $request): array

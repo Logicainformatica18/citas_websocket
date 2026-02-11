@@ -74,13 +74,27 @@ class DiscoverLanguageTrendsCommand extends Command
                     }
 
                   // ⛔ Si ya existe esta URL para este lenguaje, no hacemos nada
+$url   = trim($trend['source']['url']   ?? '');
+$title = trim($trend['source']['title'] ?? '');
+
 $exists = EntityTrend::where('market_entity_id', $language['id'])
-    ->where('source_url', $trend['source']['url'] ?? null)
+    ->where('year', $year)
+    ->where('quarter', $quarter)
+    ->where(function ($q) use ($url, $title) {
+        if ($url) {
+            $q->where('source_url', $url);
+        }
+
+        if ($title) {
+            $q->orWhereRaw('LOWER(TRIM(source_title)) = ?', [strtolower($title)]);
+        }
+    })
     ->exists();
 
 if ($exists) {
     continue;
 }
+
 
 EntityTrend::create([
     'market_entity_id' => $language['id'],
@@ -89,13 +103,15 @@ EntityTrend::create([
     'trend_name'       => trim($trend['name']),
     'trend_score'      => (float) $trend['score'],
     'source_title'     => $trend['source']['title'] ?? null,
-    'source_url'       => $trend['source']['url']   ?? null,
-    'source_type'      => $trend['source']['type']  ?? null,
+    'source_url'       => $url,
+    'source_type'      => $trend['source']['type'] ?? null,
     'match_type'       => 'explicit',
     'confidence_score' => 0.90,
     'discovered_by'    => 'gpt-search',
     'discovered_at'    => now(),
 ]);
+
+
 
                 }
 
@@ -149,8 +165,11 @@ EntityTrend::create([
        PROMPT GPT – LENGUAJES
     ========================================================= */
     protected function buildPrompt(string $language): string
-    {
-        return <<<PROMPT
+{
+    $currentYear = now()->year;
+    $previousYear = $currentYear - 1;
+
+    return <<<PROMPT
 You are a global labor market and software industry analyst.
 
 Analyze current market trends related to the programming language "{$language}".
@@ -166,6 +185,12 @@ Focus on:
 Return 3 to 5 relevant trends.
 
 Each trend MUST be supported by a real and verifiable online source.
+
+STRICT REQUIREMENTS:
+- Only use sources published in {$previousYear} or {$currentYear}.
+- If the source publication year is older than {$previousYear}, exclude it.
+- If the publication year cannot be verified, exclude it.
+- Do NOT use outdated surveys or reports.
 
 Return STRICTLY valid JSON in this format:
 
@@ -183,13 +208,64 @@ Return STRICTLY valid JSON in this format:
   ]
 }
 
-Rules:
-- Use information from the last 12–24 months
-- Do NOT invent sources
-- Scores must reflect relevance and strength
-- Do NOT include any text outside JSON
+PRIORITY SOURCES – AUTHORITATIVE AND TRUSTED INSTITUTIONS
+
+Tier 1 – Global Strategic & Labor Reports (Highest Priority)
+- World Economic Forum – Future of Jobs Report (weforum.org)
+- OECD – Digital Economy Outlook / Skills for Jobs Database (oecd.org)
+- UNESCO – AI Competency Framework / Digital Education (unesco.org)
+- Gartner – Hype Cycle / Top Technology Trends / Cybersecurity Trends (gartner.com)
+- McKinsey – Tech & AI Insights (mckinsey.com)
+- PwC – AI Jobs Barometer (pwc.com)
+- Deloitte – Technology Industry Insights (deloitte.com)
+- HolonIQ – Global EdTech & Digital Skills Intelligence (holoniq.com)
+- LinkedIn Economic Graph / Global Skills Report (linkedin.com)
+- Coursera Global Skills Report (coursera.org)
+- Lightcast / Burning Glass (lightcast.io)
+
+Tier 2 – Industry & Enterprise Technology Sources
+- TechCrunch
+- The Verge
+- ZDNet
+- VentureBeat
+- Computerworld
+- InformationWeek
+- TechRepublic
+- Network World
+- The Register
+- TechTarget
+
+Tier 3 – Academic & Research Sources
+- IEEE Xplore
+- Research conferences (e.g., ICSA, ConferenceIndex, DBTA)
+- Towards Data Science
+- KDnuggets
+
+Tier 4 – Cloud & Enterprise Vendor Events
+- AWS re:Invent
+- Microsoft Ignite
+- Oracle CloudWorld
+- Salesforce Dreamforce
+- Cisco Live
+- CES Tech
+- CloudSummit
+
+Tier 5 – EdTech & Digital Education
+- EDUCAUSE Horizon Report
+- EdTech Magazine (Higher Ed & K12)
+- Somos Digital (DigComp)
+- APTC Peru
+
+RULES:
+- Prefer Tier 1 sources whenever possible.
+- Use Tier 2–5 only if Tier 1 does not cover the specific entity.
+- Do NOT use low-authority blogs unless highly relevant.
+- Prioritize sources from the current year or previous year.
+
+Do NOT include any text outside JSON.
 PROMPT;
-    }
+}
+
 
     /* =========================================================
        GPT SEARCH

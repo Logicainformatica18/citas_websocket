@@ -6,211 +6,281 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Models\Prueba;
+use App\Services\Ranking\MacroTrendScoreService;
 
 class MacroTrendsIndicatorController extends Controller
 {
-    public function index(Request $request)
+protected MacroTrendScoreService $service;
+public function __construct(MacroTrendScoreService $service)
+{
+    $this->service = $service;
+}
+public function storeWeights(Request $request)
+{
+    /* =====================================================
+       1. VALIDACIÓN
+    ===================================================== */
+    $data = $request->validate([
+        'labor_weight' => 'required|numeric|min:0|max:1',
+        'trend_weight' => 'required|numeric|min:0|max:1',
+    ]);
+
+    if (round($data['labor_weight'] + $data['trend_weight'], 2) !== 1.00) {
+        return back()->withErrors([
+            'message' => 'Las ponderaciones deben sumar 1.00',
+        ]);
+    }
+
+    /* =====================================================
+       2. TRANSACCIÓN
+    ===================================================== */
+    DB::transaction(function () use ($data) {
+
+        // 🔹 Desactivar ponderación activa anterior
+        DB::table('ranking_weights')
+            ->where('context', 'macro_trends')
+            ->where('is_active', 1)
+            ->update(['is_active' => 0]);
+
+        // 🔹 Insertar nueva ponderación
+        DB::table('ranking_weights')->insert([
+            'labor_weight' => $data['labor_weight'],
+            'trend_weight' => $data['trend_weight'],
+            'context' => 'macro_trends',
+            'is_active' => 1,
+            'applied_at' => now(),
+            'updated_by' => auth()->id(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    });
+
+    /* =====================================================
+       3. RESPUESTA
+    ===================================================== */
+    return back();
+}
+    /* =====================================================
+       LISTADO GENERAL (CARDS)
+    ===================================================== */
+  public function index(Request $request)
     {
         /* =====================================================
-           0️⃣ Parámetros base
+           0. CONTEXTO
         ===================================================== */
-        $year   = (int) $request->get('year', 2025);
+        $year   = (int) $request->get('year', now()->year);
         $period = $request->get('period', 's1');
-        $quarter = $period === 's1' ? 1 : 4;
-
-        $regions = array_filter((array) $request->get('region', []));
-        $careers = array_filter((array) $request->get('career', []));
 
         $range = $this->getPeriodRange($period, $year);
 
-        $laborWeight = 0.60;
-        $trendWeight = 0.40;
+        $weights = Prueba::getActive('macro_trends');
+
+        $laborWeight = (float) ($weights?->labor_weight ?? 0.6);
+        $trendWeight = (float) ($weights?->trend_weight ?? 0.4);
 
         /* =====================================================
-           1️⃣ MÉTRICAS PARA HEADER
+           SUBQUERY REPORTES
         ===================================================== */
-        $vacantesAnalizadas = DB::table('job_offers')
-            ->when($regions, fn ($q) => $q->whereIn('region', $regions))
-            ->whereBetween('published_at', [$range['start'], $range['end']])
-            ->count('id');
-
-        $reportesAnalizados = DB::table('technology_trends')
-            ->where('year', $year)
-            ->where('quarter', $quarter)
-            ->count('id');
-
-        /* =====================================================
-           2️⃣ DEMANDA LABORAL (lenguajes + tecnologías)
-        ===================================================== */
-        $laborBase = DB::query()->fromSub(function ($q) use ($range, $regions, $careers) {
-
-            /* ======================
-               Lenguajes
-            ====================== */
-            $q->select(
-                DB::raw('LOWER(l.name) as term'),
-                DB::raw('COUNT(DISTINCT lj.job_offer_id) as labor_mentions')
-            )
-            ->from('languages as l')
-            ->join('language_job as lj', 'lj.language_id', '=', 'l.id')
-            ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
-            ->whereBetween('j.published_at', [$range['start'], $range['end']])
-            ->when($regions, fn ($qq) => $qq->whereIn('j.region', $regions))
-
-            ->when($careers, function ($qq) use ($careers) {
-                $qq->whereExists(function ($sq) use ($careers) {
-                    $sq->select(DB::raw(1))
-                        ->from('course_language as cl')
-                        ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id')
-                        ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-                        ->whereColumn('cl.language_id', 'l.id')
-                        ->whereIn('ca.slug', $careers);
-                });
-            })
-
-            ->groupBy('l.id', 'l.name')
-
-            ->unionAll(
-
-                /* ======================
-                   Tecnologías
-                ====================== */
-                DB::table('technologies as t')
-                    ->select(
-                        DB::raw('LOWER(t.name) as term'),
-                        DB::raw('COUNT(DISTINCT tj.job_offer_id) as labor_mentions')
-                    )
-                    ->join('technology_job as tj', 'tj.technology_id', '=', 't.id')
-                    ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
-                    ->whereBetween('j.published_at', [$range['start'], $range['end']])
-                    ->when($regions, fn ($qq) => $qq->whereIn('j.region', $regions))
-
-                    ->when($careers, function ($qq) use ($careers) {
-                        $qq->whereExists(function ($sq) use ($careers) {
-                            $sq->select(DB::raw(1))
-                                ->from('course_technology as ct')
-                                ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-                                ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-                                ->whereColumn('ct.technology_id', 't.id')
-                                ->whereIn('ca.slug', $careers);
-                        });
-                    })
-
-                    ->groupBy('t.id', 't.name')
-            );
-
-        }, 'labor_base');
-
-        $laborAgg = DB::query()
-            ->fromSub($laborBase, 'x')
+        $reportSub = DB::table('macro_trend_entity_trend as mtet')
+            ->join('entity_trends as et', 'et.id', '=', 'mtet.entity_trend_id')
+            ->whereBetween('et.created_at', [
+                $range['start'],
+                $range['end']
+            ])
             ->select(
-                'term',
-                DB::raw('SUM(labor_mentions) as labor_mentions')
+                'mtet.macro_trend_id',
+                DB::raw('COUNT(DISTINCT et.id) as trend_reports')
             )
-            ->groupBy('term');
+            ->groupBy('mtet.macro_trend_id');
+
+        /* =====================================================
+           SUBQUERY LABOR (SERVICIO)
+        ===================================================== */
+        $laborSub = $this->service->getLaborSubquery($range, $year);
 
         $maxLabor = max(
-            DB::query()->fromSub($laborAgg, 'm')->max('labor_mentions') ?? 0,
+            DB::query()->fromSub($laborSub, 'x')->max('total_jobs') ?? 0,
             1
         );
-
-        /* =====================================================
-           3️⃣ REPORTES DE TENDENCIAS (GLOBAL)
-        ===================================================== */
-        $reportsSub = DB::table('technology_trends as tt')
-            ->join('technology_trend_technology as ttt', 'ttt.technology_trend_id', '=', 'tt.id')
-            ->join('technologies as t', 't.id', '=', 'ttt.technology_id')
-            ->where('tt.year', $year)
-            ->where('tt.quarter', $quarter)
-            ->select(
-                DB::raw('LOWER(t.name) as term'),
-                DB::raw('COUNT(DISTINCT tt.id) as report_mentions')
-            )
-            ->groupBy('t.name');
 
         $maxReports = max(
-            DB::query()->fromSub($reportsSub, 'r')->max('report_mentions') ?? 0,
+            DB::query()->fromSub($reportSub, 'r')->max('trend_reports') ?? 0,
             1
         );
-// Opciones disponibles
-$availableRegions = DB::table('job_offers')
-    ->select('region')
-    ->whereNotNull('region')
-    ->distinct()
-    ->orderBy('region')
-    ->pluck('region');
-
-$availableCareers = DB::table('careers')
-    ->select('id', 'name', 'slug')
-    ->orderBy('name')
-    ->get();
 
         /* =====================================================
-           4️⃣ MACRO-TENDENCIAS (JOIN REAL)
+           RANKING
         ===================================================== */
-        $ranking = DB::query()
-            ->fromSub($laborAgg, 'labor')
-            ->joinSub($reportsSub, 'reports', 'reports.term', '=', 'labor.term')
+        $rankingQuery = DB::table('macro_trends as m')
+            ->leftJoinSub($laborSub, 'labor', 'labor.macro_id', '=', 'm.id')
+            ->leftJoinSub($reportSub, 'reports', 'reports.macro_trend_id', '=', 'm.id')
+            ->where('m.year', $year)
             ->select(
-                'labor.term',
+                'm.id',
+                'm.name',
+                'm.description',
 
-                DB::raw("ROUND((labor.labor_mentions / {$maxLabor}) * 100, 1) as labor_score"),
-                DB::raw("ROUND((reports.report_mentions / {$maxReports}) * 100, 1) as trend_score"),
+                DB::raw('COALESCE(labor.total_jobs,0) as total_jobs'),
+                DB::raw('COALESCE(reports.trend_reports,0) as trend_reports'),
 
                 DB::raw("
                     ROUND(
-                        ((labor.labor_mentions / {$maxLabor}) * 100 * {$laborWeight})
-                      + ((reports.report_mentions / {$maxReports}) * 100 * {$trendWeight}),
-                        1
-                    ) as final_score
+                        (COALESCE(labor.total_jobs,0) / {$maxLabor}) * 100,
+                    1) as labor_score
+                "),
+
+                DB::raw("
+                    ROUND(
+                        (COALESCE(reports.trend_reports,0) / {$maxReports}) * 100,
+                    1) as trend_score
+                "),
+
+                DB::raw("
+                    ROUND(
+                        (
+                            ((COALESCE(labor.total_jobs,0) / {$maxLabor}) * 100 * {$laborWeight})
+                            +
+                            ((COALESCE(reports.trend_reports,0) / {$maxReports}) * 100 * {$trendWeight})
+                        ),
+                    1) as final_score
                 ")
             )
-            ->orderByDesc('final_score')
-            ->paginate(5)
-            ->withQueryString();
+            ->orderByDesc('final_score');
+
+        $ranking = $rankingQuery->paginate(6);
 
         /* =====================================================
-           5️⃣ Render
+           TOTALES GLOBALES (SERVICIO)
         ===================================================== */
+        $totals = $this->service->getGlobalTotals($range, $year);
+
+        /* =====================================================
+           RENDER
+        ===================================================== */
+   return Inertia::render(
+    'DashboardMacroTrends/MacroTrendsIndicatorPage',
+    [
+        'ranking' => $ranking,
+
+        'weights' => [
+            'laborWeight'  => round($laborWeight * 100, 1),
+            'trendsWeight' => round($trendWeight * 100, 1),
+        ],
+
+        'meta' => [
+            'year' => $year,
+            'period' => $period,
+            'periodo_label' =>
+                $period === 's1'
+                    ? "Semestre 1 – Enero a Junio {$year}"
+                    : "Semestre 2 – Julio a Diciembre {$year}",
+            'vacantes_analizadas' => $totals['jobs'],
+            'reportes_analizados' => $totals['reports'],
+            'actualizado' => now()->toDateTimeString(),
+        ],
+    ]
+);
+
+}
+
+
+private function getPeriodRange(string $period, int $year): array
+{
+    if ($period === 's1') {
+        return [
+            'start' => "$year-01-01",
+            'end'   => "$year-06-30",
+        ];
+    }
+
+    return [
+        'start' => "$year-07-01",
+        'end'   => "$year-12-31",
+    ];
+}
+
+
+    /* =====================================================
+       DETALLE DE UNA MACRO
+    ===================================================== */
+    public function detail($id)
+    {
+        $macro = DB::table('macro_trends')
+            ->where('id', $id)
+            ->first();
+
+        if (!$macro) {
+            abort(404);
+        }
+
+        $reportes = DB::table('macro_trend_entity_trend as mtet')
+            ->join('entity_trends as et', 'et.id', '=', 'mtet.entity_trend_id')
+            ->where('mtet.macro_trend_id', $id)
+            ->select(
+                'et.id',
+                'et.trend_name',
+                'et.source_url',
+                'et.created_at'
+            )
+            ->orderByDesc('et.created_at')
+            ->paginate(10);
+
+        $jobs = DB::table('macro_trend_job as mtj')
+            ->join('job_offers as j', 'j.id', '=', 'mtj.job_offer_id')
+            ->where('mtj.macro_trend_id', $id)
+            ->select(
+                'j.id',
+                'j.title',
+                'j.company',
+                'j.region',
+                'j.published_at'
+            )
+            ->orderByDesc('j.published_at')
+            ->paginate(10);
+
         return Inertia::render(
-            'DashboardMacroTrends/MacroTrendsIndicatorPage',
+            'DashboardMacroTrends/MacroTrendDetailPage',
             [
-                'ranking' => $ranking,
-
-                'filters' => [
-                    'year'   => $year,
-                    'period' => $period,
-                    'region' => $regions,
-                    'career' => $careers,
-                ],
-                 'regions' => $availableRegions,
-        'careers' => $availableCareers,
-
-                'meta' => [
-                    'year'   => $year,
-                    'period' => $period,
-                    'periodo_label' => $period === 's1'
-                        ? "Semestre 1 – Enero a Junio {$year}"
-                        : "Semestre 2 – Julio a Diciembre {$year}",
-
-                    'vacantes_analizadas' => $vacantesAnalizadas,
-                    'reportes_analizados' => $reportesAnalizados,
-
-                    'weights' => [
-                        'labor' => 60,
-                        'trend' => 40,
-                    ],
-
-                    'actualizado' => now()->toDateTimeString(),
-                ],
+                'macro' => $macro,
+                'reportes' => $reportes,
+                'jobs' => $jobs,
             ]
         );
     }
 
-    private function getPeriodRange(string $period, int $year): array
+    /* =====================================================
+       API SOLO REPORTES
+    ===================================================== */
+    public function getReports($id)
     {
-        return $period === 's1'
-            ? ['start' => "{$year}-01-01", 'end' => "{$year}-06-30"]
-            : ['start' => "{$year}-07-01", 'end' => "{$year}-12-31"];
+        return DB::table('macro_trend_entity_trend as mtet')
+            ->join('entity_trends as et', 'et.id', '=', 'mtet.entity_trend_id')
+            ->where('mtet.macro_trend_id', $id)
+            ->select(
+                'et.trend_name',
+                'et.source_url',
+                'et.created_at'
+            )
+            ->orderByDesc('et.created_at')
+            ->get();
+    }
+
+    /* =====================================================
+       API SOLO JOBS
+    ===================================================== */
+    public function getJobs($id)
+    {
+        return DB::table('macro_trend_job as mtj')
+            ->join('job_offers as j', 'j.id', '=', 'mtj.job_offer_id')
+            ->where('mtj.macro_trend_id', $id)
+            ->select(
+                'j.title',
+                'j.company',
+                'j.region',
+                'j.published_at'
+            )
+            ->orderByDesc('j.published_at')
+            ->get();
     }
 }

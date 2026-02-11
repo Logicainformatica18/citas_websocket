@@ -139,17 +139,36 @@ Route::get(
        Tendencias relacionadas a una competencia del PE
        (drill-down prospectiva)
        ===================================================== */
+
     Route::get(
         '/indicators/pe-alignment/competency/{competencyId}/trends',
         [PeAlignmentIndicatorController::class, 'trendsByCompetency']
     )->name('dashboard.indicators.pe-alignment.trends');
 
+    
+Route::post(
+    '/indicators/macro-trends/weights',
+    [MacroTrendsIndicatorController::class, 'storeWeights']
+)->name('macro-trends.weights');
 
   Route::get(
             '/indicators/macro-trends',
             [MacroTrendsIndicatorController::class, 'index']
         )->name('dashboard.indicators.macro-trends');
 
+  Route::get('/indicators/macro-trends/{id}/detail',
+        [MacroTrendsIndicatorController::class, 'detail']
+    )->name('macro-trends.detail');
+
+    // 📄 Solo reportes (micro tendencias)
+    Route::get('/indicators/macro-trends/{id}/reports',
+        [MacroTrendsIndicatorController::class, 'getReports']
+    )->name('macro-trends.reports');
+
+    // 💼 Solo jobs asociados
+    Route::get('/indicators/macro-trends/{id}/jobs',
+        [MacroTrendsIndicatorController::class, 'getJobs']
+    )->name('macro-trends.jobs');
 // routes/dashboard.php
   Route::get(
             '/indicators/job-demand-geo',
@@ -335,7 +354,7 @@ Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->na
             [RankingTecnologiasController::class, 'storeWeights']
         )->name('dashboard.ranking.technologies.weights');
 
-        
+
         Route::get(
     '/{technology}/reports',
     [RankingTecnologiasController::class, 'reportsByTechnology']

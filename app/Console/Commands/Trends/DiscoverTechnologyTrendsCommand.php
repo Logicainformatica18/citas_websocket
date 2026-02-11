@@ -39,14 +39,8 @@ class DiscoverTechnologyTrendsCommand extends Command
         foreach ($technologies as $technology) {
 
             try {
-                /* ===============================
-                   1️⃣ PROMPT
-                =============================== */
-                $prompt = $this->buildPrompt($technology['name']);
 
-                /* ===============================
-                   2️⃣ GPT SEARCH
-                =============================== */
+                $prompt = $this->buildPrompt($technology['name']);
                 $response = $this->gptSearch($prompt);
 
                 if (is_string($response)) {
@@ -61,46 +55,54 @@ class DiscoverTechnologyTrendsCommand extends Command
                     throw new \Exception('Respuesta GPT inválida');
                 }
 
-                /* ===============================
-                   3️⃣ INSERT LIMPIO
-                =============================== */
                 foreach ($response['trends'] as $trend) {
 
-                    if (
-                        empty($trend['name']) ||
-                        !isset($trend['score'])
-                    ) {
+                    if (empty($trend['name']) || !isset($trend['score'])) {
                         continue;
                     }
 
-                  // ⛔ No repetir la misma URL para la misma tecnología
-$sourceUrl = $trend['source']['url'] ?? null;
+                    $url   = trim($trend['source']['url'] ?? '');
+                    $url   = strtok($url, '?'); // elimina parámetros
+                    $url   = rtrim($url, '/');
 
-if ($sourceUrl) {
-    $exists = EntityTrend::where('market_entity_id', $technology['id'])
-        ->where('source_url', $sourceUrl)
-        ->exists();
+                    $title = trim($trend['source']['title'] ?? '');
 
-    if ($exists) {
-        continue;
-    }
-}
+                    if (!$url) {
+                        continue;
+                    }
 
-EntityTrend::create([
-    'market_entity_id' => $technology['id'],
-    'year'             => $year,
-    'quarter'          => $quarter,
-    'trend_name'       => trim($trend['name']),
-    'trend_score'      => (float) $trend['score'],
-    'source_title'     => $trend['source']['title'] ?? null,
-    'source_url'       => $sourceUrl,
-    'source_type'      => $trend['source']['type'] ?? null,
-    'match_type'       => 'explicit',
-    'confidence_score' => 0.90,
-    'discovered_by'    => 'gpt-search',
-    'discovered_at'    => now(),
-]);
+                    $exists = EntityTrend::where('market_entity_id', $technology['id'])
+                        ->where('year', $year)
+                        ->where('quarter', $quarter)
+                        ->where(function ($q) use ($url, $title) {
+                            if ($url) {
+                                $q->where('source_url', $url);
+                            }
 
+                            if ($title) {
+                                $q->orWhereRaw('LOWER(TRIM(source_title)) = ?', [strtolower($title)]);
+                            }
+                        })
+                        ->exists();
+
+                    if ($exists) {
+                        continue;
+                    }
+
+                    EntityTrend::create([
+                        'market_entity_id' => $technology['id'],
+                        'year'             => $year,
+                        'quarter'          => $quarter,
+                        'trend_name'       => trim($trend['name']),
+                        'trend_score'      => (float) $trend['score'],
+                        'source_title'     => $trend['source']['title'] ?? null,
+                        'source_url'       => $url,
+                        'source_type'      => $trend['source']['type'] ?? null,
+                        'match_type'       => 'explicit',
+                        'confidence_score' => 0.90,
+                        'discovered_by'    => 'gpt-search',
+                        'discovered_at'    => now(),
+                    ]);
                 }
 
                 $this->info("✅ {$technology['name']} procesado");
@@ -123,7 +125,7 @@ EntityTrend::create([
     }
 
     /* =========================================================
-       OBTENER TECNOLOGÍAS (PRIORIZADO)
+       OBTENER TECNOLOGÍAS
     ========================================================= */
     protected function getTechnologies(int $limit): array
     {
@@ -133,8 +135,8 @@ EntityTrend::create([
             })
             ->where('me.entity_type', 'technology')
             ->groupBy('me.id', 'me.name')
-            ->orderByRaw('MAX(et.created_at) IS NOT NULL') // primero sin trends
-            ->orderByRaw('MAX(et.created_at) ASC')         // luego los más antiguos
+            ->orderByRaw('MAX(et.created_at) IS NOT NULL')
+            ->orderByRaw('MAX(et.created_at) ASC')
             ->limit($limit)
             ->select(
                 'me.id',
@@ -154,24 +156,32 @@ EntityTrend::create([
     ========================================================= */
     protected function buildPrompt(string $technology): string
     {
+        $currentYear  = now()->year;
+        $previousYear = $currentYear - 1;
+
         return <<<PROMPT
-You are a global labor market and enterprise technology analyst.
+You are a global enterprise technology market analyst.
 
 Analyze current market trends related to the technology "{$technology}".
 
 Focus on:
 - Enterprise adoption
 - Labor market demand
-- Cloud and infrastructure relevance
+- Cloud & infrastructure relevance
 - Integration with other technologies
-- Impact on productivity and costs
-- Industry usage (finance, healthcare, retail, etc.)
+- Industry usage
 
 Return 3 to 5 relevant trends.
 
 Each trend MUST be supported by a real and verifiable online source.
 
-Return STRICTLY valid JSON in this format:
+STRICT REQUIREMENTS:
+- Only use sources published in {$previousYear} or {$currentYear}.
+- If older than {$previousYear}, exclude it.
+- If publication year cannot be verified, exclude it.
+- Do NOT invent sources.
+
+Return STRICTLY valid JSON:
 
 {
   "trends": [
@@ -179,7 +189,7 @@ Return STRICTLY valid JSON in this format:
       "name": "Short descriptive trend title",
       "score": 0-100,
       "source": {
-        "title": "Source article or report title",
+        "title": "Source title",
         "url": "https://example.com",
         "type": "report | article | study | blog"
       }
@@ -187,11 +197,61 @@ Return STRICTLY valid JSON in this format:
   ]
 }
 
-Rules:
-- Use information from the last 12–24 months
-- Do NOT invent sources
-- Scores must reflect relevance and strength
-- Do NOT include any text outside JSON
+PRIORITY SOURCES – AUTHORITATIVE AND TRUSTED INSTITUTIONS
+
+Tier 1 – Global Strategic & Labor Reports (Highest Priority)
+- World Economic Forum – Future of Jobs Report (weforum.org)
+- OECD – Digital Economy Outlook / Skills for Jobs Database (oecd.org)
+- UNESCO – AI Competency Framework / Digital Education (unesco.org)
+- Gartner – Hype Cycle / Top Technology Trends / Cybersecurity Trends (gartner.com)
+- McKinsey – Tech & AI Insights (mckinsey.com)
+- PwC – AI Jobs Barometer (pwc.com)
+- Deloitte – Technology Industry Insights (deloitte.com)
+- HolonIQ – Global EdTech & Digital Skills Intelligence (holoniq.com)
+- LinkedIn Economic Graph / Global Skills Report (linkedin.com)
+- Coursera Global Skills Report (coursera.org)
+- Lightcast / Burning Glass (lightcast.io)
+
+Tier 2 – Industry & Enterprise Technology Sources
+- TechCrunch
+- The Verge
+- ZDNet
+- VentureBeat
+- Computerworld
+- InformationWeek
+- TechRepublic
+- Network World
+- The Register
+- TechTarget
+
+Tier 3 – Academic & Research Sources
+- IEEE Xplore
+- Research conferences (e.g., ICSA, ConferenceIndex, DBTA)
+- Towards Data Science
+- KDnuggets
+
+Tier 4 – Cloud & Enterprise Vendor Events
+- AWS re:Invent
+- Microsoft Ignite
+- Oracle CloudWorld
+- Salesforce Dreamforce
+- Cisco Live
+- CES Tech
+- CloudSummit
+
+Tier 5 – EdTech & Digital Education
+- EDUCAUSE Horizon Report
+- EdTech Magazine (Higher Ed & K12)
+- Somos Digital (DigComp)
+- APTC Peru
+
+RULES:
+- Prefer Tier 1 sources whenever possible.
+- Use Tier 2–5 only if Tier 1 does not cover the specific entity.
+- Do NOT use low-authority blogs unless highly relevant.
+- Prioritize sources from the current year or previous year.
+
+Do NOT include any text outside JSON.
 PROMPT;
     }
 
