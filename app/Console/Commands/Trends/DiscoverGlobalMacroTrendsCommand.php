@@ -69,18 +69,34 @@ $this->info('Total trends recibidas: ' . count($response['trends']));
                     continue;
                 }
 
-                DB::table('macro_trend_raw')->insert([
-                    'trend_name'  => trim($trend['name']),
-                    'description' => $trend['description'] ?? null,
-                    'year'        => $year,
-                    'quarter'     => $quarter,
-                    'source_name' => $trend['source']['name'] ?? null,
-                    'source_title'=> $title,
-                    'source_url'  => $url,
-                    'source_type' => $trend['source']['type'] ?? null,
-                    'created_at'  => now(),
-                    'updated_at'  => now(),
-                ]);
+               // 🔎 Validar URL antes de guardar
+$urlValidation = $this->validateUrl($url);
+
+// ❌ Si está rota (404) no la guardamos
+if ($urlValidation['status'] === 'broken') {
+    $this->warn("URL rota detectada: {$url}");
+    continue;
+}
+
+DB::table('macro_trend_raw')->insert([
+    'trend_name'   => trim($trend['name']),
+    'description'  => $trend['description'] ?? null,
+    'year'         => $year,
+    'quarter'      => $quarter,
+    'source_name'  => $trend['source']['name'] ?? null,
+    'source_title' => $title,
+    'source_url'   => $url,
+    'source_type'  => $trend['source']['type'] ?? null,
+
+    // 🔥 NUEVO
+    'url_status'   => $urlValidation['status'],
+    'url_http_code'=> $urlValidation['code'],
+    'url_checked_at' => now(),
+
+    'created_at'   => now(),
+    'updated_at'   => now(),
+]);
+
             }
 
             $this->info("✅ Tendencias guardadas correctamente");
@@ -99,6 +115,35 @@ $this->info('Total trends recibidas: ' . count($response['trends']));
         $this->info('🏁 Proceso finalizado');
         return Command::SUCCESS;
     }
+/* =========================================================
+   VALIDAR URL
+========================================================= */
+protected function validateUrl(string $url): array
+{
+    try {
+        $response = Http::withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (compatible; ISIL-ObserverBot/1.0)'
+            ])
+            ->timeout(10)
+            ->get($url);
+
+        if ($response->status() >= 200 && $response->status() < 300) {
+            return ['status' => 'ok'];
+        }
+
+        return [
+            'status' => 'broken',
+            'http_code' => $response->status()
+        ];
+
+    } catch (\Throwable $e) {
+        return [
+            'status' => 'broken',
+            'http_code' => null
+        ];
+    }
+}
+
 
     /* =========================================================
        PROMPT GLOBAL
