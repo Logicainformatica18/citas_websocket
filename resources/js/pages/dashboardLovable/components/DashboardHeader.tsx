@@ -10,6 +10,8 @@ import {
 import { router } from "@inertiajs/react";
 import Swal from "sweetalert2";
 import { useDashboard } from "@/pages/dashboards/DashboardContext";
+import HelpTooltip from "@/components/ui/HelpTooltip";
+import HelpIcon from "@/components/ui/HelpIcon";
 
 /* ======================================================
    TIPOS
@@ -37,9 +39,6 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const { refreshDashboard, isRefreshing } = useDashboard();
 
-  /* =====================================
-     Estado edición título
-  ===================================== */
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(activeDashboard.title);
 
@@ -60,9 +59,6 @@ export default function DashboardHeader({
     );
   };
 
-  /* =====================================
-     Eliminar dashboard
-  ===================================== */
   const deleteDashboard = () => {
     Swal.fire({
       title: "¿Eliminar dashboard?",
@@ -73,32 +69,33 @@ export default function DashboardHeader({
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        router.delete(
-          route("dashboard.destroy", activeDashboard.id)
-        );
+        router.delete(route("dashboard.destroy", activeDashboard.id));
       }
     });
   };
 
-  return (
-    <div
-      className="
-        w-full
-        bg-[#ECFAFD]
-        border border-[#A7E5F6]
-        dark:bg-slate-900
-        dark:border-slate-700
-        rounded-2xl
-        px-6 py-5
-        space-y-5
-      "
-    >
-      {/* =========================
-          TÍTULO / CONTEXTO
-      ========================= */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          {isEditing ? (
+ return (
+  <div
+    className="
+      w-full
+      bg-[#ECFAFD]
+      border border-[#A7E5F6]
+      dark:bg-slate-900
+      dark:border-slate-700
+      rounded-2xl
+      px-6 py-5
+      space-y-5
+    "
+  >
+    {/* =========================
+        TÍTULO / CONTEXTO
+    ========================= */}
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex-1 space-y-2">
+
+        {/* ---- Título ---- */}
+        {isEditing ? (
+          <div className="flex items-center gap-2">
             <input
               autoFocus
               value={title}
@@ -125,7 +122,13 @@ export default function DashboardHeader({
                 focus:outline-none
               "
             />
-          ) : (
+            <HelpIcon
+              text="Presiona Enter para guardar o Escape para cancelar."
+              pulseKey="dashboard-title-edit"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
             <h1
               onClick={() => setIsEditing(true)}
               className="
@@ -138,17 +141,32 @@ export default function DashboardHeader({
             >
               {activeDashboard.title}
             </h1>
-          )}
 
+            <HelpIcon
+              text="Este es el nombre del dashboard. Puedes hacer clic para editarlo."
+              pulseKey="dashboard-title"
+            />
+          </div>
+        )}
+
+        {/* ---- Subtítulo VERA ---- */}
+        <div className="flex items-center gap-2">
           <p className="text-sm text-[#4A7F8D] dark:text-slate-400">
             Gráficos generados por el asistente VERA IA
           </p>
-        </div>
 
-        {/* =========================
-            MENÚ ⋮
-        ========================= */}
-        <div className="relative">
+          <HelpIcon
+            text="VERA analiza datos del mercado laboral y genera visualizaciones inteligentes según tus consultas."
+            pulseKey="vera-description"
+          />
+        </div>
+      </div>
+
+      {/* =========================
+          MENÚ ⋮
+      ========================= */}
+      <div className="relative">
+        <HelpTooltip text="Opciones del dashboard: renombrar o eliminar.">
           <button
             className="
               p-2 rounded-lg
@@ -164,65 +182,72 @@ export default function DashboardHeader({
                 denyButtonText: "Eliminar",
                 cancelButtonText: "Cancelar",
               }).then((result) => {
-                if (result.isConfirmed) {
-                  setIsEditing(true);
-                }
-                if (result.isDenied && !activeDashboard.is_default) {
+                if (result.isConfirmed) setIsEditing(true);
+                if (result.isDenied && !activeDashboard.is_default)
                   deleteDashboard();
-                }
               });
             }}
           >
             <MoreVertical size={18} />
           </button>
-        </div>
+        </HelpTooltip>
       </div>
+    </div>
 
-      {/* =========================
-          BARRA DE CONTROLES
-      ========================= */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* -------------------------
-            DASHBOARDS (TABS)
-        ------------------------- */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {dashboards.map((dashboard) => {
-            const isActive = dashboard.id === activeDashboard.id;
+    {/* =========================
+        BARRA DE CONTROLES
+    ========================= */}
+    <div className="flex flex-wrap items-center justify-between gap-4">
 
-            return (
-              <button
-                key={dashboard.id}
-                onClick={() =>
-                  router.visit(`/dashboard/${dashboard.slug}`, {
-                    preserveScroll: true,
-                    preserveState: false,
-                  })
+      {/* -------------------------
+          DASHBOARDS (TABS)
+      ------------------------- */}
+      <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Help general del grupo */}
+        <HelpIcon
+          text="Puedes crear múltiples dashboards para organizar diferentes análisis y métricas."
+          pulseKey="dashboard-tabs"
+        />
+
+        {dashboards.map((dashboard) => {
+          const isActive = dashboard.id === activeDashboard.id;
+
+          return (
+            <button
+              key={dashboard.id}
+              onClick={() =>
+                router.visit(`/dashboard/${dashboard.slug}`, {
+                  preserveScroll: true,
+                  preserveState: false,
+                })
+              }
+              className={`
+                flex items-center gap-2
+                px-4 py-2 rounded-xl
+                text-sm font-medium
+                transition-all duration-200
+                ${
+                  isActive
+                    ? "bg-[#1CBCE8] text-white shadow-sm"
+                    : `
+                      bg-white text-[#0A4E61]
+                      hover:bg-[#D5F3FB]
+                      dark:bg-slate-800
+                      dark:text-slate-200
+                      dark:hover:bg-slate-700
+                    `
                 }
-                className={`
-                  flex items-center gap-2
-                  px-4 py-2 rounded-xl
-                  text-sm font-medium
-                  transition-all duration-200
-                  ${
-                    isActive
-                      ? "bg-[#1CBCE8] text-white shadow-sm"
-                      : `
-                        bg-white text-[#0A4E61]
-                        hover:bg-[#D5F3FB]
-                        dark:bg-slate-800
-                        dark:text-slate-200
-                        dark:hover:bg-slate-700
-                      `
-                  }
-                `}
-              >
-                <LayoutGrid size={16} />
-                {dashboard.title}
-              </button>
-            );
-          })}
+              `}
+            >
+              <LayoutGrid size={16} />
+              {dashboard.title}
+            </button>
+          );
+        })}
 
-          {/* ➕ Nuevo */}
+        {/* ➕ Nuevo */}
+        <div className="flex items-center gap-2">
           <button
             onClick={onCreateDashboard}
             className="
@@ -239,11 +264,18 @@ export default function DashboardHeader({
             <Plus size={16} />
             Nuevo
           </button>
-        </div>
 
-        {/* -------------------------
-            ACCIONES
-        ------------------------- */}
+          <HelpIcon
+            text="Crea un nuevo dashboard personalizado con gráficos generados por inteligencia artificial."
+            pulseKey="dashboard-create"
+          />
+        </div>
+      </div>
+
+      {/* -------------------------
+          ACCIONES
+      ------------------------- */}
+      <HelpTooltip text="Actualiza todos los gráficos y vuelve a consultar los datos más recientes.">
         <button
           onClick={refreshDashboard}
           disabled={isRefreshing}
@@ -266,7 +298,10 @@ export default function DashboardHeader({
             className={isRefreshing ? "animate-spin" : ""}
           />
         </button>
-      </div>
+      </HelpTooltip>
     </div>
-  );
+  </div>
+);
+
 }
+

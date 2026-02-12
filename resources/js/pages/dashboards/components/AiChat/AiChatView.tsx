@@ -15,10 +15,13 @@ import {
   Plus,
   MessageCircle,
 } from "lucide-react";
+import HelpTooltip from "@/components/ui/HelpTooltip";
+
 
 
 import { useAiChatLogic } from "./useAiChatLogic";
 import ChartSelector from "./ChartSelector";
+import HelpIcon from "@/components/ui/HelpIcon";
 
 interface AiChatViewProps {
   embedded?: boolean;
@@ -192,12 +195,18 @@ const handleSendWrapped = () => {
 >
 
 
-                <div className="flex items-center gap-2 font-semibold text-sm cursor-default">
-                    <span className="text-gray-900 dark:text-gray-200">🤖 VERA</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                        | Observatorio ISIL
-                    </span>
-                </div>
+              <div className="flex items-center gap-2 font-semibold text-sm cursor-default">
+  <span className="text-gray-900 dark:text-gray-200">🤖 VERA</span>
+  <span className="text-xs text-gray-500 dark:text-gray-400">
+    | Observatorio ISIL
+  </span>
+
+  <HelpIcon
+    text="VERA es el asistente de inteligencia del Observatorio. Puede generar análisis, consultas SQL y gráficos a partir de tus preguntas."
+    pulseKey="vera-header"
+  />
+</div>
+
 
                {!embedded && (
   <button
@@ -451,6 +460,9 @@ const handleSendWrapped = () => {
       HEADER — MODO
   =============================== */}
   <div className="flex justify-end mb-3">
+    <div className="flex items-center gap-2 w-full">
+
+
 <button
   onClick={() =>
     logic.setMode(logic.mode === "chat" ? "train" : "chat")
@@ -472,15 +484,19 @@ const handleSendWrapped = () => {
 >
   {logic.mode === "chat" ? (
     <>
-      💬 Conversando
+      💬 Estás en modo Conversando
     </>
   ) : (
     <>
-      🧠 Consultando datos
+      🧠 Estás en modo Consultando Datos
     </>
   )}
 </button>
-
+  <HelpIcon
+    text="Modo Conversar responde preguntas generales. Modo Consultar datos ejecuta consultas estructuradas sobre la base de datos del observatorio."
+    pulseKey="vera-mode"
+  />
+</div>
 
 
   </div>
@@ -488,6 +504,7 @@ const handleSendWrapped = () => {
   {/* ===============================
       INPUT
   =============================== */}
+
   <div className="relative">
 
     {/* PANEL DE ACCIONES (CLICK) */}
@@ -640,6 +657,7 @@ const handleSendWrapped = () => {
 )}
 
     {/* BOTÓN ACCIONES */}
+    <HelpTooltip text="Acciones adicionales: activar voz, grabar audio o adjuntar archivos.">
     <button
       onClick={() => setShowActions((v) => !v)}
       title="Acciones"
@@ -654,7 +672,7 @@ const handleSendWrapped = () => {
     >
       <Plus size={16} />
     </button>
-
+</HelpTooltip>
     {/* ENVIAR */}
 <button
   onClick={handleSendWrapped}

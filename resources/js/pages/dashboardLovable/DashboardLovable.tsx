@@ -8,6 +8,7 @@ import { DashboardProvider, useDashboard } from "@/pages/dashboards/DashboardCon
 import DashboardHeader from "./components/DashboardHeader";
 import DashboardLovableWidgets from "./components/DashboardLovableWidgets";
 import AiChatView from "@/pages/dashboards/components/AiChat/AiChatView";
+import HelpIcon from "@/components/ui/HelpIcon";
 
 /* =========================================================
    Tipos
@@ -126,11 +127,21 @@ export default function DashboardLovable({
                 COLUMNA DERECHA — VERA AI
             ========================= */}
                         {isChatOpen && (
-                            <aside className="w-[420px] shrink-0 h-full">
-                                <div className="h-full bg-white dark:bg-gray-900 border border-[#D9EEF5] dark:border-gray-700 rounded-xl flex flex-col">
-                                    <AiChatView embedded />
-                                </div>
-                            </aside>
+                           <aside className="w-[420px] shrink-0 h-full relative">
+
+  {/* Help flotante superior */}
+  <div className="absolute top-3 right-3 z-10">
+    <HelpIcon
+      text="Este es el asistente VERA IA. Puedes escribir consultas como 'Top certificaciones en Perú 2025' y generará gráficos automáticamente."
+      pulseKey="vera-ai-panel"
+    />
+  </div>
+
+  <div className="h-full bg-white dark:bg-gray-900 border border-[#D9EEF5] dark:border-gray-700 rounded-xl flex flex-col">
+    <AiChatView embedded />
+  </div>
+</aside>
+
                         )}
                     </div>
                 </div>

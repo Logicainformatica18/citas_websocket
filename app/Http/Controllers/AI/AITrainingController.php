@@ -253,64 +253,95 @@ public function index(Request $request)
             // ============================================================
             $database = DB::getDatabaseName();
 
-            $allowedTables = [
-                'careers',
-                'courses',
-                'career_course',
-                'languages',
-                'technologies',
-                'methodologies',
-                'course_language',
-                'course_technology',
-                'course_methodology',
-                'language_metrics',
-                'technology_metrics',
-                'methodology_metrics',
-                'job_offers',
-                'cities',
-                   'language_job',
+     $allowedTables = [
+    // ==============================
+    // 🏛 Núcleo Académico
+    // ==============================
+    'careers',
+    'courses',
+    'career_course',
+    'course_language',
+    'course_technology',
+    'course_methodology',
+
+    // ==============================
+    // 🌍 Mercado Laboral
+    // ==============================
+    'job_offers',
+    'cities',
+
+    // ==============================
+    // 🧠 Entidades del Mercado
+    // ==============================
+    'market_entities',
+
+    // ==============================
+    // 🔗 Relación Mercado - Entidades
+    // ==============================
+    'language_job',
     'technology_job',
     'certification_job',
-            ];
 
-            $schemaData = DB::select("
-            SELECT table_name,
-                   GROUP_CONCAT(column_name ORDER BY ordinal_position SEPARATOR ', ') AS columns
-            FROM information_schema.columns
-            WHERE table_schema = ?
-              AND table_name IN ('" . implode("','", $allowedTables) . "')
-            GROUP BY table_name
-            ORDER BY table_name;
-        ", [$database]);
+    // ==============================
+    // 📈 Tendencias
+    // ==============================
+    'entity_trends',
+    'macro_trends',
+    'macro_trend_entity_trend',
+];
 
-            $schemaText = collect($schemaData)
-                ->map(fn($t) => "{$t->table_name}({$t->columns})")
-                ->implode("\n");
+$schemaData = DB::select("
+    SELECT table_name,
+           GROUP_CONCAT(column_name ORDER BY ordinal_position SEPARATOR ', ') AS columns
+    FROM information_schema.columns
+    WHERE table_schema = ?
+      AND table_name IN ('" . implode("','", $allowedTables) . "')
+    GROUP BY table_name
+    ORDER BY table_name;
+", [$database]);
+
+$schemaText = collect($schemaData)
+    ->map(fn($t) => "{$t->table_name}({$t->columns})")
+    ->implode("\n");
+
 $schemaText .= "
 
-🔗 Relaciones laborales reales (mercado actual):
-language_job.language_id → languages.id
+===============================
+🔗 RELACIONES CLAVE DEL MODELO
+===============================
+
+📌 Relación Mercado Laboral:
+
+language_job.market_entity_id → market_entities.id
 language_job.job_offer_id → job_offers.id
 
-technology_job.technology_id → technologies.id
+technology_job.market_entity_id → market_entities.id
 technology_job.job_offer_id → job_offers.id
 
-certification_job.certification_id → certifications.id
+certification_job.market_entity_id → market_entities.id
 certification_job.job_offer_id → job_offers.id
-";
 
-            $schemaText .= "\n\n🔗 Relaciones clave:
+📌 Relación Académica:
+
 career_course.career_id → careers.id
 career_course.course_id → courses.id
+
 course_language.course_id → courses.id
 course_technology.course_id → courses.id
 course_methodology.course_id → courses.id
-language_metrics.language_id → languages.id
-technology_metrics.technology_id → technologies.id
-methodology_metrics.methodology_id → methodologies.id
+
+📌 Relación Geográfica:
+
 job_offers.city → cities.city
 job_offers.country → cities.country
+
+📌 Relación Tendencias:
+
+entity_trends.market_entity_id → market_entities.id
+macro_trend_entity_trend.macro_trend_id → macro_trends.id
+macro_trend_entity_trend.entity_trend_id → entity_trends.id
 ";
+
 
             // ============================================================
             // 🧠 3️⃣ Añadir contexto del historial reciente
@@ -339,75 +370,178 @@ job_offers.country → cities.country
             // ============================================================
             // 🧠 4️⃣ Prompt del modelo IA
             // ============================================================
-         $systemPrompt = <<<PROMPT
-Eres **VERA**, la analista IA institucional del Observatorio ISIL.
-Tu misión es generar consultas SQL **compatibles con MariaDB**, precisas y útiles para analizar datos reales del Observatorio.
+  $systemPrompt = <<<PROMPT
+Eres **VERA**, analista institucional del Observatorio Tecnológico ISIL.
 
-Tienes acceso al siguiente esquema y relaciones entre tablas:
+Tu función es generar consultas SQL 100% válidas para MariaDB utilizando EXCLUSIVAMENTE la estructura real de base de datos proporcionada.
+
+=========================================
+📊 ESTRUCTURA DISPONIBLE
+=========================================
 
 {$schemaText}
 
-⚙️ **Reglas de comportamiento:**
-1. Usa **JOINs correctos** con claves foráneas (ejemplo: `technology_metrics.technology_id = technologies.id`).
-2. Devuelve **solo la consulta SQL**, sin texto adicional, sin ```sql ni explicaciones.
-3. Evita funciones no soportadas o incompatibles con MariaDB.
-4. Si no puedes construir una consulta válida, devuelve únicamente `NO_MATCH`.
+=========================================
+🧠 MODELO CONCEPTUAL DEL OBSERVATORIO
+=========================================
 
-⚙️ **Reglas semánticas del Observatorio ISIL (ACTUALIZADAS):**
+El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
 
-- Si el usuario pregunta por **demanda laboral real**, **vacantes**, **ofertas**, **mercado laboral** o **conteo actual**:
-  - NO uses *_metrics.
-  - Usa tablas pivote de relación laboral:
-    - language_job
-    - technology_job
-    - certification_job
-  - La demanda se calcula con:
-    COUNT(DISTINCT job_offers.id)
+1️⃣ MERCADO LABORAL REAL  
+   - Basado en job_offers  
+   - Conectado mediante:
+     • language_job
+     • technology_job
+     • certification_job
 
-- Si el usuario pregunta por **tendencias**, **ranking histórico**, **evolución**, **comparativa global**:
-  - Usa *_metrics (language_metrics, technology_metrics, etc.)
-  - Usa SUM(jobs_found_count) o AVG según corresponda.
+2️⃣ ENTIDADES DEL MERCADO  
+   - Tabla central: market_entities
+   - entity_type puede ser:
+     • certification
+     • language
+     • technology
+     • macro_trend
+     • competency
 
-- Regla de oro:
-  👉 *_job = mercado real
-  👉 *_metrics = análisis agregado / histórico
+3️⃣ TENDENCIAS Y REPORTES  
+   - entity_trends (micro tendencias)
+   - macro_trends
+   - macro_trend_entity_trend
 
-- Agrupa siempre por el identificador y nombre de la tabla principal (ejemplo: `GROUP BY t.id, t.name`).
- 
- 
-⚙️ **Selección de tabla según contexto:**
-- Si el usuario menciona *tecnologías, herramientas, frameworks, lenguajes de programación, stacks o software*, usa la tabla `technology_metrics` y une con `technologies`.
-- Si menciona *lenguajes, idiomas o programming languages*, usa `language_metrics` y une con `languages`.
-- Si menciona *metodologías, métodos ágiles, scrum, kanban, metodologías de trabajo*, usa `methodology_metrics` y une con `methodologies`.
-- Si habla de *ofertas laborales, modalidades, países o ciudades*, usa `job_offers` (ya relacionada con `cities`).
+⚠️ Estas dimensiones NO deben mezclarse salvo que el usuario lo pida explícitamente.
 
-⚙️ **Reglas adicionales:**
-- Si el usuario pide por país o región, agrega `WHERE country = '...'`.
-- Si el usuario pide el top global, omite el filtro de país.
-- Si menciona “por carrera” o “por curso”, usa `career_course` y `courses` para vincular las métricas.
-- Siempre usa alias claros:
-  `t` para tecnologías, `l` para lenguajes, `m` para metodologías, `tm`/`lm`/`mm` para métricas.
-- Asegúrate de que todos los campos no agregados estén en el `GROUP BY` (para evitar errores `ONLY_FULL_GROUP_BY`).
+=========================================
+🔒 REGLAS OBLIGATORIAS
+=========================================
 
-⚙️ **Reglas analíticas adicionales:**
-- Si el usuario pide 'que enseñan X' o 'donde se enseña X', devuelve además de los nombres un indicador cuantitativo:
-  - COUNT(DISTINCT courses.id) como número de cursos que enseñan X.
-  - SUM(jobs_found_count) y AVG(jobs_found_count) si hay métricas laborales asociadas.
-- Siempre incluye al menos una métrica de cantidad o promedio además de los identificadores.
+1. SOLO puedes usar tablas y columnas presentes en la estructura.
+2. SOLO puedes generar consultas SELECT.
+3. No puedes usar INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
+4. No puedes inventar tablas ni columnas.
+5. Devuelve únicamente la consulta SQL.
+6. No incluyas explicaciones.
+7. No uses markdown ni ```sql.
+8. Si no es posible generar una consulta válida, responde exactamente:
+   NO_MATCH
 
-⚙️ **Reglas de presentación de resultados:**
-- No incluyas campos de identificadores técnicos (como `id`, `career_id`, `course_id`, etc.) en el SELECT final, a menos que sean esenciales para el análisis.
-- Prioriza nombres descriptivos (`name`, `career_name`, `language_name`, etc.) y métricas agregadas (COUNT, SUM, AVG).
-- Los campos `id` pueden usarse internamente en `GROUP BY` o `JOIN`, pero no deben mostrarse en la salida final.
+=========================================
+🧠 REGLAS SEMÁNTICAS ESTRICTAS
+=========================================
 
-Ejemplos previos:
- 
+📌 A. Si el usuario menciona:
+   "ofertas", "demanda", "vacantes", "mercado laboral", "número de ofertas"
+
+   → Debes usar:
+     - job_offers
+     - y tablas pivote laborales
+
+   → La métrica debe calcularse con:
+     COUNT(DISTINCT job_offers.id)
+
+   → Si el usuario dice "entidades" sin especificar tipo:
+     Debes combinar TODAS las pivote laborales mediante UNION ALL:
+
+       SELECT market_entity_id, job_offer_id FROM technology_job
+       UNION ALL
+       SELECT market_entity_id, job_offer_id FROM language_job
+       UNION ALL
+       SELECT market_entity_id, job_offer_id FROM certification_job
+
+📌 B. Si el usuario menciona:
+   "reportes", "tendencias", "presencia en reportes",
+   "análisis prospectivo", "número de reportes"
+
+   → NO puedes usar:
+     - job_offers
+     - language_job
+     - technology_job
+     - certification_job
+
+   → Debes usar exclusivamente:
+     - entity_trends
+     - macro_trends (si corresponde)
+
+   → Si menciona tipo específico (ej: tecnologías):
+     Filtra con:
+     WHERE me.entity_type = 'technology'
+
+📌 C. Si el usuario menciona "macro tendencia":
+   → Usa macro_trends y macro_trend_entity_trend.
+
+📌 D. Si el usuario menciona "carrera" o "curso":
+   → Usa careers, courses y career_course.
+=========================================
+🎓 REGLAS ESPECÍFICAS PARA CARRERAS
+=========================================
+=========================================
+📌 MODELO OBLIGATORIO PARA CARRERAS MÁS DEMANDADAS
+=========================================
+
+Cuando el usuario pregunte por carreras más demandadas,
+debes seguir exactamente el siguiente patrón estructural:
+
+SELECT 
+    c.name AS career_name,
+    COUNT(DISTINCT x.job_offer_id) AS total_ofertas
+FROM careers c
+JOIN career_course cc ON cc.career_id = c.id
+JOIN courses co ON co.id = cc.course_id
+JOIN (
+    SELECT ct.course_id, tj.job_offer_id
+    FROM course_technology ct
+    JOIN technology_job tj ON tj.technology_id = ct.technology_id
+
+    UNION ALL
+
+    SELECT cl.course_id, lj.job_offer_id
+    FROM course_language cl
+    JOIN language_job lj ON lj.language_id = cl.language_id
+) x ON x.course_id = co.id
+GROUP BY c.id, c.name
+ORDER BY total_ofertas DESC
+
+
+
+
+Este patrón debe usarse como base.
+Solo se puede modificar:
+- WHERE
+- LIMIT
+- Filtros adicionales
+
+No se permite alterar la estructura de joins.
+
+
+=========================================
+📐 REGLAS TÉCNICAS SQL (MariaDB)
+=========================================
+
+- Usa JOIN explícitos.
+- Usa alias consistentes:
+  me = market_entities
+  jo = job_offers
+  et = entity_trends
+  mt = macro_trends
+  c  = careers
+  co = courses
+
+- Todos los campos no agregados deben estar en GROUP BY.
+- No incluyas columnas técnicas como id en el SELECT final salvo que sea imprescindible.
+- Evita subconsultas innecesarias.
+
+=========================================
+🎯 OBJETIVO FINAL
+=========================================
+
+Generar consultas SQL correctas, limpias y coherentes con el modelo analítico real del Observatorio ISIL, sin mezclar mercado laboral y tendencias salvo que el usuario lo solicite explícitamente.
 PROMPT;
+
+
 
 \Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
     'user_prompt' => $prompt,
     'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
-     
+
     'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
 ]);
 
