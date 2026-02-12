@@ -2,17 +2,10 @@ import { useState } from "react";
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
-import axios from "axios";
-import Swal from "sweetalert2";
 
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import { MacroTrendsHeader } from "./components/Header/MacroTrendsHeader";
-import {
-  WeightConfigModal,
-  WeightConfig,
-} from "./components/Header/WeightConfigModal";
-
 import MacroTrendCard from "./components/Cards/MacroTrendCard";
 import MacroTrendDetailModal from "./components/Detail/MacroTrendDetailModal";
 
@@ -21,15 +14,25 @@ import MacroTrendDetailModal from "./components/Detail/MacroTrendDetailModal";
 ========================================================= */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
-  {
-    title: "Macro-Tendencias",
-    href: "/dashboard/macro-trends",
-  },
+  { title: "Macro-Tendencias", href: "/dashboard/macro-trends" },
 ];
+
+type Trend = {
+  id: number;
+  trend_name: string;
+  description: string;
+  source_name?: string;
+  source_title?: string;
+  source_url?: string;
+  source_type?: string;
+  year: number;
+  quarter: number;
+  created_at: string;
+};
 
 type PageProps = {
   ranking: {
-    data: any[];
+    data: Trend[];
     current_page: number;
     last_page: number;
     per_page: number;
@@ -38,96 +41,25 @@ type PageProps = {
     year: number;
     period: "s1" | "s2";
     periodo_label: string;
-    vacantes_analizadas: number;
-    reportes_analizados: number;
-  };
-  weights: {
-    laborWeight: number;
-    trendsWeight: number;
+    total_registros: number;
+    actualizado: string;
   };
 };
 
 export default function MacroTrendsIndicatorPage() {
-  const { ranking, meta, weights } =
-    usePage<PageProps>().props;
+  const { ranking, meta } = usePage<PageProps>().props;
 
   /* =========================================================
      MODAL: Detalle Macro
   ========================================================= */
-  const [macroDetailModal, setMacroDetailModal] = useState({
-    open: false,
-    macroId: null as number | null,
-  });
+  const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null);
 
-  /* =========================================================
-     MODAL: Ponderaciones
-  ========================================================= */
-  const [isWeightModalOpen, setIsWeightModalOpen] =
-    useState(false);
-
-  /* =========================================================
-     Handlers
-  ========================================================= */
-
-  const openMacroDetail = (id: number) => {
-    setMacroDetailModal({
-      open: true,
-      macroId: id,
-    });
+  const openMacroDetail = (trend: Trend) => {
+    setSelectedTrend(trend);
   };
 
   const closeMacroDetail = () => {
-    setMacroDetailModal({
-      open: false,
-      macroId: null,
-    });
-  };
-
-  /* =========================================================
-     Guardar ponderaciones
-  ========================================================= */
-  const handleSaveWeights = (newWeights: WeightConfig) => {
-    if (
-      newWeights.laborWeight + newWeights.trendsWeight !==
-      100
-    ) {
-      Swal.fire(
-        "Error",
-        "Las ponderaciones deben sumar 100%",
-        "error"
-      );
-      return;
-    }
-
-    Swal.fire({
-      title: "Aplicando metodología",
-      text: "Actualizando ranking…",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    router.post(
-      route("macro-trends.weights"),
-      {
-        labor_weight: newWeights.laborWeight / 100,
-        trend_weight: newWeights.trendsWeight / 100,
-      },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          Swal.fire({
-            icon: "success",
-            title: "Metodología actualizada",
-            timer: 1400,
-            showConfirmButton: false,
-          });
-
-          router.reload({
-            only: ["ranking", "weights", "meta"],
-          });
-        },
-      }
-    );
+    setSelectedTrend(null);
   };
 
   return (
@@ -140,57 +72,105 @@ export default function MacroTrendsIndicatorPage() {
             <div className="flex-1 space-y-8">
 
               {/* ================= HEADER ================= */}
-              <MacroTrendsHeader
-                weights={weights}
-                meta={meta}
-                onEditWeights={() =>
-                  setIsWeightModalOpen(true)
-                }
-              />
-
-              {/* ================= DESCRIPCIÓN ================= */}
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <h2 className="text-lg font-semibold">
-                  Ranking General de Macro-Tendencias
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 max-w-3xl">
-                  Clasificación estratégica que integra impacto
-                  laboral y relevancia internacional.
-                </p>
-              </div>
+              <MacroTrendsHeader meta={meta} />
 
               {/* ================= CARDS ================= */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-6">
+
                 {ranking.data.map((item) => (
                   <MacroTrendCard
                     key={item.id}
                     data={item}
-                    onClick={() =>
-                      openMacroDetail(item.id)
-                    }
+                    onOpen={() => openMacroDetail(item)}
                   />
                 ))}
+
               </div>
+
+              {/* ================= PAGINACIÓN ================= */}
+              {ranking.last_page > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-10">
+
+                  {/* Prev */}
+                  <button
+                    disabled={ranking.current_page === 1}
+                    onClick={() =>
+                      router.get(
+                        "/dashboard/macro-trends",
+                        {
+                          year: meta.year,
+                          period: meta.period,
+                          page: ranking.current_page - 1,
+                        },
+                        { preserveState: true }
+                      )
+                    }
+                    className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
+                  >
+                    ←
+                  </button>
+
+                  {/* Números */}
+                  {[...Array(ranking.last_page)].map((_, i) => {
+                    const page = i + 1;
+                    const active = page === ranking.current_page;
+
+                    return (
+                      <button
+                        key={page}
+                        onClick={() =>
+                         router.get(route("dashboard.indicators.macro-trends"), {
+                              year: meta.year,
+                              period: meta.period,
+                              page,
+                            },
+                            { preserveState: true }
+                          )
+                        }
+                        className={`px-3 py-1 rounded-lg text-sm ${
+                          active
+                            ? "bg-[#00B6E8] text-white"
+                            : "border hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+
+                  {/* Next */}
+                  <button
+                    disabled={ranking.current_page === ranking.last_page}
+                    onClick={() =>
+                      router.get(
+                        "/dashboard/macro-trends",
+                        {
+                          year: meta.year,
+                          period: meta.period,
+                          page: ranking.current_page + 1,
+                        },
+                        { preserveState: true }
+                      )
+                    }
+                    className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
 
         {/* ================= MODAL DETALLE ================= */}
-        {macroDetailModal.open && (
+        {selectedTrend && (
           <MacroTrendDetailModal
-            macroId={macroDetailModal.macroId}
-            open={macroDetailModal.open}
+            open={true}
+            trend={selectedTrend}
             onClose={closeMacroDetail}
           />
         )}
-
-        {/* ================= MODAL PONDERACIONES ================= */}
-        <WeightConfigModal
-          open={isWeightModalOpen}
-          onOpenChange={setIsWeightModalOpen}
-          weights={weights}
-          onSave={handleSaveWeights}
-        />
       </DashboardProvider>
     </AppLayout>
   );

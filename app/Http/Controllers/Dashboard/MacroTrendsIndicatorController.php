@@ -96,19 +96,22 @@ class MacroTrendsIndicatorController extends Controller
             $range['start'],
             $range['end']
         ])
-        ->select(
-            'id',
-            'trend_name as name',
-            'description',
-            'source_name',
-            'source_title',
-            'source_url',
-            'source_type',
-            'created_at'
-        )
+       ->select(
+    'id',
+    'trend_name',
+    'description',
+    'source_name',
+    'source_title',
+    'source_url',
+    'source_type',
+    'year',
+    'quarter',
+    'created_at'
+)
+
         ->orderByDesc('created_at');
 
-    $trends = $query->paginate(8);
+    $trends = $query->paginate(4);
 
     return Inertia::render(
         'DashboardMacroTrends/MacroTrendsIndicatorPage',
