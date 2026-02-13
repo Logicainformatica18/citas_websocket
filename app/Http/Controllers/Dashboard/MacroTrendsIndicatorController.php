@@ -88,37 +88,54 @@ class MacroTrendsIndicatorController extends Controller
     $range = $this->getPeriodRange($period, $year);
 
     /* =====================================================
-       QUERY DIRECTA A macro_trend_raw
+       QUERY BASE
     ===================================================== */
-    $query = DB::table('macro_trend_raw')
+    $baseQuery = DB::table('macro_trend_raw')
         ->where('year', $year)
         ->whereBetween('created_at', [
             $range['start'],
             $range['end']
+        ]);
+
+    /* =====================================================
+       PAGINADO
+    ===================================================== */
+    $trends = $baseQuery
+        ->select(
+            'id',
+            'trend_name',
+            'description',
+            'source_name',
+            'source_title',
+            'source_url',
+            'source_type',
+            'year',
+            'quarter',
+            'created_at'
+        )
+        ->orderByDesc('created_at')
+        ->paginate(4);
+
+    /* =====================================================
+       MÉTRICAS HEADER
+    ===================================================== */
+    $totalSemestre = DB::table('macro_trend_raw')
+        ->whereBetween('created_at', [
+            $range['start'],
+            $range['end']
         ])
-       ->select(
-    'id',
-    'trend_name',
-    'description',
-    'source_name',
-    'source_title',
-    'source_url',
-    'source_type',
-    'year',
-    'quarter',
-    'created_at'
-)
+        ->count();
 
-        ->orderByDesc('created_at');
+    $totalYear = DB::table('macro_trend_raw')
+        ->where('year', $year)
+        ->count();
 
-    $trends = $query->paginate(4);
+    $totalHistorico = DB::table('macro_trend_raw')->count();
 
     return Inertia::render(
         'DashboardMacroTrends/MacroTrendsIndicatorPage',
         [
-            'ranking' => $trends, // mantenemos la prop para no romper frontend
-
-            'weights' => null, // ya no hay ponderación laboral
+            'ranking' => $trends,
 
             'meta' => [
                 'year' => $year,
@@ -127,12 +144,17 @@ class MacroTrendsIndicatorController extends Controller
                     $period === 's1'
                         ? "Semestre 1 – Enero a Junio {$year}"
                         : "Semestre 2 – Julio a Diciembre {$year}",
-                'total_registros' => $query->count(),
+
+                'total_semestre'   => $totalSemestre,
+                'total_year'       => $totalYear,
+                'total_historico'  => $totalHistorico,
+
                 'actualizado' => now()->toDateTimeString(),
             ],
         ]
     );
 }
+
 
 
     /* =====================================================
