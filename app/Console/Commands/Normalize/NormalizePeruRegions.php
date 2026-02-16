@@ -8,133 +8,161 @@ use Illuminate\Support\Facades\DB;
 class NormalizePeruRegions extends Command
 {
     protected $signature = 'normalize:peru-regions {--dry-run}';
-
-    protected $description = 'Normaliza region_normalized para Perú usando latitude/longitude (26 regiones)';
+    protected $description = 'Normaliza city para Perú usando latitude/longitude (todas las regiones)';
 
     public function handle()
     {
         $dryRun = $this->option('dry-run');
 
-        $sql = "
-        UPDATE job_offers
-        SET city = CASE
+        /*
+        |--------------------------------------------------------------------------
+        | Definición de regiones (Bounding Boxes)
+        |--------------------------------------------------------------------------
+        */
 
-            WHEN latitude BETWEEN -12.25 AND -11.85
-             AND longitude BETWEEN -77.30 AND -76.90
-                THEN 'Callao'
+        $regions = [
 
-            WHEN latitude BETWEEN -13.95 AND -11.50
-             AND longitude BETWEEN -77.90 AND -75.40
-                THEN 'Lima'
+            'Callao' => [
+                'lat_min' => -12.25,
+                'lat_max' => -11.85,
+                'lng_min' => -77.30,
+                'lng_max' => -76.90,
+            ],
 
-            WHEN latitude BETWEEN -10.90 AND -8.00
-             AND longitude BETWEEN -78.90 AND -76.70
-                THEN 'Áncash'
+            'Lima' => [
+                'lat_min' => -13.95,
+                'lat_max' => -11.50,
+                'lng_min' => -77.90,
+                'lng_max' => -75.40,
+            ],
 
-            WHEN latitude BETWEEN -17.90 AND -15.50
-             AND longitude BETWEEN -73.90 AND -70.20
-                THEN 'Arequipa'
+            'Áncash' => [
+                'lat_min' => -10.90,
+                'lat_max' => -8.00,
+                'lng_min' => -78.90,
+                'lng_max' => -76.70,
+            ],
 
-            WHEN latitude BETWEEN -14.90 AND -13.30
-             AND longitude BETWEEN -73.30 AND -71.20
-                THEN 'Apurímac'
+            'Arequipa' => [
+                'lat_min' => -17.90,
+                'lat_max' => -15.50,
+                'lng_min' => -73.90,
+                'lng_max' => -70.20,
+            ],
 
-            WHEN latitude BETWEEN -15.30 AND -13.00
-             AND longitude BETWEEN -75.00 AND -73.00
-                THEN 'Ayacucho'
+            'Cusco' => [
+                'lat_min' => -15.90,
+                'lat_max' => -12.80,
+                'lng_min' => -72.90,
+                'lng_max' => -70.00,
+            ],
 
-            WHEN latitude BETWEEN -7.90 AND -4.80
-             AND longitude BETWEEN -79.90 AND -77.00
-                THEN 'Cajamarca'
+            'Piura' => [
+                'lat_min' => -6.90,
+                'lat_max' => -4.00,
+                'lng_min' => -81.60,
+                'lng_max' => -79.00,
+            ],
 
-            WHEN latitude BETWEEN -15.90 AND -12.80
-             AND longitude BETWEEN -72.90 AND -70.00
-                THEN 'Cusco'
+            'Loreto' => [
+                'lat_min' => -6.50,
+                'lat_max' => 0.50,
+                'lng_min' => -77.80,
+                'lng_max' => -69.50,
+            ],
 
-            WHEN latitude BETWEEN -14.50 AND -12.30
-             AND longitude BETWEEN -75.60 AND -73.50
-                THEN 'Huancavelica'
+            'Junín' => [
+                'lat_min' => -12.90,
+                'lat_max' => -10.50,
+                'lng_min' => -76.60,
+                'lng_max' => -73.50,
+            ],
 
-            WHEN latitude BETWEEN -10.80 AND -8.50
-             AND longitude BETWEEN -77.50 AND -75.00
-                THEN 'Huánuco'
+            'Ica' => [
+                'lat_min' => -15.60,
+                'lat_max' => -13.00,
+                'lng_min' => -76.60,
+                'lng_max' => -74.00,
+            ],
 
-            WHEN latitude BETWEEN -15.60 AND -13.00
-             AND longitude BETWEEN -76.60 AND -74.00
-                THEN 'Ica'
+            'La Libertad' => [
+                'lat_min' => -9.60,
+                'lat_max' => -6.80,
+                'lng_min' => -80.10,
+                'lng_max' => -77.70,
+            ],
 
-            WHEN latitude BETWEEN -12.90 AND -10.50
-             AND longitude BETWEEN -76.60 AND -73.50
-                THEN 'Junín'
+            'Lambayeque' => [
+                'lat_min' => -7.40,
+                'lat_max' => -5.50,
+                'lng_min' => -80.10,
+                'lng_max' => -78.80,
+            ],
 
-            WHEN latitude BETWEEN -9.60 AND -6.80
-             AND longitude BETWEEN -80.10 AND -77.70
-                THEN 'La Libertad'
+            'Puno' => [
+                'lat_min' => -17.60,
+                'lat_max' => -14.50,
+                'lng_min' => -71.60,
+                'lng_max' => -68.80,
+            ],
 
-            WHEN latitude BETWEEN -7.40 AND -5.50
-             AND longitude BETWEEN -80.10 AND -78.80
-                THEN 'Lambayeque'
+            'Tacna' => [
+                'lat_min' => -18.50,
+                'lat_max' => -16.90,
+                'lng_min' => -71.20,
+                'lng_max' => -69.50,
+            ],
 
-            WHEN latitude BETWEEN -6.50 AND  0.50
-             AND longitude BETWEEN -77.80 AND -69.50
-                THEN 'Loreto'
+            'Tumbes' => [
+                'lat_min' => -4.20,
+                'lat_max' => -3.40,
+                'lng_min' => -80.70,
+                'lng_max' => -80.00,
+            ],
 
-            WHEN latitude BETWEEN -13.80 AND -10.50
-             AND longitude BETWEEN -72.50 AND -68.80
-                THEN 'Madre de Dios'
+            'Ucayali' => [
+                'lat_min' => -10.20,
+                'lat_max' => -7.00,
+                'lng_min' => -75.80,
+                'lng_max' => -72.00,
+            ],
 
-            WHEN latitude BETWEEN -17.50 AND -15.80
-             AND longitude BETWEEN -71.50 AND -69.50
-                THEN 'Moquegua'
+            'Amazonas' => [
+                'lat_min' => -6.50,
+                'lat_max' => -3.00,
+                'lng_min' => -78.50,
+                'lng_max' => -76.00,
+            ],
+        ];
 
-            WHEN latitude BETWEEN -11.20 AND -9.80
-             AND longitude BETWEEN -76.80 AND -75.00
-                THEN 'Pasco'
+        $totalAffected = 0;
 
-            WHEN latitude BETWEEN -6.90 AND -4.00
-             AND longitude BETWEEN -81.60 AND -79.00
-                THEN 'Piura'
+        foreach ($regions as $region => $bounds) {
 
-            WHEN latitude BETWEEN -17.60 AND -14.50
-             AND longitude BETWEEN -71.60 AND -68.80
-                THEN 'Puno'
+            $query = DB::table('job_offers')
+                ->whereRaw("LOWER(TRIM(country)) IN ('peru','perú','pe')")
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
+                ->whereBetween('latitude', [$bounds['lat_min'], $bounds['lat_max']])
+                ->whereBetween('longitude', [$bounds['lng_min'], $bounds['lng_max']])
+                ->where('city', '!=', $region);
 
-            WHEN latitude BETWEEN -8.70 AND -5.50
-             AND longitude BETWEEN -78.00 AND -75.00
-                THEN 'San Martín'
+            $count = $query->count();
 
-            WHEN latitude BETWEEN -18.50 AND -16.90
-             AND longitude BETWEEN -71.20 AND -69.50
-                THEN 'Tacna'
-
-            WHEN latitude BETWEEN -4.20 AND -3.40
-             AND longitude BETWEEN -80.70 AND -80.00
-                THEN 'Tumbes'
-
-            WHEN latitude BETWEEN -10.20 AND -7.00
-             AND longitude BETWEEN -75.80 AND -72.00
-                THEN 'Ucayali'
-
-            WHEN latitude BETWEEN -6.50 AND -3.00
-             AND longitude BETWEEN -78.50 AND -76.00
-                THEN 'Amazonas'
-
-            ELSE region_normalized
-        END
-        WHERE LOWER(TRIM(country)) IN ('peru','perú','pe')
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-        ";
-
-        if ($dryRun) {
-            $this->warn('🟡 DRY RUN activado – no se ejecutó el UPDATE');
-            $this->line($sql);
-            return Command::SUCCESS;
+            if ($dryRun) {
+                $this->line("🟡 {$region}: {$count} registros se actualizarían.");
+            } else {
+                $affected = $query->update(['city' => $region]);
+                $totalAffected += $affected;
+                $this->info("✅ {$region}: {$affected} actualizados.");
+            }
         }
 
-        $affected = DB::update($sql);
-
-        $this->info("✅ Normalización completada. Filas afectadas: {$affected}");
+        if ($dryRun) {
+            $this->warn("🔎 DRY RUN completado.");
+        } else {
+            $this->info("🎉 Total registros actualizados: {$totalAffected}");
+        }
 
         return Command::SUCCESS;
     }

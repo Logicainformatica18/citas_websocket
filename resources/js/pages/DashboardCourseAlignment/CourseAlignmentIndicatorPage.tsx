@@ -5,33 +5,37 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import CourseAlignmentHeader from "./components/Header/CourseAlignmentHeader";
 import CourseAlignmentFilter from "./components/Filters/CourseAlignmentFilter";
-import CourseAlignmentKpis from "./components/KPIs/CourseAlignmentKpis";
-import CourseBoard from "./components/Board/CourseBoard";
-import CourseAlignmentChart from "./components/Charts/CourseAlignmentChart";
+import CourseAlignmentTable from "./components/Table/CourseAlignmentTable";
+
+// 🔥 Nuevo componente
+import CompetenciesAlignmentTable from "./components/Table/CompetenciesAlignmentTable";
 
 export default function CourseAlignmentIndicatorPage() {
   const {
-    summary,
     meta,
     filters,
     availableCareers,
-    courses: initialCourses,
+    viewMode = "courses", // 🔥 clave
+    data: initialData,
   } = usePage<any>().props;
 
-  const [courses, setCourses] = useState<any[]>(initialCourses ?? []);
+  const [data, setData] = useState<any[]>(initialData ?? []);
 
   const hasCareer = Boolean(filters?.career_id);
 
   useEffect(() => {
-    setCourses(initialCourses ?? []);
-  }, [initialCourses]);
+    setData(initialData ?? []);
+  }, [initialData]);
+
+  const isCourses = viewMode === "courses";
+  const isCompetencies = viewMode === "competencies";
 
   return (
     <AppLayout
       breadcrumbs={[
         { title: "Dashboard", href: "/dashboard" },
         {
-          title: "Alineación Curricular por Curso",
+          title: "Alineación Curricular",
           href: "/dashboard/indicators/course-alignment",
         },
       ]}
@@ -41,44 +45,44 @@ export default function CourseAlignmentIndicatorPage() {
       <DashboardProvider>
         <div className="bg-background px-6 py-6 space-y-8">
 
-          {/* =========================
-             HEADER
-          ========================== */}
-          <CourseAlignmentHeader meta={meta} />
+          {/* ================= HEADER ================= */}
+          <CourseAlignmentHeader meta={meta} viewMode={viewMode} />
 
-          {/* =========================
-             FILTROS
-          ========================== */}
+          {/* ================= FILTROS ================= */}
           <CourseAlignmentFilter
             careers={availableCareers}
             filters={filters}
+            viewMode={viewMode}
           />
 
-          {/* =========================
-             KPIs
-          ========================== */}
-          {summary ? (
-            <CourseAlignmentKpis summary={summary} />
-          ) : (
-            <div className="text-sm text-muted-foreground">
+          {/* ================= CONTENIDO ================= */}
+
+          {!hasCareer && (
+            <div className="text-sm text-muted-foreground border rounded-xl p-6 bg-muted/20">
               Selecciona una carrera para analizar la alineación curricular.
             </div>
           )}
 
-          {/* =========================
-             VISUAL
-          ========================== */}
-          {hasCareer && courses.length > 0 && (
-            <div className="space-y-8">
-
-              {/* 📊 Distribución */}
-              <CourseAlignmentChart courses={courses} />
-
-              {/* 📘 Board estratégico */}
-              <CourseBoard courses={courses} />
-
+          {hasCareer && data.length === 0 && (
+            <div className="text-sm text-muted-foreground border rounded-xl p-6 bg-muted/20">
+              {isCourses
+                ? "No se encontraron cursos asociados a esta carrera."
+                : "No se encontraron competencias asociadas a esta carrera."}
             </div>
           )}
+
+          {hasCareer && data.length > 0 && (
+            <>
+              {isCourses && (
+                <CourseAlignmentTable courses={data} />
+              )}
+
+              {isCompetencies && (
+                <CompetenciesAlignmentTable competencies={data} />
+              )}
+            </>
+          )}
+
         </div>
       </DashboardProvider>
     </AppLayout>

@@ -33,7 +33,7 @@ class RunAllJobs extends Command
 // 'computrabajo:technologies --country=ve --pages=1',
 // 'computrabajo:technologies --country=cl --pages=1',
 
-//  'computrabajo:languages --pages=1',
+  'computrabajo:languages --pages=1',
 // 'computrabajo:methodologies --pages=1',
 
 
@@ -151,19 +151,19 @@ class RunAllJobs extends Command
 // 'usajobs:technologies',
 
 
- 'adzuna:competencies --country=us --pages=1',
-    'adzuna:competencies --country=ca --pages=1',
-    'adzuna:competencies --country=mx --pages=1',
-    'adzuna:competencies --country=br --pages=1',
+//  'adzuna:competencies --country=us --pages=1',
+//     'adzuna:competencies --country=ca --pages=1',
+//     'adzuna:competencies --country=mx --pages=1',
+//     'adzuna:competencies --country=br --pages=1',
 
-    'adzuna:competencies --country=es --pages=1',
-    'adzuna:competencies --country=fr --pages=1',
-    'adzuna:competencies --country=de --pages=1',
-    'adzuna:competencies --country=it --pages=1',
-    'adzuna:competencies --country=gb --pages=1',
-    'adzuna:competencies --country=nl --pages=1',
-    'adzuna:competencies --country=ch --pages=1',
-    'adzuna:competencies --country=pl --pages=1',
+//     'adzuna:competencies --country=es --pages=1',
+//     'adzuna:competencies --country=fr --pages=1',
+//     'adzuna:competencies --country=de --pages=1',
+//     'adzuna:competencies --country=it --pages=1',
+//     'adzuna:competencies --country=gb --pages=1',
+//     'adzuna:competencies --country=nl --pages=1',
+//     'adzuna:competencies --country=ch --pages=1',
+//     'adzuna:competencies --country=pl --pages=1',
 
 // 'adzuna:competencies --country=in --pages=1',
 // 'adzuna:competencies --country=sg --pages=1',
