@@ -91,7 +91,11 @@ export function AppSidebar() {
                     icon={<Award className={isilBlue} />}
                     label="Alineación Competencias"
                 />
-
+    <MenuItem
+                    href="/dashboard/indicators/course-alignment"
+                    icon={<Award className={isilBlue} />}
+                    label="Alineación Cursos"
+                />
                 <MenuItem
                     href="/dashboard/ranking/technologies"
                     icon={<Cpu className={isilBlue} />}
@@ -125,11 +129,11 @@ export function AppSidebar() {
                     icon={<Building2 className={isilBlue} />}
                     label="Demanda Ciudad"
                 />
-   <MenuItem
+   {/* <MenuItem
                     href="/dashboard/ranking-carreras"
                     icon={<Building2 className={isilBlue} />}
                     label="Demanda por Carrera"
-                />
+                /> */}
                 <MenuItem
                     href="/dashboard/indicadores/modalidad-laboral"
                     icon={<Laptop className={isilBlue} />}

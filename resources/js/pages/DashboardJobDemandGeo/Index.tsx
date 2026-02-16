@@ -7,7 +7,6 @@ import JobDemandGeoHeader from "./components/Header/JobDemandGeoHeader";
 import JobDemandGeoFilters from "./components/Filter/JobDemandGeoFilters";
 import CityDemandHeatmap from "./components/Chart/CityDemandMap";
 
-import JobDemandGeoKpiGrid from "./components/KPIs/JobDemandGeoKpiGrid";
 import CityDemandKpiGrid from "./components/KPIs/CityDemandKpiGrid";
 import JobDemandCityTable from "./components/Table/JobDemandCityTable";
 import JobDemandGeoMethodologyCard from "./components/Methodology/JobDemandGeoMethodologyCard";
@@ -17,7 +16,7 @@ import JobDemandGeoMethodologyCard from "./components/Methodology/JobDemandGeoMe
 ========================================================= */
 const breadcrumbs: BreadcrumbItem[] = [
     { title: "Dashboard", href: "/dashboard" },
-    { title: "Demanda laboral por ciudad", href: "#" },
+    { title: "Demanda laboral (Geo + Carrera)", href: "#" },
 ];
 
 export default function JobDemandGeoIndex() {
@@ -25,6 +24,8 @@ export default function JobDemandGeoIndex() {
         meta,
         ranking,
         regions = [],
+        careers = [],        // 🔥 NUEVO
+        filters = {},        // 🔥 NUEVO
     } = usePage().props as any;
 
     return (
@@ -32,34 +33,37 @@ export default function JobDemandGeoIndex() {
             <Head title="Demanda laboral por ciudad" />
 
             {/* ================= HEADER ================= */}
-            <JobDemandGeoHeader meta={meta} />
+            <JobDemandGeoHeader meta={meta} filters={filters} />
 
             {/* ================= KPIs ================= */}
             <div className="mt-6 space-y-6">
                 <CityDemandKpiGrid meta={meta} />
-                {/* <JobDemandGeoKpiGrid meta={meta} /> */}
             </div>
 
             {/* ================= FILTROS ================= */}
-            <JobDemandGeoFilters regions={regions} />
+            <JobDemandGeoFilters
+                regions={regions}
+                careers={careers}     // 🔥 PASAMOS CARRERAS
+                filters={filters}     // 🔥 PASAMOS FILTROS
+            />
 
             {/* ================= MAPA DE CALOR ================= */}
             <div className="mt-6">
-                <CityDemandHeatmap />
+                <CityDemandHeatmap filters={filters} />
             </div>
 
             {/* ================= CONTENIDO ================= */}
-            <div className="grid grid-cols-1 xl:grid-cols-1 gap-6 mt-6">
+            <div className="grid grid-cols-1 gap-6 mt-6">
+
                 {/* TABLA */}
-                <div className="xl:col-span-6">
-                   <JobDemandCityTable ranking={ranking} />
+                <JobDemandCityTable
+                    ranking={ranking}
+                    filters={filters}
+                />
 
-                </div>
+                {/* METODOLOGÍA (opcional) */}
+                {/* <JobDemandGeoMethodologyCard /> */}
 
-                {/* METODOLOGÍA */}
-                {/* <div className="xl:col-span-6">
-                    <JobDemandGeoMethodologyCard />
-                </div> */}
             </div>
         </AppLayout>
     );
