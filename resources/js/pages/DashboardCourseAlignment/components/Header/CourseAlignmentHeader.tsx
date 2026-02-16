@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   TrendingUp,
   Database,
+  Brain,
 } from "lucide-react";
 import { router, usePage } from "@inertiajs/react";
 
@@ -13,18 +15,21 @@ interface Props {
     reportes_analizados?: number;
     actualizado?: string;
   };
+  viewMode: "courses" | "competencies";
 }
 
-export default function CourseAlignmentHeader({ meta }: Props) {
+export default function CourseAlignmentHeader({
+  meta,
+  viewMode,
+}: Props) {
   const { filters } = usePage().props as any;
 
-  const onChangeYear = (year: number) => {
+  const switchMode = (mode: "courses" | "competencies") => {
     router.get(
       "/dashboard/indicators/course-alignment",
       {
         ...filters,
-        year,
-        page: 1,
+        viewMode: mode,
       },
       {
         preserveState: true,
@@ -33,19 +38,15 @@ export default function CourseAlignmentHeader({ meta }: Props) {
     );
   };
 
+  const isCourses = viewMode === "courses";
+
   return (
     <header
       className="
-        relative
-        overflow-hidden
-        border
-        bg-[#E6F7FD]
-        dark:bg-[#0A2540]
-        px-6
-        lg:px-10
-        py-10
-        rounded-2xl
-        shadow-lg
+        relative overflow-hidden border
+        bg-[#E6F7FD] dark:bg-[#0A2540]
+        px-6 lg:px-10 py-10
+        rounded-2xl shadow-lg
       "
     >
       {/* Background Blur */}
@@ -63,7 +64,11 @@ export default function CourseAlignmentHeader({ meta }: Props) {
             {/* Title */}
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B6E8] shadow-md">
-                <BookOpen className="h-6 w-6 text-white" />
+                {isCourses ? (
+                  <BookOpen className="h-6 w-6 text-white" />
+                ) : (
+                  <Brain className="h-6 w-6 text-white" />
+                )}
               </div>
 
               <div>
@@ -72,54 +77,37 @@ export default function CourseAlignmentHeader({ meta }: Props) {
                 </p>
 
                 <h1 className="text-2xl font-bold tracking-tight text-[#0A2540] dark:text-slate-100">
-                  Conexión Curso–Tendencia (CCTC)
+                  {isCourses
+                    ? "Conexión Curso–Tendencia (CCTC)"
+                    : "Alineación Estratégica por Competencia"}
                 </h1>
               </div>
             </div>
 
             {/* Description */}
             <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-              Indicador estratégico que mide la alineación entre cursos académicos
-              y señales reales del mercado laboral (demanda + tendencias).
+              {isCourses
+                ? "Indicador estratégico que mide la alineación entre cursos académicos y señales reales del mercado laboral."
+                : "Indicador que evalúa la correspondencia entre competencias formativas y las demandas reales del mercado."}
             </p>
 
-            {/* Año */}
-            <div className="flex items-end gap-6">
+            {/* 🔥 SWITCH SEGMENTADO */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                size="sm"
+                variant={isCourses ? "default" : "outline"}
+                onClick={() => switchMode("courses")}
+              >
+                Cursos
+              </Button>
 
-              {/* <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
-                  Año
-                </span>
-
-                <div className="relative rounded-xl border bg-white shadow-sm hover:border-[#00B6E8]">
-                  <select
-                    value={meta.year}
-                    onChange={(e) =>
-                      onChangeYear(Number(e.target.value))
-                    }
-                    className="
-                      w-[120px]
-                      appearance-none
-                      bg-transparent
-                      px-4 py-2
-                      text-sm font-semibold
-                      text-[#0A2540]
-                      focus:outline-none
-                    "
-                  >
-                    {[2025, 2026].map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00B6E8]">
-                    ⌄
-                  </span>
-                </div>
-              </div> */}
-
+              <Button
+                size="sm"
+                variant={!isCourses ? "default" : "outline"}
+                onClick={() => switchMode("competencies")}
+              >
+                Competencias
+              </Button>
             </div>
 
             {/* ================= BADGES ================= */}
@@ -137,7 +125,6 @@ export default function CourseAlignmentHeader({ meta }: Props) {
 
             </div>
 
-            {/* Updated */}
             {meta?.actualizado && (
               <p className="text-xs text-[#0A2540]/70 dark:text-gray-400 pt-2">
                 Actualizado: {meta.actualizado}
@@ -159,9 +146,19 @@ export default function CourseAlignmentHeader({ meta }: Props) {
             </p>
 
             <div className="space-y-2 text-sm text-[#0A2540] dark:text-gray-300">
-              <p>✔ Detecta brechas entre cursos y mercado</p>
-              <p>✔ Prioriza actualización curricular</p>
-              <p>✔ Integra datos laborales + tendencias</p>
+              {isCourses ? (
+                <>
+                  <p>✔ Detecta brechas entre cursos y mercado</p>
+                  <p>✔ Prioriza actualización curricular</p>
+                  <p>✔ Integra datos laborales + tendencias</p>
+                </>
+              ) : (
+                <>
+                  <p>✔ Evalúa cobertura de competencias</p>
+                  <p>✔ Detecta vacíos formativos</p>
+                  <p>✔ Optimiza diseño curricular</p>
+                </>
+              )}
             </div>
 
             <p className="mt-4 text-xs text-[#0A2540]/70 dark:text-gray-400">
