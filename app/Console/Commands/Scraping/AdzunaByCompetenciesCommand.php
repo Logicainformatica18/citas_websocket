@@ -40,8 +40,7 @@ class AdzunaByCompetenciesCommand extends Command
     // Solo competencias asociadas a carreras (tu requerimiento)
     // $competencies = Competency::whereNotNull('career_id')
     //     ->pluck('description_en', 'id');
-    $competencies = Competency::where('career_id', 11)
-    ->pluck('description_en', 'id');
+    $competencies = Competency::pluck('description_en', 'id');
 
 
     $appId   = config('services.adzuna.app_id');

@@ -57,6 +57,7 @@ use App\Http\Controllers\Dashboard\MacroTrendsIndicatorController;
 use App\Http\Controllers\Dashboard\PeAlignmentIndicatorController;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 
+use App\Http\Controllers\Dashboard\CourseCCTCIndicatorController;
 
 
 
@@ -108,9 +109,59 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
 
 
+Route::prefix('dashboard/indicators/course-alignment')->group(function () {
+
+    // 🧠 Vista principal
+    Route::get(
+        '/',
+        [CourseCCTCIndicatorController::class, 'index']
+    )->name('dashboard.indicators.course-alignment');
+
+    // 📊 Resumen ejecutivo (para mini dashboard)
+    Route::get(
+        '/summary',
+        [CourseCCTCIndicatorController::class, 'summary']
+    )->name('course-alignment.summary');
+
+    // 📘 Detalle de un curso (modal)
+    Route::get(
+        '/course/{courseId}/detail',
+        [CourseCCTCIndicatorController::class, 'detail']
+    )->name('course-alignment.detail');
+
+    // 🔍 Cursos críticos (0 conexiones)
+    Route::get(
+        '/critical',
+        [CourseCCTCIndicatorController::class, 'critical']
+    )->name('course-alignment.critical');
+
+    // 📈 Evolución histórica por curso
+    Route::get(
+        '/course/{courseId}/history',
+        [CourseCCTCIndicatorController::class, 'history']
+    )->name('course-alignment.history');
+
+    // 🔗 Impacto sobre competencias
+    Route::get(
+        '/career/{careerId}/competency-impact',
+        [CourseCCTCIndicatorController::class, 'competencyImpact']
+    )->name('course-alignment.competency-impact');
+
+    // 🤖 Diagnóstico IA por curso (opcional)
+    Route::post(
+        '/course/{courseId}/analyze',
+        [CourseCCTCIndicatorController::class, 'analyzeCourseWithAI']
+    )->name('course-alignment.analyze');
+
+});
 
  Route::prefix('dashboard')->group(function () {
 
+
+
+
+
+ 
 Route::get(
             '/indicators/pe-alignment/competency/{competency}/analyze',
             [PeAlignmentIndicatorController::class, 'analyzeCompetencyWithAI']
