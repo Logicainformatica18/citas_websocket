@@ -28,7 +28,8 @@ export default function JobDemandCityTable({
 }: {
     ranking: PaginatedData<Row>;
 }) {
-    const { filters } = usePage().props as any;
+    const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
     const goTo = (url: string | null) => {
         if (!url) return;

@@ -6,20 +6,24 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 import CourseAlignmentHeader from "./components/Header/CourseAlignmentHeader";
 import CourseAlignmentFilter from "./components/Filters/CourseAlignmentFilter";
 import CourseAlignmentTable from "./components/Table/CourseAlignmentTable";
-
-// 🔥 Nuevo componente
 import CompetenciesAlignmentTable from "./components/Table/CompetenciesAlignmentTable";
+
+// 🔥 Drawer nuevo
+import CourseDetailDrawer from "./components/Drawer/CourseDetailDrawer";
 
 export default function CourseAlignmentIndicatorPage() {
   const {
     meta,
     filters,
     availableCareers,
-    viewMode = "courses", // 🔥 clave
+    viewMode = "courses",
     data: initialData,
   } = usePage<any>().props;
 
   const [data, setData] = useState<any[]>(initialData ?? []);
+
+  // 🔥 Nuevo estado para Drawer
+  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
 
   const hasCareer = Boolean(filters?.career_id);
 
@@ -74,7 +78,10 @@ export default function CourseAlignmentIndicatorPage() {
           {hasCareer && data.length > 0 && (
             <>
               {isCourses && (
-                <CourseAlignmentTable courses={data} />
+                <CourseAlignmentTable
+                  courses={data}
+                  onSelectCourse={(course) => setSelectedCourse(course)}
+                />
               )}
 
               {isCompetencies && (
@@ -82,8 +89,15 @@ export default function CourseAlignmentIndicatorPage() {
               )}
             </>
           )}
-
         </div>
+
+        {/* 🔥 DRAWER LATERAL */}
+        {selectedCourse && (
+          <CourseDetailDrawer
+            course={selectedCourse}
+            onClose={() => setSelectedCourse(null)}
+          />
+        )}
       </DashboardProvider>
     </AppLayout>
   );

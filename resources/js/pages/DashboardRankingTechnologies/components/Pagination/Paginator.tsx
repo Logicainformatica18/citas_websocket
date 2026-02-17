@@ -16,7 +16,8 @@ export default function Paginator({
   const maxVisible = 5;
 
   // 🔑 filtros actuales enviados desde el backend (year, period, category, etc.)
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const getPages = () => {
     const pages: number[] = [];

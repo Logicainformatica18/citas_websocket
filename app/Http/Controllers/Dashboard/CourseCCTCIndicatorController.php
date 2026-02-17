@@ -12,7 +12,7 @@ class CourseCCTCIndicatorController extends Controller
     /* =====================================================
        INDEX
     ===================================================== */
-    public function index(Request $request)
+public function index(Request $request)
 {
     [
         $careerId,
@@ -22,7 +22,7 @@ class CourseCCTCIndicatorController extends Controller
         $range
     ] = $this->resolveParams($request);
 
-    $mode = $request->get('view', 'courses'); // 🔥 clave
+    $mode = $request->get('view', 'courses');
 
     $availableCareers = $this->getAvailableCareers();
 
@@ -35,19 +35,19 @@ class CourseCCTCIndicatorController extends Controller
         );
     }
 
-    if ($mode === 'competencies') {
-        $data = $this->getCompetencyAlignment(
-            $careerId,
-            $year,
-            $quarter
-        );
-    } else {
-        $data = $this->getCoursesCCTC(
-            $careerId,
-            $year,
-            $quarter
-        );
-    }
+    $meta = $this->getGlobalMeta(
+        $careerId,
+        $year,
+        $quarter,
+        $range,
+        $period
+    );
+
+    $data = $mode === 'competencies'
+        ? $this->getCompetencyAlignment($careerId)
+        : $this->getCoursesCCTC(
+    $careerId
+);
 
     return Inertia::render(
         'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
@@ -60,138 +60,413 @@ class CourseCCTCIndicatorController extends Controller
             ],
             'availableCareers' => $availableCareers,
             'data' => $data,
+            'meta' => $meta,
         ]
     );
 }
-private function getCompetencyAlignment(
-    int $careerId,
-    int $year,
-    int $quarter
-) {
+private function getCompetencyAlignment(int $careerId)
+{
+    /*
+    |--------------------------------------------------------------------------
+    | 1️⃣ Obtener cursos con su estado estratégico real
+    |--------------------------------------------------------------------------
+    */
 
-    $competencies = DB::table('competencies as comp')
-        ->where('comp.career_id', $careerId)
-        ->select('comp.id', 'comp.name')
-        ->orderBy('comp.name')
+    $courses = $this->getCoursesCCTC($careerId);
+
+    if ($courses->isEmpty()) {
+        return collect();
+    }
+
+    $courseStates = $courses->keyBy('id');
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2️⃣ Obtener competencias de la carrera
+    |--------------------------------------------------------------------------
+    */
+
+    $competencies = DB::table('competencies')
+        ->where('career_id', $careerId)
         ->get();
 
     if ($competencies->isEmpty()) {
         return collect();
     }
 
-    $competencyIds = $competencies->pluck('id');
+    /*
+    |--------------------------------------------------------------------------
+    | 3️⃣ Obtener relación competencia → cursos
+    |--------------------------------------------------------------------------
+    */
 
-    /* =========================
-       Entidades por competencia
-    ========================= */
-
-    $entities = DB::table('competency_course as cc')
+    $competencyCourses = DB::table('competency_course as cc')
         ->join('courses as c', 'c.id', '=', 'cc.course_id')
-        ->leftJoinSub(
-            DB::table('course_language as cl')
-                ->join('languages as l', 'l.id', '=', 'cl.language_id')
-                ->select('cl.course_id', 'l.market_entity_id')
-                ->unionAll(
-                    DB::table('course_technology as ct')
-                        ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-                        ->select('ct.course_id', 't.market_entity_id')
-                )
-                ->unionAll(
-                    DB::table('course_methodology as cm')
-                        ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
-                        ->select('cm.course_id', 'm.market_entity_id')
-                ),
-            'ce',
-            'ce.course_id',
-            '=',
-            'c.id'
-        )
-        ->whereIn('cc.competency_id', $competencyIds)
-        ->select('cc.competency_id', 'ce.market_entity_id')
+        ->whereIn('cc.competency_id', $competencies->pluck('id'))
+        ->select('cc.competency_id', 'c.id as course_id', 'c.name')
         ->get()
-        ->filter(fn ($row) => !is_null($row->market_entity_id));
+        ->groupBy('competency_id');
 
-    /* =========================
-       Señales globales
-    ========================= */
+    /*
+    |--------------------------------------------------------------------------
+    | 4️⃣ Evaluar estado estratégico por competencia
+    |--------------------------------------------------------------------------
+    */
 
-    $entitiesWithJobs = collect()
-        ->merge(DB::table('technology_job')->pluck('market_entity_id'))
-        ->merge(DB::table('language_job')->pluck('market_entity_id'))
-        ->merge(DB::table('methodology_job')->pluck('market_entity_id'))
-        ->filter()
-        ->unique()
-        ->flip();
+    return $competencies->map(function ($comp) use ($competencyCourses, $courseStates) {
 
-    $entitiesWithTrends = DB::table('entity_trends')
-        ->pluck('market_entity_id')
-        ->filter()
-        ->unique()
-        ->flip();
+        $relatedCourses = $competencyCourses[$comp->id] ?? collect();
 
-    /* =========================
-       Construcción final
-    ========================= */
-
-    return $competencies->map(function ($comp) use (
-        $entities,
-        $entitiesWithJobs,
-        $entitiesWithTrends
-    ) {
-
-        $entityIds = $entities
-            ->where('competency_id', $comp->id)
-            ->pluck('market_entity_id')
-            ->unique();
-
-        $total = $entityIds->count();
-
-        if ($total === 0) {
+        if ($relatedCourses->isEmpty()) {
             return [
-                'id'     => $comp->id,
-                'name'   => $comp->name,
-                'estado' => 'Sin señal',
+                'id' => $comp->id,
+                'name' => $comp->name,
+                'estado' => 'En riesgo',
                 'cursos' => [],
             ];
         }
 
-        $conJobs   = $entityIds->filter(fn ($id) => isset($entitiesWithJobs[$id]));
-        $conTrend  = $entityIds->filter(fn ($id) => isset($entitiesWithTrends[$id]));
-        $sinSenal  = $entityIds->reject(fn ($id) =>
-            isset($entitiesWithJobs[$id]) ||
-            isset($entitiesWithTrends[$id])
-        );
+        $total = $relatedCourses->count();
+        $estrategicos = 0;
+        $parciales = 0;
+        $noAlineados = 0;
 
-        if ($conJobs->isNotEmpty() && $conTrend->isNotEmpty() && $sinSenal->isEmpty()) {
-            $estado = 'Estrategicamente alineado';
-        } elseif ($conJobs->isNotEmpty() || $conTrend->isNotEmpty()) {
-            $estado = 'Parcialmente alineado';
-        } else {
-            $estado = 'En riesgo';
+        $cursosFormateados = [];
+
+        foreach ($relatedCourses as $course) {
+
+            $estadoCurso = $courseStates[$course->course_id]['estado'] ?? 'No alineado';
+
+            // Contadores para estado de la competencia
+            if ($estadoCurso === 'Estrategicamente alineado') {
+                $estrategicos++;
+            } elseif (
+                $estadoCurso === 'Altamente alineado' ||
+                $estadoCurso === 'Alineado'
+            ) {
+                $parciales++;
+            } else {
+                $noAlineados++;
+            }
+
+            // 🔥 IMPORTANTE: enviamos estado del curso al frontend
+            $cursosFormateados[] = [
+                'id' => $course->course_id,
+                'name' => $course->name,
+                'estado' => $estadoCurso,
+            ];
+        }
+$cursosFormateados = collect($cursosFormateados)
+    ->sortByDesc(function ($c) {
+        return match($c['estado']) {
+            'Estrategicamente alineado' => 3,
+            'Altamente alineado' => 2,
+            'Alineado' => 2,
+            default => 1,
+        };
+    })
+    ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | 5️⃣ Regla estratégica tipo Lovable
+        |--------------------------------------------------------------------------
+        */
+
+        if ($estrategicos === $total) {
+            $estadoFinal = 'Estrategicamente alineado';
+        }
+        elseif (($estrategicos + $parciales) >= ceil($total / 2)) {
+            $estadoFinal = 'Parcialmente alineado';
+        }
+        else {
+            $estadoFinal = 'En riesgo';
         }
 
         return [
-            'id'     => $comp->id,
-            'name'   => $comp->name,
-            'estado' => $estado,
-            'empleo' => $conJobs->isNotEmpty(),
-            'tendencia' => $conTrend->isNotEmpty(),
-            'gaps'   => $sinSenal->count(),
+            'id' => $comp->id,
+            'name' => $comp->name,
+            'estado' => $estadoFinal,
+            'cursos' => $cursosFormateados, // 👈 ahora sí correcto
         ];
     });
+}
+
+
+public function getRecentJobsByCourse(int $courseId)
+{
+    /* =========================
+       1️⃣ Lenguajes
+    ========================= */
+
+    $languages = DB::table('course_language as cl')
+        ->join('languages as l', 'l.id', '=', 'cl.language_id')
+        ->where('cl.course_id', $courseId)
+        ->pluck('l.name');
+
+    /* =========================
+       2️⃣ Tecnologías
+    ========================= */
+
+    $technologies = DB::table('course_technology as ct')
+        ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+        ->where('ct.course_id', $courseId)
+        ->pluck('t.name');
+
+    /* =========================
+       3️⃣ Metodologías
+    ========================= */
+
+    $methodologies = DB::table('course_methodology as cm')
+        ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+        ->where('cm.course_id', $courseId)
+        ->pluck('m.name');
+
+    /* =========================
+       4️⃣ Entidades para jobs
+    ========================= */
+
+    $entityIds = collect()
+        ->merge(
+            DB::table('course_language as cl')
+                ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                ->where('cl.course_id', $courseId)
+                ->pluck('l.market_entity_id')
+        )
+        ->merge(
+            DB::table('course_technology as ct')
+                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                ->where('ct.course_id', $courseId)
+                ->pluck('t.market_entity_id')
+        )
+        ->merge(
+            DB::table('course_methodology as cm')
+                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                ->where('cm.course_id', $courseId)
+                ->pluck('m.market_entity_id')
+        )
+        ->filter()
+        ->unique()
+        ->values();
+
+    $recentJobs = [];
+
+    if ($entityIds->isNotEmpty()) {
+
+        $jobIds = collect()
+            ->merge(
+                DB::table('technology_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->merge(
+                DB::table('language_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->merge(
+                DB::table('methodology_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->unique()
+            ->values();
+
+        if ($jobIds->isNotEmpty()) {
+            $recentJobs = DB::table('job_offers')
+                ->whereIn('id', $jobIds)
+                ->orderByDesc('published_at')
+                ->limit(10)
+                ->get([
+                    'id',
+                    'title',
+                    'company',
+                    'city',
+                    'published_at'
+                ]);
+        }
+    }
+
+    return response()->json([
+        'connections' => [
+            'languages' => $languages,
+            'technologies' => $technologies,
+            'methodologies' => $methodologies,
+        ],
+        'recent_jobs' => $recentJobs
+    ]);
+}
+public function getCourseTrends(int $courseId)
+{
+    // 1️⃣ Obtener entidades del curso
+    $entityIds = collect()
+        ->merge(
+            DB::table('course_language as cl')
+                ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                ->where('cl.course_id', $courseId)
+                ->pluck('l.market_entity_id')
+        )
+        ->merge(
+            DB::table('course_technology as ct')
+                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                ->where('ct.course_id', $courseId)
+                ->pluck('t.market_entity_id')
+        )
+        ->merge(
+            DB::table('course_methodology as cm')
+                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                ->where('cm.course_id', $courseId)
+                ->pluck('m.market_entity_id')
+        )
+        ->filter()
+        ->unique()
+        ->values();
+
+    if ($entityIds->isEmpty()) {
+        return response()->json([]);
+    }
+
+    // 2️⃣ Traer tendencias reales usando tus columnas correctas
+    $trends = DB::table('entity_trends as et')
+        ->join('market_entities as me', 'me.id', '=', 'et.market_entity_id')
+        ->whereIn('et.market_entity_id', $entityIds)
+        ->orderByDesc('et.created_at')
+        ->limit(10)
+        ->get([
+            'et.id',
+            'et.trend_name',       // ✅ correcto
+            'et.source_title',     // ✅ correcto
+            'et.source_url',
+            'et.source_type',
+            'et.year',
+            'et.quarter',
+            'me.name as entity_name'
+        ]);
+
+    return response()->json($trends);
+}
+
+public function getCourseGaps(int $courseId)
+{
+    // 1️⃣ Entidades del curso
+    $entities = collect()
+        ->merge(
+            DB::table('course_language as cl')
+                ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                ->where('cl.course_id', $courseId)
+                ->select('l.market_entity_id', 'l.name')
+                ->get()
+        )
+        ->merge(
+            DB::table('course_technology as ct')
+                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                ->where('ct.course_id', $courseId)
+                ->select('t.market_entity_id', 't.name')
+                ->get()
+        )
+        ->merge(
+            DB::table('course_methodology as cm')
+                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                ->where('cm.course_id', $courseId)
+                ->select('m.market_entity_id', 'm.name')
+                ->get()
+        )
+        ->unique('market_entity_id')
+        ->values();
+
+    if ($entities->isEmpty()) {
+        return response()->json([
+            'total' => 0,
+            'conectadas' => 0,
+            'brechas' => []
+        ]);
+    }
+
+    $entityIds = $entities->pluck('market_entity_id');
+
+    // 2️⃣ Entidades con señal de empleo
+    $entitiesWithJobs = collect()
+        ->merge(DB::table('technology_job')->whereIn('market_entity_id', $entityIds)->pluck('market_entity_id'))
+        ->merge(DB::table('language_job')->whereIn('market_entity_id', $entityIds)->pluck('market_entity_id'))
+        ->merge(DB::table('methodology_job')->whereIn('market_entity_id', $entityIds)->pluck('market_entity_id'))
+        ->unique();
+
+    // 3️⃣ Entidades con tendencia
+    $entitiesWithTrends = DB::table('entity_trends')
+        ->whereIn('market_entity_id', $entityIds)
+        ->pluck('market_entity_id')
+        ->unique();
+
+    $conectadas = $entitiesWithJobs
+        ->merge($entitiesWithTrends)
+        ->unique();
+
+    $brechas = $entities
+        ->filter(fn($e) => !$conectadas->contains($e->market_entity_id))
+        ->values();
+
+    return response()->json([
+        'total' => $entities->count(),
+        'conectadas' => $conectadas->count(),
+        'brechas' => $brechas
+    ]);
+}
+
+public function getCourseAIRecommendation(int $courseId)
+{
+    $record = DB::table('course_ai_recommendations')
+        ->where('course_id', $courseId)
+        ->orderByDesc('created_at')
+        ->first();
+
+    if (!$record) {
+        return response()->json([
+            'diagnosis' => null,
+            'suggested_entities' => [],
+            'suggested_certifications' => [],
+            'suggested_methodologies' => [],
+            'market_evidence' => [],
+        ]);
+    }
+
+    return response()->json([
+        'diagnosis' => $record->diagnosis,
+        'suggested_entities' => json_decode($record->suggested_entities ?? '[]', true),
+        'suggested_certifications' => json_decode($record->suggested_certifications ?? '[]', true),
+        'suggested_methodologies' => json_decode($record->suggested_methodologies ?? '[]', true),
+        'market_evidence' => json_decode($record->market_evidence ?? '[]', true),
+    ]);
+}
+
+
+public function getCourseRecommendation(int $courseId)
+{
+    $recommendation = DB::table('course_ai_recommendations')
+        ->where('course_id', $courseId)
+        ->orderByDesc('created_at')
+        ->first();
+
+    if (!$recommendation) {
+        return response()->json(null);
+    }
+
+    return response()->json([
+        'diagnosis' => $recommendation->diagnosis,
+        'suggested_entities' => json_decode($recommendation->suggested_entities ?? '[]', true),
+        'suggested_methodologies' => json_decode($recommendation->suggested_methodologies ?? '[]', true),
+        'suggested_certifications' => json_decode($recommendation->suggested_certifications ?? '[]', true),
+        'market_evidence' => json_decode($recommendation->market_evidence ?? 'null', true),
+        'created_at' => $recommendation->created_at,
+    ]);
 }
 
     /* =====================================================
        CORE CCTC
     ===================================================== */
-private function getCoursesCCTC(
-    int $careerId,
-    int $year,
-    int $quarter
-) {
-
+private function getCoursesCCTC(int $careerId)
+{
     /* =========================
-       1️⃣ Cursos
+       1️⃣ Cursos de la carrera
     ========================= */
 
     $courses = DB::table('career_course as cc')
@@ -208,7 +483,7 @@ private function getCoursesCCTC(
     $courseIds = $courses->pluck('id');
 
     /* =========================
-       2️⃣ Todas las entidades de todos los cursos (UNA SOLA QUERY POR TIPO)
+       2️⃣ Entidades por curso
     ========================= */
 
     $entities = collect()
@@ -236,31 +511,33 @@ private function getCoursesCCTC(
         ->filter(fn($row) => !is_null($row->market_entity_id));
 
     /* =========================
-       3️⃣ Conjuntos globales (UNA VEZ)
+       3️⃣ Entidades con empleo
     ========================= */
 
-$entitiesWithJobs = collect()
-    ->merge(DB::table('technology_job')->pluck('market_entity_id'))
-    ->merge(DB::table('language_job')->pluck('market_entity_id'))
-    ->merge(DB::table('methodology_job')->pluck('market_entity_id'))
-    ->filter(fn($id) => !is_null($id))
-    ->map(fn($id) => (int) $id)
-    ->unique()
-    ->values()
-    ->flip();
-
-
-$entitiesWithTrends = DB::table('entity_trends')
-    ->pluck('market_entity_id')
-    ->filter(fn($id) => !is_null($id))
-    ->map(fn($id) => (int) $id)
-    ->unique()
-    ->values()
-    ->flip();
-
+    $entitiesWithJobs = collect()
+        ->merge(DB::table('technology_job')->pluck('market_entity_id'))
+        ->merge(DB::table('language_job')->pluck('market_entity_id'))
+        ->merge(DB::table('methodology_job')->pluck('market_entity_id'))
+        ->filter()
+        ->map(fn($id) => (int) $id)
+        ->unique()
+        ->values()
+        ->flip();
 
     /* =========================
-       4️⃣ Competencias agrupadas
+       4️⃣ Entidades con tendencias
+    ========================= */
+
+    $entitiesWithTrends = DB::table('entity_trends')
+        ->pluck('market_entity_id')
+        ->filter()
+        ->map(fn($id) => (int) $id)
+        ->unique()
+        ->values()
+        ->flip();
+
+    /* =========================
+       5️⃣ Competencias por curso
     ========================= */
 
     $courseCompetencies = DB::table('competency_course as cc')
@@ -272,7 +549,7 @@ $entitiesWithTrends = DB::table('entity_trends')
         ->pluck('total', 'course_id');
 
     /* =========================
-       5️⃣ Construcción final
+       6️⃣ Construcción final
     ========================= */
 
     return $courses->map(function ($course) use (
@@ -285,10 +562,14 @@ $entitiesWithTrends = DB::table('entity_trends')
         $entityIds = $entities
             ->where('course_id', $course->id)
             ->pluck('market_entity_id')
-            ->unique();
+            ->unique()
+            ->values();
 
         $totalEntidades = $entityIds->count();
 
+        /* =========================
+           🔹 CASO SIN ENTIDADES
+        ========================= */
         if ($totalEntidades === 0) {
             return [
                 'id' => $course->id,
@@ -296,37 +577,62 @@ $entitiesWithTrends = DB::table('entity_trends')
                 'estado' => 'Sin entidades',
                 'empleo' => 'Sin demanda',
                 'tendencias' => 'No detectado',
-                'gaps' => '0 gaps',
+                'gap_label' => 'Sin evaluar',
+                'gap_count' => 0,
                 'competencias' => $courseCompetencies[$course->id] ?? 0,
             ];
         }
 
-        $conDemanda = $entityIds->filter(fn($id) => isset($entitiesWithJobs[$id]));
-        $conTendencia = $entityIds->filter(fn($id) => isset($entitiesWithTrends[$id]));
+        /* =========================
+           🔹 Señales reales
+        ========================= */
 
-        $sinSenal = $entityIds->reject(fn($id) =>
-            isset($entitiesWithJobs[$id]) ||
-            isset($entitiesWithTrends[$id])
-        )->count();
+        $conJobs = $entityIds->filter(fn($id) => isset($entitiesWithJobs[$id]));
+        $conTrend = $entityIds->filter(fn($id) => isset($entitiesWithTrends[$id]));
 
-        $hasJobs = $conDemanda->isNotEmpty();
-        $hasTrends = $conTendencia->isNotEmpty();
+        $totalConexionesActivas = $conJobs
+            ->merge($conTrend)
+            ->unique()
+            ->count();
 
-        if ($hasJobs && $hasTrends && $sinSenal === 0) {
-            $estado = 'Estrategicamente alineado';
-        } elseif ($hasJobs || $hasTrends) {
-            $estado = 'Parcialmente alineado';
+        $gapCount = $totalEntidades - $totalConexionesActivas;
+
+        /* =========================
+           🔹 Estado estratégico
+        ========================= */
+
+        if ($totalConexionesActivas === 0) {
+            $estado = 'No alineado';
+        } elseif ($totalConexionesActivas === 1) {
+            $estado = 'Alineado';
+        } elseif ($totalConexionesActivas === 2) {
+            $estado = 'Altamente alineado';
         } else {
-            $estado = 'En riesgo';
+            $estado = 'Estrategicamente alineado';
+        }
+
+        /* =========================
+           🔹 Clasificación GAP
+        ========================= */
+
+        if ($gapCount === 0) {
+            $gapLabel = 'Sin gap';
+        } elseif ($gapCount === 1) {
+            $gapLabel = 'Gap leve';
+        } elseif ($gapCount === 2) {
+            $gapLabel = 'Gap moderado';
+        } else {
+            $gapLabel = 'Gap crítico';
         }
 
         return [
             'id' => $course->id,
             'name' => $course->name,
             'estado' => $estado,
-            'empleo' => $hasJobs ? 'Demanda activa' : 'Sin demanda',
-            'tendencias' => $hasTrends ? 'Detectado' : 'No detectado',
-            'gaps' => $sinSenal === 0 ? 'Sin brechas' : $sinSenal . ' gaps',
+            'empleo' => $conJobs->isNotEmpty() ? 'Demanda activa' : 'Sin demanda',
+            'tendencias' => $conTrend->isNotEmpty() ? 'Detectado' : 'No detectado',
+            'gap_label' => $gapLabel,
+            'gap_count' => $gapCount,
             'competencias' => $courseCompetencies[$course->id] ?? 0,
         ];
     });
@@ -447,20 +753,22 @@ $vacantes = 0;
 
 
 
-    private function renderEmpty($careers, $meta, $year, $period)
-    {
-        return Inertia::render(
-            'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
-            [
-                'filters' => [
-                    'career_id' => null,
-                    'year' => $year,
-                    'period' => $period,
-                ],
-                'availableCareers' => $careers,
-                'courses' => [],
-                'meta' => $meta,
-            ]
-        );
-    }
+   private function renderEmpty($careers, $meta, $year, $period)
+{
+    return Inertia::render(
+        'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
+        [
+            'viewMode' => request()->get('view', 'courses'), // 🔥 clave
+            'filters' => [
+                'career_id' => null,
+                'year' => $year,
+                'period' => $period,
+            ],
+            'availableCareers' => $careers,
+            'data' => [],
+            'meta' => $meta,
+        ]
+    );
+}
+
 }

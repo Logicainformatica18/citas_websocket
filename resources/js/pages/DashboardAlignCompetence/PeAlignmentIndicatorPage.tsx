@@ -182,14 +182,14 @@ export default function PeAlignmentIndicatorPage() {
           {hasCareer && competencies.length > 0 && (
             <div className="space-y-8">
               {/* 📊 Gráfico general */}
-
+ <CompetencyAlignmentChart competencies={competencies} />
 
               {/* 🧠 Tablero estratégico */}
               <CompetencyBoard
                 competencies={competencies}
                 onAnalyze={analyzeCompetency}
               />
-                <CompetencyAlignmentChart competencies={competencies} />
+               
             </div>
           )}
         </div>

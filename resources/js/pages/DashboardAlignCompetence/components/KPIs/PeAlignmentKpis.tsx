@@ -83,7 +83,7 @@ export default function PeAlignmentKpis({
   ================================================== */
   const items = [
     {
-      label: "Coincidencia Mercado",
+      label: "Coincidencia en portales de empleo",
       value: `${marketPct}%`,
       subtitle: `${marketMatched} competencias`,
       icon: Briefcase,
@@ -91,7 +91,7 @@ export default function PeAlignmentKpis({
       bg: "bg-[#E6F7FD] dark:bg-[#0F2A3A]",
     },
     {
-      label: "Coincidencia Prospectiva",
+      label: "Coincidencia en reportes",
       value: `${prospectivePct}%`,
       subtitle: `${prospectiveMatched} competencias`,
       icon: Sparkles,
@@ -99,7 +99,7 @@ export default function PeAlignmentKpis({
       bg: "bg-purple-50 dark:bg-[#1A1F2C]",
     },
     {
-      label: "Índice PE",
+      label: "Porcentaje de Alineación",
       value: `${finalScore}%`,
       subtitle: results.length > 1
         ? "Promedio entre carreras"

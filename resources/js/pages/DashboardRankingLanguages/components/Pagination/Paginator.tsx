@@ -18,7 +18,8 @@ export default function Paginator({
   const maxVisible = 5;
 
   // 🔑 filtros actuales desde Inertia (lenguajes)
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   /* =========================================
      Construcción de páginas visibles

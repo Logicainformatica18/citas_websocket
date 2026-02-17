@@ -84,7 +84,8 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
 
 /* ================= MAIN ================= */
 export default function CityDemandHeatmap() {
-    const { filters } = usePage().props as any;
+    const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);

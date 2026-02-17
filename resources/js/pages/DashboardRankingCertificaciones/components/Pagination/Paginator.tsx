@@ -16,7 +16,8 @@ export default function Paginator({
   const maxVisible = 5;
 
   // 🔑 filtros actuales desde Inertia
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const getPages = () => {
     const pages: number[] = [];

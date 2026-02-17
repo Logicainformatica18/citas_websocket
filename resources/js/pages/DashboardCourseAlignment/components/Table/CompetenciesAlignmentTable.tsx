@@ -1,53 +1,74 @@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
-interface Course {
-  name: string;
-  weight?: number;
-}
-
 interface Competency {
   id: number;
   name: string;
-  status: "aligned" | "partial" | "gap";
-  courses: Course[];
+  estado: string;
+  cursos: {
+    name: string;
+    estado: string;
+  }[];
   interpretation?: string;
 }
+
 
 interface Props {
   competencies: Competency[];
 }
 
+/* 🔥 Formato elegante */
+const formatTitle = (text: string) => {
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+};
+
 export default function CompetenciesAlignmentTable({
   competencies,
 }: Props) {
-  const getStatusConfig = (status: Competency["status"]) => {
-    switch (status) {
-      case "aligned":
-        return {
-          label: "Estratégicamente alineado",
-          color:
-            "bg-emerald-100 text-emerald-700 border-emerald-200",
-          icon: <CheckCircle2 size={16} className="mr-1" />,
-        };
+  /* ============================================================
+     🔥 SEMÁFORO REAL
+  ============================================================ */
 
-      case "partial":
-        return {
-          label: "Parcialmente alineado",
-          color:
-            "bg-amber-100 text-amber-700 border-amber-200",
-          icon: <AlertTriangle size={16} className="mr-1" />,
-        };
+  const getStatusConfig = (estado: string) => {
+    const normalized = estado?.toLowerCase() ?? "";
 
-      case "gap":
-      default:
-        return {
-          label: "Brecha detectada",
-          color:
-            "bg-red-100 text-red-700 border-red-200",
-          icon: <XCircle size={16} className="mr-1" />,
-        };
+    // 🟢 Verde fuerte
+    if (
+      normalized.includes("estrategicamente") ||
+      normalized.includes("altamente")
+    ) {
+      return {
+        label: estado,
+        dot: "bg-emerald-500",
+        color:
+          "bg-emerald-100 text-emerald-700 border-emerald-200",
+        icon: <CheckCircle2 size={16} className="mr-1" />,
+      };
     }
+
+    // 🟡 Amarillo
+    if (
+      normalized.includes("parcialmente") ||
+      normalized.includes("alineado")
+    ) {
+      return {
+        label: estado,
+        dot: "bg-amber-500",
+        color:
+          "bg-amber-100 text-amber-700 border-amber-200",
+        icon: <AlertTriangle size={16} className="mr-1" />,
+      };
+    }
+
+    // 🔴 Rojo
+    return {
+      label: estado || "En riesgo",
+      dot: "bg-red-500",
+      color: "bg-red-100 text-red-700 border-red-200",
+      icon: <XCircle size={16} className="mr-1" />,
+    };
   };
 
   return (
@@ -64,30 +85,24 @@ export default function CompetenciesAlignmentTable({
 
         <tbody>
           {competencies.map((comp) => {
-            const status = getStatusConfig(comp.status);
+            const status = getStatusConfig(comp.estado);
 
             return (
               <tr
                 key={comp.id}
                 className="border-b hover:bg-muted/30 transition"
               >
-                {/* Competencia */}
+                {/* COMPETENCIA */}
                 <td className="px-6 py-5 font-medium text-foreground">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        comp.status === "aligned"
-                          ? "bg-emerald-500"
-                          : comp.status === "partial"
-                          ? "bg-amber-500"
-                          : "bg-red-500"
-                      }`}
+                      className={`h-2.5 w-2.5 rounded-full ${status.dot}`}
                     />
-                    {comp.name}
+                    {formatTitle(comp.name)}
                   </div>
                 </td>
 
-                {/* Estado */}
+                {/* ESTADO */}
                 <td className="px-6 py-5">
                   <Badge
                     variant="outline"
@@ -98,33 +113,55 @@ export default function CompetenciesAlignmentTable({
                   </Badge>
                 </td>
 
-                {/* Cursos asociados */}
-                <td className="px-6 py-5 space-y-2">
-                  {comp.courses?.length > 0 ? (
-                    comp.courses.map((course, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <span className="h-2 w-2 rounded-full bg-[#1CBCE8]" />
-                        {course.name}
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-xs">
-                      Sin cursos asociados
-                    </span>
-                  )}
-                </td>
+                {/* CURSOS */}
+               {/* ================= Cursos asociados ================= */}
+<td className="px-6 py-5">
+  {comp.cursos?.length > 0 ? (
+    <div className="flex flex-wrap gap-2">
+      {comp.cursos.map((course, index) => {
+        const normalized = course.estado?.toLowerCase();
 
-                {/* Interpretación */}
+        let color =
+          "bg-gray-100 text-gray-600 border-gray-200";
+        let dot = "bg-gray-400";
+
+        if (normalized?.includes("estrategicamente") || normalized?.includes("altamente")) {
+          color = "bg-emerald-100 text-emerald-700 border-emerald-200";
+          dot = "bg-emerald-500";
+        } else if (normalized?.includes("parcialmente") || normalized?.includes("alineado")) {
+          color = "bg-amber-100 text-amber-700 border-amber-200";
+          dot = "bg-amber-500";
+        } else {
+          color = "bg-red-100 text-red-700 border-red-200";
+          dot = "bg-red-500";
+        }
+
+        return (
+          <span
+            key={index}
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${color}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+            {formatTitle(course.name)}
+          </span>
+        );
+      })}
+    </div>
+  ) : (
+    <span className="text-muted-foreground text-xs">
+      Sin cursos asociados
+    </span>
+  )}
+</td>
+
+
+                {/* INTERPRETACIÓN */}
                 <td className="px-6 py-5 text-muted-foreground text-sm leading-relaxed">
-                  {comp.interpretation ??
-                    (comp.status === "aligned"
-                      ? "Competencia sólidamente fortalecida por los cursos asociados."
-                      : comp.status === "partial"
-                      ? "Requiere refuerzo en algunos cursos para alcanzar alineación plena."
-                      : "Existe una brecha significativa que requiere intervención curricular.")}
+                  {comp.estado?.toLowerCase().includes("estrategicamente")
+                    ? "Competencia sólidamente fortalecida por cursos con alta alineación estratégica."
+                    : comp.estado?.toLowerCase().includes("parcialmente")
+                    ? "Existe cobertura parcial; algunos cursos requieren refuerzo."
+                    : "Existe una brecha relevante que requiere intervención curricular."}
                 </td>
               </tr>
             );

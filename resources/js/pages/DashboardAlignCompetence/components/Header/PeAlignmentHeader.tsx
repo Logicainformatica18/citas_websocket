@@ -26,7 +26,8 @@ export default function Header({
     weights,
     onEditWeights,
 }: HeaderProps) {
-    const { filters } = usePage().props as any;
+    const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
     const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
         router.get(

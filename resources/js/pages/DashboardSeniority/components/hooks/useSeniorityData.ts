@@ -13,7 +13,8 @@ export interface CareerSeniority {
 }
 
 export function useSeniorityData() {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const [data, setData] = useState<CareerSeniority[]>([]);
   const [loading, setLoading] = useState(true);

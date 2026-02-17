@@ -107,9 +107,26 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+Route::get(
+    '/indicators/course/{id}/trends',
+    [CourseCCTCIndicatorController::class, 'getCourseTrends']
+);
+Route::get(
+    '/indicators/course/{id}/gaps',
+    [CourseCCTCIndicatorController::class, 'getCourseGaps']
+);
+Route::get(
+    '/indicators/course/{id}/ai',
+    [CourseCCTCIndicatorController::class, 'getCourseAIRecommendation']
+);
 
 
+Route::get(
+    '/indicators/course/{id}/recent-jobs',
+    [CourseCCTCIndicatorController::class, 'getRecentJobsByCourse']
+);
 Route::prefix('dashboard/indicators/course-alignment')->group(function () {
+
 
     // 🧠 Vista principal
     Route::get(

@@ -1,7 +1,8 @@
 import { router, usePage } from "@inertiajs/react";
 
 export default function JobModalityFilters() {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const updateFilter = (key: string, value: string | null) => {
     router.get(

@@ -15,7 +15,8 @@ interface HeaderProps {
 }
 
 export function MacroTrendsHeader({ meta }: HeaderProps) {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
   const [loading, setLoading] = useState(false);
 
   const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {

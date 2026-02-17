@@ -3,7 +3,8 @@ import axios from "axios";
 import { usePage } from "@inertiajs/react";
 
 export function useSeniorityModalityData() {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const [data, setData] = useState({
     remote: 0,

@@ -16,7 +16,8 @@ interface IndicatorHeaderProps {
 }
 
 export function IndicatorHeader({ meta }: IndicatorHeaderProps) {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+const filters = pageProps?.filters ?? {};
 
   const onChange = (params: Record<string, any>) => {
     router.get(

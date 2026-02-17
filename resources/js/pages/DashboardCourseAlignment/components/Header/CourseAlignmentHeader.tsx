@@ -22,23 +22,26 @@ export default function CourseAlignmentHeader({
   meta,
   viewMode,
 }: Props) {
-  const { filters } = usePage().props as any;
+  const pageProps = usePage().props as any;
+  const filters = pageProps?.filters ?? {};
 
   const switchMode = (mode: "courses" | "competencies") => {
     router.get(
       "/dashboard/indicators/course-alignment",
       {
         ...filters,
-        viewMode: mode,
+        view: mode, // 🔥 backend espera "view"
       },
       {
-        preserveState: true,
+        preserveScroll: true,
+        preserveState: false, // 🔥 fuerza re-render correcto
         replace: true,
       }
     );
   };
 
   const isCourses = viewMode === "courses";
+  const isCompetencies = viewMode === "competencies";
 
   return (
     <header
@@ -91,20 +94,28 @@ export default function CourseAlignmentHeader({
                 : "Indicador que evalúa la correspondencia entre competencias formativas y las demandas reales del mercado."}
             </p>
 
-            {/* 🔥 SWITCH SEGMENTADO */}
-            <div className="flex gap-2 pt-2">
+            {/* 🔥 SWITCH CORREGIDO */}
+            <div className="flex gap-3 pt-2">
               <Button
                 size="sm"
-                variant={isCourses ? "default" : "outline"}
                 onClick={() => switchMode("courses")}
+                className={
+                  isCourses
+                    ? "bg-[#00B6E8] text-white hover:bg-[#0099c6] shadow"
+                    : "bg-white text-[#0A2540] border border-slate-300 hover:bg-slate-100"
+                }
               >
                 Cursos
               </Button>
 
               <Button
                 size="sm"
-                variant={!isCourses ? "default" : "outline"}
                 onClick={() => switchMode("competencies")}
+                className={
+                  isCompetencies
+                    ? "bg-[#00B6E8] text-white hover:bg-[#0099c6] shadow"
+                    : "bg-white text-[#0A2540] border border-slate-300 hover:bg-slate-100"
+                }
               >
                 Competencias
               </Button>
