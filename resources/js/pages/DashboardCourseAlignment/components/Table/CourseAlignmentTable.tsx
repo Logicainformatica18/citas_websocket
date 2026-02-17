@@ -3,118 +3,98 @@ import {
   AlertTriangle,
   Sparkles,
   Briefcase,
-  Search,
+  Brain,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState } from "react";
+import axios from "axios";
 
-type Course = {
-  id: number;
-  name: string;
-  estado: string;
-  empleo: string;
-  tendencias: string;
-
-  // 🔥 nuevo modelo backend
-  gap_label?: string;
-  gap_count?: number;
-
-  // compatibilidad antigua
-  gaps?: string;
-
-  competencias: number | string;
-};
-
-interface Props {
-  courses: Course[];
-  onSelectCourse?: (course: Course) => void;
-}
-
-export default function CourseAlignmentTable({
+export default function CourseAlignmentTableGrid({
   courses,
   onSelectCourse,
-}: Props) {
-  const [search, setSearch] = useState("");
+}: any) {
 
-  const formatTitle = (text: string) => {
-    if (!text) return "";
-    return text
-      .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+
+  const analyzeWithAI = async (courseId: number) => {
+    try {
+      setLoadingId(courseId);
+
+      await axios.post(`/dashboard/courses/${courseId}/analyze-ai`);
+
+      alert("Análisis IA ejecutado correctamente");
+    } catch (e) {
+      alert("Error ejecutando IA");
+    } finally {
+      setLoadingId(null);
+    }
   };
 
-  const filteredCourses = useMemo(() => {
-    return courses.filter((c) =>
-      c.name.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [courses, search]);
-
   return (
-    <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+    <table className="w-full text-sm">
+      <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+        <tr className="text-left">
+          <th className="px-6 py-4">Curso</th>
+          <th className="px-4 py-4">Estado</th>
+          <th className="px-4 py-4">Demanda</th>
+          <th className="px-4 py-4">Tendencias</th>
+          <th className="px-4 py-4">Gap</th>
+          <th className="px-4 py-4">Comp.</th>
+          <th className="px-4 py-4 text-center">IA</th>
+        </tr>
+      </thead>
 
-      {/* FILTRO */}
-      <div className="p-4 border-b bg-muted/30 flex items-center gap-3">
-        <Search size={16} className="text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Filtrar curso..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-transparent outline-none text-sm"
-        />
-      </div>
+      <tbody>
+        {courses.map((course: any) => (
+         <tr
+  key={course.id}
+  onClick={() => onSelectCourse?.(course)}
+  className="border-t hover:bg-muted/20 transition-colors cursor-pointer"
+>
+            <td className="px-6 py-4 font-medium text-[13px]">
+              {course.name}
+            </td>
 
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
-          <tr className="text-left">
-            <th className="px-6 py-4">Curso</th>
-            <th className="px-4 py-4">Estado Estratégico</th>
-            <th className="px-4 py-4">Demanda Laboral</th>
-            <th className="px-4 py-4">Tendencias</th>
-            <th className="px-4 py-4">Gap</th>
-            <th className="px-4 py-4">Competencias</th>
+            <td className="px-4 py-4">
+              <EstadoBadge estado={course.estado} />
+            </td>
+
+            <td className="px-4 py-4">
+              <EmpleoBadge empleo={course.empleo} />
+            </td>
+
+            <td className="px-4 py-4">
+              <TendenciaBadge tendencias={course.tendencias} />
+            </td>
+
+            <td className="px-4 py-4">
+              {course.gap_label}
+            </td>
+
+            <td className="px-4 py-4">
+              {course.competencias}
+            </td>
+
+            <td className="px-4 py-4 text-center">
+             <button
+  onClick={(e) => {
+    e.stopPropagation(); // 🔥 evita activar el click del row
+    analyzeWithAI(course.id);
+  }}
+  disabled={loadingId === course.id}
+  className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+>
+  <Brain size={14} />
+  {loadingId === course.id ? "Analizando..." : "IA"}
+</button>
+
+            </td>
           </tr>
-        </thead>
-
-        <tbody>
-          {filteredCourses.map((course) => (
-            <tr
-              key={course.id}
-              onClick={() => onSelectCourse?.(course)}
-              className="border-t hover:bg-muted/20 transition-colors cursor-pointer"
-            >
-              <td className="px-6 py-4 font-medium text-[13px] text-foreground">
-                {formatTitle(course.name)}
-              </td>
-
-              <td className="px-4 py-4">
-                <EstadoBadge estado={course.estado} />
-              </td>
-
-              <td className="px-4 py-4">
-                <EmpleoBadge empleo={course.empleo} />
-              </td>
-
-              <td className="px-4 py-4">
-                <TendenciaBadge tendencias={course.tendencias} />
-              </td>
-
-              <td className="px-4 py-4">
-                <GapBadge
-                  label={course.gap_label ?? course.gaps ?? "Sin evaluar"}
-                  count={course.gap_count ?? 0}
-                />
-              </td>
-
-              <td className="px-4 py-4 text-[12px] font-medium">
-                {course.competencias}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
+
 
 /* =========================
    ESTADO

@@ -51,7 +51,7 @@ export default function CourseAITab({ course }: any) {
       {data.suggested_entities?.length > 0 && (
         <Section
           icon={<Target size={14} />}
-          title="Entidades sugeridas"
+          title="Tecnologías Sugeridas"
           items={data.suggested_entities}
         />
       )}

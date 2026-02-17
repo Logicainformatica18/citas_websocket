@@ -107,6 +107,11 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+Route::post(
+    '/dashboard/courses/{course}/analyze-ai',
+    [CourseCCTCIndicatorController::class, 'analyzeWithAI']
+);
+
 Route::get(
     '/indicators/course/{id}/trends',
     [CourseCCTCIndicatorController::class, 'getCourseTrends']

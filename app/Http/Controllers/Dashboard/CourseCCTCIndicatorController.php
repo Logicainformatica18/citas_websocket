@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Artisan;
 
 class CourseCCTCIndicatorController extends Controller
 {
@@ -664,6 +665,16 @@ private function getCoursesCCTC(int $careerId)
         $range
     ];
 }
+public function analyzeWithAI(int $courseId)
+{
+    Artisan::call('curriculum:analyze-course', [
+        'course_id' => $courseId
+    ]);
+
+    return response()->json([
+        'status' => 'ok'
+    ]);
+}
 
 
     private function getAvailableCareers()
@@ -720,9 +731,11 @@ private function getGlobalMeta(
        2️⃣ TOTAL REPORTES (histórico completo)
     ===================================================== */
 
-    $reportes = DB::table('entity_trends')
-        ->whereIn('market_entity_id', $entityIds)
-        ->count();
+  $reportes = DB::table('entity_trends')
+    ->whereIn('market_entity_id', $entityIds)
+    ->where('year', $year)
+    ->count();
+
 
     /* =====================================================
        3️⃣ TOTAL VACANTES (histórico completo)
@@ -739,7 +752,43 @@ private function getGlobalMeta(
     //     })
     //     ->distinct('jo.id')
     //     ->count('jo.id');
-$vacantes = 0;
+/* =====================================================
+   3️⃣ TOTAL VACANTES (histórico acumulado por carrera)
+===================================================== */
+
+/* =====================================================
+   3️⃣ TOTAL VACANTES (solo año/periodo actual)
+===================================================== */
+
+$jobIds = collect()
+    ->merge(
+        DB::table('technology_job')
+            ->whereIn('market_entity_id', $entityIds)
+            ->pluck('job_offer_id')
+    )
+    ->merge(
+        DB::table('language_job')
+            ->whereIn('market_entity_id', $entityIds)
+            ->pluck('job_offer_id')
+    )
+    ->merge(
+        DB::table('methodology_job')
+            ->whereIn('market_entity_id', $entityIds)
+            ->pluck('job_offer_id')
+    )
+    ->unique()
+    ->values();
+
+if ($jobIds->isEmpty()) {
+    $vacantes = 0;
+} else {
+    $vacantes = DB::table('job_offers')
+        ->whereIn('id', $jobIds)
+        ->whereBetween('published_at', $range) // 🔥 aquí aplica año/periodo
+        ->count();
+}
+
+
 
     return [
         'year' => $year,

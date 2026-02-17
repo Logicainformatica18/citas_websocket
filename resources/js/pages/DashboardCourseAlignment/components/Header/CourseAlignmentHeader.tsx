@@ -95,7 +95,7 @@ export default function CourseAlignmentHeader({
             </p>
 
             {/* 🔥 SWITCH CORREGIDO */}
-            <div className="flex gap-3 pt-2">
+            {/* <div className="flex gap-3 pt-2">
               <Button
                 size="sm"
                 onClick={() => switchMode("courses")}
@@ -119,7 +119,7 @@ export default function CourseAlignmentHeader({
               >
                 Competencias
               </Button>
-            </div>
+            </div> */}
 
             {/* ================= BADGES ================= */}
             <div className="flex flex-wrap items-center gap-4 pt-4">
@@ -136,11 +136,7 @@ export default function CourseAlignmentHeader({
 
             </div>
 
-            {meta?.actualizado && (
-              <p className="text-xs text-[#0A2540]/70 dark:text-gray-400 pt-2">
-                Actualizado: {meta.actualizado}
-              </p>
-            )}
+           
           </div>
 
           {/* ================= RIGHT CARD ================= */}
