@@ -5,98 +5,40 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Models\Prueba;
-use App\Services\AI\CompetencyRecommendationService;
+use App\Services\CCTCService;
 
 class PeAlignmentIndicatorController extends Controller
 {
-/* =====================================================
-   IA – RECOMENDACIÓN POR COMPETENCIA
-===================================================== */
+    protected CCTCService $cctc;
 
-
-public function analyzeCompetencyWithAI(
-    Request $request,
-    int $competencyId,
-    CompetencyRecommendationService $aiService
-) {
-    $careerId = (int) $request->get('career_id');
-    $year     = (int) $request->get('year', 2026);
-    $period   = $request->get('period', 's1');
-    $quarter  = $period === 's1' ? 1 : 4;
-
-    if (!$careerId) {
-        return response()->json(['error' => 'career_id es requerido'], 422);
+    public function __construct(CCTCService $cctc)
+    {
+        $this->cctc = $cctc;
     }
-
-    $competency = DB::table('competencies')
-        ->where('id', $competencyId)
-        ->where('career_id', $careerId)
-        ->first(['id', 'name', 'description_en']);
-
-    if (!$competency) {
-        return response()->json(['error' => 'Competencia no válida'], 404);
-    }
-
-    $range = $this->getPeriodRange($period, $year);
-
-    /* ===============================
-       MARKET MATCH
-    =============================== */
-
-    $jobCount = DB::table('competency_job_offer as cjo')
-        ->join('job_offers as j', 'j.id', '=', 'cjo.job_offer_id')
-        ->where('cjo.competency_id', $competencyId)
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->distinct('j.id')
-        ->count('j.id');
-
-    $marketMatch = $jobCount > 0;
-
-    /* ===============================
-       TREND MATCH
-    =============================== */
-
-    $trendCount = DB::table('competency_trends')
-        ->where('competency_id', $competencyId)
-        ->where('year', $year)
-        ->where('quarter', $quarter)
-        ->count();
-
-    $trendMatch = $trendCount > 0;
-
-    $result = $aiService->analyze([
-        'competency'   => $competency->description_en,
-        'market_match' => $marketMatch,
-        'trend_match'  => $trendMatch,
-    ]);
-
-    return response()->json([
-        'source' => 'ai',
-        'analysis' => $result
-    ]);
-}
-
 
     /* =====================================================
        INDEX
     ===================================================== */
- public function index(Request $request)
+
+   public function index(Request $request)
 {
-    [
-        $careerId,
-        $year,
-        $period,
-        $quarter,
-        $range
-    ] = $this->resolveParams($request);
+    $careerId = (int) $request->get('career_id');
+    $year     = (int) $request->get('year', now()->year);
+    $period   = $request->get('period', 's1');
+
+    // 🔥 Definimos quarter y rango correctamente
+    $quarter = $period === 's1' ? 1 : 4;
+
+    $range = $period === 's1'
+        ? ['start' => "{$year}-01-01", 'end' => "{$year}-06-30"]
+        : ['start' => "{$year}-07-01", 'end' => "{$year}-12-31"];
 
     [$laborWeight, $trendWeight] = $this->getWeights();
 
     $availableCareers = $this->getAvailableCareers();
-    $meta = $this->getGlobalMeta($range, $year, $period);
+    $meta             = $this->getGlobalMeta($year, $period);
 
     if (!$careerId) {
         return $this->renderEmpty(
@@ -109,80 +51,167 @@ public function analyzeCompetencyWithAI(
         );
     }
 
-    $summary = $this->getCareerSummary(
+    /* =====================================================
+       🔥 NUEVA LÓGICA DIRECTA POR COMPETENCIA
+    ===================================================== */
+
+    $competencies = $this->getCompetencyAlignment(
         $careerId,
-        $year,
-        $quarter,
         $range,
-        $laborWeight,
-        $trendWeight
-    );
-
-    $competencies = $this->getDetailedCompetencies(
-        $careerId,
         $year,
-        $quarter,
-        $range
+        $quarter
     );
-
+$summary = $this->calculateCareerAlignmentSummary(
+    $competencies,
+    $laborWeight,
+    $trendWeight
+);
     return Inertia::render(
         'DashboardAlignCompetence/PeAlignmentIndicatorPage',
         [
             'filters' => [
                 'career_id' => $careerId,
-                'year' => $year,
-                'period' => $period,
+                'year'      => $year,
+                'period'    => $period,
             ],
             'availableCareers' => $availableCareers,
             'weights' => [
                 'laborWeight'  => round($laborWeight * 100, 1),
                 'trendsWeight' => round($trendWeight * 100, 1),
             ],
-            'summary' => $summary,
+            'summary'      =>  $summary,
             'competencies' => $competencies,
-            'meta' => $meta,
+            'meta'         => $meta,
         ]
     );
 }
-private function getDetailedCompetencies(
+
+
+    /* =====================================================
+       VER CURSOS DE UNA COMPETENCIA
+    ===================================================== */
+private function getCompetencyAlignment(
     int $careerId,
+    array $range,
     int $year,
-    int $quarter,
-    array $range
-) {
+    int $quarter
+)
+{
+    $minMarketSignals = 3;  // mínimo señales reales de mercado
+    $minTrendSignals  = 2;  // mínimo señales reales de tendencia
 
     $competencies = DB::table('competencies')
         ->where('career_id', $careerId)
         ->get();
 
-    return $competencies->map(function ($c) use ($year, $quarter, $range) {
+    return $competencies->map(function ($comp) use (
+        $range,
+        $year,
+        $quarter,
+        $minMarketSignals,
+        $minTrendSignals
+    ) {
 
-        /* ====================================================
-           JOB COUNT (SOLO DIRECTO A COMPETENCIA)
-        ==================================================== */
+        /* ========================
+           MERCADO (CONTEO REAL)
+        ======================== */
 
-        $jobCount = DB::table('competency_job_offer as cjo')
-            ->join('job_offers as j', 'j.id', '=', 'cjo.job_offer_id')
-            ->where('cjo.competency_id', $c->id)
-            ->whereNotNull('j.published_at')
-            ->whereBetween('j.published_at', [$range['start'], $range['end']])
-            ->distinct()
-            ->count('j.id');
+        $marketCount =
+
+            // Lenguajes
+            DB::table('competency_course as cc')
+                ->join('course_language as cl', 'cl.course_id', '=', 'cc.course_id')
+                ->join('language_job as lj', 'lj.language_id', '=', 'cl.language_id')
+                ->join('job_offers as jo', function ($join) use ($range) {
+                    $join->on('jo.id', '=', 'lj.job_offer_id')
+                         ->whereBetween('jo.published_at', [$range['start'], $range['end']]);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->distinct('jo.id')
+    ->count('jo.id');
+
+            +
+
+            // Tecnologías
+            DB::table('competency_course as cc')
+                ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+                ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
+                ->join('job_offers as jo', function ($join) use ($range) {
+                    $join->on('jo.id', '=', 'tj.job_offer_id')
+                         ->whereBetween('jo.published_at', [$range['start'], $range['end']]);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->distinct('jo.id')
+    ->count('jo.id');
+
+            +
+
+            // Metodologías
+            DB::table('competency_course as cc')
+                ->join('course_methodology as cm', 'cm.course_id', '=', 'cc.course_id')
+                ->join('methodology_job as mj', 'mj.methodology_id', '=', 'cm.methodology_id')
+                ->join('job_offers as jo', function ($join) use ($range) {
+                    $join->on('jo.id', '=', 'mj.job_offer_id')
+                         ->whereBetween('jo.published_at', [$range['start'], $range['end']]);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->count();
+
+       $marketMatch = $marketCount > 0;
 
 
-        /* ====================================================
-           TREND COUNT (DIRECTO)
-        ==================================================== */
+        /* ========================
+           TENDENCIAS (CONTEO REAL)
+        ======================== */
 
-        $trendCount = DB::table('competency_trends')
-            ->where('competency_id', $c->id)
-            ->where('year', $year)
-            ->where('quarter', $quarter)
-            ->count();
+        $trendCount =
+
+            // Lenguajes
+            DB::table('competency_course as cc')
+                ->join('course_language as cl', 'cl.course_id', '=', 'cc.course_id')
+                ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                ->join('entity_trends as et', function ($join) use ($year, $quarter) {
+                    $join->on('et.market_entity_id', '=', 'l.market_entity_id')
+                         ->where('et.year', $year)
+                         ->where('et.quarter', $quarter);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->count()
+
+            +
+
+            // Tecnologías
+            DB::table('competency_course as cc')
+                ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                ->join('entity_trends as et', function ($join) use ($year, $quarter) {
+                    $join->on('et.market_entity_id', '=', 't.market_entity_id')
+                         ->where('et.year', $year)
+                         ->where('et.quarter', $quarter);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->count()
+
+            +
+
+            // Metodologías
+            DB::table('competency_course as cc')
+                ->join('course_methodology as cm', 'cm.course_id', '=', 'cc.course_id')
+                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                ->join('entity_trends as et', function ($join) use ($year, $quarter) {
+                    $join->on('et.market_entity_id', '=', 'm.market_entity_id')
+                         ->where('et.year', $year)
+                         ->where('et.quarter', $quarter);
+                })
+                ->where('cc.competency_id', $comp->id)
+                ->count();
+
+     $trendMatch  = $trendCount  > 0;
 
 
-        $marketMatch = $jobCount > 0;
-        $trendMatch  = $trendCount > 0;
+        /* ========================
+           STATUS FINAL
+        ======================== */
 
         $status = match (true) {
             $marketMatch && $trendMatch => 'aligned',
@@ -191,147 +220,133 @@ private function getDetailedCompetencies(
         };
 
         return [
-            'id' => $c->id,
-            'name' => $c->name,
-
-            'job_count' => $jobCount,
-            'trend_count' => $trendCount,
-
+            'id' => $comp->id,
+            'name' => $comp->name,
             'market_match' => $marketMatch,
             'trend_match' => $trendMatch,
             'status' => $status,
         ];
-    })
-    ->sortByDesc('job_count')
-    ->values();
+    });
 }
 
-
-
-
-    /* =====================================================
-       SUMMARY POR CARRERA
-    ===================================================== */
-  private function getCareerSummary(
-    int $careerId,
-    int $year,
-    int $quarter,
-    array $range,
+private function calculateCareerAlignmentSummary(
+    \Illuminate\Support\Collection $competencies,
     float $laborWeight,
     float $trendWeight
-): array {
+): array
+{
+    $total = $competencies->count();
 
-    $totalCompetencies = DB::table('competencies')
-        ->where('career_id', $careerId)
-        ->count();
-
-    [$marketMatched, $marketPct] = $this->getMarketStats(
-        $careerId,
-        $range,
-        $totalCompetencies
-    );
-
-    [$trendMatched, $trendPct] = $this->getTrendStats(
-        $careerId,
-        $year,
-        $quarter,
-        $totalCompetencies
-    );
-
-    $finalIndex = round(
-        ($laborWeight * $marketPct) +
-        ($trendWeight * $trendPct),
-        2
-    );
-
-    return [
-        'total_competencies' => $totalCompetencies,
-        'market' => [
-            'matched' => $marketMatched,
-            'percentage' => $marketPct,
-        ],
-        'prospective' => [
-            'matched' => $trendMatched,
-            'percentage' => $trendPct,
-        ],
-        'final_index' => $finalIndex,
-    ];
-}
-
-
-    /* =====================================================
-       MERCADO (via language_job / technology_job)
-    ===================================================== */
-  private function getMarketStats(
-    int $careerId,
-    array $range,
-    int $total
-): array {
-
-    $matched = DB::table('competencies as c')
-        ->join('competency_job_offer as cjo', 'cjo.competency_id', '=', 'c.id')
-        ->join('job_offers as j', 'j.id', '=', 'cjo.job_offer_id')
-        ->where('c.career_id', $careerId)
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->distinct('c.id')
-        ->count('c.id');
-
-    $pct = $total > 0
-        ? round(($matched / $total) * 100, 2)
-        : 0;
-
-    return [$matched, $pct];
-}
-
-
-
-    /* =====================================================
-       TENDENCIAS (entity_trends)
-    ===================================================== */
- private function getTrendStats(
-    int $careerId,
-    int $year,
-    int $quarter,
-    int $total
-): array {
-
-    $matched = DB::table('competencies as c')
-        ->join('competency_trends as ct', function ($join) use ($year, $quarter) {
-            $join->on('ct.competency_id', '=', 'c.id')
-                 ->where('ct.year', $year)
-                 ->where('ct.quarter', $quarter);
-        })
-        ->where('c.career_id', $careerId)
-        ->distinct('c.id')
-        ->count('c.id');
-
-    $pct = $total > 0
-        ? round(($matched / $total) * 100, 2)
-        : 0;
-
-    return [$matched, $pct];
-}
-
-
-
-    /* =====================================================
-       HELPERS COMUNES
-    ===================================================== */
-    private function resolveParams(Request $request): array
-    {
-        $careerId = (int) $request->get('career_id');
-        $year     = (int) $request->get('year', 2026);
-        $period   = $request->get('period', 's1');
-        $quarter  = $period === 's1' ? 1 : 4;
-
+    if ($total === 0) {
         return [
-            $careerId,
-            $year,
-            $period,
-            $quarter,
-            $this->getPeriodRange($period, $year)
+            'total_competencies' => 0,
+            'market_rate' => 0,
+            'trend_rate' => 0,
+            'final_index' => 0,
+            'gap_critico' => 0,
+            'gap_mercado' => 0,
+            'gap_tendencia' => 0,
         ];
     }
+
+    /* =========================
+       Conteos
+    ========================== */
+
+    $marketAligned = $competencies
+        ->where('market_match', true)
+        ->count();
+
+    $trendAligned = $competencies
+        ->where('trend_match', true)
+        ->count();
+
+    $gapCritico = $competencies
+        ->where('market_match', false)
+        ->where('trend_match', false)
+        ->count();
+
+    $gapMercado = $competencies
+        ->where('market_match', false)
+        ->where('trend_match', true)
+        ->count();
+
+    $gapTendencia = $competencies
+        ->where('market_match', true)
+        ->where('trend_match', false)
+        ->count();
+
+    /* =========================
+       Tasas
+    ========================== */
+
+    $marketRate = $marketAligned / $total;
+    $trendRate  = $trendAligned / $total;
+
+    /* =========================
+       Índice ponderado
+    ========================== */
+
+    $finalScore =
+        ($laborWeight * $marketRate) +
+        ($trendWeight * $trendRate);
+
+    return [
+        'total_competencies' => $total,
+
+        'market_rate' => round($marketRate * 100, 1),
+        'trend_rate'  => round($trendRate * 100, 1),
+
+        'final_index' => round($finalScore * 100, 1),
+
+        // GAPS estratégicos
+        'gap_critico'    => $gapCritico,
+        'gap_mercado'    => $gapMercado,
+        'gap_tendencia'  => $gapTendencia,
+    ];
+}
+ public function getCompetencyCourses(Request $request, int $competencyId)
+{
+    $careerId = (int) $request->get('career_id');
+  $year = (int) $request->get('year');
+if (!$careerId || !$year) {
+    return response()->json([]);
+}
+
+
+    if (!$careerId) {
+        return response()->json([]);
+    }
+ 
+    $courseStates = $this->cctc
+        ->getCourses($careerId, $year)
+        ->keyBy('id');
+
+    $related = DB::table('competency_course as cc')
+        ->join('courses as c', 'c.id', '=', 'cc.course_id')
+        ->where('cc.competency_id', $competencyId)
+        ->select('c.id', 'c.name')
+        ->orderBy('c.name')
+        ->get();
+
+    $result = $related->map(function ($course) use ($courseStates) {
+
+        $estado = $courseStates[$course->id]['estado'] ?? 'No alineado';
+
+        return [
+            'id'     => $course->id,
+            'name'   => $course->name,
+            'estado' => $estado,
+        ];
+    });
+
+    return response()->json($result);
+}
+
+
+    /* =====================================================
+       HELPERS
+    ===================================================== */
 
     private function getWeights(): array
     {
@@ -351,7 +366,7 @@ private function getDetailedCompetencies(
             ->get(['id', 'name', 'slug']);
     }
 
-    private function getGlobalMeta(array $range, int $year, string $period): array
+    private function getGlobalMeta(int $year, string $period): array
     {
         return [
             'year' => $year,
@@ -359,76 +374,11 @@ private function getDetailedCompetencies(
             'periodo_label' => $period === 's1'
                 ? "Semestre 1 – Enero a Junio {$year}"
                 : "Semestre 2 – Julio a Diciembre {$year}",
-            'vacantes_analizadas' => DB::table('job_offers')
-                ->whereBetween('published_at', [$range['start'], $range['end']])
-                ->count(),
-            'reportes_analizados' => DB::table('competency_trends')
-    ->where('year', $year)
-    ->where('quarter', $period === 's1' ? 1 : 4)
-    ->count(),
+            'vacantes_analizadas' => DB::table('job_offers')->count(),
+            'reportes_analizados' => DB::table('entity_trends')->count(),
             'actualizado' => now()->toDateTimeString(),
         ];
     }
-
-    private function getPeriodRange(string $period, int $year): array
-    {
-        return $period === 's1'
-            ? ['start' => "$year-01-01", 'end' => "$year-06-30"]
-            : ['start' => "$year-07-01", 'end' => "$year-12-31"];
-    }
-public function competenciesByCareer(Request $request, int $careerId)
-{
-    $year    = (int) $request->get('year', 2026);
-    $period  = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 4;
-    $range   = $this->getPeriodRange($period, $year);
-
-    $competencies = DB::table('competencies')
-        ->where('career_id', $careerId)
-        ->get(['id', 'name']);
-
-    if ($competencies->isEmpty()) {
-        return response()->json(['data' => []]);
-    }
-
-    $data = $competencies->map(function ($c) use ($year, $quarter, $range) {
-
-        $jobCount = DB::table('competency_job_offer as cjo')
-            ->join('job_offers as j', 'j.id', '=', 'cjo.job_offer_id')
-            ->where('cjo.competency_id', $c->id)
-            ->whereBetween('j.published_at', [$range['start'], $range['end']])
-            ->distinct('j.id')
-            ->count('j.id');
-
-        $trendCount = DB::table('competency_trends')
-            ->where('competency_id', $c->id)
-            ->where('year', $year)
-            ->where('quarter', $quarter)
-            ->count();
-
-        $market = $jobCount > 0;
-        $trend  = $trendCount > 0;
-
-        $order = $market && $trend ? 1 : ($market || $trend ? 2 : 3);
-
-        return [
-            'id' => $c->id,
-            'name' => $c->name,
-            'job_count' => $jobCount,
-            'trend_count' => $trendCount,
-            'market_match' => $market,
-            'trend_match' => $trend,
-            'order' => $order,
-        ];
-    })
-    ->sortBy([['order','asc'], ['name','asc']])
-    ->values();
-
-    return response()->json(['data' => $data]);
-}
-
-
-
 
     private function renderEmpty($careers, $meta, $lw, $tw, $year, $period)
     {
@@ -437,16 +387,17 @@ public function competenciesByCareer(Request $request, int $careerId)
             [
                 'filters' => [
                     'career_id' => null,
-                    'year' => $year,
-                    'period' => $period,
+                    'year'      => $year,
+                    'period'    => $period,
                 ],
                 'availableCareers' => $careers,
                 'weights' => [
                     'laborWeight'  => round($lw * 100, 1),
                     'trendsWeight' => round($tw * 100, 1),
                 ],
-                'summary' => null,
-                'meta' => $meta,
+                'summary'      => null,
+                'competencies' => [],
+                'meta'         => $meta,
             ]
         );
     }

@@ -183,7 +183,11 @@ Route::prefix('dashboard/indicators/course-alignment')->group(function () {
 
 
 
- 
+ Route::get(
+    '/indicators/pe-alignment/competency/{id}/courses',
+    [PeAlignmentIndicatorController::class, 'getCompetencyCourses']
+);
+
 Route::get(
             '/indicators/pe-alignment/competency/{competency}/analyze',
             [PeAlignmentIndicatorController::class, 'analyzeCompetencyWithAI']

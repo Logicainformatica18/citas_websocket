@@ -37,7 +37,7 @@ export default function CourseAlignmentTableGrid({
           <th className="px-4 py-4">Estado</th>
           <th className="px-4 py-4">Demanda</th>
           <th className="px-4 py-4">Tendencias</th>
-          <th className="px-4 py-4">Gap</th>
+          {/* <th className="px-4 py-4">Gap</th> */}
           <th className="px-4 py-4">Comp.</th>
           <th className="px-4 py-4 text-center">IA</th>
         </tr>
@@ -66,9 +66,9 @@ export default function CourseAlignmentTableGrid({
               <TendenciaBadge tendencias={course.tendencias} />
             </td>
 
-            <td className="px-4 py-4">
+            {/* <td className="px-4 py-4">
               {course.gap_label}
-            </td>
+            </td> */}
 
             <td className="px-4 py-4">
               {course.competencias}

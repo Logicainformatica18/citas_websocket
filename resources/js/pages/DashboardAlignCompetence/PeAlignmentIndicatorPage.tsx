@@ -7,13 +7,15 @@ import axios from "axios";
 import CareerFilter from "./components/Filters/CareerFilter";
 import PeAlignmentHeader from "./components/Header/PeAlignmentHeader";
 import PeAlignmentKpis from "./components/KPIs/PeAlignmentKpis";
-import CompetencyAlignmentChart from "./components/Charts/CompetencyAlignmentChart";
-import CompetencyBoard from "./components/Board/CompetencyBoard";
+import CompetencyTable from "./components/Table/CompetencyTable";
+
 
 import {
   WeightConfigModal,
   WeightConfig,
 } from "./components/Header/WeightConfigModal";
+
+import CompetencyCoursesModal from "./components/Modals/CompetencyCoursesModal";
 
 import Swal from "sweetalert2";
 
@@ -29,6 +31,11 @@ export default function PeAlignmentIndicatorPage() {
     availableCareers,
     competencies: initialCompetencies,
   } = usePage<any>().props;
+ 
+console.log("SUMMARY DEBUG:", summary);
+  /* =========================
+     STATE
+  ========================== */
 
   const [competencies, setCompetencies] = useState<any[]>(
     initialCompetencies ?? []
@@ -36,23 +43,53 @@ export default function PeAlignmentIndicatorPage() {
 
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
 
+  const [selectedCompetency, setSelectedCompetency] = useState<any>(null);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [isCoursesModalOpen, setCoursesModalOpen] = useState(false);
+  const [isCoursesLoading, setIsCoursesLoading] = useState(false);
+
   const hasCareer = Boolean(filters?.career_id);
 
-  /* ======================================================
-     SYNC COMPETENCIAS DESDE BACKEND
-  ====================================================== */
+  /* =========================
+     SYNC BACKEND
+  ========================== */
   useEffect(() => {
     setCompetencies(initialCompetencies ?? []);
   }, [initialCompetencies]);
 
   /* ======================================================
-     IA – ANALIZAR / REANALIZAR COMPETENCIA
+     ABRIR MODAL CURSOS
+  ====================================================== */
+  const openCompetencyModal = async (competency: any) => {
+    setSelectedCompetency(competency);
+    setCoursesModalOpen(true);
+    setIsCoursesLoading(true);
+
+    try {
+      const res = await axios.get(
+        `/dashboard/indicators/pe-alignment/competency/${competency.id}/courses`,
+        {
+          params: {
+            career_id: filters.career_id,
+          },
+        }
+      );
+
+      setCourses(res.data.data ?? res.data);
+    } catch (e) {
+      setCourses([]);
+    } finally {
+      setIsCoursesLoading(false);
+    }
+  };
+
+  /* ======================================================
+     IA ANALYZE
   ====================================================== */
   const analyzeCompetency = async (competency: {
     id: number;
     name: string;
   }) => {
-    // 🔥 marcar loading en ese card
     setCompetencies((prev) =>
       prev.map((c) =>
         c.id === competency.id
@@ -98,7 +135,7 @@ export default function PeAlignmentIndicatorPage() {
   };
 
   /* ======================================================
-     GUARDAR PESOS
+     SAVE WEIGHTS
   ====================================================== */
   const handleSaveWeights = (newWeights: WeightConfig) => {
     if (newWeights.laborWeight + newWeights.trendsWeight !== 100) {
@@ -147,52 +184,38 @@ export default function PeAlignmentIndicatorPage() {
 
       <DashboardProvider>
         <div className="bg-background px-6 py-6 space-y-8">
-          {/* =========================
-             HEADER
-          ========================== */}
+
           <PeAlignmentHeader
             meta={meta}
             weights={weights}
             onEditWeights={() => setIsWeightModalOpen(true)}
           />
 
-          {/* =========================
-             FILTRO
-          ========================== */}
-          <CareerFilter careers={availableCareers} filters={filters} />
+         
 
-          {/* =========================
-             KPIs
-          ========================== */}
-          {summary ? (
-            <PeAlignmentKpis
-              market={summary.market}
-              prospective={summary.prospective}
-              finalIndex={summary.final_index}
-            />
-          ) : (
-            <div className="text-sm text-muted-foreground">
-              Selecciona una carrera para analizar la alineación.
-            </div>
-          )}
+        {summary && (
+  <PeAlignmentKpis summary={summary} />
+)}
 
-          {/* =========================
-             VISUALIZACIÓN
-          ========================== */}
+ <CareerFilter careers={availableCareers} filters={filters} />
           {hasCareer && competencies.length > 0 && (
-            <div className="space-y-8">
-              {/* 📊 Gráfico general */}
- <CompetencyAlignmentChart competencies={competencies} />
-
-              {/* 🧠 Tablero estratégico */}
-              <CompetencyBoard
-                competencies={competencies}
-                onAnalyze={analyzeCompetency}
-              />
-               
-            </div>
+            <CompetencyTable
+              competencies={competencies}
+              onAnalyze={analyzeCompetency}
+              onSelectCompetency={openCompetencyModal}
+            />
           )}
         </div>
+
+        {/* =========================
+           MODAL CURSOS (Headless UI)
+        ========================== */}
+        <CompetencyCoursesModal
+          open={isCoursesModalOpen}
+          onClose={() => setCoursesModalOpen(false)}
+          competencyName={selectedCompetency?.name ?? ""}
+          courses={courses}
+        />
 
         {/* =========================
            MODAL PESOS
@@ -203,6 +226,7 @@ export default function PeAlignmentIndicatorPage() {
           weights={weights}
           onSave={handleSaveWeights}
         />
+
       </DashboardProvider>
     </AppLayout>
   );

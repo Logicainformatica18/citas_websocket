@@ -7,18 +7,26 @@ import CourseAlignmentHeader from "./components/Header/CourseAlignmentHeader";
 import CourseAlignmentFilter from "./components/Filters/CourseAlignmentFilter";
 import CourseAlignmentTable from "./components/Table/CourseAlignmentTable";
 import CompetenciesAlignmentTable from "./components/Table/CompetenciesAlignmentTable";
+import CourseAlignmentKPI from "./components/KPIs/CourseAlignmentKPI";
 
 // 🔥 Drawer nuevo
 import CourseDetailDrawer from "./components/Drawer/CourseDetailDrawer";
 
 export default function CourseAlignmentIndicatorPage() {
   const {
-    meta,
-    filters,
-    availableCareers,
-    viewMode = "courses",
-    data: initialData,
-  } = usePage<any>().props;
+  meta,
+  filters,
+  availableCareers,
+  viewMode = "courses",
+  data: initialData,
+  final_index,
+  market_rate,
+  trend_rate,
+  gap_total,
+  aligned_count,
+  total_courses,
+} = usePage<any>().props;
+
 
   const [data, setData] = useState<any[]>(initialData ?? []);
 
@@ -53,11 +61,22 @@ export default function CourseAlignmentIndicatorPage() {
           <CourseAlignmentHeader meta={meta} viewMode={viewMode} />
 
           {/* ================= FILTROS ================= */}
-          <CourseAlignmentFilter
+           <CourseAlignmentFilter
             careers={availableCareers}
             filters={filters}
             viewMode={viewMode}
           />
+<CourseAlignmentKPI
+  final_index={final_index ?? 0}
+  market_rate={market_rate ?? 0}
+  trend_rate={trend_rate ?? 0}
+  gap_total={gap_total ?? 0}
+  aligned_count={aligned_count ?? 0}
+  total_courses={total_courses ?? 0}
+/>
+
+
+         
 
           {/* ================= CONTENIDO ================= */}
 
