@@ -69,9 +69,10 @@ console.log("SUMMARY DEBUG:", summary);
       const res = await axios.get(
         `/dashboard/indicators/pe-alignment/competency/${competency.id}/courses`,
         {
-          params: {
-            career_id: filters.career_id,
-          },
+        params: {
+  career_id: filters.career_id,
+  year: filters.year,
+},
         }
       );
 
