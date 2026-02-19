@@ -1,18 +1,11 @@
-import { Check, X, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useEffect } from "react";
 
 interface Competency {
   id: number;
   name: string;
-  job_count?: number;
-  trend_count?: number;
-  market_match?: boolean;
-  trend_match?: boolean;
-
-  // Puede venir uno u otro
-  status?: "aligned" | "partial" | "gap";
-  estado?: string;
-
+  final_score: number; // porcentaje final (ej: 82.5)
+  level: "Fuerte" | "Media" | "Débil" | "Crítica";
   analysis?: {
     status?: "loading" | "ready" | "error";
   };
@@ -35,62 +28,24 @@ export default function CompetencyTable({
   }, [competencies]);
 
   /* =========================
-     NORMALIZAR ESTADO
+     BADGE SEGÚN NIVEL
   ========================== */
-  const resolveStatus = (comp: Competency): "aligned" | "partial" | "gap" => {
+  const renderLevelBadge = (level: Competency["level"]) => {
 
-    // 1️⃣ Si backend ya manda status correcto
-    if (comp.status) return comp.status;
+    const styles = {
+      Fuerte: "bg-green-100 text-green-700",
+      Media: "bg-yellow-100 text-yellow-700",
+      Débil: "bg-orange-100 text-orange-700",
+      Crítica: "bg-red-100 text-red-700",
+    };
 
-    // 2️⃣ Si backend manda texto "estado"
-    if (comp.estado) {
-      switch (comp.estado) {
-        case "Altamente alineado":
-        case "Estrategicamente alineado":
-        case "Alineado":
-          return "aligned";
-
-        case "Parcialmente alineado":
-          return "partial";
-
-        default:
-          return "gap";
-      }
-    }
-
-    // 3️⃣ Fallback lógico usando booleanos
-    if (comp.market_match && comp.trend_match) return "aligned";
-    if (comp.market_match || comp.trend_match) return "partial";
-
-    return "gap";
-  };
-
-  /* =========================
-     BADGE
-  ========================== */
-  const renderStatusBadge = (status: "aligned" | "partial" | "gap") => {
-    switch (status) {
-      case "aligned":
-        return (
-          <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 font-medium">
-            ✔ Alta coincidencia
-          </span>
-        );
-
-      case "partial":
-        return (
-          <span className="px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700 font-medium">
-            ● Demanda / Tendencia
-          </span>
-        );
-
-      default:
-        return (
-          <span className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700 font-medium">
-            ● GAP crítico
-          </span>
-        );
-    }
+    return (
+      <span
+        className={`px-3 py-1 rounded-full text-sm font-medium ${styles[level]}`}
+      >
+        {level}
+      </span>
+    );
   };
 
   return (
@@ -102,13 +57,10 @@ export default function CompetencyTable({
               Competencia PE
             </th>
             <th className="text-center px-6 py-4 font-semibold">
-              Mercado
+              Puntaje
             </th>
             <th className="text-center px-6 py-4 font-semibold">
-              Tendencias
-            </th>
-            <th className="text-center px-6 py-4 font-semibold">
-              Estado
+              Nivel estratégico
             </th>
             {/* <th className="text-center px-6 py-4 font-semibold">
               IA
@@ -117,69 +69,50 @@ export default function CompetencyTable({
         </thead>
 
         <tbody>
-          {competencies.map((comp) => {
-            const normalizedStatus = resolveStatus(comp);
-
-            return (
-              <tr
-                key={comp.id}
-                className="border-t hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors duration-200"
+          {competencies.map((comp) => (
+            <tr
+              key={comp.id}
+              className="border-t hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors duration-200"
+            >
+              {/* Competencia */}
+              <td
+                onClick={() => onSelectCompetency(comp)}
+                className="px-6 py-4 font-medium text-blue-600 cursor-pointer hover:underline"
               >
+                {comp.name}
+              </td>
 
-                {/* Competencia */}
-                <td
-                  onClick={() => onSelectCompetency(comp)}
-                  className="px-6 py-4 font-medium text-blue-600 cursor-pointer hover:underline"
-                >
-                  {comp.name}
-                </td>
+              {/* Puntaje */}
+              <td className="px-6 py-4 text-center font-semibold">
+                {comp.final_score}%
+              </td>
 
-                {/* Mercado */}
-                <td className="px-6 py-4 text-center">
-                  {comp.market_match ? (
-                    <Check className="text-green-500 mx-auto" size={18} />
-                  ) : (
-                    <X className="text-red-500 mx-auto" size={18} />
-                  )}
-                </td>
+              {/* Nivel */}
+              <td className="px-6 py-4 text-center">
+                {renderLevelBadge(comp.level)}
+              </td>
 
-                {/* Tendencias */}
-                <td className="px-6 py-4 text-center">
-                  {comp.trend_match ? (
-                    <Check className="text-green-500 mx-auto" size={18} />
-                  ) : (
-                    <X className="text-red-500 mx-auto" size={18} />
-                  )}
-                </td>
-
-                {/* Estado */}
-                <td className="px-6 py-4 text-center">
-                  {renderStatusBadge(normalizedStatus)}
-                </td>
-
-                {/* IA */}
-                {/* <td className="px-6 py-4 text-center">
-                  {comp.analysis?.status === "loading" ? (
-                    <Loader2
-                      className="animate-spin mx-auto text-indigo-600"
-                      size={18}
-                    />
-                  ) : (
-                    <button
-                      onClick={() =>
-                        onAnalyze({ id: comp.id, name: comp.name })
-                      }
-                      className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 justify-center transition"
-                    >
-                      <Sparkles size={16} />
-                      Analizar
-                    </button>
-                  )}
-                </td> */}
-
-              </tr>
-            );
-          })}
+              {/* IA (opcional) */}
+              {/* <td className="px-6 py-4 text-center">
+                {comp.analysis?.status === "loading" ? (
+                  <Loader2
+                    className="animate-spin mx-auto text-indigo-600"
+                    size={18}
+                  />
+                ) : (
+                  <button
+                    onClick={() =>
+                      onAnalyze({ id: comp.id, name: comp.name })
+                    }
+                    className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 justify-center transition"
+                  >
+                    <Sparkles size={16} />
+                    Analizar
+                  </button>
+                )}
+              </td> */}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

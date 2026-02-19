@@ -19,6 +19,9 @@ class Career extends Model
         'degree_title',
         'duration_years',
         'active',
+        'strategic_recommendation',
+'recommendation_generated_at',
+'recommendation_year',
     ];
 
     /**

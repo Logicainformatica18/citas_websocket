@@ -97,7 +97,7 @@ const filters = pageProps?.filters ?? {};
                         <div className="flex flex-wrap items-end gap-8">
 
                             {/* ===== AÑO ===== */}
-                            <div className="flex flex-col gap-2">
+                            {/* <div className="flex flex-col gap-2">
                                 <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
                                     Año de análisis
                                 </span>
@@ -145,10 +145,10 @@ const filters = pageProps?.filters ?? {};
                                         ⌄
                                     </span>
                                 </div>
-                            </div>
+                            </div> */}
 
                             {/* ===== SEMESTRE ===== */}
-                            <div className="relative flex flex-col gap-2">
+                            {/* <div className="relative flex flex-col gap-2">
                                 <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
                                     Semestre
                                 </span>
@@ -202,7 +202,7 @@ const filters = pageProps?.filters ?? {};
                                 <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 dark:text-slate-400 whitespace-nowrap">
                                     Haz clic para cambiar el período
                                 </span>
-                            </div>
+                            </div> */}
 
                             {/* ===== BADGES ===== */}
                             <div className="flex flex-wrap items-center gap-3">
@@ -219,12 +219,12 @@ const filters = pageProps?.filters ?? {};
                         </div>
 
                         {/* Active period */}
-                        <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
+                        {/* <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
                             <span className="font-semibold text-[#0A2540] dark:text-white">
                                 Periodo activo:
                             </span>{" "}
                             {meta.periodo_label}
-                        </p>
+                        </p> */}
                     </div>
 
                     {/* ================= RIGHT ================= */}

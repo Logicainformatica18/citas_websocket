@@ -1,23 +1,18 @@
 import { Dialog } from "@headlessui/react";
 import {
   X,
-  CheckCircle2,
-  AlertTriangle,
   ShieldCheck,
-  BookOpen,
-  Sparkles,
   TrendingUp,
+  AlertTriangle,
+  BarChart3,
 } from "lucide-react";
 
 interface Course {
   id: number;
   name: string;
   cycle?: string;
-  status:
-    | "Estrategicamente alineado"
-    | "Altamente alineado"
-    | "Alineado"
-    | "No alineado";
+  final_score: number;
+  level: "Fuerte" | "Media" | "Débil" | "Baja" | "Crítica";
 }
 
 interface Props {
@@ -25,9 +20,6 @@ interface Props {
   onClose: () => void;
   competencyName: string;
   courses: Course[];
-  marketAligned?: boolean;
-  trendAligned?: boolean;
-  matchLevel?: "Alta" | "Media" | "Baja";
 }
 
 export default function CompetencyCoursesModal({
@@ -35,84 +27,55 @@ export default function CompetencyCoursesModal({
   onClose,
   competencyName,
   courses,
-  marketAligned = true,
-  trendAligned = true,
-  matchLevel = "Alta",
 }: Props) {
+
   /* ===============================
-     Badge de coincidencia superior
+     BADGE NIVEL ESTRATÉGICO
   =============================== */
 
-  const renderMatchBadge = () => {
+  const renderLevel = (level: Course["level"]) => {
     const base =
       "inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium";
 
-    switch (matchLevel) {
-      case "Alta":
+    switch (level) {
+      case "Fuerte":
         return (
-          <span className={`${base} bg-emerald-100 text-emerald-700`}>
-            <Sparkles size={14} />
-            Alta coincidencia
+          <span className={`${base} bg-green-100 text-green-700`}>
+            <ShieldCheck size={14} />
+            Fuerte
           </span>
         );
 
       case "Media":
         return (
           <span className={`${base} bg-yellow-100 text-yellow-700`}>
-            <Sparkles size={14} />
-            Coincidencia media
+            <TrendingUp size={14} />
+            Media
           </span>
         );
 
-      default:
+      case "Débil":
         return (
-          <span className={`${base} bg-red-100 text-red-700`}>
-            <Sparkles size={14} />
-            Baja coincidencia
+          <span className={`${base} bg-orange-100 text-orange-700`}>
+            <AlertTriangle size={14} />
+            Débil
           </span>
         );
-    }
-  };
 
-  /* ===============================
-     Badge de estado por curso
-  =============================== */
-
-  const renderStatus = (status: Course["status"]) => {
-    const base =
-      "inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium";
-
-    switch (status) {
-      case "Estrategicamente alineado":
+      case "Baja":
         return (
-          <span className={`${base} bg-green-100 text-green-700`}>
-            <ShieldCheck size={14} />
-            Estratégico
+          <span className={`${base} bg-gray-100 text-gray-700`}>
+            <AlertTriangle size={14} />
+            Baja
           </span>
         );
 
-      case "Altamente alineado":
-        return (
-          <span className={`${base} bg-emerald-100 text-emerald-700`}>
-            <CheckCircle2 size={14} />
-            Alta alineación
-          </span>
-        );
-
-      case "Alineado":
-        return (
-          <span className={`${base} bg-blue-100 text-blue-700`}>
-            <CheckCircle2 size={14} />
-            Alineado
-          </span>
-        );
-
-      case "No alineado":
+      case "Crítica":
       default:
         return (
           <span className={`${base} bg-red-100 text-red-700`}>
             <AlertTriangle size={14} />
-            No alineado
+            Crítica
           </span>
         );
     }
@@ -129,10 +92,10 @@ export default function CompetencyCoursesModal({
 
           {/* HEADER */}
           <div className="flex justify-between items-start">
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
-                  <BookOpen
+                  <BarChart3
                     className="text-indigo-600 dark:text-indigo-300"
                     size={18}
                   />
@@ -143,29 +106,8 @@ export default function CompetencyCoursesModal({
                 </h2>
               </div>
 
-              {/* BADGES SUPERIORES */}
-              <div className="flex flex-wrap items-center gap-4">
-                {renderMatchBadge()}
-
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <TrendingUp size={14} />
-                  Mercado:
-                  {marketAligned ? (
-                    <CheckCircle2 className="text-green-600" size={16} />
-                  ) : (
-                    <AlertTriangle className="text-red-500" size={16} />
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <Sparkles size={14} />
-                  Tendencias:
-                  {trendAligned ? (
-                    <CheckCircle2 className="text-green-600" size={16} />
-                  ) : (
-                    <AlertTriangle className="text-red-500" size={16} />
-                  )}
-                </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Evaluación estratégica de cursos asociados
               </div>
             </div>
 
@@ -215,7 +157,15 @@ export default function CompetencyCoursesModal({
                   )}
                 </div>
 
-                {renderStatus(course.status)}
+                <div className="flex items-center gap-4">
+                  {/* Puntaje */}
+                  <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    {course.final_score}%
+                  </div>
+
+                  {/* Nivel */}
+                  {renderLevel(course.level)}
+                </div>
               </div>
             ))}
           </div>

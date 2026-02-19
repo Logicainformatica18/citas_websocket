@@ -181,6 +181,10 @@ Route::prefix('dashboard/indicators/course-alignment')->group(function () {
 
 
 
+Route::post(
+    '/indicators/pe-alignment/analyze-career',
+    [PeAlignmentIndicatorController::class, 'analyzeCareerWithAI']
+);
 
 
  Route::get(
