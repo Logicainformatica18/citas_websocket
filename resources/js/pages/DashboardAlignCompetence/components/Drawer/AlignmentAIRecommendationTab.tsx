@@ -1,9 +1,6 @@
+import ReactMarkdown from "react-markdown";
 import {
   Sparkles,
-  ShieldCheck,
-  TrendingUp,
-  Rocket,
-  Database,
 } from "lucide-react";
 
 interface Props {
@@ -29,17 +26,6 @@ export default function AlignmentAIRecommendationTab({
     );
   }
 
-  // 🔥 Dividir por secciones A) B) C) D)
-  const sections = recommendation.split(/\n(?=[A-D]\))/g);
-
-  const getIcon = (title: string) => {
-    if (title.includes("Diagnóstico")) return <ShieldCheck size={18} className="text-green-600" />;
-    if (title.includes("Brechas")) return <TrendingUp size={18} className="text-amber-600" />;
-    if (title.includes("Recomendaciones")) return <Rocket size={18} className="text-indigo-600" />;
-    if (title.includes("Ajustes")) return <Database size={18} className="text-blue-600" />;
-    return <Sparkles size={18} />;
-  };
-
   return (
     <div className="space-y-8">
 
@@ -49,74 +35,38 @@ export default function AlignmentAIRecommendationTab({
         <div><strong>Generado el:</strong> {generatedAt}</div>
       </div>
 
-      {sections.map((section, index) => {
+      {/* CONTENIDO MARKDOWN */}
+      <div className="bg-white border rounded-xl p-8 shadow-sm prose prose-slate max-w-none">
 
-        const lines = section.split("\n").filter(Boolean);
-        const title = lines[0];
-
-        return (
-          <div key={index} className="space-y-4">
-
-            {/* TÍTULO */}
-            <div className="flex items-center gap-2">
-              {getIcon(title)}
-              <h3 className="font-semibold text-slate-800">
-                {title}
+        <ReactMarkdown
+          components={{
+            h2: ({children}) => (
+              <h2 className="text-xl font-bold mt-8 mb-4 border-b pb-2">
+                {children}
+              </h2>
+            ),
+            h3: ({children}) => (
+              <h3 className="text-base font-semibold mt-6 mb-2 text-slate-700">
+                {children}
               </h3>
-            </div>
+            ),
+            ul: ({children}) => (
+              <ul className="list-disc pl-6 space-y-1">
+                {children}
+              </ul>
+            ),
+            p: ({children}) => (
+              <p className="text-sm leading-relaxed text-slate-700">
+                {children}
+              </p>
+            ),
+          }}
+        >
+          {recommendation}
+        </ReactMarkdown>
 
-            {/* CONTENIDO */}
-            <div className="space-y-2 text-sm text-slate-700">
-
-              {lines.slice(1).map((line, i) => {
-
-                // Bullet
-                if (line.trim().startsWith("-")) {
-                  return (
-                    <div key={i} className="pl-4 border-l-2 border-slate-200">
-                      {formatBold(line.replace(/^-/, "").trim())}
-                    </div>
-                  );
-                }
-
-                // Numeración
-                if (/^\d+\./.test(line.trim())) {
-                  return (
-                    <div key={i} className="font-medium">
-                      {formatBold(line.trim())}
-                    </div>
-                  );
-                }
-
-                return (
-                  <p key={i}>
-                    {formatBold(line)}
-                  </p>
-                );
-              })}
-
-            </div>
-
-          </div>
-        );
-      })}
+      </div>
 
     </div>
   );
-}
-
-/* 🔥 Convierte **texto** en negrita real */
-function formatBold(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return (
-        <strong key={i}>
-          {part.replace(/\*\*/g, "")}
-        </strong>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
 }

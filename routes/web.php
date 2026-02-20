@@ -180,7 +180,14 @@ Route::prefix('dashboard/indicators/course-alignment')->group(function () {
  Route::prefix('dashboard')->group(function () {
 
 
-
+ Route::post(
+    '/indicators/pe-alignment/weights',
+    [PeAlignmentIndicatorController::class, 'updateWeights']
+)->name('pe-alignment.weights');
+Route::post(
+    '/indicators/pe-alignment/refresh-data',
+    [PeAlignmentIndicatorController::class, 'refreshData']
+);
 Route::post(
     '/indicators/pe-alignment/analyze-career',
     [PeAlignmentIndicatorController::class, 'analyzeCareerWithAI']
@@ -226,7 +233,7 @@ Route::get(
         [PeAlignmentIndicatorController::class, 'trendsByCompetency']
     )->name('dashboard.indicators.pe-alignment.trends');
 
-    
+
 Route::post(
     '/indicators/macro-trends/weights',
     [MacroTrendsIndicatorController::class, 'storeWeights']

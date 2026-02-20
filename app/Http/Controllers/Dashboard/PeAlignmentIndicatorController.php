@@ -62,25 +62,36 @@ class PeAlignmentIndicatorController extends Controller
            🔥 2️⃣ AGRUPAR POR COMPETENCIA
         ===================================================== */
 
-      $competencies = $this->getCompetenciesWithScore(
+//       $competencies = $this->getCompetenciesWithScore(
+//     $careerId,
+//     $year,
+//     $laborWeight,
+//     $trendWeight
+// );
+$competencies = $this->getCompetenciesFromMaterialized(
     $careerId,
     $year,
     $laborWeight,
     $trendWeight
 );
-
 
 
         /* =====================================================
            🔥 3️⃣ RESUMEN
         ===================================================== */
-$summary = $this->calculateCareerAlignmentSummaryQuartile(
+// $summary = $this->calculateCareerAlignmentSummaryQuartile(
+//     $careerId,
+//     $year,
+//     $laborWeight,
+//     $trendWeight
+// );
+
+$summary = $this->calculateCareerAlignmentSummaryFromMaterialized(
     $careerId,
     $year,
     $laborWeight,
     $trendWeight
 );
-
 
 //       $summary = $this->calculateCareerAlignmentSummary(
 //     $careerId,
@@ -110,192 +121,273 @@ $summary = $this->calculateCareerAlignmentSummaryQuartile(
             ]
         );
     }
-private function calculateCareerAlignmentSummaryQuartile(
+// private function calculateCareerAlignmentSummaryQuartile(
+//     int $careerId,
+//     int $year,
+//     float $laborWeight,
+//     float $trendWeight
+// ): array {
+
+// $result = DB::selectOne("
+//     WITH market_base AS (
+
+//         /* =========================
+//            TECNOLOGÍAS
+//         ========================== */
+//         SELECT
+//             cc.competency_id,
+//             jo.id AS job_id
+//         FROM competency_course cc
+//         JOIN course_technology ct ON ct.course_id = cc.course_id
+//         JOIN technology_job tj ON tj.technology_id = ct.technology_id
+//         JOIN job_offers jo ON jo.id = tj.job_offer_id
+//         WHERE YEAR(jo.published_at) = ?
+
+//         UNION ALL
+
+//         /* =========================
+//            LENGUAJES
+//         ========================== */
+//         SELECT
+//             cc.competency_id,
+//             jo.id AS job_id
+//         FROM competency_course cc
+//         JOIN course_language cl ON cl.course_id = cc.course_id
+//         JOIN language_job lj ON lj.language_id = cl.language_id
+//         JOIN job_offers jo ON jo.id = lj.job_offer_id
+//         WHERE YEAR(jo.published_at) = ?
+
+//         UNION ALL
+
+//         /* =========================
+//            METODOLOGÍAS
+//         ========================== */
+//         SELECT
+//             cc.competency_id,
+//             jo.id AS job_id
+//         FROM competency_course cc
+//         JOIN course_methodology cm ON cm.course_id = cc.course_id
+//         JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
+//         JOIN job_offers jo ON jo.id = mj.job_offer_id
+//         WHERE YEAR(jo.published_at) = ?
+//     ),
+
+//     market_agg AS (
+//         SELECT
+//             competency_id,
+//             COUNT(DISTINCT job_id) AS job_count
+//         FROM market_base
+//         GROUP BY competency_id
+//     ),
+
+//     market_ranked AS (
+//         SELECT
+//             competency_id,
+//             job_count,
+//             NTILE(4) OVER (ORDER BY job_count DESC) AS quartile
+//         FROM market_agg
+//     ),
+
+//     /* ===================================================== */
+
+//     trend_base AS (
+
+//         /* TECNOLOGÍAS */
+//         SELECT
+//             cc.competency_id,
+//             et.id AS trend_id
+//         FROM competency_course cc
+//         JOIN course_technology ct ON ct.course_id = cc.course_id
+//         JOIN technologies t ON t.id = ct.technology_id
+//         JOIN entity_trends et
+//             ON et.market_entity_id = t.market_entity_id
+//            AND et.year = ?
+
+//         UNION ALL
+
+//         /* LENGUAJES */
+//         SELECT
+//             cc.competency_id,
+//             et.id AS trend_id
+//         FROM competency_course cc
+//         JOIN course_language cl ON cl.course_id = cc.course_id
+//         JOIN languages l ON l.id = cl.language_id
+//         JOIN entity_trends et
+//             ON et.market_entity_id = l.market_entity_id
+//            AND et.year = ?
+
+//         UNION ALL
+
+//         /* METODOLOGÍAS */
+//         SELECT
+//             cc.competency_id,
+//             et.id AS trend_id
+//         FROM competency_course cc
+//         JOIN course_methodology cm ON cm.course_id = cc.course_id
+//         JOIN methodologies m ON m.id = cm.methodology_id
+//         JOIN entity_trends et
+//             ON et.market_entity_id = m.market_entity_id
+//            AND et.year = ?
+//     ),
+
+//     trend_agg AS (
+//         SELECT
+//             competency_id,
+//             COUNT(DISTINCT trend_id) AS trend_count
+//         FROM trend_base
+//         GROUP BY competency_id
+//     ),
+
+//     trend_ranked AS (
+//         SELECT
+//             competency_id,
+//             trend_count,
+//             NTILE(4) OVER (ORDER BY trend_count DESC) AS quartile
+//         FROM trend_agg
+//     )
+
+//     /* ===================================================== */
+
+//     SELECT
+//         COUNT(DISTINCT comp.id) AS total_competencies,
+
+//         AVG(
+//             CASE
+//                 WHEN mr.job_count IS NULL THEN 0
+//                 WHEN mr.quartile = 1 THEN 1
+//                 WHEN mr.quartile = 2 THEN 0.75
+//                 WHEN mr.quartile = 3 THEN 0.5
+//                 ELSE 0.25
+//             END
+//         ) AS market_score,
+
+//         AVG(
+//             CASE
+//                 WHEN tr.trend_count IS NULL THEN 0
+//                 WHEN tr.quartile = 1 THEN 1
+//                 WHEN tr.quartile = 2 THEN 0.75
+//                 WHEN tr.quartile = 3 THEN 0.5
+//                 ELSE 0.25
+//             END
+//         ) AS trend_score
+
+//     FROM competencies comp
+//     LEFT JOIN market_ranked mr ON mr.competency_id = comp.id
+//     LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
+//     WHERE comp.career_id = ?
+// ", [
+//     $year, $year, $year,   // market
+//     $year, $year, $year,   // trend
+//     $careerId
+// ]);
+
+//     $total = (int) $result->total_competencies;
+
+//     if ($total === 0) {
+//         return [
+//             'total_competencies' => 0,
+//             'market_rate' => 0,
+//             'trend_rate' => 0,
+//             'final_index' => 0,
+//         ];
+//     }
+
+//     $marketRate = $result->market_score ?? 0;
+//     $trendRate  = $result->trend_score ?? 0;
+
+//     $finalIndex =
+//         ($laborWeight * $marketRate) +
+//         ($trendWeight * $trendRate);
+
+//     return [
+//         'total_competencies' => $total,
+//         'market_rate' => round($marketRate * 100, 1),
+//         'trend_rate'  => round($trendRate * 100, 1),
+//         'final_index' => round($finalIndex * 100, 1),
+//     ];
+// }
+public function refreshData(Request $request)
+{
+    $careerId = (int) $request->career_id;
+    $year = now()->year;
+
+    Artisan::call('pe:recalculate', [
+        'career_id' => $careerId,
+        '--year' => $year,
+    ]);
+
+    return response()->json(['status' => 'ok']);
+}
+private function calculateCareerAlignmentSummaryFromMaterialized(
     int $careerId,
     int $year,
     float $laborWeight,
     float $trendWeight
 ): array {
 
-$result = DB::selectOne("
-    WITH market_base AS (
+    $rows = DB::table('pe_alignment_competency_results')
+        ->where('career_id', $careerId)
+        ->where('year', $year)
+        ->get(['market_score', 'trend_score']);
 
-        /* =========================
-           TECNOLOGÍAS
-        ========================== */
-        SELECT
-            cc.competency_id,
-            jo.id AS job_id
-        FROM competency_course cc
-        JOIN course_technology ct ON ct.course_id = cc.course_id
-        JOIN technology_job tj ON tj.technology_id = ct.technology_id
-        JOIN job_offers jo ON jo.id = tj.job_offer_id
-        WHERE YEAR(jo.published_at) = ?
-
-        UNION ALL
-
-        /* =========================
-           LENGUAJES
-        ========================== */
-        SELECT
-            cc.competency_id,
-            jo.id AS job_id
-        FROM competency_course cc
-        JOIN course_language cl ON cl.course_id = cc.course_id
-        JOIN language_job lj ON lj.language_id = cl.language_id
-        JOIN job_offers jo ON jo.id = lj.job_offer_id
-        WHERE YEAR(jo.published_at) = ?
-
-        UNION ALL
-
-        /* =========================
-           METODOLOGÍAS
-        ========================== */
-        SELECT
-            cc.competency_id,
-            jo.id AS job_id
-        FROM competency_course cc
-        JOIN course_methodology cm ON cm.course_id = cc.course_id
-        JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
-        JOIN job_offers jo ON jo.id = mj.job_offer_id
-        WHERE YEAR(jo.published_at) = ?
-    ),
-
-    market_agg AS (
-        SELECT
-            competency_id,
-            COUNT(DISTINCT job_id) AS job_count
-        FROM market_base
-        GROUP BY competency_id
-    ),
-
-    market_ranked AS (
-        SELECT
-            competency_id,
-            job_count,
-            NTILE(4) OVER (ORDER BY job_count DESC) AS quartile
-        FROM market_agg
-    ),
-
-    /* ===================================================== */
-
-    trend_base AS (
-
-        /* TECNOLOGÍAS */
-        SELECT
-            cc.competency_id,
-            et.id AS trend_id
-        FROM competency_course cc
-        JOIN course_technology ct ON ct.course_id = cc.course_id
-        JOIN technologies t ON t.id = ct.technology_id
-        JOIN entity_trends et
-            ON et.market_entity_id = t.market_entity_id
-           AND et.year = ?
-
-        UNION ALL
-
-        /* LENGUAJES */
-        SELECT
-            cc.competency_id,
-            et.id AS trend_id
-        FROM competency_course cc
-        JOIN course_language cl ON cl.course_id = cc.course_id
-        JOIN languages l ON l.id = cl.language_id
-        JOIN entity_trends et
-            ON et.market_entity_id = l.market_entity_id
-           AND et.year = ?
-
-        UNION ALL
-
-        /* METODOLOGÍAS */
-        SELECT
-            cc.competency_id,
-            et.id AS trend_id
-        FROM competency_course cc
-        JOIN course_methodology cm ON cm.course_id = cc.course_id
-        JOIN methodologies m ON m.id = cm.methodology_id
-        JOIN entity_trends et
-            ON et.market_entity_id = m.market_entity_id
-           AND et.year = ?
-    ),
-
-    trend_agg AS (
-        SELECT
-            competency_id,
-            COUNT(DISTINCT trend_id) AS trend_count
-        FROM trend_base
-        GROUP BY competency_id
-    ),
-
-    trend_ranked AS (
-        SELECT
-            competency_id,
-            trend_count,
-            NTILE(4) OVER (ORDER BY trend_count DESC) AS quartile
-        FROM trend_agg
-    )
-
-    /* ===================================================== */
-
-    SELECT
-        COUNT(DISTINCT comp.id) AS total_competencies,
-
-        AVG(
-            CASE
-                WHEN mr.job_count IS NULL THEN 0
-                WHEN mr.quartile = 1 THEN 1
-                WHEN mr.quartile = 2 THEN 0.75
-                WHEN mr.quartile = 3 THEN 0.5
-                ELSE 0.25
-            END
-        ) AS market_score,
-
-        AVG(
-            CASE
-                WHEN tr.trend_count IS NULL THEN 0
-                WHEN tr.quartile = 1 THEN 1
-                WHEN tr.quartile = 2 THEN 0.75
-                WHEN tr.quartile = 3 THEN 0.5
-                ELSE 0.25
-            END
-        ) AS trend_score
-
-    FROM competencies comp
-    LEFT JOIN market_ranked mr ON mr.competency_id = comp.id
-    LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
-    WHERE comp.career_id = ?
-", [
-    $year, $year, $year,   // market
-    $year, $year, $year,   // trend
-    $careerId
-]);
-
-    $total = (int) $result->total_competencies;
+    $total = $rows->count();
 
     if ($total === 0) {
         return [
             'total_competencies' => 0,
             'market_rate' => 0,
-            'trend_rate' => 0,
+            'trend_rate'  => 0,
             'final_index' => 0,
         ];
     }
 
-    $marketRate = $result->market_score ?? 0;
-    $trendRate  = $result->trend_score ?? 0;
+    $marketAvg = $rows->avg('market_score');
+    $trendAvg  = $rows->avg('trend_score');
 
-    $finalIndex =
-        ($laborWeight * $marketRate) +
-        ($trendWeight * $trendRate);
+    // 🔥 Recalcular final con pesos actuales
+    $final =
+        ($laborWeight * $marketAvg) +
+        ($trendWeight * $trendAvg);
 
     return [
         'total_competencies' => $total,
-        'market_rate' => round($marketRate * 100, 1),
-        'trend_rate'  => round($trendRate * 100, 1),
-        'final_index' => round($finalIndex * 100, 1),
+        'market_rate' => round($marketAvg * 100, 1),
+        'trend_rate'  => round($trendAvg * 100, 1),
+        'final_index' => round($final * 100, 1),
     ];
 }
 
+
+public function updateWeights(Request $request)
+{
+    $request->validate([
+        'labor_weight' => 'required|numeric|min:0|max:1',
+        'trend_weight' => 'required|numeric|min:0|max:1',
+    ]);
+
+    // 🔥 Crear nueva ponderación
+    $weight = Prueba::create([
+        'labor_weight' => $request->labor_weight,
+        'trend_weight' => $request->trend_weight,
+        'context'      => 'pe_alignment',
+        'is_active'    => 0, // se activará después
+        'updated_by'   => auth()->id(),
+    ]);
+
+    // 🔥 Validar suma 100%
+    if (!$weight->isValid()) {
+        $weight->delete();
+
+        return back()->withErrors([
+            'weights' => 'Las ponderaciones deben sumar 100%',
+        ]);
+    }
+
+    // 🔥 Activar (desactiva anteriores del mismo contexto)
+    $weight->activate();
+
+    return back()->with('success', true);
+}
     /* =====================================================
        AGRUPAR CURSOS → COMPETENCIAS
     ===================================================== */
@@ -742,197 +834,254 @@ public function analyzeCareerWithAI(Request $request)
     }
 }
 
-private function getCompetenciesWithScore(
+// private function getCompetenciesWithScore(
+//     int $careerId,
+//     int $year,
+//     float $laborWeight,
+//     float $trendWeight
+// ) {
+
+//   $rows = DB::select("
+// WITH market_base AS (
+
+//     -- Tecnologías
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT jo.id) AS job_count
+//     FROM competency_course cc
+//     JOIN course_technology ct ON ct.course_id = cc.course_id
+//     JOIN technology_job tj ON tj.technology_id = ct.technology_id
+//     JOIN job_offers jo ON jo.id = tj.job_offer_id
+//     WHERE YEAR(jo.published_at) = ?
+//     GROUP BY cc.competency_id
+
+//     UNION ALL
+
+//     -- Lenguajes
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT jo.id) AS job_count
+//     FROM competency_course cc
+//     JOIN course_language cl ON cl.course_id = cc.course_id
+//     JOIN language_job lj ON lj.language_id = cl.language_id
+//     JOIN job_offers jo ON jo.id = lj.job_offer_id
+//     WHERE YEAR(jo.published_at) = ?
+//     GROUP BY cc.competency_id
+
+//     UNION ALL
+
+//     -- Metodologías
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT jo.id) AS job_count
+//     FROM competency_course cc
+//     JOIN course_methodology cm ON cm.course_id = cc.course_id
+//     JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
+//     JOIN job_offers jo ON jo.id = mj.job_offer_id
+//     WHERE YEAR(jo.published_at) = ?
+//     GROUP BY cc.competency_id
+// ),
+
+// market_aggregated AS (
+//     SELECT
+//         competency_id,
+//         SUM(job_count) AS job_count
+//     FROM market_base
+//     GROUP BY competency_id
+// ),
+
+// market_ranked AS (
+//     SELECT
+//         competency_id,
+//         job_count,
+//         NTILE(4) OVER (ORDER BY job_count DESC) AS quartile
+//     FROM market_aggregated
+// ),
+
+// trend_base AS (
+
+//     -- Tecnologías
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT et.id) AS trend_count
+//     FROM competency_course cc
+//     JOIN course_technology ct ON ct.course_id = cc.course_id
+//     JOIN technologies t ON t.id = ct.technology_id
+//     JOIN entity_trends et
+//         ON et.market_entity_id = t.market_entity_id
+//        AND et.year = ?
+//     GROUP BY cc.competency_id
+
+//     UNION ALL
+
+//     -- Lenguajes
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT et.id) AS trend_count
+//     FROM competency_course cc
+//     JOIN course_language cl ON cl.course_id = cc.course_id
+//     JOIN languages l ON l.id = cl.language_id
+//     JOIN entity_trends et
+//         ON et.market_entity_id = l.market_entity_id
+//        AND et.year = ?
+//     GROUP BY cc.competency_id
+
+//     UNION ALL
+
+//     -- Metodologías
+//     SELECT
+//         cc.competency_id,
+//         COUNT(DISTINCT et.id) AS trend_count
+//     FROM competency_course cc
+//     JOIN course_methodology cm ON cm.course_id = cc.course_id
+//     JOIN methodologies m ON m.id = cm.methodology_id
+//     JOIN entity_trends et
+//         ON et.market_entity_id = m.market_entity_id
+//        AND et.year = ?
+//     GROUP BY cc.competency_id
+// ),
+
+// trend_aggregated AS (
+//     SELECT
+//         competency_id,
+//         SUM(trend_count) AS trend_count
+//     FROM trend_base
+//     GROUP BY competency_id
+// ),
+
+// trend_ranked AS (
+//     SELECT
+//         competency_id,
+//         trend_count,
+//         NTILE(4) OVER (ORDER BY trend_count DESC) AS quartile
+//     FROM trend_aggregated
+// )
+
+// SELECT
+//     comp.id,
+//     comp.name,
+
+//     CASE
+//         WHEN mr.job_count IS NULL THEN 0
+//         WHEN mr.quartile = 1 THEN 1
+//         WHEN mr.quartile = 2 THEN 0.75
+//         WHEN mr.quartile = 3 THEN 0.5
+//         ELSE 0.25
+//     END AS market_score,
+
+//     CASE
+//         WHEN tr.trend_count IS NULL THEN 0
+//         WHEN tr.quartile = 1 THEN 1
+//         WHEN tr.quartile = 2 THEN 0.75
+//         WHEN tr.quartile = 3 THEN 0.5
+//         ELSE 0.25
+//     END AS trend_score
+
+// FROM competencies comp
+// LEFT JOIN market_ranked mr ON mr.competency_id = comp.id
+// LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
+// WHERE comp.career_id = ?
+// ", [
+//     $year, $year, $year,  // market (3 bloques)
+//     $year, $year, $year,  // trend (3 bloques)
+//     $careerId
+// ]);
+
+
+//     return collect($rows)
+//         ->map(function ($row) use ($laborWeight, $trendWeight) {
+
+//             $marketValue = $row->market_score ?? 0;
+//             $trendValue  = $row->trend_score ?? 0;
+
+//             $finalScore =
+//                 ($laborWeight * $marketValue) +
+//                 ($trendWeight * $trendValue);
+
+//             $percentage = round($finalScore * 100, 1);
+
+//           if ($marketValue == 0 && $trendValue == 0) {
+//     $level = 'Crítica'; // 🔴 No tiene absolutamente nada
+// } else {
+//     $level = match (true) {
+//         $percentage >= 80 => 'Fuerte',
+//         $percentage >= 60 => 'Media',
+//         $percentage >= 40 => 'Débil',
+//         default           => 'Baja',
+//     };
+// }
+
+
+//             return [
+//                 'id' => $row->id,
+//                 'name' => $row->name,
+//                 'market_score' => round($marketValue * 100, 1),
+//                 'trend_score'  => round($trendValue * 100, 1),
+//                 'final_score'  => $percentage,
+//                 'level'        => $level,
+//             ];
+//         })
+//         ->sortByDesc('final_score')
+//         ->values();
+// }
+private function getCompetenciesFromMaterialized(
     int $careerId,
     int $year,
     float $laborWeight,
     float $trendWeight
 ) {
 
-  $rows = DB::select("
-WITH market_base AS (
+    $rows = DB::table('pe_alignment_competency_results as r')
+        ->join('competencies as c', 'c.id', '=', 'r.competency_id')
+        ->where('r.career_id', $careerId)
+        ->where('r.year', $year)
+        ->select(
+            'c.id',
+            'c.name',
+            'r.market_score',
+            'r.trend_score',
+            'r.job_count',
+            'r.trend_count'
+        )
+        ->get();
 
-    -- Tecnologías
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT jo.id) AS job_count
-    FROM competency_course cc
-    JOIN course_technology ct ON ct.course_id = cc.course_id
-    JOIN technology_job tj ON tj.technology_id = ct.technology_id
-    JOIN job_offers jo ON jo.id = tj.job_offer_id
-    WHERE YEAR(jo.published_at) = ?
-    GROUP BY cc.competency_id
+    return $rows->map(function ($row) use ($laborWeight, $trendWeight) {
 
-    UNION ALL
+        $marketValue = (float) $row->market_score;
+        $trendValue  = (float) $row->trend_score;
 
-    -- Lenguajes
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT jo.id) AS job_count
-    FROM competency_course cc
-    JOIN course_language cl ON cl.course_id = cc.course_id
-    JOIN language_job lj ON lj.language_id = cl.language_id
-    JOIN job_offers jo ON jo.id = lj.job_offer_id
-    WHERE YEAR(jo.published_at) = ?
-    GROUP BY cc.competency_id
+        // 🔥 Recalcular con pesos actuales
+        $finalScore =
+            ($laborWeight * $marketValue) +
+            ($trendWeight * $trendValue);
 
-    UNION ALL
+        $percentage = round($finalScore * 100, 1);
 
-    -- Metodologías
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT jo.id) AS job_count
-    FROM competency_course cc
-    JOIN course_methodology cm ON cm.course_id = cc.course_id
-    JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
-    JOIN job_offers jo ON jo.id = mj.job_offer_id
-    WHERE YEAR(jo.published_at) = ?
-    GROUP BY cc.competency_id
-),
+        if ($marketValue == 0 && $trendValue == 0) {
+            $level = 'Crítica';
+        } else {
+            $level = match (true) {
+                $percentage >= 80 => 'Fuerte',
+                $percentage >= 60 => 'Media',
+                $percentage >= 40 => 'Débil',
+                default           => 'Baja',
+            };
+        }
 
-market_aggregated AS (
-    SELECT
-        competency_id,
-        SUM(job_count) AS job_count
-    FROM market_base
-    GROUP BY competency_id
-),
-
-market_ranked AS (
-    SELECT
-        competency_id,
-        job_count,
-        NTILE(4) OVER (ORDER BY job_count DESC) AS quartile
-    FROM market_aggregated
-),
-
-trend_base AS (
-
-    -- Tecnologías
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT et.id) AS trend_count
-    FROM competency_course cc
-    JOIN course_technology ct ON ct.course_id = cc.course_id
-    JOIN technologies t ON t.id = ct.technology_id
-    JOIN entity_trends et
-        ON et.market_entity_id = t.market_entity_id
-       AND et.year = ?
-    GROUP BY cc.competency_id
-
-    UNION ALL
-
-    -- Lenguajes
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT et.id) AS trend_count
-    FROM competency_course cc
-    JOIN course_language cl ON cl.course_id = cc.course_id
-    JOIN languages l ON l.id = cl.language_id
-    JOIN entity_trends et
-        ON et.market_entity_id = l.market_entity_id
-       AND et.year = ?
-    GROUP BY cc.competency_id
-
-    UNION ALL
-
-    -- Metodologías
-    SELECT
-        cc.competency_id,
-        COUNT(DISTINCT et.id) AS trend_count
-    FROM competency_course cc
-    JOIN course_methodology cm ON cm.course_id = cc.course_id
-    JOIN methodologies m ON m.id = cm.methodology_id
-    JOIN entity_trends et
-        ON et.market_entity_id = m.market_entity_id
-       AND et.year = ?
-    GROUP BY cc.competency_id
-),
-
-trend_aggregated AS (
-    SELECT
-        competency_id,
-        SUM(trend_count) AS trend_count
-    FROM trend_base
-    GROUP BY competency_id
-),
-
-trend_ranked AS (
-    SELECT
-        competency_id,
-        trend_count,
-        NTILE(4) OVER (ORDER BY trend_count DESC) AS quartile
-    FROM trend_aggregated
-)
-
-SELECT
-    comp.id,
-    comp.name,
-
-    CASE
-        WHEN mr.job_count IS NULL THEN 0
-        WHEN mr.quartile = 1 THEN 1
-        WHEN mr.quartile = 2 THEN 0.75
-        WHEN mr.quartile = 3 THEN 0.5
-        ELSE 0.25
-    END AS market_score,
-
-    CASE
-        WHEN tr.trend_count IS NULL THEN 0
-        WHEN tr.quartile = 1 THEN 1
-        WHEN tr.quartile = 2 THEN 0.75
-        WHEN tr.quartile = 3 THEN 0.5
-        ELSE 0.25
-    END AS trend_score
-
-FROM competencies comp
-LEFT JOIN market_ranked mr ON mr.competency_id = comp.id
-LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
-WHERE comp.career_id = ?
-", [
-    $year, $year, $year,  // market (3 bloques)
-    $year, $year, $year,  // trend (3 bloques)
-    $careerId
-]);
-
-
-    return collect($rows)
-        ->map(function ($row) use ($laborWeight, $trendWeight) {
-
-            $marketValue = $row->market_score ?? 0;
-            $trendValue  = $row->trend_score ?? 0;
-
-            $finalScore =
-                ($laborWeight * $marketValue) +
-                ($trendWeight * $trendValue);
-
-            $percentage = round($finalScore * 100, 1);
-
-          if ($marketValue == 0 && $trendValue == 0) {
-    $level = 'Crítica'; // 🔴 No tiene absolutamente nada
-} else {
-    $level = match (true) {
-        $percentage >= 80 => 'Fuerte',
-        $percentage >= 60 => 'Media',
-        $percentage >= 40 => 'Débil',
-        default           => 'Baja',
-    };
+        return [
+            'id'           => $row->id,
+            'name'         => $row->name,
+            'job_count'    => $row->job_count,
+            'trend_count'  => $row->trend_count,
+            'market_score' => round($marketValue * 100, 1),
+            'trend_score'  => round($trendValue * 100, 1),
+            'final_score'  => $percentage,
+            'level'        => $level,
+        ];
+    })
+    ->sortByDesc('final_score')
+    ->values();
 }
-
-
-            return [
-                'id' => $row->id,
-                'name' => $row->name,
-                'market_score' => round($marketValue * 100, 1),
-                'trend_score'  => round($trendValue * 100, 1),
-                'final_score'  => $percentage,
-                'level'        => $level,
-            ];
-        })
-        ->sortByDesc('final_score')
-        ->values();
-}
-
 public function getCompetencyCourses(Request $request, int $competencyId)
 {
     $careerId = (int) $request->get('career_id');

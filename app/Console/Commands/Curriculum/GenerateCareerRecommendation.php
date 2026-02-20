@@ -13,7 +13,7 @@ class GenerateCareerRecommendation extends Command
                             {career_id : ID de la carrera}
                             {--year= : Año de análisis (default actual)}';
 
-    protected $description = 'Genera recomendación estratégica curricular basada en mercado y tendencias actuales';
+    protected $description = 'Genera recomendaciones estructurales por competencia';
 
     public function handle()
     {
@@ -33,132 +33,160 @@ class GenerateCareerRecommendation extends Command
         $this->info("📅 Año analizado: {$year}");
 
         /* ==========================================================
-           1️⃣ OBTENER COMPETENCIAS
+           1️⃣ MATRIZ ESTRATÉGICA POR COMPETENCIA
         ========================================================== */
 
-        $competencies = DB::table('competencies')
-            ->where('career_id', $careerId)
-            ->pluck('name')
-            ->toArray();
+        $rows = DB::select("
+        WITH market_base AS (
+            SELECT
+                cc.competency_id,
+                COUNT(DISTINCT jo.id) AS job_count
+            FROM competency_course cc
+            LEFT JOIN course_technology ct ON ct.course_id = cc.course_id
+            LEFT JOIN technology_job tj ON tj.technology_id = ct.technology_id
+            LEFT JOIN job_offers jo
+                ON jo.id = tj.job_offer_id
+               AND YEAR(jo.published_at) = ?
+            GROUP BY cc.competency_id
+        ),
+        market_ranked AS (
+            SELECT
+                competency_id,
+                job_count,
+                NTILE(4) OVER (ORDER BY job_count DESC) AS market_quartile
+            FROM market_base
+        ),
+        trend_base AS (
+            SELECT
+                cc.competency_id,
+                COUNT(DISTINCT et.id) AS trend_count
+            FROM competency_course cc
+            LEFT JOIN course_technology ct ON ct.course_id = cc.course_id
+            LEFT JOIN technologies t ON t.id = ct.technology_id
+            LEFT JOIN entity_trends et
+                ON et.market_entity_id = t.market_entity_id
+               AND et.year = ?
+            GROUP BY cc.competency_id
+        ),
+        trend_ranked AS (
+            SELECT
+                competency_id,
+                trend_count,
+                NTILE(4) OVER (ORDER BY trend_count DESC) AS trend_quartile
+            FROM trend_base
+        ),
+        course_count AS (
+            SELECT
+                competency_id,
+                COUNT(DISTINCT course_id) AS total_courses
+            FROM competency_course
+            GROUP BY competency_id
+        )
 
-        if (empty($competencies)) {
-            $this->error("❌ La carrera no tiene competencias registradas.");
+        SELECT
+            comp.name,
+            COALESCE(cc.total_courses,0) AS total_courses,
+            COALESCE(mr.job_count,0) AS market_total,
+            COALESCE(tr.trend_count,0) AS trend_total,
+            COALESCE(mr.market_quartile,4) AS market_q,
+            COALESCE(tr.trend_quartile,4) AS trend_q
+
+        FROM competencies comp
+        LEFT JOIN course_count cc ON cc.competency_id = comp.id
+        LEFT JOIN market_ranked mr ON mr.competency_id = comp.id
+        LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
+        WHERE comp.career_id = ?
+        ORDER BY market_total DESC
+        ", [$year, $year, $careerId]);
+
+        if (empty($rows)) {
+            $this->error("❌ No hay competencias registradas.");
             return;
         }
 
         /* ==========================================================
-           2️⃣ TOP MERCADO ACTUAL
+           2️⃣ CLASIFICACIÓN ESTRATÉGICA AUTOMÁTICA
         ========================================================== */
 
-        $marketTop = DB::table('competency_course as cc')
-    ->join('competencies as comp', 'comp.id', '=', 'cc.competency_id')
-    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
-    ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
-    ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
-    ->whereYear('jo.published_at', $year)
-    ->where('comp.career_id', $careerId)
-    ->select(
-        'comp.name as competency_name',
-        DB::raw('COUNT(DISTINCT jo.id) as total')
-    )
-    ->groupBy('comp.id', 'comp.name')
-    ->orderByDesc('total')
-    ->limit(5)
-    ->get();
+        $competencyBlocks = collect($rows)->map(function($r){
+
+            $classification = match(true) {
+
+                $r->market_q == 1 && $r->trend_q == 1
+                    => 'Alta Prioridad Estratégica',
+
+                $r->market_q == 1 && $r->trend_q >= 3
+                    => 'Desbalance Mercado',
+
+                $r->trend_q == 1 && $r->market_q >= 3
+                    => 'Desbalance Tendencia',
+
+                $r->market_total == 0 && $r->trend_total == 0
+                    => 'Riesgo Crítico',
+
+                default => 'Equilibrada'
+            };
+
+            return "
+Competencia: {$r->name}
+Cursos asociados: {$r->total_courses}
+Mercado: Q{$r->market_q}
+Tendencia: Q{$r->trend_q}
+Clasificación: {$classification}
+";
+        })->implode("\n---------------------------------\n");
 
         /* ==========================================================
-           3️⃣ TOP TENDENCIAS ACTUALES
+           3️⃣ PROMPT ENFOCADO EN DECISIÓN ESTRUCTURAL
         ========================================================== */
 
-       $trendTop = DB::table('competency_course as cc')
-    ->join('competencies as comp', 'comp.id', '=', 'cc.competency_id')
-    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
-    ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-    ->join('entity_trends as et', 'et.market_entity_id', '=', 't.market_entity_id')
-    ->where('et.year', $year)
-    ->where('comp.career_id', $careerId)
-    ->select(
-        'comp.name as competency_name',
-        DB::raw('COUNT(et.id) as total')
-    )
-    ->groupBy('comp.id', 'comp.name')
-    ->orderByDesc('total')
-    ->limit(5)
-    ->get();
+        $prompt = "
+Eres consultor estratégico curricular del Observatorio ISIL.
 
-
-        /* ==========================================================
-           4️⃣ CONSTRUIR TEXTO PARA PROMPT
-        ========================================================== */
-
-        $competencyList = implode("\n- ", $competencies);
-        $competencyList = "- " . $competencyList;
-
-      $marketText = $marketTop->map(function($m){
-    return "{$m->competency_name} ({$m->total} ofertas)";
-})->implode("\n- ");
-
-
-$trendText = $trendTop->map(function($t){
-    return "{$t->competency_name} ({$t->total} menciones)";
-})->implode("\n- ");
-
-
-      $prompt = "
-Eres VERA, analista estratégico del Observatorio Tecnológico ISIL.
-
-Tu análisis debe basarse EXCLUSIVAMENTE en los datos proporcionados.
-No generes recomendaciones genéricas.
-No inventes competencias.
-No supongas información externa.
+Tu tarea es decidir acciones estructurales por competencia.
+No describas.
+No repitas métricas.
+No hagas diagnóstico narrativo.
+Decide acción curricular.
 
 Carrera: {$career->name}
 Año: {$year}
 
-Competencias actuales del programa:
-{$competencyList}
+Competencias evaluadas:
 
-Top competencias por demanda laboral (ofertas reales):
-- {$marketText}
+{$competencyBlocks}
 
-Top competencias por presencia en tendencias (reportes reales):
-- {$trendText}
+Para cada competencia define:
 
-Analiza lo siguiente:
+- Acción recomendada (Reforzar, Reformular, Integrar transversalmente, Reducir, Fusionar, Mantener)
+- Justificación estructural breve
+- Nivel de urgencia (Alta, Media, Baja)
 
-1) ¿Qué competencias tienen alta demanda pero baja presencia en tendencias?
-2) ¿Qué competencias tienen alta tendencia pero baja demanda?
-3) ¿Existen competencias actuales que no aparecen ni en mercado ni en tendencias?
-4) ¿Dónde hay riesgo de obsolescencia?
-5) ¿Qué competencias emergentes faltan claramente?
+Responde en Markdown estructurado así:
 
-Responde en formato estructurado:
+## Competencia: Nombre
 
-A) Diagnóstico basado en evidencia
-B) Brechas cuantitativas detectadas
-C) Recomendaciones estratégicas específicas
-D) Ajustes curriculares concretos
+**Acción recomendada:**
+**Justificación:**
+**Urgencia:**
 
-Sé técnico, analítico y preciso.
-Evita lenguaje genérico.
-Usa contraste entre datos.
+Repite para cada competencia.
 ";
 
-
         /* ==========================================================
-           5️⃣ LLAMADA A OPENAI
+           4️⃣ LLAMADA A OPENAI
         ========================================================== */
 
         $response = Http::withToken(env('OPENAI_API_KEY'))->post(
             'https://api.openai.com/v1/chat/completions',
             [
-                'model' => 'gpt-4o-mini',
+                'model' => 'gpt-4o',
                 'messages' => [
-                    ['role' => 'system', 'content' => 'Eres VERA, analista institucional del Observatorio ISIL.'],
+                    ['role' => 'system', 'content' => 'Eres consultor curricular estratégico.'],
                     ['role' => 'user', 'content' => $prompt],
                 ],
-                'temperature' => 0.4,
-                'max_tokens' => 800,
+                'temperature' => 0.2,
+                'max_tokens' => 1500,
             ]
         );
 
@@ -170,7 +198,7 @@ Usa contraste entre datos.
         $recommendation = trim($response->json('choices.0.message.content'));
 
         /* ==========================================================
-           6️⃣ GUARDAR EN CARRERA
+           5️⃣ GUARDAR RESULTADO
         ========================================================== */
 
         $career->update([
@@ -179,6 +207,6 @@ Usa contraste entre datos.
             'recommendation_year' => $year,
         ]);
 
-        $this->info("✅ Recomendación estratégica generada y guardada.");
+        $this->info("✅ Recomendaciones estructurales generadas correctamente.");
     }
 }

@@ -1,4 +1,9 @@
-import { GraduationCap, Sparkles, Loader2 } from "lucide-react";
+import {
+  GraduationCap,
+  Sparkles,
+  Loader2,
+  RefreshCw
+} from "lucide-react";
 import { router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import axios from "axios";
@@ -19,6 +24,7 @@ export default function CareerFilter() {
   };
 
   const [loading, setLoading] = useState(false);
+  const [loadingUpdate, setLoadingUpdate] = useState(false);
 
   const onChangeCareer = (careerId: number | null) => {
     router.get(
@@ -44,14 +50,13 @@ export default function CareerFilter() {
     try {
       setLoading(true);
 
-     await axios.post(
-  "/dashboard/indicators/pe-alignment/analyze-career",
-  {
-    career_id: filters.career_id,
-    year: filters.year,
-  }
-);
-
+      await axios.post(
+        "/dashboard/indicators/pe-alignment/analyze-career",
+        {
+          career_id: filters.career_id,
+          year: filters.year,
+        }
+      );
 
       alert("Análisis IA ejecutado correctamente");
     } catch (error) {
@@ -59,6 +64,33 @@ export default function CareerFilter() {
       alert("Error al ejecutar IA");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 NUEVO BOTÓN ACTUALIZAR DATOS
+  const handleRefreshData = async () => {
+    if (!filters.career_id) {
+      alert("Selecciona una carrera primero");
+      return;
+    }
+
+    try {
+      setLoadingUpdate(true);
+
+      await axios.post(
+        "/dashboard/indicators/pe-alignment/refresh-data",
+        {
+          career_id: filters.career_id,
+          year: filters.year,
+        }
+      );
+
+      router.reload(); // 🔥 refresca vista
+    } catch (error) {
+      console.error(error);
+      alert("Error al actualizar datos");
+    } finally {
+      setLoadingUpdate(false);
     }
   };
 
@@ -73,7 +105,6 @@ export default function CareerFilter() {
         dark:bg-[#0F2A3A]
       "
     >
-      {/* GRID 2 COLUMNAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
 
         {/* ================= COL 1: FILTRO ================= */}
@@ -129,8 +160,71 @@ export default function CareerFilter() {
           </select>
         </div>
 
-        {/* ================= COL 2: BOTÓN IA ================= */}
-        <div className="flex justify-end">
+        {/* ================= COL 2: BOTONES ================= */}
+        <div className="flex justify-end gap-4 items-center">
+
+          {/* 🔥 BOTÓN ACTUALIZAR DATOS */}
+          <div className="relative group">
+            <button
+              onClick={handleRefreshData}
+              disabled={!filters.career_id || loadingUpdate}
+              className="
+                flex
+                items-center
+                gap-2
+                bg-white
+                border
+                border-[#00B6E8]
+                text-[#00B6E8]
+                font-semibold
+                text-sm
+                px-5
+                py-3
+                rounded-xl
+                hover:bg-[#E6F7FD]
+                transition
+                disabled:opacity-50
+              "
+            >
+              {loadingUpdate ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={16} />
+                  Actualizar datos
+                </>
+              )}
+            </button>
+
+            {/* Tooltip */}
+            <div className="
+              absolute
+              bottom-full
+              mb-2
+              left-1/2
+              -translate-x-1/2
+              w-56
+              bg-slate-900
+              text-white
+              text-xs
+              rounded-lg
+              px-3
+              py-2
+              opacity-0
+              group-hover:opacity-100
+              transition
+              pointer-events-none
+              text-center
+            ">
+              Ejecuta el recálculo de mercado y tendencias
+              para obtener los datos más recientes.
+            </div>
+          </div>
+
+          {/* BOTÓN IA */}
           <button
             onClick={handleAnalyzeAI}
             disabled={!filters.career_id || loading}
