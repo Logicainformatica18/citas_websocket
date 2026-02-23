@@ -11,7 +11,7 @@ class SyncLanguageTrendsToMarket extends Command
     protected $signature = 'market:sync-language-trends
                             {--dry-run : Solo muestra qué se haría, no escribe nada}';
 
-    protected $description = 'Sincroniza lenguajes ISIL y lenguajes detectados en technology_trends hacia market_entities (idempotente)';
+    protected $description = 'Sincroniza lenguajes ISIL y lenguajes detectados en technology_trends hacia market_entities (idempotente y autocorrectivo)';
 
     public function handle()
     {
@@ -21,6 +21,7 @@ class SyncLanguageTrendsToMarket extends Command
 
         /* ============================================================
            1️⃣ ASEGURAR QUE TODOS LOS LENGUAJES ISIL EXISTAN EN MARKET
+              + SINCRONIZAR market_entity_id EN languages
         ============================================================ */
         $languages = DB::table('languages')->get();
 
@@ -34,22 +35,26 @@ class SyncLanguageTrendsToMarket extends Command
                 ->first();
 
             if (!$market) {
+
                 if ($dryRun) {
                     $this->line("➕ [DRY] Crear market (ISIL): {$lang->name}");
                 } else {
-                    DB::table('market_entities')->insert([
-                        'name'       => $lang->name,
-                        'slug'       => $slug,
-                        'entity_type'=> 'language',
-                        'origin'     => 'isil',
-                        'has_isil'   => 1,
-                        'has_trend'  => 0,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                    $marketId = DB::table('market_entities')->insertGetId([
+                        'name'        => $lang->name,
+                        'slug'        => $slug,
+                        'entity_type' => 'language',
+                        'origin'      => 'isil',
+                        'has_isil'    => 1,
+                        'has_trend'   => 0,
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
                     ]);
+
+                    $market = (object)['id' => $marketId];
                 }
+
             } else {
-                // ISIL MANDA
+
                 if (!$dryRun) {
                     DB::table('market_entities')
                         ->where('id', $market->id)
@@ -59,6 +64,15 @@ class SyncLanguageTrendsToMarket extends Command
                             'updated_at' => now(),
                         ]);
                 }
+            }
+
+            /* 🔥 SINCRONIZACIÓN CRÍTICA */
+            if (!$dryRun && isset($market->id)) {
+                DB::table('languages')
+                    ->where('id', $lang->id)
+                    ->update([
+                        'market_entity_id' => $market->id
+                    ]);
             }
         }
 
@@ -115,24 +129,26 @@ class SyncLanguageTrendsToMarket extends Command
                 ->first();
 
             if (!$market) {
-                // Caso raro: trend detectó algo que ISIL no tiene
+
                 if ($dryRun) {
                     $this->line("➕ [DRY] Crear market (trend-only): {$row->language_name}");
                 } else {
                     $marketId = DB::table('market_entities')->insertGetId([
-                        'name'       => $row->language_name,
-                        'slug'       => $slug,
-                        'entity_type'=> 'language',
-                        'origin'     => 'trend',
-                        'has_isil'   => 0,
-                        'has_trend'  => 1,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'name'        => $row->language_name,
+                        'slug'        => $slug,
+                        'entity_type' => 'language',
+                        'origin'      => 'trend',
+                        'has_isil'    => 0,
+                        'has_trend'   => 1,
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
                     ]);
+
                     $market = (object)['id' => $marketId];
                 }
+
             } else {
-                // Marcar que tiene trend
+
                 if (!$dryRun && !$market->has_trend) {
                     DB::table('market_entities')
                         ->where('id', $market->id)
@@ -143,8 +159,8 @@ class SyncLanguageTrendsToMarket extends Command
                 }
             }
 
-            // Linkear trend → market (solo si está vacío)
-            if (!$dryRun) {
+            // 🔗 Linkear trend → market (solo si está vacío)
+            if (!$dryRun && isset($market->id)) {
                 $updated = DB::table('technology_trends')
                     ->where('id', $row->trend_id)
                     ->whereNull('market_entity_id')
@@ -159,8 +175,8 @@ class SyncLanguageTrendsToMarket extends Command
         }
 
         $this->info("🔗 Trends enlazados: {$linked}");
+        $this->info('✅ Sincronización completada (segura, idempotente y autocorrectiva)');
 
-        $this->info('✅ Sincronización completada (segura e idempotente)');
         return Command::SUCCESS;
     }
 }

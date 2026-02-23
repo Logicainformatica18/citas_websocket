@@ -140,11 +140,23 @@ if ($languages->isEmpty()) {
 
                         $existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
 
-                        if ($existing) {
-                            $existing->languages()->syncWithoutDetaching([$languageId]);
-                            $totalDuplicates++;
-                            continue;
-                        }
+                       if ($existing) {
+
+    $language = Language::find($languageId);
+
+    $pivotData = [
+        'market_entity_id' => $language->market_entity_id
+    ];
+
+    if ($existing->languages()->where('language_id', $languageId)->exists()) {
+        $existing->languages()->updateExistingPivot($languageId, $pivotData);
+    } else {
+        $existing->languages()->attach($languageId, $pivotData);
+    }
+
+    $totalDuplicates++;
+    continue;
+}
 
                         // --- Normalización ---
                         $desc = strtolower($job['description'] ?? '');
@@ -213,7 +225,13 @@ if ($languages->isEmpty()) {
                             'region' => RegionHelper::fromCountry($countryFull),
                         ]);
 
-                        $offer->languages()->syncWithoutDetaching([$languageId]);
+                        $language = Language::find($languageId);
+
+$offer->languages()->syncWithoutDetaching([
+    $languageId => [
+        'market_entity_id' => $language->market_entity_id
+    ]
+]);
 
                         $totalNew++;
                         $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
