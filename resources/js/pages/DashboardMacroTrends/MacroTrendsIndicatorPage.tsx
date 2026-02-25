@@ -88,76 +88,70 @@ export default function MacroTrendsIndicatorPage() {
               </div>
 
               {/* ================= PAGINACIÓN ================= */}
-              {ranking.last_page > 1 && (
-                <div className="flex justify-center items-center gap-2 mt-10">
+            {/* ================= PAGINACIÓN ================= */}
+{ranking.last_page > 1 && (
+  <div className="flex justify-center items-center gap-2 mt-10 flex-wrap">
 
-                  {/* Prev */}
-                  <button
-                    disabled={ranking.current_page === 1}
-                    onClick={() =>
-                      router.get(
-                        "/dashboard/macro-trends",
-                        {
-                          year: meta.year,
-                          period: meta.period,
-                          page: ranking.current_page - 1,
-                        },
-                        { preserveState: true }
-                      )
-                    }
-                    className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
-                  >
-                    ←
-                  </button>
+    {/* Prev */}
+    <button
+      disabled={ranking.current_page === 1}
+      onClick={() =>
+        router.get(route("dashboard.indicators.macro-trends"), {
+          year: meta.year,
+          period: meta.period,
+          page: ranking.current_page - 1,
+        }, { preserveState: true })
+      }
+      className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
+    >
+      ←
+    </button>
 
-                  {/* Números */}
-                  {[...Array(ranking.last_page)].map((_, i) => {
-                    const page = i + 1;
-                    const active = page === ranking.current_page;
+    {getPaginationPages(
+      ranking.current_page,
+      ranking.last_page
+    ).map((page, index) =>
+      page === "..." ? (
+        <span key={index} className="px-2 text-sm text-gray-400">
+          ...
+        </span>
+      ) : (
+        <button
+          key={page}
+          onClick={() =>
+            router.get(route("dashboard.indicators.macro-trends"), {
+              year: meta.year,
+              period: meta.period,
+              page,
+            }, { preserveState: true })
+          }
+          className={`px-3 py-1 rounded-lg text-sm ${
+            page === ranking.current_page
+              ? "bg-sky-600 text-white"
+              : "border hover:bg-slate-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          {page}
+        </button>
+      )
+    )}
 
-                    return (
-                      <button
-                        key={page}
-                        onClick={() =>
-                         router.get(route("dashboard.indicators.macro-trends"), {
-                              year: meta.year,
-                              period: meta.period,
-                              page,
-                            },
-                            { preserveState: true }
-                          )
-                        }
-                        className={`px-3 py-1 rounded-lg text-sm ${
-                          active
-                            ? "bg-[#00B6E8] text-white"
-                            : "border hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  })}
-
-                  {/* Next */}
-                  <button
-                    disabled={ranking.current_page === ranking.last_page}
-                    onClick={() =>
-                      router.get(
-                        "/dashboard/macro-trends",
-                        {
-                          year: meta.year,
-                          period: meta.period,
-                          page: ranking.current_page + 1,
-                        },
-                        { preserveState: true }
-                      )
-                    }
-                    className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
-                  >
-                    →
-                  </button>
-                </div>
-              )}
+    {/* Next */}
+    <button
+      disabled={ranking.current_page === ranking.last_page}
+      onClick={() =>
+        router.get(route("dashboard.indicators.macro-trends"), {
+          year: meta.year,
+          period: meta.period,
+          page: ranking.current_page + 1,
+        }, { preserveState: true })
+      }
+      className="px-3 py-1 rounded-lg border text-sm disabled:opacity-40"
+    >
+      →
+    </button>
+  </div>
+)}
 
             </div>
           </div>
@@ -174,4 +168,35 @@ export default function MacroTrendsIndicatorPage() {
       </DashboardProvider>
     </AppLayout>
   );
+}
+function getPaginationPages(current: number, last: number) {
+  const pages: (number | string)[] = [];
+
+  const delta = 1; // cuántas páginas alrededor del current mostrar
+  const range: number[] = [];
+
+  const rangeStart = Math.max(1, current - delta);
+  const rangeEnd = Math.min(last, current + delta);
+
+  for (let i = rangeStart; i <= rangeEnd; i++) {
+    range.push(i);
+  }
+
+  if (rangeStart > 1) {
+    pages.push(1);
+    if (rangeStart > 2) {
+      pages.push("...");
+    }
+  }
+
+  pages.push(...range);
+
+  if (rangeEnd < last) {
+    if (rangeEnd < last - 1) {
+      pages.push("...");
+    }
+    pages.push(last);
+  }
+
+  return pages;
 }

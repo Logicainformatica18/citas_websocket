@@ -365,17 +365,27 @@ public function getRecentJobsByCourse(int $courseId)
             ->values();
 
         if ($jobIds->isNotEmpty()) {
-            $recentJobs = DB::table('job_offers')
-                ->whereIn('id', $jobIds)
-                ->orderByDesc('published_at')
-                ->limit(10)
-                ->get([
-                    'id',
-                    'title',
-                    'company',
-                    'city',
-                    'published_at'
-                ]);
+         $recentJobs = DB::table('job_offers')
+    ->whereIn('id', $jobIds)
+    ->orderByDesc('published_at')
+    ->limit(10)
+    ->get([
+        'id',
+        'title',
+        'company',
+        'country',
+        'city',
+        'modality',
+        'remote_type',
+        'job_type',
+        'seniority',
+        'salary_min',
+        'salary_max',
+        'currency',
+        'url',
+        'application_url',
+        'published_at'
+    ]);
         }
     }
 
@@ -390,7 +400,6 @@ public function getRecentJobsByCourse(int $courseId)
 }
 public function getCourseTrends(int $courseId)
 {
-    // 1️⃣ Obtener entidades del curso
     $entityIds = collect()
         ->merge(
             DB::table('course_language as cl')
@@ -418,20 +427,22 @@ public function getCourseTrends(int $courseId)
         return response()->json([]);
     }
 
-    // 2️⃣ Traer tendencias reales usando tus columnas correctas
     $trends = DB::table('entity_trends as et')
         ->join('market_entities as me', 'me.id', '=', 'et.market_entity_id')
         ->whereIn('et.market_entity_id', $entityIds)
+        ->orderByDesc('et.year')
+        ->orderByDesc('et.quarter')
         ->orderByDesc('et.created_at')
         ->limit(10)
         ->get([
             'et.id',
-            'et.trend_name',       // ✅ correcto
-            'et.source_title',     // ✅ correcto
+            'et.trend_name',
+            'et.source_title',
             'et.source_url',
             'et.source_type',
             'et.year',
             'et.quarter',
+            'et.created_at',
             'me.name as entity_name'
         ]);
 

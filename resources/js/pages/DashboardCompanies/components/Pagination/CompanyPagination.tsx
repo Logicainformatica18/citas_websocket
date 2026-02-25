@@ -10,47 +10,75 @@ export default function CompanyPagination({ paginator }: Props) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
 
-      {/* INFO */}
+      {/* ================= INFO ================= */}
       <div className="text-slate-600 dark:text-slate-300">
         Mostrando{" "}
-        <span className="font-semibold">
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
           {paginator.from}
         </span>{" "}
         –{" "}
-        <span className="font-semibold">
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
           {paginator.to}
         </span>{" "}
         de{" "}
-        <span className="font-semibold">
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
           {paginator.total}
         </span>{" "}
         empresas
       </div>
 
-      {/* LINKS */}
-      <div className="flex flex-wrap gap-1">
-        {paginator.links.map((link: any, index: number) => (
-          <button
-            key={index}
-            disabled={!link.url}
-            onClick={() => link.url && router.get(link.url)}
-            className={`
-              min-w-[36px]
-              rounded-lg
-              border
-              px-3
-              py-1.5
-              transition
-              ${
-                link.active
-                  ? "bg-[#00B6E8] text-white border-[#00B6E8]"
-                  : "bg-white hover:bg-[#E6F7FD]"
-              }
-              ${!link.url ? "opacity-40 cursor-not-allowed" : ""}
-            `}
-            dangerouslySetInnerHTML={{ __html: link.label }}
-          />
-        ))}
+      {/* ================= LINKS ================= */}
+      <div className="flex flex-wrap gap-2">
+
+        {paginator.links.map((link: any, index: number) => {
+          const isActive = link.active;
+          const isDisabled = !link.url;
+
+          return (
+            <button
+              key={index}
+              disabled={isDisabled}
+              onClick={() => link.url && router.get(link.url)}
+              className={`
+                min-w-[38px]
+                rounded-lg
+                border
+                px-3
+                py-1.5
+                transition-all
+                duration-200
+
+                ${
+                  isActive
+                    ? `
+                      bg-sky-600
+                      text-white
+                      border-sky-600
+                      shadow-sm
+                    `
+                    : `
+                      bg-white
+                      dark:bg-slate-800
+                      text-slate-700
+                      dark:text-slate-300
+                      border-slate-300
+                      dark:border-slate-700
+                      hover:bg-slate-100
+                      dark:hover:bg-slate-700
+                    `
+                }
+
+                ${
+                  isDisabled
+                    ? "opacity-40 cursor-not-allowed"
+                    : "cursor-pointer"
+                }
+              `}
+              dangerouslySetInnerHTML={{ __html: link.label }}
+            />
+          );
+        })}
+
       </div>
     </div>
   );

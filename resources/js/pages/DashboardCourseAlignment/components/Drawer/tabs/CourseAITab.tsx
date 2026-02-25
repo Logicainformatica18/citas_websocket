@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Sparkles, Target, Award, Layers } from "lucide-react";
+import { Bot, Target, Award, Layers } from "lucide-react";
 
 export default function CourseAITab({ course }: any) {
   const [data, setData] = useState<any>(null);
@@ -14,16 +14,20 @@ export default function CourseAITab({ course }: any) {
       .then((res) => res.json())
       .then((json) => setData(json))
       .finally(() => setLoading(false));
-  }, [course.id]);
+  }, [course?.id]);
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Cargando análisis IA...</p>;
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Cargando análisis IA...
+      </p>
+    );
   }
 
   if (!data || !data.diagnosis) {
     return (
-      <div className="bg-muted/40 rounded-xl p-4">
-        <p className="text-sm text-muted-foreground">
+      <div className="rounded-2xl p-6 border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-slate-900/50">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           No existe recomendación IA generada para este curso.
         </p>
       </div>
@@ -31,44 +35,61 @@ export default function CourseAITab({ course }: any) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
 
-      {/* DIAGNÓSTICO */}
-      <div className="bg-muted/40 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Bot size={16} className="text-[#1CBCE8]" />
-          <h3 className="font-semibold text-sm">
-            Diagnóstico estratégico
-          </h3>
+      {/* ================= DIAGNÓSTICO ================= */}
+      <div
+        className="
+          relative overflow-hidden rounded-2xl p-6
+          border border-sky-200 dark:border-sky-800
+          bg-white
+          dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900
+          shadow-sm dark:shadow-xl
+          transition
+        "
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/40">
+            <Bot size={18} className="text-sky-600 dark:text-sky-400" />
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-gray-800 dark:text-white">
+              Diagnóstico estratégico
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Generado por VERA IA
+            </p>
+          </div>
         </div>
 
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
           {data.diagnosis}
         </p>
       </div>
 
-      {/* ENTIDADES SUGERIDAS */}
+      {/* ================= TECNOLOGÍAS ================= */}
       {data.suggested_entities?.length > 0 && (
         <Section
-          icon={<Target size={14} />}
-          title="Tecnologías Sugeridas"
+          icon={<Target size={15} />}
+          title="Tecnologías sugeridas"
           items={data.suggested_entities}
         />
       )}
 
-      {/* CERTIFICACIONES */}
+      {/* ================= CERTIFICACIONES ================= */}
       {data.suggested_certifications?.length > 0 && (
         <Section
-          icon={<Award size={14} />}
+          icon={<Award size={15} />}
           title="Certificaciones recomendadas"
           items={data.suggested_certifications}
         />
       )}
 
-      {/* METODOLOGÍAS */}
+      {/* ================= METODOLOGÍAS ================= */}
       {data.suggested_methodologies?.length > 0 && (
         <Section
-          icon={<Layers size={14} />}
+          icon={<Layers size={15} />}
           title="Metodologías sugeridas"
           items={data.suggested_methodologies}
         />
@@ -77,19 +98,31 @@ export default function CourseAITab({ course }: any) {
   );
 }
 
+/* ======================================================
+   SECTION COMPONENT
+====================================================== */
 function Section({ icon, title, items }: any) {
   return (
     <div>
-      <div className="flex items-center gap-2 text-sm font-semibold mb-3">
-        {icon}
+      <div className="flex items-center gap-2 text-sm font-semibold mb-4 text-gray-700 dark:text-gray-200">
+        <span className="text-sky-600 dark:text-sky-400">
+          {icon}
+        </span>
         {title}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         {items.map((item: string) => (
           <span
             key={item}
-            className="bg-[#E6F7FD] text-[#1CBCE8] px-3 py-1 rounded-full text-[11px]"
+            className="
+              px-3 py-1.5 rounded-full text-[11px] font-medium
+              border
+              bg-sky-50 text-sky-700 border-sky-200
+              dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700
+              hover:scale-105 hover:shadow-sm
+              transition-all
+            "
           >
             {item}
           </span>

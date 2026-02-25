@@ -16,16 +16,12 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
     "empleo" | "tendencias" | "gaps" | "ia"
   >("empleo");
 
-  /* =========================
-     Reset tab when course changes
-  ========================= */
+  /* ========================= Reset tab ========================= */
   useEffect(() => {
     setActiveTab("empleo");
   }, [course?.id]);
 
-  /* =========================
-     Bloquear scroll fondo
-  ========================= */
+  /* ========================= Lock scroll ========================= */
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -33,9 +29,7 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
     };
   }, []);
 
-  /* =========================
-     Cerrar con ESC
-  ========================= */
+  /* ========================= ESC close ========================= */
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -49,7 +43,7 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      
+
       {/* ================= OVERLAY ================= */}
       <div
         onClick={onClose}
@@ -57,16 +51,32 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
       />
 
       {/* ================= PANEL ================= */}
-      <div className="relative w-[560px] h-full bg-white shadow-2xl flex flex-col animate-slide-in">
+      <div
+        className="
+          relative w-[560px] h-full flex flex-col
+          bg-white dark:bg-slate-900
+          border-l border-gray-200 dark:border-gray-800
+          shadow-2xl
+          animate-slide-in
+        "
+      >
 
         {/* ================= HEADER ================= */}
-        <div className="bg-[#0A2540] text-white p-6 flex justify-between items-start">
+        <div
+          className="
+            p-6 flex justify-between items-start
+            bg-gradient-to-r
+            from-sky-600 to-sky-700
+            dark:from-slate-800 dark:to-slate-900
+            text-white
+          "
+        >
           <div>
             <h2 className="text-lg font-semibold leading-tight">
               {course.name}
             </h2>
 
-            <div className="text-xs opacity-70 mt-1">
+            <div className="text-xs opacity-80 mt-1">
               Estado estratégico: {course.estado}
             </div>
           </div>
@@ -80,7 +90,8 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
         </div>
 
         {/* ================= TABS ================= */}
-        <div className="flex border-b text-sm bg-muted/30">
+        <div className="flex border-b border-gray-200 dark:border-gray-800 text-sm bg-gray-50 dark:bg-slate-900">
+
           <TabButton
             icon={<Briefcase size={16} />}
             label="Empleo"
@@ -111,7 +122,7 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
         </div>
 
         {/* ================= CONTENT ================= */}
-        <div className="flex-1 overflow-y-auto p-6 text-sm">
+        <div className="flex-1 overflow-y-auto p-6 text-sm text-gray-700 dark:text-gray-300">
 
           {activeTab === "empleo" && (
             <CourseEmploymentTab course={course} />
@@ -153,12 +164,23 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex items-center justify-center gap-2 py-3 transition-all
+      className={`
+        flex-1 flex items-center justify-center gap-2 py-3
+        transition-all duration-200
         ${
           active
-            ? "border-b-2 border-[#1CBCE8] text-[#1CBCE8] font-medium bg-white"
-            : "text-muted-foreground hover:bg-muted/40"
-        }`}
+            ? `
+              border-b-2 border-sky-500
+              text-sky-600 dark:text-sky-400
+              font-medium
+              bg-white dark:bg-slate-900
+            `
+            : `
+              text-gray-500 dark:text-gray-400
+              hover:bg-gray-100 dark:hover:bg-slate-800
+            `
+        }
+      `}
     >
       {icon}
       {label}

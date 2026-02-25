@@ -106,142 +106,218 @@ export default function GeographicFilters({
   /* ===============================
      Render
   =============================== */
-  return (
-    <div
-      ref={containerRef}
-      className="rounded-2xl border bg-white p-4 shadow-sm"
-    >
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-slate-700">
-          Filtros geográficos
-        </span>
+ return (
+  <div
+    ref={containerRef}
+    className="
+      rounded-2xl border p-5 shadow-sm
+      bg-white dark:bg-slate-900
+      border-slate-200 dark:border-slate-800
+    "
+  >
+    {/* HEADER */}
+    <div className="flex items-center justify-between mb-4">
+      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        Filtros geográficos
+      </span>
 
-        {(filters.region || filters.country || filters.city) && (
-          <button
-            onClick={onClear}
-            className="text-xs font-semibold text-[#00B6E8] hover:underline"
+      {(filters.region || filters.country || filters.city) && (
+        <button
+          onClick={onClear}
+          className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+        >
+          Limpiar filtros
+        </button>
+      )}
+    </div>
+
+    <div className="grid gap-5 md:grid-cols-3">
+
+      {/* ================= REGIÓN ================= */}
+      <div className="relative">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          Región
+        </label>
+
+        <input
+          value={regionQuery}
+          onFocus={() => {
+            setOpen("region");
+            fetchRegions(regionQuery);
+          }}
+          onChange={(e) => setRegionQuery(e.target.value)}
+          className="
+            mt-1 w-full rounded-lg border px-3 py-2 text-sm
+            bg-white dark:bg-slate-800
+            border-slate-300 dark:border-slate-700
+            text-slate-700 dark:text-slate-200
+            focus:ring-2 focus:ring-sky-500 focus:border-sky-500
+            outline-none transition
+          "
+        />
+
+        {open === "region" && regions.length > 0 && (
+          <div
+            className="
+              absolute z-20 mt-1 w-full rounded-lg border shadow-lg
+              bg-white dark:bg-slate-800
+              border-slate-200 dark:border-slate-700
+              max-h-60 overflow-y-auto
+            "
           >
-            Limpiar filtros
-          </button>
+            {regions.map((r) => (
+              <button
+                key={r}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  setRegionQuery(r);
+                  setCountryQuery("");
+                  setCityQuery("");
+
+                  onChange({ region: r, country: null, city: null });
+                  setOpen(null);
+                }}
+                className="
+                  block w-full px-3 py-2 text-left text-sm
+                  text-slate-700 dark:text-slate-200
+                  hover:bg-slate-100 dark:hover:bg-slate-700
+                  transition
+                "
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* ================= PAÍS ================= */}
+      <div className="relative">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          País
+        </label>
 
-        {/* REGIÓN */}
-        <div className="relative">
-          <label className="text-xs font-semibold">Región</label>
-          <input
-            value={regionQuery}
-            onFocus={() => {
-              setOpen("region");
-              fetchRegions(regionQuery);
-            }}
-            onChange={(e) => setRegionQuery(e.target.value)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-          />
+        <input
+          value={countryQuery}
+          disabled={!filters.region}
+          onFocus={() => {
+            if (!filters.region) return;
+            setOpen("country");
+            fetchCountries(countryQuery);
+          }}
+          onChange={(e) => setCountryQuery(e.target.value)}
+          className="
+            mt-1 w-full rounded-lg border px-3 py-2 text-sm
+            bg-white dark:bg-slate-800
+            border-slate-300 dark:border-slate-700
+            text-slate-700 dark:text-slate-200
+            disabled:bg-slate-100 dark:disabled:bg-slate-800/40
+            disabled:text-slate-400 dark:disabled:text-slate-600
+            focus:ring-2 focus:ring-sky-500 focus:border-sky-500
+            outline-none transition
+          "
+        />
 
-          {open === "region" && regions.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow">
-              {regions.map((r) => (
-                <button
-                  key={r}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+        {open === "country" && countries.length > 0 && (
+          <div
+            className="
+              absolute z-20 mt-1 w-full rounded-lg border shadow-lg
+              bg-white dark:bg-slate-800
+              border-slate-200 dark:border-slate-700
+              max-h-60 overflow-y-auto
+            "
+          >
+            {countries.map((c) => (
+              <button
+                key={c}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
 
-                    setRegionQuery(r);
-                    setCountryQuery("");
-                    setCityQuery("");
+                  setCountryQuery(c);
+                  setCityQuery("");
 
-                    onChange({ region: r, country: null, city: null });
-                    setOpen(null);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* PAÍS */}
-        <div className="relative">
-          <label className="text-xs font-semibold">País</label>
-          <input
-            value={countryQuery}
-            disabled={!filters.region}
-            onFocus={() => {
-              if (!filters.region) return;
-              setOpen("country");
-              fetchCountries(countryQuery);
-            }}
-            onChange={(e) => setCountryQuery(e.target.value)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-slate-100"
-          />
-
-          {open === "country" && countries.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow">
-              {countries.map((c) => (
-                <button
-                  key={c}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    setCountryQuery(c);
-                    setCityQuery("");
-
-                    onChange({ country: c, city: null });
-                    setOpen(null);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* CIUDAD */}
-        <div className="relative">
-          <label className="text-xs font-semibold">Ciudad</label>
-          <input
-            value={cityQuery}
-            disabled={!filters.country}
-            onFocus={() => {
-              if (!filters.country) return;
-              setOpen("city");
-              fetchCities(cityQuery);
-            }}
-            onChange={(e) => setCityQuery(e.target.value)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-slate-100"
-          />
-
-          {open === "city" && cities.length > 0 && (
-            <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow">
-              {cities.map((c) => (
-                <button
-                  key={c}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    setCityQuery(c);
-                    onChange({ city: c });
-                    setOpen(null);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                  onChange({ country: c, city: null });
+                  setOpen(null);
+                }}
+                className="
+                  block w-full px-3 py-2 text-left text-sm
+                  text-slate-700 dark:text-slate-200
+                  hover:bg-slate-100 dark:hover:bg-slate-700
+                  transition
+                "
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* ================= CIUDAD ================= */}
+      <div className="relative">
+        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          Ciudad
+        </label>
+
+        <input
+          value={cityQuery}
+          disabled={!filters.country}
+          onFocus={() => {
+            if (!filters.country) return;
+            setOpen("city");
+            fetchCities(cityQuery);
+          }}
+          onChange={(e) => setCityQuery(e.target.value)}
+          className="
+            mt-1 w-full rounded-lg border px-3 py-2 text-sm
+            bg-white dark:bg-slate-800
+            border-slate-300 dark:border-slate-700
+            text-slate-700 dark:text-slate-200
+            disabled:bg-slate-100 dark:disabled:bg-slate-800/40
+            disabled:text-slate-400 dark:disabled:text-slate-600
+            focus:ring-2 focus:ring-sky-500 focus:border-sky-500
+            outline-none transition
+          "
+        />
+
+        {open === "city" && cities.length > 0 && (
+          <div
+            className="
+              absolute z-20 mt-1 w-full rounded-lg border shadow-lg
+              bg-white dark:bg-slate-800
+              border-slate-200 dark:border-slate-700
+              max-h-60 overflow-y-auto
+            "
+          >
+            {cities.map((c) => (
+              <button
+                key={c}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  setCityQuery(c);
+                  onChange({ city: c });
+                  setOpen(null);
+                }}
+                className="
+                  block w-full px-3 py-2 text-left text-sm
+                  text-slate-700 dark:text-slate-200
+                  hover:bg-slate-100 dark:hover:bg-slate-700
+                  transition
+                "
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
-  );
+  </div>
+);
 }
