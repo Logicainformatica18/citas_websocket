@@ -10,20 +10,20 @@ class MarketEntity extends Model
 
     public $timestamps = false;
 
-protected $fillable = [
-    'name',
-    'slug',
-    'entity_type',
-    'origin',
-    'category',
-    'vendor',
-    'level',
-    'has_isil',
-    'has_trend',
-];
-
+    protected $fillable = [
+        'name',
+        'slug',
+        'entity_type',
+        'origin',
+        'category',
+        'vendor',
+        'level',
+        'has_isil',
+        'has_trend',
+    ];
 
     protected $casts = [
+        'has_isil'  => 'boolean',
         'has_trend' => 'boolean',
     ];
 
@@ -35,10 +35,7 @@ protected $fillable = [
     {
         return $this->hasMany(
             EntityTrend::class,
-            'entity_id'
-        )->whereColumn(
-            'entity_trends.entity_type',
-            'market_entities.entity_type'
+            'market_entity_id'
         );
     }
 }

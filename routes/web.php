@@ -58,7 +58,7 @@ use App\Http\Controllers\Dashboard\PeAlignmentIndicatorController;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 
 use App\Http\Controllers\Dashboard\CourseCCTCIndicatorController;
-
+use App\Http\Controllers\MarketEntityController;
 use App\Http\Controllers\EntityTrendController;
 
 
@@ -692,6 +692,32 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
         Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
     });
+    Route::prefix('market-entities')->group(function () {
+
+    // 📄 Vista principal (Inertia)
+    Route::get('/', [MarketEntityController::class, 'index'])
+        ->name('market-entities.index');
+
+    // 📄 Fetch paginado (AJAX)
+    Route::get('/fetch', [MarketEntityController::class, 'fetchPaginated'])
+        ->name('market-entities.fetch');
+
+    // 🆕 Crear
+    Route::post('/', [MarketEntityController::class, 'store'])
+        ->name('market-entities.store');
+
+    // ✏️ Actualizar
+    Route::put('/{id}', [MarketEntityController::class, 'update'])
+        ->name('market-entities.update');
+
+    // 🗑️ Eliminar
+    Route::delete('/{id}', [MarketEntityController::class, 'destroy'])
+        ->name('market-entities.destroy');
+
+    // 🔄 Toggle has_trend
+    Route::patch('/{id}/toggle-trend', [MarketEntityController::class, 'toggleTrend'])
+        ->name('market-entities.toggle-trend');
+});
 Route::prefix('entity-trends')->group(function () {
 
     Route::get('/', [EntityTrendController::class, 'index'])
