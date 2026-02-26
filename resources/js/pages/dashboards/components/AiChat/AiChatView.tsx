@@ -4,16 +4,16 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import {
-  Send,
-  X,
-  Paperclip,
-  Mic,
-  Square,
-  RefreshCw,
-  Volume2,
-  Database,
-  Plus,
-  MessageCircle,
+    Send,
+    X,
+    Paperclip,
+    Mic,
+    Square,
+    RefreshCw,
+    Volume2,
+    Database,
+    Plus,
+    MessageCircle,
 } from "lucide-react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 
@@ -24,7 +24,7 @@ import ChartSelector from "./ChartSelector";
 import HelpIcon from "@/components/ui/HelpIcon";
 
 interface AiChatViewProps {
-  embedded?: boolean;
+    embedded?: boolean;
 }
 
 
@@ -49,7 +49,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
 
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-const debounceRef = useRef<number | null>(null);
+    const debounceRef = useRef<number | null>(null);
 
 
     // 🎨 Colores (adaptado a tema claro / oscuro estilo Lovable)
@@ -71,31 +71,31 @@ const debounceRef = useRef<number | null>(null);
         self-start
     `,
     };
-useEffect(() => {
-  if (suppressSuggestionsRef.current) {
-    suppressSuggestionsRef.current = false;
-    return;
-  }
+    useEffect(() => {
+        if (suppressSuggestionsRef.current) {
+            suppressSuggestionsRef.current = false;
+            return;
+        }
 
-  if (!logic.input || logic.input.length < 3) {
-    setShowSuggestions(false);
-    return;
-  }
+        if (!logic.input || logic.input.length < 3) {
+            setShowSuggestions(false);
+            return;
+        }
 
-  if (debounceRef.current) {
-    clearTimeout(debounceRef.current);
-  }
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
 
-  debounceRef.current = window.setTimeout(() => {
-    fetchSuggestions(logic.input);
-  }, 300);
+        debounceRef.current = window.setTimeout(() => {
+            fetchSuggestions(logic.input);
+        }, 300);
 
-  return () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-  };
-}, [logic.input]);
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, [logic.input]);
 
 
     // 🧱 Redimensionamiento
@@ -118,7 +118,7 @@ useEffect(() => {
         const newHeight = Math.max(420, resizeRef.current.height + dy);
         logic.setChatSize({ width: newWidth, height: newHeight });
     };
-const [showActions, setShowActions] = useState(false);
+    const [showActions, setShowActions] = useState(false);
     const stopResize = () => setResizing(false);
 
     useEffect(() => {
@@ -134,19 +134,19 @@ const [showActions, setShowActions] = useState(false);
             window.removeEventListener("mouseup", stopResize);
         };
     }, [resizing]);
-const suppressSuggestionsRef = useRef(false);
+    const suppressSuggestionsRef = useRef(false);
 
     // ⚙️ Control externo global (sin eventos duplicados)
-  useEffect(() => {
-  if (embedded) return;
+    useEffect(() => {
+        if (embedded) return;
 
-  window.vera = {
-    open: () => setVisible(true),
-    close: () => setVisible(false),
-    toggle: () => setVisible((v) => !v),
-    isVisible: () => visible,
-  };
-}, [visible, embedded]);
+        window.vera = {
+            open: () => setVisible(true),
+            close: () => setVisible(false),
+            toggle: () => setVisible((v) => !v),
+            isVisible: () => visible,
+        };
+    }, [visible, embedded]);
 
 
     const fetchSuggestions = async (query: string) => {
@@ -163,59 +163,59 @@ const suppressSuggestionsRef = useRef(false);
         }
     };
 
-const handleSendWrapped = () => {
-  suppressSuggestionsRef.current = true;
-  setShowSuggestions(false);
-  logic.handleSend();
-};
+    const handleSendWrapped = () => {
+        suppressSuggestionsRef.current = true;
+        setShowSuggestions(false);
+        logic.handleSend();
+    };
 
     return (
-<div
-  className={`
+        <div
+            className={`
     flex flex-col w-full h-full
     bg-white dark:bg-[#202123]
     ${embedded
-      ? "relative rounded-none border-l border-[#D9EEF5] dark:border-gray-700"
-      : "fixed bottom-4 right-4 z-50 rounded-xl border shadow-xl"}
+                    ? "relative rounded-none border-l border-[#D9EEF5] dark:border-gray-700"
+                    : "fixed bottom-4 right-4 z-50 rounded-xl border shadow-xl"}
     transition-all
     ${!embedded && !visible ? "opacity-0 scale-90 pointer-events-none" : ""}
   `}
->
+        >
 
 
 
 
 
-<div
-  className="
+            <div
+                className="
     flex justify-between items-center px-4 py-2
     bg-[#ECFAFD] dark:bg-[#343541]
     border-b border-[#A7E5F6] dark:border-[#3f4144]
   "
->
+            >
 
 
-              <div className="flex items-center gap-2 font-semibold text-sm cursor-default">
-  <span className="text-gray-900 dark:text-gray-200">🤖 VERA</span>
-  <span className="text-xs text-gray-500 dark:text-gray-400">
-    | Observatorio ISIL
-  </span>
+                <div className="flex items-center gap-2 font-semibold text-sm cursor-default">
+                    <span className="text-gray-900 dark:text-gray-200">🤖 VERA</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                        | Observatorio ISIL
+                    </span>
 
-  <HelpIcon
-    text="VERA es el asistente de inteligencia del Observatorio. Puede generar análisis, consultas SQL y gráficos a partir de tus preguntas."
-    pulseKey="vera-header"
-  />
-</div>
+                    <HelpIcon
+                        text="VERA es el asistente de inteligencia del Observatorio. Puede generar análisis, consultas SQL y gráficos a partir de tus preguntas."
+                        pulseKey="vera-header"
+                    />
+                </div>
 
 
-               {!embedded && (
-  <button
-    onClick={() => setVisible(false)}
-    className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-  >
-    <X size={16} />
-  </button>
-)}
+                {!embedded && (
+                    <button
+                        onClick={() => setVisible(false)}
+                        className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
 
             </div>
 
@@ -284,16 +284,16 @@ const handleSendWrapped = () => {
                             </div>
                         )}
                         {/* 💾 Botón de guardar entrenamiento */}
-                     {m.saveIntent && (
-  <button
-    onClick={() =>
-      logic.handleSaveTraining(
-        m.saveIntent.sql_training_id,
-        m.saveIntent.prompt
-      )
-    }
-    disabled={logic.savingTrainingId === m.saveIntent.sql_training_id}
-    className="
+                        {m.saveIntent && (
+                            <button
+                                onClick={() =>
+                                    logic.handleSaveTraining(
+                                        m.saveIntent.sql_training_id,
+                                        m.saveIntent.prompt
+                                    )
+                                }
+                                disabled={logic.savingTrainingId === m.saveIntent.sql_training_id}
+                                className="
       mt-3 self-start
       flex items-center gap-2
       px-3 py-1.5
@@ -303,19 +303,19 @@ const handleSendWrapped = () => {
       disabled:opacity-60 disabled:cursor-not-allowed
       transition
     "
-  >
-    {logic.savingTrainingId === m.saveIntent.sql_training_id ? (
-      <>
-        <span
-          className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"
-        />
-        Guardando...
-      </>
-    ) : (
-      <>💾 Guardar entrenamiento</>
-    )}
-  </button>
-)}
+                            >
+                                {logic.savingTrainingId === m.saveIntent.sql_training_id ? (
+                                    <>
+                                        <span
+                                            className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"
+                                        />
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    <>💾 Guardar entrenamiento</>
+                                )}
+                            </button>
+                        )}
 
 
                         {/* 📊 Nuevo bloque: botones de tipo de gráfico */}
@@ -356,7 +356,7 @@ const handleSendWrapped = () => {
 
 
 
-        {/* <div
+            {/* <div
   className={`
     px-3 py-2 border-t transition-colors
     ${
@@ -445,29 +445,28 @@ const handleSendWrapped = () => {
                 )}
             </div> */}
 
-<div
-  className={`
+            <div
+                className={`
     border-t px-5 py-4 relative
-    ${
-      logic.mode === "train"
-        ? "bg-[#ECFDF3] border-[#9FE3BF]"
-        : "bg-[#ECFAFD] border-[#A7E5F6]"
-    }
+    ${logic.mode === "train"
+                        ? "bg-[#ECFDF3] border-[#9FE3BF]"
+                        : "bg-[#ECFAFD] border-[#A7E5F6]"
+                    }
     dark:bg-[#40414f] dark:border-[#3f4144]
   `}
->
-  {/* ===============================
+            >
+                {/* ===============================
       HEADER — MODO
   =============================== */}
-  <div className="flex justify-end mb-3">
-    <div className="flex items-center gap-2 w-full">
+                <div className="flex justify-end mb-3">
+                    <div className="flex items-center gap-2 w-full">
 
 
-<button
-  onClick={() =>
-    logic.setMode(logic.mode === "chat" ? "train" : "chat")
-  }
-  className={`
+                        <button
+                            onClick={() =>
+                                logic.setMode(logic.mode === "chat" ? "train" : "chat")
+                            }
+                            className={`
     w-full
     flex items-center justify-center gap-2
     px-4 py-3
@@ -475,152 +474,150 @@ const handleSendWrapped = () => {
     text-sm font-semibold
     transition
     cursor-pointer
-    ${
-      logic.mode === "chat"
-        ? "bg-[#1CBCE8] text-white hover:bg-[#17a8cf]"
-        : "bg-green-600 text-white hover:bg-green-700"
-    }
+    ${logic.mode === "chat"
+                                    ? "bg-[#1CBCE8] text-white hover:bg-[#17a8cf]"
+                                    : "bg-green-600 text-white hover:bg-green-700"
+                                }
   `}
->
-  {logic.mode === "chat" ? (
-    <>
-      💬 Estás en modo Conversando
-    </>
-  ) : (
-    <>
-      🧠 Estás en modo Consultando Datos
-    </>
-  )}
-</button>
-  <HelpIcon
-    text="Modo Conversar responde preguntas generales. Modo Consultar datos ejecuta consultas estructuradas sobre la base de datos del observatorio."
-    pulseKey="vera-mode"
-  />
-</div>
+                        >
+                            {logic.mode === "chat" ? (
+                                <>
+                                    💬 Estás en modo Conversando
+                                </>
+                            ) : (
+                                <>
+                                    🧠 Estás en modo Consultando Datos
+                                </>
+                            )}
+                        </button>
+                        <HelpIcon
+                            text="Modo Conversar responde preguntas generales. Modo Consultar datos ejecuta consultas estructuradas sobre la base de datos del observatorio."
+                            pulseKey="vera-mode"
+                        />
+                    </div>
 
 
-  </div>
+                </div>
 
-  {/* ===============================
+                {/* ===============================
       INPUT
   =============================== */}
 
-  <div className="relative">
+                <div className="relative">
 
-    {/* PANEL DE ACCIONES (CLICK) */}
-    {showActions && (
-      <div
-        className="
+                    {/* PANEL DE ACCIONES (CLICK) */}
+                    {showActions && (
+                        <div
+                            className="
           absolute bottom-full mb-3 left-4
           flex gap-2
           px-3 py-2
           rounded-xl
-          bg-white border border-[#A7E5F6]
+        bg-white dark:bg-[#2a2b31] 
+border border-[#A7E5F6] dark:border-[#3f4144]
           shadow-lg
           animate-slide-up
           z-20
         "
-      >
-        {/* 🔊 Voz */}
-        <button
-          onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
-          className={`
+                        >
+                            {/* 🔊 Voz */}
+                            <button
+                                onClick={() => logic.setVoiceEnabled(!logic.voiceEnabled)}
+                                className={`
             w-10 h-10 rounded-full
             flex items-center justify-center
             border cursor-pointer
-            ${
-              logic.voiceEnabled
-                ? "bg-green-600 text-white border-green-600"
-                : "bg-white border-[#A7E5F6]"
-            }
+          ${logic.voiceEnabled
+  ? "bg-green-600 text-white border-green-600"
+  : "bg-white dark:bg-[#34353c] border-[#A7E5F6] dark:border-[#3f4144] text-gray-700 dark:text-gray-200"
+}
           `}
-          title="Voz"
-        >
-          <Volume2 size={16} />
-        </button>
+                                title="Voz"
+                            >
+                                <Volume2 size={16} />
+                            </button>
 
-        {/* 🎤 Mic */}
-        <button
-          onClick={
-            logic.recording ? logic.stopRecording : logic.startRecording
-          }
-          className={`
+                            {/* 🎤 Mic */}
+                            <button
+                                onClick={
+                                    logic.recording ? logic.stopRecording : logic.startRecording
+                                }
+                                className={`
             w-10 h-10 rounded-full
             flex items-center justify-center
             border cursor-pointer
-            ${
-              logic.recording
-                ? "bg-red-600 text-white border-red-600"
-                : "bg-white border-[#A7E5F6]"
-            }
+           ${logic.recording
+  ? "bg-red-600 text-white border-red-600"
+  : "bg-white dark:bg-[#34353c] border-[#A7E5F6] dark:border-[#3f4144] text-gray-700 dark:text-gray-200"
+}
           `}
-          title="Grabar"
-        >
-          {logic.recording ? <Square size={16} /> : <Mic size={16} />}
-        </button>
+                                title="Grabar"
+                            >
+                                {logic.recording ? <Square size={16} /> : <Mic size={16} />}
+                            </button>
 
-        {/* 📎 Adjuntar */}
-        <label
-          className="
+                            {/* 📎 Adjuntar */}
+                            <label
+                                className="
             w-10 h-10 rounded-full
             flex items-center justify-center
-            bg-white border border-[#A7E5F6]
+           bg-white dark:bg-[#2a2b31] 
+border border-[#A7E5F6] dark:border-[#3f4144]
             cursor-pointer
           "
-          title="Adjuntar archivo"
-        >
-          <Paperclip size={16} />
-          <input
-            type="file"
-            hidden
-            onChange={(e) =>
-              e.target.files?.[0] &&
-              logic.handleFileUpload(e.target.files[0])
-            }
-          />
-        </label>
-      </div>
-    )}
+                                title="Adjuntar archivo"
+                            >
+                                <Paperclip size={16} />
+                                <input
+                                    type="file"
+                                    hidden
+                                    onChange={(e) =>
+                                        e.target.files?.[0] &&
+                                        logic.handleFileUpload(e.target.files[0])
+                                    }
+                                />
+                            </label>
+                        </div>
+                    )}
 
-    {/* TEXTAREA */}
-    <textarea
-      rows={2}
-      value={logic.input}
-      onChange={(e) => {
-        logic.handleInputChange(e.target.value);
-        e.target.style.height = "auto";
-        e.target.style.height =
-          Math.min(e.target.scrollHeight, 160) + "px";
-      }}
-      onFocus={() => setShowActions(false)}
-     onKeyDown={(e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    handleSendWrapped();
-  }
-}}
+                    {/* TEXTAREA */}
+                    <textarea
+                        rows={2}
+                        value={logic.input}
+                        onChange={(e) => {
+                            logic.handleInputChange(e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height =
+                                Math.min(e.target.scrollHeight, 160) + "px";
+                        }}
+                        onFocus={() => setShowActions(false)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendWrapped();
+                            }
+                        }}
 
-      className={`
+                        className={`
         w-full resize-none
         px-5 py-4 pr-28
         rounded-2xl text-sm border
         min-h-[72px]
-        ${
-          logic.mode === "train"
-            ? "bg-[#E6F8EE] border-[#9FE3BF]"
-            : "bg-white border-[#A7E5F6]"
-        }
-        focus:outline-none focus:ring-2 focus:ring-[#1CBCE8]
+       ${logic.mode === "train"
+  ? "bg-[#E6F8EE] dark:bg-[#1f2d26] border-[#9FE3BF] dark:border-[#2e5f46]"
+  : "bg-white dark:bg-[#1f2937] border-[#A7E5F6] dark:border-[#334155]"
+}
+text-gray-800 dark:text-gray-200
       `}
-      placeholder={
-        logic.mode === "train"
-          ? "Describe la consulta que quieres enseñar a VERA…"
-          : "Escribe tu mensaje…"
-      }
-    />
-{showSuggestions && suggestions.length > 0 && (
-  <div
-    className="
+                        placeholder={
+                            logic.mode === "train"
+                                ? "Describe la consulta que quieres enseñar a VERA…"
+                                : "Escribe tu mensaje…"
+                        }
+                    />
+                    {showSuggestions && suggestions.length > 0 && (
+                        <div
+                            className="
       absolute left-0 right-0 bottom-full mb-2
       bg-white dark:bg-[#2a2b31]
       border border-[#A7E5F6] dark:border-[#3f4144]
@@ -628,57 +625,59 @@ const handleSendWrapped = () => {
       max-h-48 overflow-y-auto
       z-30
     "
-  >
-    {suggestions.map((s) => (
-      <button
-        key={s.id}
-       onClick={() => {
-  suppressSuggestionsRef.current = true;
-  logic.handleInputChange(s.prompt);
-  setShowSuggestions(false);
-}}
+                        >
+                            {suggestions.map((s) => (
+                                <button
+                                    key={s.id}
+                                    onClick={() => {
+                                        suppressSuggestionsRef.current = true;
+                                        logic.handleInputChange(s.prompt);
+                                        setShowSuggestions(false);
+                                    }}
 
-        className="
+                                    className="
           w-full text-left px-4 py-2
           hover:bg-[#ECFAFD] dark:hover:bg-[#3a3b40]
           text-sm text-gray-800 dark:text-gray-200
           transition
         "
-      >
-        <div className="font-medium">{s.prompt}</div>
-        {s.description && (
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            {s.description}
-          </div>
-        )}
-      </button>
-    ))}
-  </div>
-)}
+                                >
+                                    <div className="font-medium">{s.prompt}</div>
+                                    {s.description && (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                            {s.description}
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
-    {/* BOTÓN ACCIONES */}
-    <HelpTooltip text="Acciones adicionales: activar voz, grabar audio o adjuntar archivos.">
-    <button
-      onClick={() => setShowActions((v) => !v)}
-      title="Acciones"
-      className="
+                    {/* BOTÓN ACCIONES */}
+                    <HelpTooltip text="Acciones adicionales: activar voz, grabar audio o adjuntar archivos.">
+                        <button
+                            onClick={() => setShowActions((v) => !v)}
+                            title="Acciones"
+                            className="
         absolute right-14 bottom-4
         w-10 h-10
         rounded-full
         flex items-center justify-center
-        bg-white border border-[#A7E5F6]
+      bg-white dark:bg-[#34353c]
+border border-[#A7E5F6] dark:border-[#3f4144]
+text-gray-700 dark:text-gray-200
         cursor-pointer
       "
-    >
-      <Plus size={16} />
-    </button>
-</HelpTooltip>
-    {/* ENVIAR */}
-<button
-  onClick={handleSendWrapped}
-      disabled={!logic.input.trim()}
-      title="Enviar"
-      className="
+                        >
+                            <Plus size={16} />
+                        </button>
+                    </HelpTooltip>
+                    {/* ENVIAR */}
+                    <button
+                        onClick={handleSendWrapped}
+                        disabled={!logic.input.trim()}
+                        title="Enviar"
+                        className="
         absolute right-3 bottom-4
         w-10 h-10
         rounded-full
@@ -687,14 +686,14 @@ const handleSendWrapped = () => {
         disabled:opacity-50
         cursor-pointer
       "
-    >
-      <Send size={16} />
-    </button>
-  </div>
-</div>
+                    >
+                        <Send size={16} />
+                    </button>
+                </div>
+            </div>
 
 
-           {!embedded && (
+            {!embedded && (
 
                 <div
                     onMouseDown={startResize}

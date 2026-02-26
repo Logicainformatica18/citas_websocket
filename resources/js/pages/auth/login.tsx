@@ -1,23 +1,29 @@
-import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler, ReactNode } from 'react';
+import { Head, useForm } from '@inertiajs/react'
+import {
+  LoaderCircle,
+  Mail,
+  Lock,
+  LogIn,
+  Activity
+} from 'lucide-react'
+import { FormEventHandler, ReactNode } from 'react'
 
-import InputError from '@/components/input-error';
-import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import InputError from '@/components/input-error'
+import TextLink from '@/components/text-link'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type LoginForm = {
-  email: string;
-  password: string;
-  remember: boolean;
-};
+  email: string
+  password: string
+  remember: boolean
+}
 
 interface LoginProps {
-  status?: string;
-  canResetPassword: boolean;
+  status?: string
+  canResetPassword: boolean
 }
 
 function Login({ status, canResetPassword }: LoginProps) {
@@ -26,122 +32,161 @@ function Login({ status, canResetPassword }: LoginProps) {
       email: '',
       password: '',
       remember: false,
-    });
+    })
 
   const submit: FormEventHandler = (e) => {
-    e.preventDefault();
+    e.preventDefault()
     post(route('login'), {
       onFinish: () => reset('password'),
-    });
-  };
+    })
+  }
 
   return (
     <>
-      <Head title="Iniciar sesión" />
+      <Head title="Observatorio Tecnológico" />
 
+      {/* Fondo */}
       <div
-        className="min-h-screen w-full grid place-items-center bg-cover bg-center"
+        className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative px-6"
         style={{ backgroundImage: "url('/logo/isil_bg.jpg')" }}
       >
         {/* Overlay */}
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-[#0B2A3A]/75 backdrop-blur-sm" />
 
-        {/* Card */}
-        <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl p-10 border-t-4 border-[#00AEEF]">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <img
-              src="/logo/isil_logo.jpg"
-              alt="ISIL Logo"
-              className="w-44 object-contain"
-            />
+        <div className="relative w-full max-w-xl">
+
+          {/* Header Superior */}
+          <div className="flex flex-col items-center mb-10 text-center text-white">
+
+            {/* Icono redondeado */}
+            <div className="w-16 h-16 rounded-2xl bg-[#00AEEF] flex items-center justify-center shadow-lg mb-4">
+              <Activity className="w-8 h-8 text-white" />
+            </div>
+
+            <h1 className="text-3xl font-bold">
+              Observatorio Tecnológico
+            </h1>
+
+            <p className="text-sm text-gray-200 mt-2">
+              Accede a tu plataforma de monitoreo
+            </p>
           </div>
 
-          {/* Form */}
-          <form className="space-y-6" onSubmit={submit}>
-            <div>
-              <Label htmlFor="email" className="text-[#002F6C]">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoFocus
-                autoComplete="email"
-                value={data.email}
-                onChange={(e) => setData('email', e.target.value)}
-                placeholder="correo@ejemplo.com"
-                className="border-gray-300 focus:border-[#00AEEF] focus:ring-[#00AEEF]"
+          {/* Card */}
+          <div className="bg-[#EDEDED] rounded-xl shadow-2xl p-10">
+
+            {/* Logo ISIL */}
+            <div className="flex justify-center mb-8">
+              <img
+                src="/logo/isil_logo.jpg"
+                alt="ISIL Logo"
+                className="w-44 object-contain rounded-lg"
               />
-              <InputError message={errors.email} />
             </div>
 
-            <div>
-              <Label htmlFor="password" className="text-[#002F6C]">
-                Contraseña
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={data.password}
-                onChange={(e) => setData('password', e.target.value)}
-                placeholder="Tu contraseña"
-                className="border-gray-300 focus:border-[#00AEEF] focus:ring-[#00AEEF]"
-              />
-              <InputError message={errors.password} />
-            </div>
+            <form className="space-y-7" onSubmit={submit}>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember"
-                  checked={data.remember}
-                  onClick={() => setData('remember', !data.remember)}
-                />
-                <Label htmlFor="remember" className="text-sm text-gray-700">
-                  Recordarme
+              {/* Email */}
+              <div>
+                <Label htmlFor="email" className="text-[#0B2A3A] font-semibold">
+                  Email
                 </Label>
+
+                <div className="relative mt-2">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    autoFocus
+                    autoComplete="email"
+                    value={data.email}
+                    onChange={(e) => setData('email', e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                    className="pl-12 h-12 bg-[#F4F4F4] border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg focus:border-[#00AEEF] focus:ring-[#00AEEF]"
+                  />
+                </div>
+
+                <InputError message={errors.email} />
               </div>
 
-              {canResetPassword && (
-                <TextLink
-                  href={route('password.request')}
-                  className="text-sm text-[#002F6C] hover:text-[#00AEEF]"
-                >
-                  ¿Olvidaste tu contraseña?
-                </TextLink>
-              )}
-            </div>
+              {/* Password */}
+              <div>
+                <Label htmlFor="password" className="text-[#0B2A3A] font-semibold">
+                  Contraseña
+                </Label>
 
-            <Button
-              type="submit"
-              className="w-full bg-[#002F6C] hover:bg-[#001f4d] text-white font-semibold py-2 rounded-lg shadow-md flex items-center justify-center gap-2"
-              disabled={processing}
-            >
-              {processing && (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              )}
-              Ingresar
-            </Button>
-          </form>
+                <div className="relative mt-2">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
 
-          {status && (
-            <div className="mt-6 text-center text-sm font-medium text-green-600">
-              {status}
-            </div>
-          )}
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={data.password}
+                    onChange={(e) => setData('password', e.target.value)}
+                    placeholder="Tu contraseña"
+                    className="pl-12 h-12 bg-[#F4F4F4] border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg focus:border-[#00AEEF] focus:ring-[#00AEEF]"
+                  />
+                </div>
+
+                <InputError message={errors.password} />
+              </div>
+
+              {/* Remember + Forgot */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="remember"
+                    checked={data.remember}
+                    onClick={() => setData('remember', !data.remember)}
+                  />
+                  <Label htmlFor="remember" className="text-sm text-gray-700">
+                    Recordarme
+                  </Label>
+                </div>
+
+                {canResetPassword && (
+                  <TextLink
+                    href={route('password.request')}
+                    className="text-sm text-[#0077B6] hover:underline"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </TextLink>
+                )}
+              </div>
+
+              {/* Botón */}
+              <Button
+                type="submit"
+                disabled={processing}
+                className="w-full mt-4 bg-[#0B2A3A] hover:bg-[#091F2A] text-white font-semibold py-3 h-12 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all"
+              >
+                {processing ? (
+                  <LoaderCircle className="h-5 w-5 animate-spin" />
+                ) : (
+                  <LogIn className="h-5 w-5" />
+                )}
+                Ingresar
+              </Button>
+
+            </form>
+
+            {status && (
+              <div className="mt-6 text-center text-sm font-medium text-green-600">
+                {status}
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
     </>
-  );
+  )
 }
 
-/* ======================================================
-   🔥 CLAVE ABSOLUTA: SIN LAYOUT PADRE
-====================================================== */
-Login.layout = (page: ReactNode) => page;
+Login.layout = (page: ReactNode) => page
 
-export default Login;
+export default Login
