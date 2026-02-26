@@ -59,6 +59,10 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 
 use App\Http\Controllers\Dashboard\CourseCCTCIndicatorController;
 
+use App\Http\Controllers\EntityTrendController;
+
+
+
 
 
 
@@ -688,7 +692,24 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse']);
         Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse']);
     });
+Route::prefix('entity-trends')->group(function () {
 
+    Route::get('/', [EntityTrendController::class, 'index'])
+        ->name('entity-trends.index');
+
+    Route::get('/fetch', [EntityTrendController::class, 'fetchPaginated'])
+        ->name('entity-trends.fetch');
+
+    Route::post('/', [EntityTrendController::class, 'store'])
+        ->name('entity-trends.store');
+
+    Route::put('/{id}', [EntityTrendController::class, 'update'])
+        ->name('entity-trends.update');
+
+    Route::delete('/{id}', [EntityTrendController::class, 'destroy'])
+        ->name('entity-trends.destroy');
+
+});
     Route::prefix('languages')->group(function () {
         Route::get('/', [LanguageController::class, 'index'])->name('languages.index');
         Route::get('/fetch', [LanguageController::class, 'fetchPaginated'])->name('languages.fetch');

@@ -3,24 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class EntityTrend extends Model
 {
     protected $table = 'entity_trends';
 
     /**
-     * La tabla es analítica / transaccional híbrida
-     * NO usa updated_at
+     * Solo usa created_at
      */
     public $timestamps = false;
-
-    /**
-     * Solo created_at existe como timestamp
-     */
     const CREATED_AT = 'created_at';
 
     /**
-     * Campos que SÍ existen en la tabla
+     * Campos permitidos
      */
     protected $fillable = [
         'market_entity_id',
@@ -47,7 +43,7 @@ class EntityTrend extends Model
     ];
 
     /**
-     * Casts correctos (importante)
+     * Casts correctos
      */
     protected $casts = [
         'trend_score'      => 'float',
@@ -55,10 +51,16 @@ class EntityTrend extends Model
         'discovered_at'    => 'datetime',
         'created_at'       => 'datetime',
         'raw_payload'      => 'array',
+        'year'             => 'integer',
+        'quarter'          => 'integer',
     ];
 
+    /* =====================================================
+       RELACIONES
+    ===================================================== */
+
     /**
-     * Relación TRANSACCIONAL REAL
+     * Entidad de mercado asociada
      */
     public function marketEntity()
     {
@@ -66,5 +68,53 @@ class EntityTrend extends Model
             MarketEntity::class,
             'market_entity_id'
         );
+    }
+
+    /**
+     * Trend tecnológico origen (si aplica)
+     */
+    public function technologyTrend()
+    {
+        return $this->belongsTo(
+            TechnologyTrend::class,
+            'technology_trend_id'
+        );
+    }
+
+    /* =====================================================
+       SCOPES ÚTILES PARA AUDITORÍA
+    ===================================================== */
+
+    /**
+     * Filtrar por periodo
+     */
+    public function scopeForPeriod(Builder $query, int $year, int $quarter): Builder
+    {
+        return $query->where('year', $year)
+                     ->where('quarter', $quarter);
+    }
+
+    /**
+     * Filtrar por entidad
+     */
+    public function scopeByEntity(Builder $query, int $entityId): Builder
+    {
+        return $query->where('market_entity_id', $entityId);
+    }
+
+    /**
+     * Solo trends con fuente válida
+     */
+    public function scopeWithSource(Builder $query): Builder
+    {
+        return $query->whereNotNull('source_url');
+    }
+
+    /**
+     * Orden por score descendente
+     */
+    public function scopeTop(Builder $query): Builder
+    {
+        return $query->orderByDesc('trend_score');
     }
 }
