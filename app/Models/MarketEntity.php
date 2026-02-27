@@ -38,4 +38,17 @@ class MarketEntity extends Model
             'market_entity_id'
         );
     }
+
+    /**
+     * Relación MANY TO MANY con carreras
+     */
+    public function careers()
+    {
+        return $this->belongsToMany(
+            Career::class,
+            'market_entity_career',
+            'market_entity_id',
+            'career_id'
+        )->withTimestamps();
+    }
 }

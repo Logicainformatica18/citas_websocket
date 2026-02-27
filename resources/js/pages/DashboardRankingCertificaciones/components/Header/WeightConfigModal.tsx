@@ -80,14 +80,25 @@ export function WeightConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl rounded-2xl p-6">
+      <DialogContent
+        className="
+          max-w-xl
+          rounded-2xl
+          p-6
+          bg-white
+          dark:bg-slate-900
+          border
+          border-slate-200
+          dark:border-slate-700
+        "
+      >
         {/* ================= HEADER ================= */}
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
             <Calculator className="h-5 w-5 text-[#00B6E8]" />
             Configuración de Ponderaciones
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-500 dark:text-slate-400">
             Ajuste los pesos de cada criterio. Ambos deben sumar 100%.
           </DialogDescription>
         </DialogHeader>
@@ -97,9 +108,9 @@ export function WeightConfigModal({
           {/* Demanda Laboral */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 font-medium">
+              <div className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
                 📊 Demanda Laboral
-                <Info className="h-4 w-4 text-muted-foreground" />
+                <Info className="h-4 w-4 text-slate-400 dark:text-slate-500" />
               </div>
               <span className="text-xl font-bold text-[#00B6E8]">
                 {laborWeight}%
@@ -117,9 +128,10 @@ export function WeightConfigModal({
                 w-full
                 h-2
                 rounded-full
-                bg-gray-200
                 appearance-none
                 cursor-pointer
+                bg-slate-200
+                dark:bg-slate-700
                 accent-[#00B6E8]
               "
             />
@@ -128,9 +140,9 @@ export function WeightConfigModal({
           {/* Tendencias Tecnológicas */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 font-medium">
+              <div className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
                 📈 Tendencias Tecnológicas
-                <Info className="h-4 w-4 text-muted-foreground" />
+                <Info className="h-4 w-4 text-slate-400 dark:text-slate-500" />
               </div>
               <span className="text-xl font-bold text-emerald-500">
                 {trendsWeight}%
@@ -148,9 +160,10 @@ export function WeightConfigModal({
                 w-full
                 h-2
                 rounded-full
-                bg-gray-200
                 appearance-none
                 cursor-pointer
+                bg-slate-200
+                dark:bg-slate-700
                 accent-emerald-500
               "
             />
@@ -158,19 +171,43 @@ export function WeightConfigModal({
         </div>
 
         {/* ================= PREVIEW ================= */}
-        <div className="mt-8 rounded-xl border bg-[#E6F7FD] p-5">
-          <div className="mb-2 flex items-center gap-2 font-medium">
+        <div
+          className="
+            mt-8
+            rounded-xl
+            border
+            p-5
+            bg-sky-50
+            dark:bg-slate-800
+            border-sky-100
+            dark:border-slate-700
+          "
+        >
+          <div className="mb-2 flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
             🧮 Preview del Cálculo
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-slate-500 dark:text-slate-400">
               (AWS Solutions Architect Associate)
             </span>
           </div>
 
-          <div className="mt-3 rounded-lg bg-white p-4 shadow-sm">
+          <div
+            className="
+              mt-3
+              rounded-lg
+              p-4
+              bg-white
+              dark:bg-slate-900
+              border
+              border-slate-200
+              dark:border-slate-700
+            "
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Score Final</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Score Final
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   ({laborScore} × {laborWeight}%) + ({trendsScore} ×{" "}
                   {trendsWeight}%)
                 </p>
@@ -181,21 +218,33 @@ export function WeightConfigModal({
             </div>
           </div>
 
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
             Fórmula: Score = (Laboral × {laborWeight}%) + (Tendencias ×{" "}
             {trendsWeight}%)
           </p>
         </div>
 
-        <Separator className="my-6" />
+        <Separator className="my-6 bg-slate-200 dark:bg-slate-700" />
 
         {/* ================= ACTIONS ================= */}
         <div className="flex justify-between">
-          <Button variant="outline" onClick={handleReset}>
+          <Button
+            variant="outline"
+            className="border-slate-300 dark:border-slate-600 dark:text-slate-200"
+            onClick={handleReset}
+          >
             Restablecer
           </Button>
 
-          <Button className="bg-[#00B6E8] hover:bg-[#009FCC]" onClick={handleApply}>
+          <Button
+            className="
+              bg-[#00B6E8]
+              hover:bg-[#009FCC]
+              text-white
+              shadow-sm
+            "
+            onClick={handleApply}
+          >
             Aplicar ponderaciones
           </Button>
         </div>

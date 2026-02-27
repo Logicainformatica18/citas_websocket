@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 
+type Career = {
+  id: number;
+  name: string;
+};
+
 type MarketEntity = {
   id?: number;
   name: string;
@@ -12,6 +17,7 @@ type MarketEntity = {
   level?: string | null;
   has_isil?: boolean;
   has_trend?: boolean;
+  careers?: Career[];
 };
 
 type Props = {
@@ -19,6 +25,7 @@ type Props = {
   editing?: MarketEntity | null;
   onClose: () => void;
   onSaved: () => void;
+  careers: Career[]; // 👈 VIENE DESDE INDEX (Inertia)
 };
 
 export default function MarketEntityModal({
@@ -26,6 +33,7 @@ export default function MarketEntityModal({
   editing,
   onClose,
   onSaved,
+  careers,
 }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -40,13 +48,33 @@ export default function MarketEntityModal({
     has_trend: false,
   });
 
+  const [selectedCareers, setSelectedCareers] = useState<number[]>([]);
+
+  /* ===============================
+     EDIT MODE
+  =============================== */
   useEffect(() => {
     if (editing) {
       setForm(editing);
+      setSelectedCareers(editing.careers?.map((c) => c.id) ?? []);
+    } else {
+      setForm({
+        name: "",
+        entity_type: "",
+        origin: "",
+        category: "",
+        vendor: "",
+        level: "",
+        has_isil: false,
+        has_trend: false,
+      });
+      setSelectedCareers([]);
     }
-  }, [editing]);
+  }, [editing, open]);
 
-  // ESC close
+  /* ===============================
+     ESC CLOSE
+  =============================== */
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -65,12 +93,28 @@ export default function MarketEntityModal({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const toggleCareer = (id: number) => {
+    setSelectedCareers((prev) =>
+      prev.includes(id)
+        ? prev.filter((c) => c !== id)
+        : [...prev, id]
+    );
+  };
+
+  /* ===============================
+     SAVE
+  =============================== */
   const save = async () => {
     try {
+      const payload = {
+        ...form,
+        career_ids: selectedCareers,
+      };
+
       if (editing?.id) {
-        await axios.put(`/market-entities/${editing.id}`, form);
+        await axios.put(`/market-entities/${editing.id}`, payload);
       } else {
-        await axios.post(`/market-entities`, form);
+        await axios.post(`/market-entities`, payload);
       }
 
       Swal.fire("Éxito", "Entidad guardada correctamente.", "success");
@@ -94,7 +138,7 @@ export default function MarketEntityModal({
     >
       <div
         ref={modalRef}
-        className="w-full max-w-2xl bg-white dark:bg-[#1e293b] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-fade-in"
+        className="w-full max-w-3xl bg-white dark:bg-[#0f172a] rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
       >
         {/* HEADER */}
         <div className="px-8 py-6 border-b border-gray-200 dark:border-gray-700">
@@ -106,7 +150,7 @@ export default function MarketEntityModal({
         {/* CONTENT */}
         <div className="px-8 py-6 overflow-y-auto space-y-8">
 
-          {/* INFORMACIÓN BÁSICA */}
+          {/* GENERAL */}
           <Section title="Información General">
             <Input
               label="Nombre"
@@ -128,26 +172,44 @@ export default function MarketEntityModal({
 
           {/* METADATA */}
           <Section title="Metadatos">
-            <Input
-              label="Origen"
-              value={form.origin ?? ""}
-              onChange={(v) => handleChange("origin", v)}
-            />
-            <Input
-              label="Categoría"
-              value={form.category ?? ""}
-              onChange={(v) => handleChange("category", v)}
-            />
-            <Input
-              label="Vendor"
-              value={form.vendor ?? ""}
-              onChange={(v) => handleChange("vendor", v)}
-            />
-            <Input
-              label="Nivel"
-              value={form.level ?? ""}
-              onChange={(v) => handleChange("level", v)}
-            />
+            <Input label="Origen" value={form.origin ?? ""} onChange={(v) => handleChange("origin", v)} />
+            <Input label="Categoría" value={form.category ?? ""} onChange={(v) => handleChange("category", v)} />
+            <Input label="Vendor" value={form.vendor ?? ""} onChange={(v) => handleChange("vendor", v)} />
+            <Input label="Nivel" value={form.level ?? ""} onChange={(v) => handleChange("level", v)} />
+          </Section>
+
+          {/* CAREERS */}
+          <Section title="Carreras Asociadas">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {careers.map((career) => (
+                <label
+                  key={career.id}
+                  className={`
+                    flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm
+                    border transition
+                    ${
+                      selectedCareers.includes(career.id)
+                        ? "bg-[#1CBCE8]/20 border-[#1CBCE8] text-[#1CBCE8]"
+                        : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700"
+                    }
+                  `}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCareers.includes(career.id)}
+                    onChange={() => toggleCareer(career.id)}
+                    className="hidden"
+                  />
+                  {career.name}
+                </label>
+              ))}
+            </div>
+
+            {selectedCareers.length === 0 && (
+              <p className="text-xs text-red-500 mt-2">
+                ⚠️ Se recomienda asociar al menos una carrera.
+              </p>
+            )}
           </Section>
 
           {/* FLAGS */}
@@ -170,14 +232,14 @@ export default function MarketEntityModal({
         <div className="px-8 py-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:opacity-80 transition"
+            className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
           >
             Cancelar
           </button>
 
           <button
             onClick={save}
-            className="px-5 py-2 rounded-lg bg-[#1CBCE8] text-white hover:bg-[#17A8D0] transition"
+            className="px-5 py-2 rounded-lg bg-[#1CBCE8] text-white hover:bg-[#17A8D0]"
           >
             Guardar
           </button>
@@ -186,7 +248,6 @@ export default function MarketEntityModal({
     </div>
   );
 }
-
 /* ================= COMPONENTES ================= */
 
 function Section({ title, children }: any) {
@@ -245,12 +306,12 @@ function Select({ label, value, onChange, options }: any) {
 
 function Checkbox({ label, checked, onChange }: any) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4"
+        className="w-4 h-4 accent-[#1CBCE8]"
       />
       {label}
     </label>

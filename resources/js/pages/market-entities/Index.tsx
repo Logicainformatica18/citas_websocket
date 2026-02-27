@@ -21,6 +21,10 @@ type MarketEntity = {
   vendor?: string | null;
   level?: string | null;
   has_trend: boolean;
+  careers?: {
+    id: number;
+    name: string;
+  }[];
 };
 
 type Pagination<T> = {
@@ -32,9 +36,10 @@ type Pagination<T> = {
 };
 
 export default function MarketEntitiesIndex() {
-  const { entities: initialPagination } = usePage<{
-    entities: Pagination<MarketEntity>;
-  }>().props;
+const { entities: initialPagination, careers } = usePage<{
+  entities: Pagination<MarketEntity>;
+  careers: { id: number; name: string }[];
+}>().props;
 
   const [items, setItems] = useState<MarketEntity[]>([]);
   const [pagination, setPagination] =
@@ -175,6 +180,7 @@ export default function MarketEntitiesIndex() {
                 <th className="px-4 py-2 text-left">Nombre</th>
                 <th className="px-4 py-2 text-left">Tipo</th>
                 <th className="px-4 py-2 text-left">Categoría</th>
+                <th className="px-4 py-2 text-left">Carreras</th>
                 <th className="px-4 py-2 text-center">Trend</th>
               </tr>
             </thead>
@@ -183,13 +189,13 @@ export default function MarketEntitiesIndex() {
 
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center">
+                  <td colSpan={6} className="py-6 text-center">
                     Cargando…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center">
+                  <td colSpan={6} className="py-6 text-center">
                     No hay entidades registradas.
                   </td>
                 </tr>
@@ -228,7 +234,24 @@ export default function MarketEntitiesIndex() {
                     <td className="px-4 py-3">
                       {item.category ?? "—"}
                     </td>
-
+<td className="px-4 py-3">
+  {item.careers && item.careers.length > 0 ? (
+    <div className="flex flex-wrap gap-1">
+      {item.careers.map((career) => (
+        <span
+          key={career.id}
+          className="px-2 py-0.5 text-xs rounded-full
+            bg-[#E7F9FD] text-[#0C647A]
+            dark:bg-[#1CBCE8]/20 dark:text-[#1CBCE8]"
+        >
+          {career.name}
+        </span>
+      ))}
+    </div>
+  ) : (
+    <span className="text-gray-400 text-xs">—</span>
+  )}
+</td>
                     <td className="px-4 py-3 text-center">
                       <input
                         type="checkbox"
@@ -298,12 +321,13 @@ export default function MarketEntitiesIndex() {
         )}
 
         {showModal && (
-          <MarketEntityModal
-            open={showModal}
-            onClose={() => setShowModal(false)}
-            onSaved={() => fetchPage("/market-entities/fetch")}
-            editing={editing}
-          />
+         <MarketEntityModal
+  open={showModal}
+  onClose={() => setShowModal(false)}
+  onSaved={() => fetchPage("/market-entities/fetch")}
+  editing={editing}
+  careers={careers}
+/>
         )}
       </div>
     </AppLayout>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MarketEntity;
+use App\Models\Career;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,15 +16,21 @@ class MarketEntityController extends Controller
      */
     public function index(Request $request)
     {
-        $search = $request->get('search');
-        $type   = $request->get('entity_type');
+        $search   = $request->get('search');
+        $type     = $request->get('entity_type');
+        $careerId = $request->get('career_id');
 
-        $entities = MarketEntity::query()
+        $entities = MarketEntity::with('careers')
             ->when($search, fn ($q) =>
                 $q->where('name', 'like', "%{$search}%")
             )
             ->when($type, fn ($q) =>
                 $q->where('entity_type', $type)
+            )
+            ->when($careerId, fn ($q) =>
+                $q->whereHas('careers', fn ($c) =>
+                    $c->where('careers.id', $careerId)
+                )
             )
             ->orderByDesc('id')
             ->paginate(15)
@@ -41,10 +48,16 @@ class MarketEntityController extends Controller
                 'level'       => $e->level,
                 'has_isil'    => $e->has_isil,
                 'has_trend'   => $e->has_trend,
+                'careers'     => $e->careers->map(fn ($c) => [
+                    'id'   => $c->id,
+                    'name' => $c->name,
+                ]),
             ]),
+            'careers' => Career::select('id', 'name')->orderBy('name')->get(),
             'filters' => [
                 'search'      => $search,
                 'entity_type' => $type,
+                'career_id'   => $careerId,
             ],
         ]);
     }
@@ -54,15 +67,21 @@ class MarketEntityController extends Controller
      */
     public function fetchPaginated(Request $request)
     {
-        $search = $request->get('search');
-        $type   = $request->get('entity_type');
+        $search   = $request->get('search');
+        $type     = $request->get('entity_type');
+        $careerId = $request->get('career_id');
 
-        $entities = MarketEntity::query()
+        $entities = MarketEntity::with('careers')
             ->when($search, fn ($q) =>
                 $q->where('name', 'like', "%{$search}%")
             )
             ->when($type, fn ($q) =>
                 $q->where('entity_type', $type)
+            )
+            ->when($careerId, fn ($q) =>
+                $q->whereHas('careers', fn ($c) =>
+                    $c->where('careers.id', $careerId)
+                )
             )
             ->orderByDesc('id')
             ->paginate(15)
@@ -80,6 +99,10 @@ class MarketEntityController extends Controller
                 'level'       => $e->level,
                 'has_isil'    => $e->has_isil,
                 'has_trend'   => $e->has_trend,
+                'careers'     => $e->careers->map(fn ($c) => [
+                    'id'   => $c->id,
+                    'name' => $c->name,
+                ]),
             ])
         );
     }
@@ -98,6 +121,8 @@ class MarketEntityController extends Controller
             'level'       => 'nullable|string|max:100',
             'has_isil'    => 'nullable|boolean',
             'has_trend'   => 'nullable|boolean',
+            'career_ids'  => 'nullable|array',
+            'career_ids.*'=> 'exists:careers,id',
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -106,9 +131,13 @@ class MarketEntityController extends Controller
 
             $entity = MarketEntity::create($validated);
 
+            if (!empty($validated['career_ids'])) {
+                $entity->careers()->sync($validated['career_ids']);
+            }
+
             return response()->json([
                 'message' => '✅ Entidad creada correctamente.',
-                'entity'  => $entity,
+                'entity'  => $entity->load('careers'),
             ], 201);
         });
     }
@@ -127,6 +156,8 @@ class MarketEntityController extends Controller
             'level'       => 'nullable|string|max:100',
             'has_isil'    => 'nullable|boolean',
             'has_trend'   => 'nullable|boolean',
+            'career_ids'  => 'nullable|array',
+            'career_ids.*'=> 'exists:careers,id',
         ]);
 
         return DB::transaction(function () use ($validated, $id) {
@@ -137,9 +168,13 @@ class MarketEntityController extends Controller
 
             $entity->update($validated);
 
+            if (isset($validated['career_ids'])) {
+                $entity->careers()->sync($validated['career_ids']);
+            }
+
             return response()->json([
                 'message' => '✅ Entidad actualizada correctamente.',
-                'entity'  => $entity,
+                'entity'  => $entity->load('careers'),
             ]);
         });
     }
@@ -151,15 +186,15 @@ class MarketEntityController extends Controller
     {
         return DB::transaction(function () use ($id) {
 
-            $entity = MarketEntity::findOrFail($id);
+            $entity = MarketEntity::with('entityTrends')->findOrFail($id);
 
-            // Seguridad opcional: no eliminar si tiene trends
             if ($entity->entityTrends()->exists()) {
                 return response()->json([
                     'message' => '⚠️ No se puede eliminar. Tiene trends asociados.'
                 ], 422);
             }
 
+            $entity->careers()->detach();
             $entity->delete();
 
             return response()->json([
