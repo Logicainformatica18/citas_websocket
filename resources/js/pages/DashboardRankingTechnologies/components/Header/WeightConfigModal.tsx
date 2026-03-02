@@ -27,7 +27,7 @@ export const defaultWeights: WeightConfig = {
 interface WeightConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  weights: WeightConfig;
+  weights?: WeightConfig;
   onSave: (weights: WeightConfig) => void;
 }
 
@@ -41,8 +41,13 @@ export function WeightConfigModal({
   weights,
   onSave,
 }: WeightConfigModalProps) {
-  const [laborWeight, setLaborWeight] = useState(weights.laborWeight);
-  const [trendsWeight, setTrendsWeight] = useState(weights.trendsWeight);
+  const [laborWeight, setLaborWeight] = useState(
+    weights?.laborWeight ?? defaultWeights.laborWeight
+  );
+
+  const [trendsWeight, setTrendsWeight] = useState(
+    weights?.trendsWeight ?? defaultWeights.trendsWeight
+  );
 
   const handleLaborChange = (v: number) => {
     setLaborWeight(v);
@@ -65,18 +70,22 @@ export function WeightConfigModal({
   };
 
   /* =========================
-     Preview mock (Tecnología)
+     Preview mock
   ========================= */
   const laborScore = 88.4;
   const trendsScore = 92.1;
+
+  const safeLabor = Number(laborWeight) || 0;
+  const safeTrends = Number(trendsWeight) || 0;
+
   const finalScore =
-    laborScore * (laborWeight / 100) +
-    trendsScore * (trendsWeight / 100);
+    laborScore * (safeLabor / 100) +
+    trendsScore * (safeTrends / 100);
 
   useEffect(() => {
     if (open) {
-      setLaborWeight(weights.laborWeight);
-      setTrendsWeight(weights.trendsWeight);
+      setLaborWeight(weights?.laborWeight ?? defaultWeights.laborWeight);
+      setTrendsWeight(weights?.trendsWeight ?? defaultWeights.trendsWeight);
     }
   }, [open, weights]);
 
@@ -100,7 +109,7 @@ export function WeightConfigModal({
           <div>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 font-medium">
-                📊 Demanda Laboral de Tecnologías
+                📊 {laborWeight} % Demanda Laboral
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               <span className="text-xl font-bold text-[#00B6E8]">
@@ -117,15 +126,7 @@ export function WeightConfigModal({
               onChange={(e) =>
                 handleLaborChange(Number(e.target.value))
               }
-              className="
-                w-full
-                h-2
-                rounded-full
-                bg-gray-200
-                appearance-none
-                cursor-pointer
-                accent-[#00B6E8]
-              "
+              className="w-full h-2 rounded-full bg-gray-200 appearance-none cursor-pointer accent-[#00B6E8]"
             />
           </div>
 
@@ -133,7 +134,7 @@ export function WeightConfigModal({
           <div>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 font-medium">
-                📈 Presencia en Tendencias Tecnológicas
+                📈 {trendsWeight} % Tendencias Tecnológicas
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               <span className="text-xl font-bold text-emerald-500">
@@ -150,15 +151,7 @@ export function WeightConfigModal({
               onChange={(e) =>
                 handleTrendsChange(Number(e.target.value))
               }
-              className="
-                w-full
-                h-2
-                rounded-full
-                bg-gray-200
-                appearance-none
-                cursor-pointer
-                accent-emerald-500
-              "
+              className="w-full h-2 rounded-full bg-gray-200 appearance-none cursor-pointer accent-emerald-500"
             />
           </div>
         </div>
@@ -179,8 +172,7 @@ export function WeightConfigModal({
                   Score Final
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  ({laborScore} × {laborWeight}%) + ({trendsScore} ×{" "}
-                  {trendsWeight}%)
+                  ({laborScore} × {safeLabor}%) + ({trendsScore} × {safeTrends}%)
                 </p>
               </div>
               <p className="text-4xl font-extrabold text-[#00B6E8]">
@@ -190,8 +182,7 @@ export function WeightConfigModal({
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
-            Fórmula: Score = (Laboral × {laborWeight}%) + (Tendencias ×{" "}
-            {trendsWeight}%)
+            Fórmula: Score = (Laboral × {safeLabor}%) + (Tendencias × {safeTrends}%)
           </p>
         </div>
 

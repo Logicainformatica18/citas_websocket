@@ -18,6 +18,9 @@ class MacroTrendsIndicatorController extends Controller
     {
         $this->service = $service;
     }
+/* =====================================================
+   SEARCH MACRO TRENDS
+===================================================== */
 
     /* =====================================================
        GUARDAR PONDERACIONES
@@ -80,27 +83,35 @@ class MacroTrendsIndicatorController extends Controller
     /* =====================================================
        LISTADO GENERAL (RANKING)
     ===================================================== */
-  public function index(Request $request)
+public function index(Request $request)
 {
     $year   = (int) $request->get('year', now()->year);
     $period = $request->get('period', 's1');
+    $search = trim($request->get('search', ''));
 
     $range = $this->getPeriodRange($period, $year);
 
-    /* =====================================================
-       QUERY BASE
-    ===================================================== */
-    $baseQuery = DB::table('macro_trend_raw')
+    $query = DB::table('macro_trend_raw')
         ->where('year', $year)
         ->whereBetween('created_at', [
             $range['start'],
             $range['end']
         ]);
 
-    /* =====================================================
-       PAGINADO
-    ===================================================== */
-    $trends = $baseQuery
+    /* =========================
+       SEARCH INTEGRADO
+    ========================= */
+    if (!empty($search)) {
+        $query->where(function ($q) use ($search) {
+            $q->where('trend_name', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%")
+              ->orWhere('source_name', 'like', "%{$search}%")
+              ->orWhere('source_title', 'like', "%{$search}%")
+              ->orWhere('source_type', 'like', "%{$search}%");
+        });
+    }
+
+    $trends = $query
         ->select(
             'id',
             'trend_name',
@@ -114,17 +125,10 @@ class MacroTrendsIndicatorController extends Controller
             'created_at'
         )
         ->orderByDesc('created_at')
-        ->paginate(4);
+        ->paginate(4)
+        ->withQueryString();
 
-    /* =====================================================
-       MÉTRICAS HEADER
-    ===================================================== */
-    $totalSemestre = DB::table('macro_trend_raw')
-        ->whereBetween('created_at', [
-            $range['start'],
-            $range['end']
-        ])
-        ->count();
+    $totalSemestre = $query->count();
 
     $totalYear = DB::table('macro_trend_raw')
         ->where('year', $year)
@@ -136,7 +140,9 @@ class MacroTrendsIndicatorController extends Controller
         'DashboardMacroTrends/MacroTrendsIndicatorPage',
         [
             'ranking' => $trends,
-
+            'filters' => [
+                'search' => $search,
+            ],
             'meta' => [
                 'year' => $year,
                 'period' => $period,
@@ -148,8 +154,7 @@ class MacroTrendsIndicatorController extends Controller
                 'total_semestre'   => $totalSemestre,
                 'total_year'       => $totalYear,
                 'total_historico'  => $totalHistorico,
-
-                'actualizado' => now()->toDateTimeString(),
+                'actualizado'      => now()->toDateTimeString(),
             ],
         ]
     );

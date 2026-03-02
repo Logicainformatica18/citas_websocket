@@ -27,7 +27,7 @@ export const defaultWeights: WeightConfig = {
 interface WeightConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  weights: WeightConfig;
+  weights?: WeightConfig;
   onSave: (weights: WeightConfig) => void;
 }
 
@@ -41,22 +41,31 @@ export function WeightConfigModal({
   weights,
   onSave,
 }: WeightConfigModalProps) {
-  const [laborWeight, setLaborWeight] = useState(70);
-  const [trendWeight, setTrendWeight] = useState(30);
+
+  const [laborWeight, setLaborWeight] = useState(
+    weights?.laborWeight ?? defaultWeights.laborWeight
+  );
+
+  const [trendWeight, setTrendWeight] = useState(
+    weights?.trendWeight ?? defaultWeights.trendWeight
+  );
 
   /* ================= RESET ================= */
   const handleReset = () => {
-    setLaborWeight(70);
-    setTrendWeight(30);
+    setLaborWeight(defaultWeights.laborWeight);
+    setTrendWeight(defaultWeights.trendWeight);
   };
 
   /* ================= APPLY ================= */
   const handleApply = () => {
-    if (laborWeight + trendWeight !== 100) return;
+    const safeLabor = Number(laborWeight) || 0;
+    const safeTrend = Number(trendWeight) || 0;
+
+    if (safeLabor + safeTrend !== 100) return;
 
     onSave({
-      laborWeight,
-      trendWeight,
+      laborWeight: safeLabor,
+      trendWeight: safeTrend,
     });
 
     onOpenChange(false);
@@ -66,21 +75,25 @@ export function WeightConfigModal({
   const laborScore = 92.4;
   const trendScore = 65.0;
 
+  const safeLabor = Number(laborWeight) || 0;
+  const safeTrend = Number(trendWeight) || 0;
+
   const finalScore =
-    laborScore * (laborWeight / 100) +
-    trendScore * (trendWeight / 100);
+    laborScore * (safeLabor / 100) +
+    trendScore * (safeTrend / 100);
 
   /* ================= SYNC ================= */
   useEffect(() => {
     if (open) {
-      setLaborWeight(weights.laborWeight ?? 70);
-      setTrendWeight(weights.trendWeight ?? 30);
+      setLaborWeight(weights?.laborWeight ?? defaultWeights.laborWeight);
+      setTrendWeight(weights?.trendWeight ?? defaultWeights.trendWeight);
     }
   }, [open, weights]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-2xl p-6">
+
         {/* ================= HEADER ================= */}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
@@ -89,7 +102,7 @@ export function WeightConfigModal({
           </DialogTitle>
           <DialogDescription>
             El ranking de lenguajes combina demanda laboral y evidencia
-            de tendencias tecnológicas.
+            en reportes de tendencias tecnológicas globales.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,11 +113,11 @@ export function WeightConfigModal({
           <div>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 font-medium">
-                📊 Demanda Laboral
+                📊 {safeLabor}% Demanda Laboral
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               <span className="text-xl font-bold text-[#00B6E8]">
-                {laborWeight}%
+                {safeLabor}%
               </span>
             </div>
 
@@ -113,13 +126,13 @@ export function WeightConfigModal({
               min={0}
               max={100}
               step={1}
-              value={laborWeight}
+              value={safeLabor}
               onChange={(e) => {
                 const value = Number(e.target.value);
                 setLaborWeight(value);
                 setTrendWeight(100 - value);
               }}
-              className="w-full h-2 rounded-full accent-[#00B6E8]"
+              className="w-full h-2 rounded-full bg-gray-200 appearance-none cursor-pointer accent-[#00B6E8]"
             />
 
             <p className="mt-2 text-xs text-muted-foreground">
@@ -131,11 +144,11 @@ export function WeightConfigModal({
           <div>
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 font-medium">
-                📈 Tendencias Tecnológicas
+                📈 {safeTrend}% Tendencias Tecnológicas
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               <span className="text-xl font-bold text-purple-600">
-                {trendWeight}%
+                {safeTrend}%
               </span>
             </div>
 
@@ -144,13 +157,13 @@ export function WeightConfigModal({
               min={0}
               max={100}
               step={1}
-              value={trendWeight}
+              value={safeTrend}
               onChange={(e) => {
                 const value = Number(e.target.value);
                 setTrendWeight(value);
                 setLaborWeight(100 - value);
               }}
-              className="w-full h-2 rounded-full accent-purple-500"
+              className="w-full h-2 rounded-full bg-gray-200 appearance-none cursor-pointer accent-purple-500"
             />
 
             <p className="mt-2 text-xs text-muted-foreground">
@@ -171,8 +184,8 @@ export function WeightConfigModal({
           <div className="mt-3 rounded-lg bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                <p>{laborScore} × {laborWeight}%</p>
-                <p>{trendScore} × {trendWeight}%</p>
+                <p>{laborScore} × {safeLabor}%</p>
+                <p>{trendScore} × {safeTrend}%</p>
               </div>
 
               <p className="text-4xl font-extrabold text-[#00B6E8]">
@@ -182,7 +195,7 @@ export function WeightConfigModal({
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
-            Score = (Labor × peso) + (Tendencias × peso)
+            Score = ({(safeLabor / 100).toFixed(1)} × Laboral) + ({(safeTrend / 100).toFixed(1)} × Tendencias)
           </p>
         </div>
 
@@ -197,7 +210,7 @@ export function WeightConfigModal({
           <Button
             className="bg-[#00B6E8] hover:bg-[#009FCC]"
             onClick={handleApply}
-            disabled={laborWeight + trendWeight !== 100}
+            disabled={safeLabor + safeTrend !== 100}
           >
             Aplicar metodología
           </Button>

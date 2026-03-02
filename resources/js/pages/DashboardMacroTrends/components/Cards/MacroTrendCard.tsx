@@ -65,7 +65,7 @@ export default function MacroTrendCard({ data, onOpen }: Props) {
           </button>
 
           {/* Ver reporte */}
-          {data?.source_url && (
+          {/* {data?.source_url && (
             <a
               href={data.source_url}
               target="_blank"
@@ -75,7 +75,7 @@ export default function MacroTrendCard({ data, onOpen }: Props) {
               Ver reporte
               <ExternalLink className="h-3 w-3" />
             </a>
-          )}
+          )} */}
         </div>
 
         {/* DERECHA: periodo */}

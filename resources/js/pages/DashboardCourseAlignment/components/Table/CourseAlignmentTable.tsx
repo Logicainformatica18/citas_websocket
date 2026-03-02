@@ -49,10 +49,9 @@ export default function CourseAlignmentTableGrid({
   key={course.id}
   onClick={() => onSelectCourse?.(course)}
   className="border-t hover:bg-muted/20 transition-colors cursor-pointer"
->
-            <td className="px-6 py-4 font-medium text-[13px]">
-              {course.name}
-            </td>
+><td className="px-6 py-4 font-medium text-[13px] uppercase">
+  {course.name}
+</td>
 
             <td className="px-4 py-4">
               <EstadoBadge estado={course.estado} />

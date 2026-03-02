@@ -175,34 +175,57 @@ export function Header({ meta, weights, onEditWeights }: HeaderProps) {
             </div>
 
             {/* ================= RIGHT ================= */}
-            <button
-              onClick={onEditWeights}
-              className="group w-full max-w-sm rounded-2xl border border-[#00B6E8]/40 bg-white p-5 text-left shadow-xl transition-all hover:shadow-2xl"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
-                  Metodología
-                </p>
-                <Settings2 className="h-4 w-4 text-[#00B6E8]" />
-              </div>
+         {/* ================= RIGHT ================= */}
+{
+  (() => {
+    const labor = Number(weights?.laborWeight ?? 70);
+    const trend = Number(weights?.trendWeight ?? (100 - labor));
 
-              <div className="space-y-1 text-sm">
-                <p>
-                  <strong className="text-[#00B6E8]">
-                    {weights.laborWeight}%
-                  </strong>{" "}
-                  Demanda laboral
-                </p>
-                <p className="text-gray-500">
-                  Tendencias: <strong>informativas</strong>
-                </p>
-              </div>
+    const laborFactor = (labor / 100).toFixed(1);
+    const trendFactor = (trend / 100).toFixed(1);
 
-              <p className="mt-3 text-xs text-gray-500">
-                El score principal se calcula sobre ofertas laborales reales.
-                Las tendencias aportan contexto estratégico.
-              </p>
-            </button>
+    return (
+      <button
+        onClick={onEditWeights}
+        className="group w-full max-w-sm rounded-2xl border border-[#00B6E8]/40 bg-white p-5 text-left shadow-xl transition-all hover:border-[#00B6E8] hover:shadow-2xl dark:bg-[#102C3C]"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
+            Metodología de cálculo
+          </p>
+          <Settings2 className="h-4 w-4 text-[#00B6E8]" />
+        </div>
+
+        <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+          <p>
+            <span className="font-bold text-[#00B6E8]">
+              {labor}%
+            </span>{" "}
+            Demanda laboral
+          </p>
+          <p>
+            <span className="font-bold text-purple-600">
+              {trend}%
+            </span>{" "}
+            Tendencias tecnológicas
+          </p>
+        </div>
+
+        <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+          Score = ({laborFactor} × Laboral) + ({trendFactor} × Tendencias)
+        </p>
+
+        <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+          Los cálculos se realizan únicamente con datos del período seleccionado.
+        </p>
+
+        <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
+          Haz clic para editar ponderaciones
+        </p>
+      </button>
+    );
+  })()
+}
           </div>
         </div>
       </header>

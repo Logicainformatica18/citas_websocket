@@ -8,7 +8,7 @@ import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 import { MacroTrendsHeader } from "./components/Header/MacroTrendsHeader";
 import MacroTrendCard from "./components/Cards/MacroTrendCard";
 import MacroTrendDetailModal from "./components/Detail/MacroTrendDetailModal";
-
+import MacroTrendSearch from "./components/MacroTrendSearch";
 /* =========================================================
    Breadcrumbs
 ========================================================= */
@@ -73,7 +73,7 @@ export default function MacroTrendsIndicatorPage() {
 
               {/* ================= HEADER ================= */}
               <MacroTrendsHeader meta={meta} />
-
+<MacroTrendSearch />
               {/* ================= CARDS ================= */}
               <div className="flex flex-col gap-6">
 

@@ -155,8 +155,16 @@ export default function JobModalityIndicatorPage() {
         />
 
         {/* ================= CHARTS ================= */}
-        <ModalityDoughnutChart data={data} />
-        <ModalityTrendChart data={trendData} />
+    {/* ================= CHARTS ================= */}
+<div className="grid gap-6 md:grid-cols-2">
+  <div className="rounded-2xl border bg-white p-6 shadow-sm dark:bg-[#0F172A]">
+    <ModalityDoughnutChart data={data} />
+  </div>
+
+  <div className="rounded-2xl border bg-white p-6 shadow-sm dark:bg-[#0F172A]">
+    <ModalityTrendChart data={trendData} />
+  </div>
+</div>
 
         {/* ================= TABLE ================= */}
         <ModalitySummaryTable data={data} />

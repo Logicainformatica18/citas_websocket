@@ -243,33 +243,49 @@ export function Header({
                 <Settings2 className="h-4 w-4 text-[#00B6E8]" />
               </div>
 
-              <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
-                <p>
-                  <span className="font-bold text-[#00B6E8]">
-                    {weights.laborWeight}%
-                  </span>{" "}
-                  Demanda laboral
-                </p>
-                <p>
-                  <span className="font-bold text-[#00B6E8]">
-                    {weights.trendsWeight}%
-                  </span>{" "}
-                  Tendencias tecnológicas
-                </p>
-              </div>
+            {
+  (() => {
+    const labor = Number(weights?.laborWeight ?? 70);
+    const trends = Number(weights?.trendsWeight ?? (100 - labor));
 
-              <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                Score = ({weights.laborWeight / 100} × Laboral) + (
-                {weights.trendsWeight / 100} × Tendencias)
-              </p>
+    const laborFactor = (labor / 100).toFixed(1);
+    const trendsFactor = (trends / 100).toFixed(1);
 
-              <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                Los cálculos se realizan únicamente con datos del período seleccionado.
-              </p>
+    return (
+      <>
+        <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+          <p>
+            <span className="font-bold text-[#00B6E8]">
+              {labor}%
+            </span>{" "}
+            Demanda laboral
+          </p>
+          <p>
+            <span className="font-bold text-[#00B6E8]">
+              {trends}%
+            </span>{" "}
+            Tendencias tecnológicas
+          </p>
+        </div>
 
-              <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
-                Haz clic para editar ponderaciones
-              </p>
+        <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+          Score = ({laborFactor} × Laboral) + ({trendsFactor} × Tendencias)
+        </p>
+
+        <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+          Los cálculos se realizan únicamente con datos del período seleccionado.
+        </p>
+
+        <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
+          Haz clic para editar ponderaciones
+        </p>
+      </>
+    );
+  })()
+}
+
+
+
             </button>
           </div>
         </div>

@@ -243,24 +243,32 @@ Route::post(
     [MacroTrendsIndicatorController::class, 'storeWeights']
 )->name('macro-trends.weights');
 
-  Route::get(
-            '/indicators/macro-trends',
-            [MacroTrendsIndicatorController::class, 'index']
-        )->name('dashboard.indicators.macro-trends');
+Route::get(
+    '/indicators/macro-trends',
+    [MacroTrendsIndicatorController::class, 'index']
+)->name('dashboard.indicators.macro-trends');
 
-  Route::get('/indicators/macro-trends/{id}/detail',
-        [MacroTrendsIndicatorController::class, 'detail']
-    )->name('macro-trends.detail');
+/* 🔥 PON SEARCH ANTES DE {id} */
 
-    // 📄 Solo reportes (micro tendencias)
-    Route::get('/indicators/macro-trends/{id}/reports',
-        [MacroTrendsIndicatorController::class, 'getReports']
-    )->name('macro-trends.reports');
 
-    // 💼 Solo jobs asociados
-    Route::get('/indicators/macro-trends/{id}/jobs',
-        [MacroTrendsIndicatorController::class, 'getJobs']
-    )->name('macro-trends.jobs');
+/* 👇 DESPUÉS las rutas con {id} */
+Route::get(
+    '/indicators/macro-trends/{id}/detail',
+    [MacroTrendsIndicatorController::class, 'detail']
+)->name('macro-trends.detail');
+
+Route::get(
+    '/indicators/macro-trends/{id}/reports',
+    [MacroTrendsIndicatorController::class, 'getReports']
+)->name('macro-trends.reports');
+
+Route::get(
+    '/indicators/macro-trends/{id}/jobs',
+    [MacroTrendsIndicatorController::class, 'getJobs']
+)->name('macro-trends.jobs');
+
+
+
 // routes/dashboard.php
   Route::get(
             '/indicators/job-demand-geo',

@@ -90,26 +90,40 @@ $jobMarketStatus = JobMarketStatusBuilder::build([
     {
         $onlyUnspecified = $request->boolean('only_unspecified', true);
 
-        $sql = "
-            UPDATE job_offers
-            SET seniority = CASE
-                WHEN experience_level IS NULL OR TRIM(experience_level) = '' THEN 'unspecified'
+      $sql = "
+UPDATE job_offers
+SET seniority = CASE
 
-                WHEN LOWER(TRIM(experience_level)) IN
-                    ('1','2','entry level','internship','junior','jr')
-                THEN 'junior'
+    WHEN LOWER(title) LIKE '%junior%'
+         OR LOWER(title) LIKE '% jr %'
+    THEN 'junior'
 
-                WHEN LOWER(TRIM(experience_level)) IN
-                    ('3','4','mid','associate','mid-senior level','semi senior')
-                THEN 'mid'
+    WHEN LOWER(title) LIKE '%mid%'
+         OR LOWER(title) LIKE '%semi senior%'
+    THEN 'mid'
 
-                WHEN LOWER(TRIM(experience_level)) IN
-                    ('5','6','7','8','senior','sr','lead','principal','director','executive')
-                THEN 'senior'
+    WHEN LOWER(title) LIKE '%senior%'
+         OR LOWER(title) LIKE '% sr %'
+         OR LOWER(title) LIKE '%lead%'
+         OR LOWER(title) LIKE '%principal%'
+    THEN 'senior'
 
-                ELSE 'unspecified'
-            END
-        ";
+    WHEN experience_level IS NOT NULL AND LOWER(experience_level) IN
+         ('junior','jr','entry level','internship')
+    THEN 'junior'
+
+    WHEN experience_level IS NOT NULL AND LOWER(experience_level) IN
+         ('mid','associate','mid-senior level')
+    THEN 'mid'
+
+    WHEN experience_level IS NOT NULL AND LOWER(experience_level) IN
+         ('senior','sr','lead','principal','director')
+    THEN 'senior'
+
+    ELSE 'unspecified'
+
+END
+";
 
         if ($onlyUnspecified) {
             $sql .= " WHERE seniority IS NULL OR seniority = 'unspecified'";
