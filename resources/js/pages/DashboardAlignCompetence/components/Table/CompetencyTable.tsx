@@ -54,13 +54,13 @@ export default function CompetencyTable({
         <thead className="bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-300">
           <tr>
             <th className="text-left px-6 py-4 font-semibold">
-              Competencia PE
+              Competencias - Perfil de egreso
             </th>
             <th className="text-center px-6 py-4 font-semibold">
-              Puntaje
+              Porcentaje de alineación
             </th>
             <th className="text-center px-6 py-4 font-semibold">
-              Nivel estratégico
+             Nivel de alineación
             </th>
             {/* <th className="text-center px-6 py-4 font-semibold">
               IA
