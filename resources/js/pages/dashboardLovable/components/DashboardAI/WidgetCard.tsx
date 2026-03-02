@@ -1349,7 +1349,7 @@ export default function WidgetCard({
             </div>
             {/* 🖱️ Esquina inferior derecha para redimensionar */}
             {/* 🖱️ Decorativo, sin bloquear el handle del grid */}
-            <div
+            {/* <div
                 style={{
                     position: "absolute",
                     bottom: "6px",
@@ -1360,7 +1360,7 @@ export default function WidgetCard({
                     borderRadius: "4px",
                     pointerEvents: "none", // 👈 clave: no bloquea el handle real
                 }}
-            />
+            /> */}
 
 
         </div>

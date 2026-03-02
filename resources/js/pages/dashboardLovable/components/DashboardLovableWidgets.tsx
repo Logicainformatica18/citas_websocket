@@ -49,14 +49,7 @@ Ref API
 export type DashboardLovableWidgetsRef = {
     addSection: () => void;
 };
-const normalizeVerticalLayout = (layout: any[]) => {
-  return [...layout]
-    .sort((a, b) => a.y - b.y)
-    .map((item, index) => ({
-      ...item,
-      y: index * item.h, // snap vertical limpio
-    }));
-};
+
 
 
 /* =========================================================
@@ -105,28 +98,28 @@ const DashboardLovableWidgets = forwardRef<
                 ) + 1;
 
         try {
-    if (!activeDashboard?.id) {
-  Swal.fire("Error", "Dashboard no listo aún", "warning");
-  return;
-}
+            if (!activeDashboard?.id) {
+                Swal.fire("Error", "Dashboard no listo aún", "warning");
+                return;
+            }
 
-await axios.post(
-  `/api/ai/dashboards/${activeDashboard.id}/sections`,
-  {
-    title,
-    position: nextY,
-    height: 1,
-  }
-);
-
-
+            await axios.post(
+                `/api/ai/dashboards/${activeDashboard.id}/sections`,
+                {
+                    title,
+                    position: nextY,
+                    height: 1,
+                }
+            );
 
 
-           const res = await axios.get(
-  `/api/ai/dashboards/${activeDashboard.id}/sections`
-);
 
-setSections(res.data.sections || []);
+
+            const res = await axios.get(
+                `/api/ai/dashboards/${activeDashboard.id}/sections`
+            );
+
+            setSections(res.data.sections || []);
 
 
             MySwal.fire("✅ Sección creada", "", "success");
@@ -151,21 +144,21 @@ setSections(res.data.sections || []);
             ...sections.map((s) => ({
                 key: `section-${s.id}`,
                 type: "section" as const,
-               layout: {
-  i: `section-${s.id}`,
-  x: 0,
-  y: s.position ?? 0,
+                layout: {
+                    i: `section-${s.id}`,
+                    x: 0,
+                    y: s.position ?? 0,
 
-  w: 12,
-  h: s.height ?? 1,
+                    w: 12,
+                    h: s.height ?? 1,
 
-  minH: 1,          // 🔥 CLAVE: permite achicar
-  maxH: 10,         // opcional (control)
+                    minH: 1,          // 🔥 CLAVE: permite achicar
+                    maxH: 10,         // opcional (control)
 
-  static: false,
-  isResizable: true,
-  resizeHandles: ["s"], // 👈 solo vertical (correcto para secciones)
-},
+                    static: false,
+                    isResizable: true,
+                    resizeHandles: ["s"], // 👈 solo vertical (correcto para secciones)
+                },
 
                 data: s,
             })),
@@ -175,9 +168,9 @@ setSections(res.data.sections || []);
                 layout: {
                     i: String(w.id),
                     x: w.position_x ?? (index % 2) * 6,
-                    y: w.position_y ?? index * 4,
+                    y: w.position_y ?? Infinity,
                     w: w.width ?? 6,
-                    h: w.height ?? 4,
+                    h: w.height ?? 6,
                     static: false,
                 },
                 data: w,
@@ -206,37 +199,37 @@ setSections(res.data.sections || []);
     /* ===============================
         Load data (refresh)
     =============================== */
-useEffect(() => {
-  if (!activeDashboard?.id) return;
+    useEffect(() => {
+        if (!activeDashboard?.id) return;
 
-  setLoading(true);
+        setLoading(true);
 
-  axios
-    .get(`/api/ai/dashboards/${activeDashboard.id}/widgets`)
-    .then((res) => {
-      setWidgets(res.data.widgets || []);
-    })
-    .catch(console.error)
-    .finally(() => {
-      setLoading(false);
-      stopRefreshing();
-    });
-}, [activeDashboard?.id, refreshKey]); // ✅ CLAVE
+        axios
+            .get(`/api/ai/dashboards/${activeDashboard.id}/widgets`)
+            .then((res) => {
+                setWidgets(res.data.widgets || []);
+            })
+            .catch(console.error)
+            .finally(() => {
+                setLoading(false);
+                stopRefreshing();
+            });
+    }, [activeDashboard?.id, refreshKey]); // ✅ CLAVE
 
 
- useEffect(() => {
-  if (!activeDashboard?.id) return;
+    useEffect(() => {
+        if (!activeDashboard?.id) return;
 
-  axios
-    .get(`/api/ai/dashboards/${activeDashboard.id}/sections`)
-    .then((res) => {
-      setSections(res.data.sections || []);
-    })
-    .finally(() => {
-      setLoading(false);
-      stopRefreshing();
-    });
-}, [activeDashboard?.id]);
+        axios
+            .get(`/api/ai/dashboards/${activeDashboard.id}/sections`)
+            .then((res) => {
+                setSections(res.data.sections || []);
+            })
+            .finally(() => {
+                setLoading(false);
+                stopRefreshing();
+            });
+    }, [activeDashboard?.id]);
 
 
     if (loading) return <div className="animate-pulse">Cargando…</div>;
@@ -246,84 +239,106 @@ useEffect(() => {
     =============================== */
     return (
         <div ref={containerRef} className="w-full min-w-0 relative">
- <ReactGridLayout
-  cols={12}
-  rowHeight={76}
-  width={gridWidth || 1200}
-  margin={[1, 5]}
-  isDraggable
-  isResizable
-  draggableHandle=".drag-handle"
- compactType="vertical"
-  preventCollision={false}
+            <ReactGridLayout
+                cols={12}
+                rowHeight={76}
+                width={gridWidth || 1200}
+                margin={[2, 6]}
+                isDraggable
+                isResizable
+resizeHandle={
+  <div
+    style={{
+      width: 32,
+      height: 32,
+      position: "absolute",
+      right: 0,
+      bottom: 0,
+      cursor: "se-resize",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "flex-end",
+      padding: 6,
+    }}
+  >
+    <div
+      style={{
+        width: 18,
+        height: 18,
+   borderRight: "4px solid #64748B",
+borderBottom: "4px solid #64748B",
+      }}
+    />
+  </div>
+}
+                draggableHandle=".drag-handle"
+                compactType="vertical"
+                preventCollision={false}
 
-verticalCompact={true}
+                verticalCompact={true}
 
-allowOverlap={false}   // 🔥 CLAVE
-onDragStop={(newLayout) => {
-  if (!activeDashboard?.id) return;
+                allowOverlap={false}   // 🔥 CLAVE
+                onDragStop={(newLayout) => {
+                    if (!activeDashboard?.id) return;
 
-  const normalized = normalizeVerticalLayout(newLayout);
+                    newLayout.forEach((l) => {
 
-  normalized.forEach((l) => {
-    // 🧱 SECCIÓN
-    if (l.i.startsWith("section-")) {
-      const sectionId = l.i.replace("section-", "");
+                        if (l.i.startsWith("section-")) {
+                            const sectionId = l.i.replace("section-", "");
 
-      axios.put(
-        `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
-        {
-          position: l.y,
-          height: l.h,
-        }
-      );
-      return;
-    }
+                            axios.put(
+                                `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
+                                {
+                                    position: l.y,
+                                    height: l.h,
+                                }
+                            );
+                            return;
+                        }
 
-    // 📊 WIDGET
-    axios.put(
-      `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
-      {
-        position_x: l.x,
-        position_y: l.y,
-        width: l.w,
-        height: l.h,
-      }
-    );
-  });
-}}
+                        axios.put(
+                            `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+                            {
+                                position_x: l.x,
+                                position_y: l.y,
+                                width: l.w,
+                                height: l.h,
+                            }
+                        );
+                    });
+                }}
 
 
- onResizeStop={(newLayout) => {
-  if (!activeDashboard?.id) return;
+                onResizeStop={(newLayout) => {
+                    if (!activeDashboard?.id) return;
 
-  newLayout.forEach((l) => {
-    // 🧱 SECCIÓN
-    if (l.i.startsWith("section-")) {
-      const sectionId = l.i.replace("section-", "");
+                    newLayout.forEach((l) => {
+                        // 🧱 SECCIÓN
+                        if (l.i.startsWith("section-")) {
+                            const sectionId = l.i.replace("section-", "");
 
-      axios.put(
-        `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
-        {
-          height: l.h,
-        }
-      );
+                            axios.put(
+                                `/api/ai/dashboards/${activeDashboard.id}/sections/${sectionId}`,
+                                {
+                                    height: l.h,
+                                }
+                            );
 
-      return;
-    }
+                            return;
+                        }
 
-    // 📊 WIDGET
-    axios.put(
-      `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
-      {
-        width: l.w,
-        height: l.h,
-      }
-    );
-  });
-}}
+                        // 📊 WIDGET
+                        axios.put(
+                            `/api/ai/dashboards/${activeDashboard.id}/widgets/${l.i}`,
+                            {
+                                width: l.w,
+                                height: l.h,
+                            }
+                        );
+                    });
+                }}
 
->
+            >
 
 
 
@@ -354,10 +369,10 @@ onDragStop={(newLayout) => {
                                     if (!title) return;
 
                                     try {
-                                       axios.put(
-  `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`,
-  { title }
-);
+                                        axios.put(
+                                            `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`,
+                                            { title }
+                                        );
 
 
                                         // 🔄 actualizar estado local
@@ -374,34 +389,34 @@ onDragStop={(newLayout) => {
                                 }}
 
 
-                               /* 🗑️ ELIMINAR */
-onDelete={async (section) => {
-  const result = await MySwal.fire({
-    title: "¿Eliminar sección?",
-    text: "Esta acción no se puede deshacer",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Eliminar",
-    cancelButtonText: "Cancelar",
-  });
+                                /* 🗑️ ELIMINAR */
+                                onDelete={async (section) => {
+                                    const result = await MySwal.fire({
+                                        title: "¿Eliminar sección?",
+                                        text: "Esta acción no se puede deshacer",
+                                        icon: "warning",
+                                        showCancelButton: true,
+                                        confirmButtonText: "Eliminar",
+                                        cancelButtonText: "Cancelar",
+                                    });
 
-  if (!result.isConfirmed) return;
+                                    if (!result.isConfirmed) return;
 
-  try {
-    await axios.delete(
-      `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`
-    );
+                                    try {
+                                        await axios.delete(
+                                            `/api/ai/dashboards/${activeDashboard.id}/sections/${section.id}`
+                                        );
 
-    // 🔄 eliminar del estado local
-    setSections((prev) =>
-      prev.filter((s) => s.id !== section.id)
-    );
+                                        // 🔄 eliminar del estado local
+                                        setSections((prev) =>
+                                            prev.filter((s) => s.id !== section.id)
+                                        );
 
-    MySwal.fire("🗑️ Eliminada", "", "success");
-  } catch (e) {
-    MySwal.fire("Error", "No se pudo eliminar la sección", "error");
-  }
-}}
+                                        MySwal.fire("🗑️ Eliminada", "", "success");
+                                    } catch (e) {
+                                        MySwal.fire("Error", "No se pudo eliminar la sección", "error");
+                                    }
+                                }}
 
                             />
                         ) : (
