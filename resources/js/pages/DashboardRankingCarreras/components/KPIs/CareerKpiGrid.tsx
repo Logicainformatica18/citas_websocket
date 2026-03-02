@@ -25,7 +25,7 @@ export function CareerKpiGrid({
                 highlight
                 helper={
                     topCareer
-                        ? "Mayor demanda laboral en el período"
+                        ? "Mayor demanda laboral en el Periodo"
                         : "Sin datos suficientes"
                 }
             />

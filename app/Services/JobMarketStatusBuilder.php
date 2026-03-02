@@ -8,7 +8,7 @@ use Carbon\Carbon;
 class JobMarketStatusBuilder
 {
     /**
-     * Construye el estado del mercado laboral
+     * Construye el Datos Generales
      * compatible con el frontend actual
      *
      * @param array $options

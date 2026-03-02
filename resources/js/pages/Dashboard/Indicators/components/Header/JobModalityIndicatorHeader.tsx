@@ -32,7 +32,7 @@ export function JobModalityIndicatorHeader({ meta, filters }: HeaderProps) {
   const [openMarketModal, setOpenMarketModal] = useState(false);
 
   /* =====================================================
-     Navegación período
+     Navegación Periodo
   ===================================================== */
   const onChange = (params: { year?: number; period?: "s1" | "s2" }) => {
     router.get(

@@ -64,7 +64,7 @@ export function SeniorityModalityPieChart({ data }: Props) {
     return (
       <div className="border rounded-xl p-6 bg-white dark:bg-[#0F2A3A]">
         <p className="text-sm text-slate-500">
-          No hay datos de modalidad laboral para el período seleccionado.
+          No hay datos de modalidad laboral para el Periodo seleccionado.
         </p>
       </div>
     );

@@ -17,7 +17,7 @@ export default function MacroTrendsRankingTable({
     return (
       <div className="bg-white dark:bg-[#0F2A3A] border rounded-xl p-6 text-center">
         <p className="font-semibold text-slate-700 dark:text-slate-200">
-          No se detectaron macro-tendencias en este período
+          No se detectaron macro-tendencias en este Periodo
         </p>
       </div>
     );

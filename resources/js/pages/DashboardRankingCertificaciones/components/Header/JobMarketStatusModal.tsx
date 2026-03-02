@@ -141,7 +141,7 @@ export function JobMarketStatusModal({
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle className="flex items-center gap-3">
             <Database className="h-5 w-5 text-[#00B6E8]" />
-            Estado del mercado laboral
+            Datos Generales
           </DialogTitle>
 
           {scrapingStatus && (
@@ -197,27 +197,27 @@ export function JobMarketStatusModal({
                     ? `Histórico de ${global.history_age}`
                     : undefined
                 }
-                help="Cantidad total de ofertas laborales recolectadas históricamente por el sistema sin importar el período e indicador seleccionado."
+                help="Cantidad total de ofertas laborales recolectadas históricamente por el sistema sin importar el Periodo e indicador seleccionado."
               />
 
               <Item
                 icon={CalendarClock}
-                label="Nuevas ofertas este mes"
+                label="Nuevas ofertas del mes vigente"
                 value={
                   global?.offers_new_month
                     ? `+${global.offers_new_month.toLocaleString()}`
                     : "—"
                 }
-                help="Número de ofertas nuevas incorporadas desde el inicio del mes actual sin importar el período e indicador seleccionado."
+                help="Número de ofertas nuevas incorporadas desde el inicio del mes actual sin importar el Periodo e indicador seleccionado."
               />
             </div>
           </div>
 
-          {/* PERÍODO */}
+          {/* Periodo */}
           {period && (
             <div className="space-y-4">
               <p className="text-xs font-bold uppercase tracking-wide text-[#00B6E8]">
-                Período analizado
+                Periodo analizado
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -226,7 +226,7 @@ export function JobMarketStatusModal({
                   label="Ofertas analizadas"
                   value={period.offers_analysed.toLocaleString()}
                   hint={`${period.date_range.from} → ${period.date_range.to}`}
-                  help="Cantidad de ofertas laborales consideradas dentro del período seleccionado sin importar el período e indicador seleccionado."
+                  help="Cantidad de ofertas laborales consideradas dentro del Periodo seleccionado sin importar el Periodo e indicador seleccionado."
                 />
 
                 <Item
@@ -234,7 +234,7 @@ export function JobMarketStatusModal({
                   label="Promedio diario"
                   value={`${Math.round(period.avg_per_day).toLocaleString()} ofertas/día`}
                   hint={`${period.days_covered} días cubiertos`}
-                  help="Promedio de ofertas publicadas por día dentro del período analizado sin importar el período e indicador seleccionado."
+                  help="Promedio de ofertas publicadas por día dentro del Periodo analizado sin importar el Periodo e indicador seleccionado."
                 />
               </div>
             </div>

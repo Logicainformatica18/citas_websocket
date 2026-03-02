@@ -8,9 +8,9 @@ use Carbon\Carbon;
 class JobMarketStatusController
 {
     /**
-     * Estado del mercado laboral
+     * Datos Generales
      * - Métricas globales (siempre)
-     * - Métricas por período (si se pasa year + period)
+     * - Métricas por Periodo (si se pasa year + period)
      */
     public static function get(?int $year = null, ?string $period = null): array
     {
@@ -43,7 +43,7 @@ class JobMarketStatusController
         $lastPublishedAtC = $lastPublishedAt ? Carbon::parse($lastPublishedAt) : null;
 
         /* =====================================================
-           MÉTRICAS POR PERÍODO (OPCIONAL)
+           MÉTRICAS POR Periodo (OPCIONAL)
         ===================================================== */
 
         $periodData = null;
@@ -72,7 +72,7 @@ class JobMarketStatusController
                 ],
                 'offers_analysed' => $offersInPeriod,
                'days_covered' => (int) round($daysCovered),
- 
+
 
                'avg_per_day' => $daysCovered > 0
     ? (int) round($offersInPeriod / $daysCovered)

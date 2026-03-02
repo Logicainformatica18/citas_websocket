@@ -89,7 +89,7 @@ export function CompanyIndicatorHeader({ meta }: HeaderProps) {
               <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
                 Identificación y ranking de las empresas que concentran
                 mayor número de vacantes tecnológicas publicadas en
-                portales de empleo durante el período seleccionado.
+                portales de empleo durante el Periodo seleccionado.
               </p>
 
               {/* ===== CONTROLES ===== */}

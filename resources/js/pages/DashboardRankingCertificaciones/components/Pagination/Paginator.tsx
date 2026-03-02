@@ -42,7 +42,7 @@ const filters = pageProps?.filters ?? {};
     router.get(
       "/dashboard/ranking-certificaciones",
       {
-        ...filters, // 🔥 CLAVE: preserva áreas, carreras, año, período, etc.
+        ...filters, // 🔥 CLAVE: preserva áreas, carreras, año, Periodo, etc.
         page,
       },
       {

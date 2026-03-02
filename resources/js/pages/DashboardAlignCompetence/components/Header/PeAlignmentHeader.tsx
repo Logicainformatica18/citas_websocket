@@ -93,7 +93,7 @@ const filters = pageProps?.filters ?? {};
                             del futuro, basándose en vacantes y reportes globales.
                         </p>
 
-                        {/* ===== CONTROLES DE PERÍODO ===== */}
+                        {/* ===== CONTROLES DE Periodo ===== */}
                         <div className="flex flex-wrap items-end gap-8">
 
                             {/* ===== AÑO ===== */}
@@ -200,7 +200,7 @@ const filters = pageProps?.filters ?? {};
                                 </div>
 
                                 <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 dark:text-slate-400 whitespace-nowrap">
-                                    Haz clic para cambiar el período
+                                    Haz clic para cambiar el Periodo
                                 </span>
                             </div> */}
 
@@ -274,7 +274,7 @@ const filters = pageProps?.filters ?? {};
                         </p>
 
                         <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                            Los cálculos consideran únicamente datos del período seleccionado.
+                            Los cálculos consideran únicamente datos del Periodo seleccionado.
                         </p>
 
                         <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">

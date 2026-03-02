@@ -261,7 +261,7 @@ export function Header({
 
   {/* Contexto */}
   <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-    Los cálculos se realizan únicamente con datos del período seleccionado.
+    Los cálculos se realizan únicamente con datos del Periodo seleccionado.
   </p>
 
   {/* CTA */}

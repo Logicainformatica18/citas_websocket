@@ -26,7 +26,7 @@ export function SeniorityKpiGrid({ data }: Props) {
   if (total === 0) {
     return (
       <div className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-        No hay vacantes con seniority identificado en el período seleccionado.
+        No hay vacantes con seniority identificado en el Periodo seleccionado.
       </div>
     );
   }

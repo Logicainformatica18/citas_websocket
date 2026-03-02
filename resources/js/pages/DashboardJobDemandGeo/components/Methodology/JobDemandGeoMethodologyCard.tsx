@@ -6,7 +6,7 @@ export default function JobDemandGeoMethodologyCard() {
             </p>
 
             <ul className="space-y-1 text-slate-700 dark:text-slate-300">
-                <li>• Ofertas publicadas en el período seleccionado</li>
+                <li>• Ofertas publicadas en el Periodo seleccionado</li>
                 <li>• Agrupación por ciudad, región y país</li>
                 <li>• Ranking por volumen de vacantes</li>
                 <li>• Concentración calculada sobre el total</li>

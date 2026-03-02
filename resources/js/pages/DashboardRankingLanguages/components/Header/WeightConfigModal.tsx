@@ -136,7 +136,7 @@ export function WeightConfigModal({
             />
 
             <p className="mt-2 text-xs text-muted-foreground">
-              Basado en ofertas laborales reales del período seleccionado.
+              Basado en ofertas laborales reales del Periodo seleccionado.
             </p>
           </div>
 

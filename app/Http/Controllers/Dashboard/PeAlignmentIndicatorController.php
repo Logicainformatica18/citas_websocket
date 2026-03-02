@@ -341,22 +341,22 @@ private function calculateCareerAlignmentSummaryFromMaterialized(
         ];
     }
 
-    $marketAvg = $rows->avg('market_score');
-    $trendAvg  = $rows->avg('trend_score');
+    // 🔵 Intensidad promedio real
+    $marketIntensity = $rows->avg('market_score');
+    $trendIntensity  = $rows->avg('trend_score');
 
-    // 🔥 Recalcular final con pesos actuales
+    // 🔵 Índice ponderado real
     $final =
-        ($laborWeight * $marketAvg) +
-        ($trendWeight * $trendAvg);
+        ($laborWeight * $marketIntensity) +
+        ($trendWeight * $trendIntensity);
 
     return [
         'total_competencies' => $total,
-        'market_rate' => round($marketAvg * 100, 1),
-        'trend_rate'  => round($trendAvg * 100, 1),
+        'market_rate' => round($marketIntensity * 100, 1),
+        'trend_rate'  => round($trendIntensity * 100, 1),
         'final_index' => round($final * 100, 1),
     ];
 }
-
 
 public function updateWeights(Request $request)
 {

@@ -180,7 +180,7 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                                 </div>
 
                                 <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 dark:text-slate-400 whitespace-nowrap">
-                                    Haz clic para cambiar el período
+                                    Haz clic para cambiar el Periodo
                                 </span>
                             </div>
 

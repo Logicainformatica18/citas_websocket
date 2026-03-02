@@ -84,7 +84,7 @@ export default function CompanyIndicatorIndex() {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
                   Clasificación de empresas que concentran el mayor número de
                   vacantes tecnológicas publicadas en portales de empleo,
-                  según el período, región y país seleccionados.
+                  según el Periodo, región y país seleccionados.
                 </p>
               </div>
 
