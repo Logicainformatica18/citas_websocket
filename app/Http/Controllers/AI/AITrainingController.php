@@ -300,8 +300,15 @@ $schemaData = DB::select("
     ORDER BY table_name;
 ", [$database]);
 
+// $schemaText = collect($schemaData)
+//     ->map(fn($t) => "{$t->table_name}({$t->columns})")
+//     ->implode("\n");
 $schemaText = collect($schemaData)
-    ->map(fn($t) => "{$t->table_name}({$t->columns})")
+    ->map(function ($t) {
+        $tableName = $t->table_name ?? $t->TABLE_NAME ?? array_values((array)$t)[0];
+        $columns   = $t->columns ?? $t->COLUMNS ?? array_values((array)$t)[1] ?? '';
+        return "{$tableName}({$columns})";
+    })
     ->implode("\n");
 
 $schemaText .= "
