@@ -9,7 +9,8 @@ use Inertia\Inertia;
 use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
-
+ 
+use Illuminate\Support\Facades\Log;
 
 class RankingLenguajesController extends Controller
 {
@@ -322,7 +323,39 @@ $reportsSub = DB::table('entity_trends as et')
        REPORTES / TENDENCIAS POR LENGUAJE
     ================================================== */
 
+public function runLanguageGapDiscovery(Request $request)
+{
+    try {
 
+        $limit = (int) $request->get('limit', 10);
+        $sleep = (int) $request->get('sleep', 5);
+
+        Artisan::call('languages:discover-gaps', [
+            '--limit' => $limit,
+            '--sleep' => $sleep,
+        ]);
+
+        $output = Artisan::output();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Proceso ejecutado correctamente',
+            'output'  => $output,
+        ]);
+
+    } catch (\Throwable $e) {
+
+        Log::error('RUN_LANGUAGE_GAP_ERROR', [
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error ejecutando el comando',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
+}
     /* ==================================================
        UTILIDADES
     ================================================== */

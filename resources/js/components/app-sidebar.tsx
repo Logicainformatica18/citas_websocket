@@ -109,7 +109,7 @@ export function AppSidebar() {
     <MenuItem
         href="/dashboard/indicators/seniority"
         icon={<Users className={isilBlue} />}
-        label="Senioridad"
+        label="Nivel Profesional"
     />
 
     <MenuItem

@@ -16,7 +16,7 @@ import { SeniorityFilters } from "./components/Filters/SeniorityFilters";
 ===================================================== */
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Dashboard", href: "/dashboard" },
-  { title: "Distribución de Seniority", href: "/dashboard/indicators/seniority" },
+  { title: "Demanda por Nivel Profesional", href: "/dashboard/indicators/seniority" },
 ];
 
 /* =====================================================
@@ -47,7 +47,7 @@ export default function SeniorityIndicatorPage() {
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Distribución de Seniority" />
+      <Head title="Demanda por Nivel Profesional" />
 
       <div className="flex flex-col gap-6">
         {/* ================= HEADER ================= */}
@@ -68,7 +68,7 @@ export default function SeniorityIndicatorPage() {
           <>
             {/* KPIs */}
             <div className="px-6">
-              <SeniorityKpiGrid data={data} />
+   <SeniorityKpiGrid data={jobMarketStatus} />
             </div>
 
             {/* Charts */}

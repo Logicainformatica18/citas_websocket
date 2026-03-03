@@ -167,7 +167,7 @@ export default function JobDemandGeoHeader({ meta }: HeaderProps) {
                   >
                     <Database className="h-4 w-4 text-[#00B6E8]" />
                     <span className="text-sm font-semibold text-[#0A2540] dark:text-slate-200">
-                      Estado del mercado
+                      Datos Generales
                     </span>
                   </button>
                 </div>

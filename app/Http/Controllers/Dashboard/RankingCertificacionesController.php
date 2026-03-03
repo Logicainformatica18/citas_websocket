@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
-
-
+use Illuminate\Support\Facades\Artisan;
+ 
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -19,7 +20,39 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 class RankingCertificacionesController extends Controller
 {
 
+public function runCertificationGapDiscovery(Request $request)
+{
+    try {
 
+        $limit = (int) $request->get('limit', 10);
+        $sleep = (int) $request->get('sleep', 5);
+
+        Artisan::call('certifications:discover-gaps', [
+            '--limit' => $limit,
+            '--sleep' => $sleep,
+        ]);
+
+        $output = Artisan::output();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Descubrimiento de certificaciones ejecutado correctamente',
+            'output'  => $output,
+        ]);
+
+    } catch (\Throwable $e) {
+
+        Log::error('RUN_CERT_GAP_ERROR', [
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error ejecutando el comando de certificaciones',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
+}
     public function storeWeights(Request $request)
     {
         /* ==================================================

@@ -54,6 +54,9 @@ export function SeniorityBarChart({ data }: Props) {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Distribución de niveles de experiencia por área profesional
           </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">
+  Un mismo job puede estar asociado a múltiples carreras académicas.
+</p>
         </div>
 
         {/* Leyenda */}

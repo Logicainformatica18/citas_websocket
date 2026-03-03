@@ -1,8 +1,11 @@
 import { Briefcase, TrendingUp, User } from "lucide-react";
-import { CareerSeniority } from "../hooks/useSeniorityData";
 
 type Props = {
-  data: CareerSeniority[];
+  data: {
+    level: "junior" | "mid" | "senior";
+    jobs: number;
+    percentage: number;
+  }[];
 };
 
 export function SeniorityKpiGrid({ data }: Props) {
@@ -10,19 +13,14 @@ export function SeniorityKpiGrid({ data }: Props) {
   let mid = 0;
   let senior = 0;
 
-  data.forEach((career) => {
-    career.distribution.forEach((d) => {
-      if (d.seniority === "junior") junior += d.jobs;
-      if (d.seniority === "mid") mid += d.jobs;
-      if (d.seniority === "senior") senior += d.jobs;
-    });
+  data.forEach((row) => {
+    if (row.level === "junior") junior = row.jobs;
+    if (row.level === "mid") mid = row.jobs;
+    if (row.level === "senior") senior = row.jobs;
   });
 
   const total = junior + mid + senior;
 
-  /* =====================================================
-     🛑 SIN DATA CLASIFICADA
-  ===================================================== */
   if (total === 0) {
     return (
       <div className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
@@ -76,7 +74,7 @@ export function SeniorityKpiGrid({ data }: Props) {
             dark:border-[#1E3A4A]
           "
         >
-          {/* 🎨 Glow decorativo */}
+          {/* Glow */}
           <div
             className={`
               pointer-events-none

@@ -178,7 +178,7 @@ export function Header({
                     {meta.reportes_analizados.toLocaleString()} reportes analizados
                   </Badge>
 
-                  {/* 🔥 ESTADO DEL MERCADO */}
+                  {/* 🔥 Datos Generales */}
                   <button
                     onClick={() => setOpenMarketModal(true)}
                     className="
@@ -199,7 +199,7 @@ export function Header({
                   >
                     <Database className="h-4 w-4 text-[#00B6E8]" />
                     <span className="text-sm font-semibold text-[#0A2540]">
-                      Estado del mercado
+                      Datos Generales
                     </span>
                     <span className="text-xs text-slate-500 group-hover:underline">
                       ver detalle
