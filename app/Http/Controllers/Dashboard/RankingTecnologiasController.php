@@ -9,21 +9,21 @@ use Inertia\Inertia;
 use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
- use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Artisan;
+ 
 use Illuminate\Support\Facades\Log;
-
 
 class RankingTecnologiasController extends Controller
 {
     /* ==================================================
        GUARDAR PONDERACIONES (TECNOLOGÍAS)
     ================================================== */
-    public function runTechnologyGapDiscovery(Request $request)
+   public function runGapDiscovery(Request $request)
 {
     try {
 
         $limit = (int) $request->get('limit', 10);
-        $sleep = (int) $request->get('sleep', 5);
+        $sleep = (int) $request->get('sleep', 2);
 
         Artisan::call('technologies:discover-gaps', [
             '--limit' => $limit,
@@ -34,19 +34,19 @@ class RankingTecnologiasController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Proceso ejecutado correctamente',
+            'message' => 'Brechas tecnológicas detectadas correctamente.',
             'output'  => $output,
         ]);
 
     } catch (\Throwable $e) {
 
-        Log::error('RUN_TECH_GAP_ERROR', [
-            'error' => $e->getMessage()
+        Log::error('[TECH_GAP_RUN_ERROR]', [
+            'error' => $e->getMessage(),
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => 'Error ejecutando el comando',
+            'message' => 'Error ejecutando el motor IA de tecnologías.',
             'error'   => $e->getMessage(),
         ], 500);
     }

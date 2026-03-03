@@ -20,7 +20,7 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 class RankingCertificacionesController extends Controller
 {
 
-public function runCertificationGapDiscovery(Request $request)
+public function run(Request $request)
 {
     try {
 

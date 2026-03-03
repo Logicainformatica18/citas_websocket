@@ -9,7 +9,8 @@ import {
 import { router, usePage } from "@inertiajs/react";
 import { WeightConfig } from "./WeightConfigModal";
 import { JobMarketStatusModal } from "./JobMarketStatusModal";
-
+import axios from "axios";
+import Swal from "sweetalert2";
 interface HeaderProps {
   meta: {
     year: number;
@@ -35,7 +36,37 @@ export function Header({
   const { filters, jobMarketStatus, scrapingStatus } = usePage().props as any;
 
   const [openMarketModal, setOpenMarketModal] = useState(false);
+const [runningIA, setRunningIA] = useState(false);
 
+const runGapDiscovery = async () => {
+  setRunningIA(true);
+
+  try {
+    await axios.post("/dashboard/ranking-certificaciones/discover-gaps", {
+      limit: 10,
+      sleep: 2,
+    });
+
+    Swal.fire({
+      icon: "success",
+      title: "IA ejecutada",
+      text: "Nuevas certificaciones estratégicas detectadas.",
+    });
+
+    router.reload();
+
+  } catch (error: any) {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text:
+        error.response?.data?.message ??
+        "No se pudo ejecutar el descubrimiento.",
+    });
+  }
+
+  setRunningIA(false);
+};
   // 🔎 Log defensivo (puedes borrarlo luego)
   console.log("[HEADER CERTIFICATIONS] scrapingStatus:", scrapingStatus);
 
@@ -211,64 +242,92 @@ export function Header({
 
             {/* ================= RIGHT ================= */}
            {/* ================= RIGHT ================= */}
-<button
-  onClick={onEditWeights}
-  className="
-    group
-    w-full
-    max-w-sm
-    rounded-2xl
-    border border-[#00B6E8]/40
-    bg-white
-    p-6
-    text-left
-    shadow-xl
-    transition-all
-    hover:border-[#00B6E8]
-    hover:shadow-2xl
-    dark:bg-[#102C3C]
-  "
->
-  {/* Header */}
-  <div className="mb-3 flex items-center justify-between">
-    <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
-      Metodología de cálculo
+<div className="flex w-full max-w-sm flex-col">
+
+  {/* ===== BOTÓN METODOLOGÍA ===== */}
+  <button
+    onClick={onEditWeights}
+    className="
+      group
+      w-full
+      rounded-2xl
+      border border-[#00B6E8]/40
+      bg-white
+      p-6
+      text-left
+      shadow-xl
+      transition-all
+      hover:border-[#00B6E8]
+      hover:shadow-2xl
+      dark:bg-[#102C3C]
+    "
+  >
+    <div className="mb-3 flex items-center justify-between">
+      <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
+        Metodología de cálculo
+      </p>
+      <Settings2 className="h-4 w-4 text-[#00B6E8] opacity-60 group-hover:opacity-100" />
+    </div>
+
+    <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+      <p>
+        <span className="font-bold text-[#00B6E8]">
+          {weights.laborWeight}%
+        </span>{" "}
+        Demanda laboral
+      </p>
+      <p>
+        <span className="font-bold text-[#00B6E8]">
+          {weights.trendsWeight}%
+        </span>{" "}
+        Tendencias tecnológicas
+      </p>
+    </div>
+
+    <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+      Score = ({weights.laborWeight / 100} × Laboral) + (
+      {weights.trendsWeight / 100} × Tendencias)
     </p>
-    <Settings2 className="h-4 w-4 text-[#00B6E8] opacity-60 group-hover:opacity-100" />
-  </div>
 
-  {/* Pesos */}
-  <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
-    <p>
-      <span className="font-bold text-[#00B6E8]">
-        {weights.laborWeight}%
-      </span>{" "}
-      Demanda laboral
+    <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+      Los cálculos se realizan únicamente con datos del Periodo seleccionado.
     </p>
-    <p>
-      <span className="font-bold text-[#00B6E8]">
-        {weights.trendsWeight}%
-      </span>{" "}
-      Tendencias tecnológicas
+
+    <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
+      Haz clic para editar ponderaciones
     </p>
-  </div>
+  </button>
 
-  {/* Fórmula */}
-  <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-    Score = ({weights.laborWeight / 100} × Laboral) + (
-    {weights.trendsWeight / 100} × Tendencias)
-  </p>
+  {/* ===== BOTÓN IA CERTIFICACIONES ===== */}
+  <button
+    onClick={runGapDiscovery}
+    disabled={runningIA}
+    className="
+      mt-4
+      w-full
+      rounded-2xl
+      bg-[#00B6E8]
+      px-4
+      py-3
+      text-white
+      font-semibold
+      shadow-lg
+      transition
+      hover:bg-[#0095c4]
+      disabled:opacity-60
+      flex
+      items-center
+      justify-center
+      gap-2
+    "
+  >
+    <Sparkles size={18} />
+    {runningIA
+      ? "Detectando certificaciones..."
+      : "Detectar nuevas certificaciones con IA"}
+  </button>
 
-  {/* Contexto */}
-  <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-    Los cálculos se realizan únicamente con datos del Periodo seleccionado.
-  </p>
-
-  {/* CTA */}
-  <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
-    Haz clic para editar ponderaciones
-  </p>
-</button>
+</div>
 
           </div>
         </div>

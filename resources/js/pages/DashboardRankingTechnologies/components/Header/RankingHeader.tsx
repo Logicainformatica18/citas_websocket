@@ -9,7 +9,8 @@ import {
 import { router, usePage } from "@inertiajs/react";
 import { WeightConfig } from "./WeightConfigModal";
 import { JobMarketStatusModal } from "./JobMarketStatusModal";
-
+import axios from "axios";
+import Swal from "sweetalert2";
 interface HeaderProps {
   meta: {
     year: number;
@@ -30,7 +31,37 @@ export function Header({
   const { filters, jobMarketStatus, scrapingStatus } = usePage().props as any;
 
   const [openMarketModal, setOpenMarketModal] = useState(false);
+const [runningIA, setRunningIA] = useState(false);
 
+const runGapDiscovery = async () => {
+  setRunningIA(true);
+
+  try {
+    await axios.post("/dashboard/ranking/technologies/discover-gaps", {
+      limit: 10,
+      sleep: 2,
+    });
+
+    Swal.fire({
+      icon: "success",
+      title: "IA ejecutada",
+      text: "Nuevas tecnologías estratégicas detectadas.",
+    });
+
+    router.reload();
+
+  } catch (error: any) {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text:
+        error.response?.data?.message ??
+        "No se pudo ejecutar el descubrimiento.",
+    });
+  }
+
+  setRunningIA(false);
+};
   /* =========================================
      Cambio de Periodo / año
   ========================================= */
@@ -218,75 +249,103 @@ export function Header({
             </div>
 
             {/* ================= RIGHT ================= */}
-            <button
-              onClick={onEditWeights}
-              className="
-                group
-                w-full
-                max-w-sm
-                rounded-2xl
-                border border-[#00B6E8]/40
-                bg-white
-                p-5
-                text-left
-                shadow-xl
-                transition-all
-                hover:border-[#00B6E8]
-                hover:shadow-2xl
-                dark:bg-[#102C3C]
-              "
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
-                  Metodología de cálculo
-                </p>
-                <Settings2 className="h-4 w-4 text-[#00B6E8]" />
-              </div>
+           <div className="flex w-full max-w-sm flex-col">
 
-            {
-  (() => {
-    const labor = Number(weights?.laborWeight ?? 70);
-    const trends = Number(weights?.trendsWeight ?? (100 - labor));
+  {/* ===== BOTÓN METODOLOGÍA ===== */}
+  <button
+    onClick={onEditWeights}
+    className="
+      group
+      w-full
+      rounded-2xl
+      border border-[#00B6E8]/40
+      bg-white
+      p-5
+      text-left
+      shadow-xl
+      transition-all
+      hover:border-[#00B6E8]
+      hover:shadow-2xl
+      dark:bg-[#102C3C]
+    "
+  >
+    <div className="mb-2 flex items-center justify-between">
+      <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
+        Metodología de cálculo
+      </p>
+      <Settings2 className="h-4 w-4 text-[#00B6E8]" />
+    </div>
 
-    const laborFactor = (labor / 100).toFixed(1);
-    const trendsFactor = (trends / 100).toFixed(1);
+    {(() => {
+      const labor = Number(weights?.laborWeight ?? 70);
+      const trends = Number(weights?.trendsWeight ?? (100 - labor));
 
-    return (
-      <>
-        <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
-          <p>
-            <span className="font-bold text-[#00B6E8]">
-              {labor}%
-            </span>{" "}
-            Demanda laboral
+      const laborFactor = (labor / 100).toFixed(1);
+      const trendsFactor = (trends / 100).toFixed(1);
+
+      return (
+        <>
+          <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+            <p>
+              <span className="font-bold text-[#00B6E8]">
+                {labor}%
+              </span>{" "}
+              Demanda laboral
+            </p>
+            <p>
+              <span className="font-bold text-[#00B6E8]">
+                {trends}%
+              </span>{" "}
+              Tendencias tecnológicas
+            </p>
+          </div>
+
+          <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+            Score = ({laborFactor} × Laboral) + ({trendsFactor} × Tendencias)
           </p>
-          <p>
-            <span className="font-bold text-[#00B6E8]">
-              {trends}%
-            </span>{" "}
-            Tendencias tecnológicas
+
+          <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+            Los cálculos se realizan únicamente con datos del Periodo seleccionado.
           </p>
-        </div>
 
-        <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-          Score = ({laborFactor} × Laboral) + ({trendsFactor} × Tendencias)
-        </p>
+          <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
+            Haz clic para editar ponderaciones
+          </p>
+        </>
+      );
+    })()}
+  </button>
 
-        <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-          Los cálculos se realizan únicamente con datos del Periodo seleccionado.
-        </p>
+  {/* ===== BOTÓN IA TECNOLOGÍAS ===== */}
+  <button
+    onClick={runGapDiscovery}
+    disabled={runningIA}
+    className="
+      mt-4
+      w-full
+      rounded-2xl
+      bg-[#00B6E8]
+      px-4
+      py-3
+      text-white
+      font-semibold
+      shadow-lg
+      transition
+      hover:bg-[#0095c4]
+      disabled:opacity-60
+      flex
+      items-center
+      justify-center
+      gap-2
+    "
+  >
+    <Sparkles size={18} />
+    {runningIA
+      ? "Detectando tecnologías..."
+      : "Detectar nuevas tecnologías con IA"}
+  </button>
 
-        <p className="mt-3 text-xs font-semibold text-[#00B6E8] group-hover:underline">
-          Haz clic para editar ponderaciones
-        </p>
-      </>
-    );
-  })()
-}
-
-
-
-            </button>
+</div>
           </div>
         </div>
       </header>

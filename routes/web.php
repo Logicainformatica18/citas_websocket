@@ -399,6 +399,10 @@ Route::prefix('trends')->group(function () {
 
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 
+ Route::post(
+        '/discover-gaps',
+        [RankingCertificacionesController::class, 'run']
+    )->name('dashboard.ranking.certificaciones.discover');
 Route::get(
     '/trend/{trend}/jobs',
     [RankingCertificacionesController::class, 'jobsByTechnologyTrend']
@@ -454,7 +458,11 @@ Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->na
             [RankingTecnologiasController::class, 'storeWeights']
         )->name('dashboard.ranking.technologies.weights');
 
-
+    // 🔥 EJECUTAR IA (IMPORTANTE: antes de {technology})
+    Route::post(
+        '/discover-gaps',
+        [RankingTecnologiasController::class, 'runGapDiscovery']
+    )->name('dashboard.ranking.technologies.discover');
         Route::get(
     '/{technology}/reports',
     [RankingTecnologiasController::class, 'reportsByTechnology']
@@ -484,6 +492,10 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
         '/weights',
         [RankingLenguajesController::class, 'storeWeights']
     )->name('dashboard.ranking.languages.weights');
+    Route::post(
+    '/discover-gaps',
+    [RankingLenguajesController::class, 'run']
+)->name('dashboard.ranking.languages.discover');
 
     // 🔥 OFERTAS LABORALES POR LENGUAJE
     Route::get(
