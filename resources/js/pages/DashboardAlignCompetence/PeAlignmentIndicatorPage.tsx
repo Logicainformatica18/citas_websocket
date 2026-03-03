@@ -103,29 +103,28 @@ export default function PeAlignmentIndicatorPage() {
 
         try {
             const res = await axios.post(
-                `/dashboard/indicators/pe-alignment/competency/${competency.id}/analyze`,
-                {
-                    career_id: filters.career_id,
-                    year: filters.year,
-                    period: filters.period,
-                }
-            );
+  `/dashboard/indicators/pe-alignment/competency/${competency.id}/analyze`,
+  {
+    career_id: filters.career_id,
+    year: filters.year,
+    period: filters.period,
+  }
+);
 
-            const analysis = res.data.analysis;
+         const analysis = res.data.analysis;
 
-            setCompetencies((prev) =>
-                prev.map((c) =>
-                    c.id === competency.id
-                        ? {
-                            ...c,
-                            alignment_recommendation: analysis.recommendation,
-                            alignment_confidence: analysis.confidence,
-                            alignment_checked_at: analysis.updated_at,
-                            analysis: { status: "ready" },
-                        }
-                        : c
-                )
-            );
+setCompetencies((prev) =>
+    prev.map((c) =>
+        c.id === competency.id
+            ? {
+                  ...c,
+                  ai_diagnosis: analysis.diagnosis ?? analysis,
+                  ai_recommendation: analysis.recommendation ?? analysis,
+                  analysis: { status: "ready" },
+              }
+            : c
+    )
+);
         } catch {
             setCompetencies((prev) =>
                 prev.map((c) =>

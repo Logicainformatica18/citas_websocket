@@ -4,7 +4,7 @@ import { useEffect } from "react";
 interface Competency {
   id: number;
   name: string;
-  final_score: number; // porcentaje final (ej: 82.5)
+  final_score: number;
   level: "Fuerte" | "Media" | "Débil" | "Crítica";
   analysis?: {
     status?: "loading" | "ready" | "error";
@@ -51,40 +51,40 @@ export default function CompetencyTable({
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow border overflow-hidden">
       <table className="w-full text-sm">
+
         <thead className="bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-300">
           <tr>
+
             <th className="text-left px-6 py-4 font-semibold">
               Competencias - Perfil de egreso
             </th>
+
             <th className="text-center px-6 py-4 font-semibold">
-              Porcentaje de alineación
+              Nivel de alineación
             </th>
+
             <th className="text-center px-6 py-4 font-semibold">
-             Nivel de alineación
+              Recomendación IA
             </th>
-            {/* <th className="text-center px-6 py-4 font-semibold">
-              IA
-            </th> */}
+
           </tr>
         </thead>
 
         <tbody>
+
           {competencies.map((comp) => (
+
             <tr
               key={comp.id}
               className="border-t hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors duration-200"
             >
+
               {/* Competencia */}
               <td
                 onClick={() => onSelectCompetency(comp)}
-                className="px-6 py-4 font-medium text-blue-600 cursor-pointer hover:underline"
+                className="px-6 py-4 font-medium text-blue-600 cursor-pointer"
               >
                 {comp.name}
-              </td>
-
-              {/* Puntaje */}
-              <td className="px-6 py-4 text-center font-semibold">
-                {comp.final_score}%
               </td>
 
               {/* Nivel */}
@@ -92,27 +92,39 @@ export default function CompetencyTable({
                 {renderLevelBadge(comp.level)}
               </td>
 
-              {/* IA (opcional) */}
-              {/* <td className="px-6 py-4 text-center">
+              {/* IA */}
+              <td className="px-6 py-4 text-center">
+
                 {comp.analysis?.status === "loading" ? (
+
                   <Loader2
                     className="animate-spin mx-auto text-indigo-600"
                     size={18}
                   />
+
                 ) : (
+
                   <button
                     onClick={() =>
-                      onAnalyze({ id: comp.id, name: comp.name })
+                      onAnalyze({
+                        id: comp.id,
+                        name: comp.name,
+                      })
                     }
                     className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 justify-center transition"
                   >
                     <Sparkles size={16} />
                     Analizar
                   </button>
+
                 )}
-              </td> */}
+
+              </td>
+
             </tr>
+
           ))}
+
         </tbody>
       </table>
     </div>

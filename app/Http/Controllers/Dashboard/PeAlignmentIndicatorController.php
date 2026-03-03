@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\Career;
+use App\Services\AIService;
 
 
 class PeAlignmentIndicatorController extends Controller
@@ -1024,6 +1025,19 @@ public function analyzeCareerWithAI(Request $request)
 //         ->sortByDesc('final_score')
 //         ->values();
 // }
+public function analyzeCompetencyWithAI(Request $request, $competency)
+{
+    Artisan::call('curriculum:analyze-competency', [
+        'competency_id' => $competency,
+        'career_id' => $request->career_id,
+        'year' => $request->year,
+        'period' => $request->period
+    ]);
+
+    return response()->json([
+        'status' => 'ok'
+    ]);
+}
 private function getCompetenciesFromMaterialized(
     int $careerId,
     int $year,

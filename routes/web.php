@@ -203,10 +203,10 @@ Route::post(
     [PeAlignmentIndicatorController::class, 'getCompetencyCourses']
 );
 
-Route::get(
-            '/indicators/pe-alignment/competency/{competency}/analyze',
-            [PeAlignmentIndicatorController::class, 'analyzeCompetencyWithAI']
-        )->name('pe-alignment.competency.analyze');
+ Route::post(
+    '/indicators/pe-alignment/competency/{competency}/analyze',
+    [PeAlignmentIndicatorController::class, 'analyzeCompetencyWithAI']
+)->name('pe-alignment.competency.analyze');
 
 
  Route::get('/job-market/status', [JobMarketStatusController::class, 'index']);
