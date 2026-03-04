@@ -15,9 +15,9 @@ class RunAllJobs2 extends Command
     {
       $commands = [
 
-'certifications:discover-gaps',
-'languages:discover-gaps',
-'technologies:discover-gaps',
+// 'certifications:discover-gaps',
+// 'languages:discover-gaps',
+// 'technologies:discover-gaps',
 'trends:discover-languages --limit=50 --sleep=5',
 'trends:discover-methodologies --limit=50 --sleep=5',
 'trends:discover-technologies --limit=1500 --sleep=5',
