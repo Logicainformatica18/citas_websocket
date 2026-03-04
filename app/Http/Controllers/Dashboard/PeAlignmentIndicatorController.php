@@ -1034,8 +1034,18 @@ public function analyzeCompetencyWithAI(Request $request, $competency)
         'period' => $request->period
     ]);
 
+   $result = DB::table('competency_ai_analysis')
+    ->where('competency_id', $competency)
+    ->where('career_id', $request->career_id)
+    ->where('year', $request->year)
+    ->where('period', $request->period)
+    ->first();
+
     return response()->json([
-        'status' => 'ok'
+        'analysis' => [
+            'diagnosis' => $result->diagnosis ?? null,
+            'recommendation' => $result->recommendation ?? null,
+        ]
     ]);
 }
 private function getCompetenciesFromMaterialized(
@@ -1045,19 +1055,35 @@ private function getCompetenciesFromMaterialized(
     float $trendWeight
 ) {
 
-    $rows = DB::table('pe_alignment_competency_results as r')
-        ->join('competencies as c', 'c.id', '=', 'r.competency_id')
-        ->where('r.career_id', $careerId)
-        ->where('r.year', $year)
-        ->select(
-            'c.id',
-            'c.name',
-            'r.market_score',
-            'r.trend_score',
-            'r.job_count',
-            'r.trend_count'
-        )
-        ->get();
+   $rows = DB::table('pe_alignment_competency_results as r')
+
+    ->join('competencies as c', 'c.id', '=', 'r.competency_id')
+
+    ->leftJoin('competency_ai_analysis as ai', function ($join) use ($careerId,$year){
+
+        $join->on('ai.competency_id','=','c.id')
+             ->where('ai.career_id',$careerId)
+             ->where('ai.year',$year);
+
+    })
+
+    ->where('r.career_id', $careerId)
+    ->where('r.year', $year)
+
+    ->select(
+        'c.id',
+        'c.name',
+
+        'r.market_score',
+        'r.trend_score',
+        'r.job_count',
+        'r.trend_count',
+
+        'ai.diagnosis',
+        'ai.recommendation'
+    )
+
+    ->get();
 
     return $rows->map(function ($row) use ($laborWeight, $trendWeight) {
 
@@ -1082,16 +1108,23 @@ private function getCompetenciesFromMaterialized(
             };
         }
 
-        return [
-            'id'           => $row->id,
-            'name'         => $row->name,
-            'job_count'    => $row->job_count,
-            'trend_count'  => $row->trend_count,
-            'market_score' => round($marketValue * 100, 1),
-            'trend_score'  => round($trendValue * 100, 1),
-            'final_score'  => $percentage,
-            'level'        => $level,
-        ];
+      return [
+    'id'           => $row->id,
+    'name'         => $row->name,
+    'job_count'    => $row->job_count,
+    'trend_count'  => $row->trend_count,
+    'market_score' => round($marketValue * 100, 1),
+    'trend_score'  => round($trendValue * 100, 1),
+    'final_score'  => $percentage,
+    'level'        => $level,
+
+    'analysis' => $row->diagnosis
+        ? [
+            'diagnosis' => $row->diagnosis,
+            'recommendation' => $row->recommendation
+        ]
+        : null
+];
     })
     ->sortByDesc('final_score')
     ->values();

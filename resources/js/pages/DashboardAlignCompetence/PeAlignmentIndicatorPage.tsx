@@ -8,9 +8,9 @@ import CareerFilter from "./components/Filters/CareerFilter";
 import PeAlignmentHeader from "./components/Header/PeAlignmentHeader";
 import PeAlignmentKpis from "./components/KPIs/PeAlignmentKpis";
 import CompetencyTable from "./components/Table/CompetencyTable";
-import AlignmentExplanationDrawer from "./components/Drawer/AlignmentExplanationDrawer";
+// import AlignmentExplanationDrawer from "./components/Drawer/AlignmentExplanationDrawer";
 import AlignmentExplanationBlock from "./AlignmentExplanationBlock";
-
+import CompetencyAIDrawer from "./components/Drawer/CompetencyAIDrawer";
 import {
     WeightConfigModal,
     WeightConfig,
@@ -89,53 +89,109 @@ export default function PeAlignmentIndicatorPage() {
        IA POR COMPETENCIA
     ====================================================== */
     const analyzeCompetency = async (competency: {
-        id: number;
-        name: string;
-    }) => {
+  id: number;
+  name: string;
+}) => {
 
-        setCompetencies((prev) =>
-            prev.map((c) =>
-                c.id === competency.id
-                    ? { ...c, analysis: { status: "loading" } }
-                    : c
-            )
-        );
-
-        try {
-            const res = await axios.post(
-  `/dashboard/indicators/pe-alignment/competency/${competency.id}/analyze`,
-  {
-    career_id: filters.career_id,
-    year: filters.year,
-    period: filters.period,
-  }
-);
-
-         const analysis = res.data.analysis;
-
-setCompetencies((prev) =>
+  setCompetencies((prev) =>
     prev.map((c) =>
-        c.id === competency.id
-            ? {
-                  ...c,
-                  ai_diagnosis: analysis.diagnosis ?? analysis,
-                  ai_recommendation: analysis.recommendation ?? analysis,
-                  analysis: { status: "ready" },
-              }
-            : c
+      c.id === competency.id
+        ? { ...c, analysis: { status: "loading" } }
+        : c
     )
-);
-        } catch {
-            setCompetencies((prev) =>
-                prev.map((c) =>
-                    c.id === competency.id
-                        ? { ...c, analysis: { status: "error" } }
-                        : c
-                )
-            );
-        }
-    };
+  );
 
+  /* 🔵 Loader bonito */
+  Swal.fire({
+    title: "Analizando competencia",
+    text: "VERA IA está generando la recomendación...",
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    },
+  });
+
+  try {
+
+    const res = await axios.post(
+      `/dashboard/indicators/pe-alignment/competency/${competency.id}/analyze`,
+      {
+        career_id: filters.career_id,
+        year: filters.year,
+        period: filters.period,
+      }
+    );
+
+  const analysis = res.data?.analysis ?? {};
+
+setCompetencies((prev) => {
+
+  const updated = prev.map((c) =>
+    c.id === competency.id
+      ? {
+          ...c,
+          analysis: {
+            status: "ready",
+            diagnosis: analysis?.diagnosis ?? null,
+            recommendation: analysis?.recommendation ?? null,
+          },
+        }
+      : c
+  );
+
+  const updatedCompetency = updated.find(
+    c => c.id === competency.id
+  );
+
+  setSelectedCompetency(updatedCompetency); // 🔥 abre / refresca drawer
+
+  return updated;
+});
+
+    /* ✅ Éxito */
+    Swal.fire({
+      icon: "success",
+      title: "Análisis generado",
+      text: "La recomendación estratégica fue creada correctamente.",
+      timer: 1600,
+      showConfirmButton: false,
+    });
+
+  } catch (error) {
+
+    setCompetencies((prev) =>
+      prev.map((c) =>
+        c.id === competency.id
+          ? { ...c, analysis: { status: "error" } }
+          : c
+      )
+    );
+
+    Swal.fire({
+      icon: "error",
+      title: "Error en análisis",
+      text: "No se pudo generar la recomendación IA.",
+    });
+
+  }
+};
+/* =========================
+   REFRESH DRAWER DATA
+========================= */
+
+useEffect(() => {
+
+  if (!selectedCompetency) return;
+
+  const updated = competencies.find(
+    c => c.id === selectedCompetency.id
+  );
+
+  if (updated) {
+    setSelectedCompetency(updated);
+  }
+
+}, [competencies]);
     /* ======================================================
        SAVE WEIGHTS
     ====================================================== */
@@ -192,7 +248,7 @@ setCompetencies((prev) =>
             <Head title="Alineación del Perfil de Egreso | Observatorio ISIL" />
 
             <DashboardProvider>
-                <div className="bg-background px-6 py-6 space-y-8">
+          <div className="bg-background px-6 py-6 space-y-8">
 
                     {/* HEADER */}
                     <PeAlignmentHeader
@@ -202,36 +258,40 @@ setCompetencies((prev) =>
                     />
 
                     {/* DRAWER METODOLOGÍA + IA */}
-                    <AlignmentExplanationDrawer
+                    {/* <AlignmentExplanationDrawer
                         open={explanationOpen}
                         onClose={() => setExplanationOpen(false)}
                         recommendation={career?.strategic_recommendation ?? null}
                         recommendationYear={career?.recommendation_year ?? null}
                         recommendationDate={career?.recommendation_generated_at ?? null}
-                    />
+                    /> */}
 
                     {/* FILTRO CARRERA */}
                     <CareerFilter />
 
                     {/* BLOQUE EXPLICACIÓN + IA PREVIEW */}
-                    <AlignmentExplanationBlock
-                        onOpenDrawer={() => setExplanationOpen(true)}
-                        recommendation={career?.strategic_recommendation ?? null}
-                    />
+                   
 
                     {/* KPIS */}
                     {summary && (
                         <PeAlignmentKpis summary={summary} />
                     )}
-
+ 
                     {/* TABLA */}
                     {hasCareer && competencies.length > 0 && (
                         <CompetencyTable
                             competencies={competencies}
                             onAnalyze={analyzeCompetency}
-                            onSelectCompetency={openCompetencyModal}
+                      onSelectCompetency={(comp) => {
+  const current = competencies.find(c => c.id === comp.id);
+  setSelectedCompetency(current);
+}}
                         />
                     )}
+                    <AlignmentExplanationBlock
+                        onOpenDrawer={() => setExplanationOpen(true)}
+                        recommendation={career?.strategic_recommendation ?? null}
+                    />
                 </div>
 
                 {/* MODAL CURSOS */}
@@ -249,7 +309,10 @@ setCompetencies((prev) =>
                     weights={weights}
                     onSave={handleSaveWeights}
                 />
-
+<CompetencyAIDrawer
+  competency={selectedCompetency}
+  onClose={() => setSelectedCompetency(null)}
+/>
             </DashboardProvider>
         </AppLayout>
     );

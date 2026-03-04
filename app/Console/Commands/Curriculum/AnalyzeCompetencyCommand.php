@@ -108,35 +108,49 @@ class AnalyzeCompetencyCommand extends Command
         |--------------------------------------------------------------------------
         */
 
-        $prompt = "
-Analiza la siguiente competencia académica frente al mercado laboral {$year}.
+$prompt = '
+Analiza la siguiente competencia académica frente al mercado laboral tecnológico '.$year.'.
 
 COMPETENCIA:
-{$competency->name}
+'.$competency->name.'
 
-CURSOS RELACIONADOS:
-{$courses->implode(', ')}
+CURSOS:
+'.$courses->implode(', ').'
 
 LENGUAJES:
-{$languages->implode(', ')}
+'.$languages->implode(', ').'
 
 TECNOLOGÍAS:
-{$technologies->implode(', ')}
+'.$technologies->implode(', ').'
 
 METODOLOGÍAS:
-{$methodologies->implode(', ')}
+'.$methodologies->implode(', ').'
 
 CERTIFICACIONES:
-{$certifications->implode(', ')}
+'.$certifications->implode(', ').'
 
-Devuelve:
+Devuelve SOLO JSON.
 
-1. Diagnóstico del estado frente al mercado.
-2. Brechas detectadas.
-3. Recomendaciones estratégicas.
-4. Tecnologías emergentes sugeridas.
-";
+Formato:
 
+{
+  "diagnosis": {
+    "summary": "máximo 2 líneas",
+    "strengths": ["máximo 3"],
+    "weaknesses": ["máximo 3"],
+    "gaps": ["máximo 3"]
+  },
+  "recommendation": {
+    "actions": ["máximo 3 acciones estratégicas"],
+    "technologies": ["máximo 5 tecnologías emergentes relevantes"]
+  }
+}
+
+Reglas:
+- No escribir párrafos largos
+- No usar markdown
+- Máximo 3 elementos por lista
+';
         /*
         |--------------------------------------------------------------------------
         | 8️⃣ OpenAI
@@ -166,23 +180,26 @@ Devuelve:
         | 9️⃣ Guardar análisis
         |--------------------------------------------------------------------------
         */
+$data = json_decode($content, true);
 
-        DB::table('competency_ai_analysis')->updateOrInsert(
-            [
-                'competency_id' => $competencyId,
-                'career_id'     => $careerId,
-                'year'          => $year,
-                'period'        => $period
-            ],
-            [
-                'diagnosis'     => $content,
-                'recommendation'=> $content,
-                'languages'     => json_encode($languages),
-                'technologies'  => json_encode($technologies),
-                'model'         => 'gpt-4o-mini',
-                'generated_at'  => now()
-            ]
-        );
+$diagnosis = $data['diagnosis'] ?? [];
+$recommendation = $data['recommendation'] ?? [];
+
+    DB::table('competency_ai_analysis')->updateOrInsert(
+[
+    'competency_id' => $competencyId,
+    'career_id'     => $careerId,
+    'year'          => $year,
+    'period'        => $period
+],
+[
+    'diagnosis'     => json_encode($diagnosis),
+    'recommendation'=> json_encode($recommendation),
+    'languages'     => json_encode($languages),
+    'technologies'  => json_encode($technologies),
+    'model'         => 'gpt-4o-mini',
+    'generated_at'  => now()
+]);
 
         $this->info("Análisis generado correctamente.");
     }

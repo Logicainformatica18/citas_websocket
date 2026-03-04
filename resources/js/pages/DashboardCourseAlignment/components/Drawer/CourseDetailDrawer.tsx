@@ -91,7 +91,12 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
 
         {/* ================= TABS ================= */}
         <div className="flex border-b border-gray-200 dark:border-gray-800 text-sm bg-gray-50 dark:bg-slate-900">
-
+ <TabButton
+            icon={<Bot size={16} />}
+            label="IA"
+            active={activeTab === "ia"}
+            onClick={() => setActiveTab("ia")}
+          />
           <TabButton
             icon={<Briefcase size={16} />}
             label="Empleo"
@@ -113,12 +118,7 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
             onClick={() => setActiveTab("gaps")}
           />
 
-          <TabButton
-            icon={<Bot size={16} />}
-            label="IA"
-            active={activeTab === "ia"}
-            onClick={() => setActiveTab("ia")}
-          />
+         
         </div>
 
         {/* ================= CONTENT ================= */}

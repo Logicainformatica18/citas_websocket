@@ -50,14 +50,7 @@ export default function AlignmentExplanationBlock({ onOpenDrawer }: Props) {
 
       </div>
 
-      <div className="pt-2">
-        <button
-          onClick={onOpenDrawer}
-          className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
-        >
-          Ver metodología completa →
-        </button>
-      </div>
+     
 
     </div>
   );
