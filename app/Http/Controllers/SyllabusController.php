@@ -10,9 +10,20 @@ use App\Models\Technology;
 
 class SyllabusController extends Controller
 {
-    public function index()
-    {
-        $uploads = Syllabus::latest()->paginate(10);
+   public function index(Request $request)
+{
+    $search = $request->get('search');
+
+    $query = Syllabus::query();
+
+    if ($search) {
+        $query->whereRaw(
+            "LOWER(JSON_UNQUOTE(JSON_EXTRACT(structured_data, '$.curso'))) LIKE ?",
+            ['%' . strtolower($search) . '%']
+        );
+    }
+
+    $uploads = $query->latest()->paginate(10)->withQueryString();
 
         $uploads->getCollection()->transform(function ($syllabus) {
             $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];
@@ -54,9 +65,20 @@ class SyllabusController extends Controller
         ]);
     }
 
-    public function fetchPaginated()
-    {
-        $uploads = Syllabus::latest()->paginate(10);
+   public function fetchPaginated(Request $request)
+{
+    $search = $request->get('search');
+
+    $query = Syllabus::query();
+
+    if ($search) {
+        $query->whereRaw(
+            "LOWER(JSON_UNQUOTE(JSON_EXTRACT(structured_data, '$.curso'))) LIKE ?",
+            ['%' . strtolower($search) . '%']
+        );
+    }
+
+    $uploads = $query->latest()->paginate(10)->withQueryString();
 
         $uploads->getCollection()->transform(function ($syllabus) {
             $data = json_decode($syllabus->getRawOriginal('structured_data'), true) ?? [];

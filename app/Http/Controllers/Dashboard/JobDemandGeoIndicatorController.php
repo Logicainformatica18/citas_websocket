@@ -51,8 +51,8 @@ public function index(Request $request)
     /* =====================================================
        1️⃣ Filtros
     ===================================================== */
-    $year     = (int) $request->input('year', 2025);
-    $period   = $request->input('period', 's2');
+    $year     = (int) $request->input('year', 2026);
+    $period   = $request->input('period', 's1');
     $region   = $request->input('region');
     $country  = $request->input('country');
     $careerId = $request->input('career_id');
