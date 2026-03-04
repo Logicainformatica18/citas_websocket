@@ -111,12 +111,7 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
             onClick={() => setActiveTab("tendencias")}
           />
 
-          <TabButton
-            icon={<AlertTriangle size={16} />}
-            label="Gaps"
-            active={activeTab === "gaps"}
-            onClick={() => setActiveTab("gaps")}
-          />
+ 
 
          
         </div>
