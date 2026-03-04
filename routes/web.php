@@ -183,7 +183,10 @@ Route::prefix('dashboard/indicators/course-alignment')->group(function () {
 
  Route::prefix('dashboard')->group(function () {
 
-
+Route::post(
+    '/indicators/job-demand/rebuild-alignment',
+    [JobDemandGeoIndicatorController::class, 'rebuildAlignment']
+)->name('job-demand.rebuild-alignment');
  Route::post(
     '/indicators/pe-alignment/weights',
     [PeAlignmentIndicatorController::class, 'updateWeights']

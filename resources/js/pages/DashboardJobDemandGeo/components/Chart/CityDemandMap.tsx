@@ -8,12 +8,13 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 
 /* ================= HEATMAP LAYER ================= */
+
 function GlobalHeatLayer({ data }: { data: any[] }) {
     const map = useMap();
     const layerRef = useRef<any>(null);
 
     const gradient = {
-        0.1: "#1CBCE8", // ISIL azul
+        0.1: "#1CBCE8",
         0.3: "#7DD3FC",
         0.5: "#FACC15",
         0.7: "#FB923C",
@@ -23,16 +24,9 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
     useEffect(() => {
         if (!map) return;
 
-        // Crear la capa SOLO una vez
         if (!layerRef.current) {
             // @ts-ignore
-            if (!(window as any).L?.heatLayer) {
-                console.error("❌ leaflet.heat no está cargado");
-                return;
-            }
-
-            // @ts-ignore
-            layerRef.current = (window as any).L.heatLayer([], {
+            layerRef.current = window.L.heatLayer([], {
                 radius: 40,
                 blur: 25,
                 maxZoom: 8,
@@ -41,7 +35,6 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
             }).addTo(map);
         }
 
-        // Actualizar puntos
         if (data?.length) {
             const points = data.map((d) => [
                 d.lat,
@@ -57,16 +50,18 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
 }
 
 /* ================= MAP EVENTS ================= */
+
 function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
     const map = useMap();
-    const timeoutRef = useRef<any>(null);
+    const debounceRef = useRef<any>(null);
 
     useEffect(() => {
         const handler = () => {
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            timeoutRef.current = setTimeout(() => {
+            clearTimeout(debounceRef.current);
+
+            debounceRef.current = setTimeout(() => {
                 onZoom(map.getZoom());
-            }, 600);
+            }, 800);
         };
 
         map.on("zoomend", handler);
@@ -75,7 +70,6 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
         return () => {
             map.off("zoomend", handler);
             map.off("moveend", handler);
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
     }, [map, onZoom]);
 
@@ -83,17 +77,39 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
 }
 
 /* ================= MAIN ================= */
+
 export default function CityDemandHeatmap() {
+
     const pageProps = usePage().props as any;
-const filters = pageProps?.filters ?? {};
+    const filters = pageProps?.filters ?? {};
 
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [zoom, setZoom] = useState(5);
 
+    const mounted = useRef(false);
+    const lastQuery = useRef("");
+
     /* ================= FETCH ================= */
+
     const fetchData = useCallback(async () => {
+
+        const queryKey = JSON.stringify({
+            year: filters.year,
+            period: filters.period,
+            region: filters.region,
+            country: filters.country,
+            zoom,
+        });
+
+        /* evitar requests duplicadas */
+
+        if (queryKey === lastQuery.current) return;
+
+        lastQuery.current = queryKey;
+
         try {
+
             setLoading(true);
 
             const res = await axios.get(
@@ -110,38 +126,67 @@ const filters = pageProps?.filters ?? {};
             );
 
             setData(res.data.results || []);
-        } catch (e) {
-            console.error("❌ Error cargando heatmap", e);
-        } finally {
-            setLoading(false);
-        }
-    }, [filters, zoom]);
 
-    /* ================= EFFECT ================= */
+        } catch (e) {
+
+            console.error("❌ Error cargando heatmap", e);
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    }, [filters.year, filters.period, filters.region, filters.country, zoom]);
+
+    /* ================= LOAD AFTER PAGE ================= */
+
     useEffect(() => {
+
+        if (!mounted.current) {
+
+            mounted.current = true;
+
+            setTimeout(() => {
+                fetchData();
+            }, 200);
+
+            return;
+        }
+
         fetchData();
+
     }, [fetchData]);
 
     return (
         <Card className="border border-[#00B6E8]/30 bg-white dark:bg-[#0A2540] shadow-xl">
+
             <CardContent className="p-6 flex flex-col gap-4">
+
                 {/* HEADER */}
+
                 <div className="flex items-center gap-3">
+
                     <div className="h-9 w-9 rounded-lg bg-[#00B6E8] flex items-center justify-center">
                         <MapPin className="h-5 w-5 text-white" />
                     </div>
+
                     <h3 className="text-sm font-bold text-[#0A2540] dark:text-white">
                         Mapa de calor – Demanda laboral
                     </h3>
+
                 </div>
 
                 {/* MAP */}
+
                 <div className="relative w-full h-[460px] rounded-xl overflow-hidden">
+
                     <MapContainer
                         center={[-12.0464, -77.0428]}
                         zoom={5}
                         style={{ height: "100%", width: "100%" }}
                     >
+
                         <TileLayer
                             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                             attribution="&copy; OpenStreetMap & CARTO"
@@ -149,8 +194,8 @@ const filters = pageProps?.filters ?? {};
 
                         <MapEvents onZoom={(z) => setZoom(z)} />
 
-                        {/* 🔥 HEATMAP */}
                         <GlobalHeatLayer data={data} />
+
                     </MapContainer>
 
                     {loading && (
@@ -158,8 +203,11 @@ const filters = pageProps?.filters ?? {};
                             Cargando mapa…
                         </div>
                     )}
+
                 </div>
+
             </CardContent>
+
         </Card>
     );
 }

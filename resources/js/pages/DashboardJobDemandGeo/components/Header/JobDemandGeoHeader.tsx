@@ -8,9 +8,10 @@ import {
   Info,
 } from "lucide-react";
 import { router, usePage } from "@inertiajs/react";
-
+import axios from "axios";
+import { RefreshCcw } from "lucide-react";
 import { JobMarketStatusModal } from "../Header/JobMarketStatusModal";
-
+import Swal from "sweetalert2";
 interface HeaderProps {
   meta: {
     year: number;
@@ -46,7 +47,48 @@ export default function JobDemandGeoHeader({ meta }: HeaderProps) {
       }
     );
   };
+const rebuildAlignment = async () => {
+  const confirm = await Swal.fire({
+    title: "Actualizar alineación laboral",
+    text: "Se reconstruirá la relación entre vacantes y carreras con los datos más recientes.",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Actualizar",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#00B6E8",
+  });
 
+  if (!confirm.isConfirmed) return;
+
+  Swal.fire({
+    title: "Actualizando alineación...",
+    text: "Esto puede tardar unos segundos",
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: () => {
+      Swal.showLoading();
+    },
+  });
+
+  try {
+    await axios.post(route("job-demand.rebuild-alignment"));
+
+    Swal.fire({
+      icon: "success",
+      title: "Alineación actualizada",
+      text: "Los indicadores se recalcularon correctamente.",
+      confirmButtonColor: "#00B6E8",
+    });
+
+    router.reload();
+  } catch (error) {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo reconstruir la alineación.",
+    });
+  }
+};
   return (
     <>
       <header className="relative overflow-hidden border-b bg-[#E6F7FD] dark:bg-[#0A2540] px-4 sm:px-6 lg:px-8">
@@ -174,38 +216,56 @@ export default function JobDemandGeoHeader({ meta }: HeaderProps) {
               </div>
 
               {/* Active period */}
-              <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
-                <span className="font-semibold text-[#0A2540] dark:text-white">
-                  Periodo activo:
-                </span>{" "}
-                {meta.periodo_label}
-              </p>
+              
             </div>
 
             {/* ================= RIGHT – METODOLOGÍA ================= */}
             <div className="w-full max-w-sm rounded-2xl border border-[#00B6E8]/40 bg-white p-5 text-left shadow-xl dark:bg-[#102C3C]">
-              <div className="mb-2 flex items-center gap-2">
-                <Info className="h-4 w-4 text-[#00B6E8]" />
-                <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
-                  Metodología de cálculo
-                </p>
-              </div>
+  <div className="mb-2 flex items-center gap-2">
+    <Info className="h-4 w-4 text-[#00B6E8]" />
+    <p className="text-xs font-bold uppercase tracking-wider text-[#00B6E8]">
+      Metodología de cálculo
+    </p>
+  </div>
 
-              <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
-                <p>• Conteo total de vacantes publicadas por ciudad</p>
-                <p>• Agrupación jerárquica ciudad → región → país</p>
-                <p>• Ranking por volumen absoluto de ofertas</p>
-                <p>
-                  • <strong>Concentración Top 5</strong>: porcentaje de ofertas
-                  acumuladas en las 5 ciudades con mayor demanda
-                </p>
-              </div>
+  <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+    <p>• Conteo total de vacantes publicadas por ciudad</p>
+    <p>• Agrupación jerárquica ciudad → región → país</p>
+    <p>• Ranking por volumen absoluto de ofertas</p>
+    <p>
+      • <strong>Concentración Top 5</strong>: porcentaje de ofertas
+      acumuladas en las 5 ciudades con mayor demanda
+    </p>
+  </div>
 
-              <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                Los cálculos se realizan únicamente con datos del Periodo
-                seleccionado.
-              </p>
-            </div>
+  <p className="mt-3 border-t border-[#00B6E8]/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+    Los cálculos se realizan únicamente con datos del Periodo seleccionado.
+  </p>
+
+  {/* ===== BOTÓN ACTUALIZAR ALINEACIÓN ===== */}
+  <div className="mt-4 border-t border-[#00B6E8]/20 pt-4">
+    <button
+      onClick={rebuildAlignment}
+      className="
+        w-full flex items-center justify-center gap-2
+        rounded-xl border border-[#00B6E8]/40
+        bg-[#E6F7FD] dark:bg-[#0A2540]
+        px-4 py-2 text-sm font-semibold
+        text-[#0A2540] dark:text-white
+        shadow-md transition
+        hover:bg-[#00B6E8] hover:text-white
+        hover:shadow-lg
+      "
+    >
+      <RefreshCcw className="h-4 w-4" />
+      Actualizar alineación laboral
+    </button>
+
+    <p className="mt-2 text-[11px] text-center text-[#0A2540]/60 dark:text-gray-400">
+      Reconstruye la relación entre vacantes y carreras usando los datos más recientes.
+    </p>
+  </div>
+</div>
           </div>
         </div>
       </header>

@@ -7,9 +7,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Services\JobMarketStatusBuilder;
+use Illuminate\Support\Facades\Artisan;
 
 class JobDemandGeoIndicatorController extends Controller
 {
+
+
     /* =====================================================
        Helper: SQL para normalizar región
     ===================================================== */
@@ -45,12 +48,61 @@ class JobDemandGeoIndicatorController extends Controller
             END
         ";
     }
+public function getMapData(Request $request)
+{
+    $year     = (int) $request->get('year', 2026);
+    $period   = $request->get('period', 's1');
+    $region   = $request->get('region');
+    $country  = $request->get('country');
 
+    $range = $period === 's1'
+        ? [$year . '-01-01', $year . '-06-30']
+        : [$year . '-07-01', $year . '-12-31'];
+
+    $regionSql = $this->normalizedRegionSql();
+
+    $query = DB::table('job_offers as jo')
+        ->whereBetween('jo.published_at', $range)
+        ->whereNotNull('jo.latitude')
+        ->whereNotNull('jo.longitude');
+
+    if ($country) {
+        $query->where('jo.country', $country);
+    }
+
+    if ($region) {
+        $query->whereRaw("$regionSql = ?", [$region]);
+    }
+
+    $results = $query
+        ->selectRaw("
+            jo.country,
+            jo.city,
+            AVG(jo.latitude)  as lat,
+            AVG(jo.longitude) as lng,
+            COUNT(DISTINCT jo.id) as total
+        ")
+        ->groupBy('jo.country', 'jo.city')
+        ->get();
+
+    $max = max(1, $results->max('total'));
+
+    $results->transform(function ($r) use ($max) {
+        $r->intensity = max(round($r->total / $max, 3), 0.15);
+        return $r;
+    });
+
+    return response()->json([
+        'results' => $results,
+        'max'     => $max
+    ]);
+}
 public function index(Request $request)
 {
     /* =====================================================
        1️⃣ Filtros
     ===================================================== */
+
     $year     = (int) $request->input('year', 2026);
     $period   = $request->input('period', 's1');
     $region   = $request->input('region');
@@ -72,43 +124,23 @@ public function index(Request $request)
     /* =====================================================
        2️⃣ Subquery curricular optimizada
     ===================================================== */
-    $alignedSubquery = DB::table(DB::raw("
-        (
-            SELECT tj.job_offer_id
-            FROM technology_job tj
-            JOIN course_technology ct ON ct.technology_id = tj.technology_id
-            JOIN career_course cc ON cc.course_id = ct.course_id
-            " . ($careerId ? "WHERE cc.career_id = {$careerId}" : "") . "
 
-            UNION ALL
-
-            SELECT lj.job_offer_id
-            FROM language_job lj
-            JOIN course_language cl ON cl.language_id = lj.language_id
-            JOIN career_course cc ON cc.course_id = cl.course_id
-            " . ($careerId ? "WHERE cc.career_id = {$careerId}" : "") . "
-
-            UNION ALL
-
-            SELECT mj.job_offer_id
-            FROM methodology_job mj
-            JOIN course_methodology cm ON cm.methodology_id = mj.methodology_id
-            JOIN career_course cc ON cc.course_id = cm.course_id
-            " . ($careerId ? "WHERE cc.career_id = {$careerId}" : "") . "
-        ) as aligned
-    "))
-    ->selectRaw("DISTINCT aligned.job_offer_id");
 
     /* =====================================================
-       3️⃣ Base Query (join reducido)
+       3️⃣ Base query
     ===================================================== */
-    $baseQuery = DB::table('job_offers as jo')
-        ->joinSub($alignedSubquery, 'a', function ($join) {
-            $join->on('a.job_offer_id', '=', 'jo.id');
-        })
-        ->whereBetween('jo.published_at', $range)
-        ->whereNotNull('jo.city');
 
+    /* =====================================================
+   3️⃣ Base query optimizada
+===================================================== */
+
+$baseQuery = DB::table('job_offers as jo')
+    ->join('job_offer_alignment as a', 'a.job_offer_id', '=', 'jo.id')
+    ->whereBetween('jo.published_at', $range)
+    ->whereNotNull('jo.city');
+if ($careerId) {
+    $baseQuery->where('a.career_id', $careerId);
+}
     if ($region) {
         $baseQuery->whereRaw("$regionSql = ?", [$region]);
     }
@@ -120,52 +152,69 @@ public function index(Request $request)
     /* =====================================================
        4️⃣ KPIs
     ===================================================== */
-    $totalJobs = (clone $baseQuery)->count('jo.id');
 
-    $citiesCount = (clone $baseQuery)
-        ->distinct()
-        ->count('jo.city');
+/* =====================================================
+   4️⃣ KPIs
+===================================================== */
 
-    $topCity = (clone $baseQuery)
-        ->select('jo.city', DB::raw('COUNT(jo.id) as total'))
-        ->groupBy('jo.city')
-        ->orderByDesc('total')
-        ->first();
+$totalJobs = (clone $baseQuery)->count('jo.id');
 
-    $top5Jobs = (clone $baseQuery)
-        ->select(DB::raw('COUNT(jo.id) as total'))
-        ->groupBy('jo.city')
-        ->orderByDesc('total')
-        ->limit(5)
-        ->get()
-        ->sum('total');
+$citiesCount = (clone $baseQuery)
+    ->distinct()
+    ->count('jo.city');
 
-    $top5Concentration = $totalJobs > 0
-        ? round(($top5Jobs / $totalJobs) * 100, 1)
-        : 0;
+$topCity = (clone $baseQuery)
+    ->select('jo.city', DB::raw('COUNT(jo.id) as total'))
+    ->groupBy('jo.city')
+    ->orderByDesc('total')
+    ->first();
 
-    /* Carreras activas */
-    $careersWithDemand = DB::table('career_course as cc')
-        ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
-        ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
-        ->distinct()
-        ->count('cc.career_id');
+$top5Jobs = (clone $baseQuery)
+    ->select(DB::raw('COUNT(jo.id) as total'))
+    ->groupBy('jo.city')
+    ->orderByDesc('total')
+    ->limit(5)
+    ->get()
+    ->sum('total');
 
-    /* Carrera líder */
-    $topCareer = DB::table('careers as c')
-        ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
-        ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
-        ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
-        ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
-        ->whereBetween('jo.published_at', $range)
-        ->groupBy('c.id', 'c.name')
-        ->select('c.name', DB::raw('COUNT(DISTINCT jo.id) as total'))
-        ->orderByDesc('total')
-        ->first();
+$top5Concentration = $totalJobs > 0
+    ? round(($top5Jobs / $totalJobs) * 100, 1)
+    : 0;
+
+
+/* ===============================
+   CARRERAS ACTIVAS
+================================ */
+
+$careersWithDemand = DB::table('careers as c')
+    ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
+    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+    ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
+    ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
+    ->whereBetween('jo.published_at', $range)
+    ->distinct()
+    ->count('c.id');
+
+
+/* ===============================
+   CARRERA LÍDER
+================================ */
+
+$topCareer = DB::table('careers as c')
+    ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
+    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+    ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
+    ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
+    ->whereBetween('jo.published_at', $range)
+    ->groupBy('c.id', 'c.name')
+    ->select('c.name', DB::raw('COUNT(DISTINCT jo.id) as total'))
+    ->orderByDesc('total')
+    ->first();
 
     /* =====================================================
-       5️⃣ Ranking
+       5️⃣ Ranking ciudades
     ===================================================== */
+
     $perPage = (int) $request->input('per_page', 10);
 
     $ranking = (clone $baseQuery)
@@ -190,17 +239,22 @@ public function index(Request $request)
     /* =====================================================
        6️⃣ Meta
     ===================================================== */
-    $meta = [
-        'year'              => $year,
-        'period'            => $period,
-        'periodo_label'     => strtoupper($period) . ' ' . $year,
-        'total_jobs'        => $totalJobs,
-        'cities_count'      => $citiesCount,
-        'careers_count'     => $careersWithDemand,
-        'top_city'          => $topCity?->city,
-        'top_career'        => $topCareer?->name,
-        'top5_concentration'=> $top5Concentration,
-    ];
+
+ $meta = [
+    'year'              => $year,
+    'period'            => $period,
+    'periodo_label'     => strtoupper($period) . ' ' . $year,
+    'total_jobs'        => $totalJobs,
+    'cities_count'      => $citiesCount,
+    'careers_count'     => $careersWithDemand,
+    'top_city'          => $topCity?->city,
+    'top_career'        => $topCareer?->name,
+    'top5_concentration'=> $top5Concentration,
+];
+
+    /* =====================================================
+       7️⃣ Render
+    ===================================================== */
 
     return Inertia::render('DashboardJobDemandGeo/Index', [
         'ranking' => $ranking,
@@ -225,7 +279,16 @@ public function index(Request $request)
     ]);
 }
 
+public function rebuildAlignment()
+{
+    Artisan::call('jobs:build-alignment', [
+        '--truncate' => true
+    ]);
 
+    return response()->json([
+        'message' => 'Alineación reconstruida correctamente'
+    ]);
+}
 public function searchCountries(Request $request)
 {
     $term   = trim($request->get('q', ''));
