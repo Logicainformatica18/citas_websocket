@@ -225,7 +225,7 @@ export default function CareerFilter() {
           </div>
 
           {/* BOTÓN IA */}
-          <button
+          {/* <button
             onClick={handleAnalyzeAI}
             disabled={!filters.career_id || loading}
             className="
@@ -257,7 +257,7 @@ export default function CareerFilter() {
                 Obtener recomendación con IA
               </>
             )}
-          </button>
+          </button> */}
         </div>
 
       </div>
