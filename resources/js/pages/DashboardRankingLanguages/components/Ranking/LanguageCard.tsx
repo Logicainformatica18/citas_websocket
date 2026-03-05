@@ -48,16 +48,25 @@ const isISIL =
 
   return (
     <div
-      className="
-        group rounded-2xl border bg-white p-6
-        relative overflow-hidden transition-all duration-300
-        cursor-pointer hover:shadow-xl hover:-translate-y-[2px]
-        hover:border-[#1CBCE8]
-        dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
-      "
+     className={`
+  group rounded-2xl border bg-white p-6
+  relative overflow-hidden transition-all duration-300
+  cursor-pointer hover:shadow-xl hover:-translate-y-[2px]
+  ${isISIL ? "hover:border-[#1CBCE8]" : "hover:border-purple-500"}
+  dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
+`}
     >
       {/* Barra decorativa */}
-      <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]" />
+     <div
+  className={`
+    absolute top-0 left-0 h-1 w-full
+    ${
+      isISIL
+        ? "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
+        : "bg-gradient-to-r from-purple-500 to-fuchsia-500"
+    }
+  `}
+/>
 
       <div className="flex justify-between gap-6">
         {/* ================= LEFT ================= */}
@@ -219,20 +228,20 @@ const isISIL =
       ISIL
     </span>
   )}
-  {/* {data.is_real_trend === 1 && (
-  <span
-    className="
-      mt-2 inline-flex items-center
-      rounded-full px-3 py-1
-      text-xs font-semibold
-      bg-purple-100 text-purple-700
-      dark:bg-[#2B1C3A]
-      dark:text-[#E9D5FF]
-    "
-  >
-    Trend
-  </span>
-)} */}
+    {!isISIL && (
+    <span
+      className="
+        inline-flex items-center
+        rounded-full px-3 py-1
+        text-xs font-semibold
+        bg-purple-100 text-purple-700
+        dark:bg-[#2B1C3A]
+        dark:text-[#E9D5FF]
+      "
+    >
+      Trend
+    </span>
+  )}
 
 </div>
 

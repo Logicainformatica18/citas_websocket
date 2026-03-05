@@ -1,5 +1,5 @@
 import { CertificationRanking } from "../../types/ranking";
-import { TrendingUp, Briefcase, Sparkles } from "lucide-react";
+import { TrendingUp, Briefcase, Sparkles, GraduationCap } from "lucide-react";
 
 type Props = {
     rank: number;
@@ -33,16 +33,16 @@ export default function CertificationCard({
     /* =========================================
        TIPO DE ITEM (FUENTE ÚNICA)
     ========================================= */
-  const isIsil = Boolean(data.has_isil);
-const isTrend = !isIsil;
+    const isIsil = Boolean(data.has_isil);
+    const isTrend = !isIsil;
 
     /* =========================================
        BLINDAJE DE DATOS
     ========================================= */
- const hasTrend =
-  data.trend_reports !== null &&
-  data.trend_reports !== undefined &&
-  Number(data.trend_reports) > 0;
+    const hasTrend =
+        data.trend_reports !== null &&
+        data.trend_reports !== undefined &&
+        Number(data.trend_reports) > 0;
 
 
     const trendReports = Number(data.trend_reports ?? 0);
@@ -64,11 +64,10 @@ const isTrend = !isIsil;
             className={`
     group rounded-2xl border bg-white p-6
     relative overflow-hidden transition-all duration-300
-   ${
-  isIsil
-    ? "hover:border-[#1CBCE8]"
-    : "hover:border-purple-500"
-}
+   ${isIsil
+                    ? "hover:border-[#1CBCE8]"
+                    : "hover:border-purple-500"
+                }
 
 
     dark:bg-[#0F2A3A] dark:border-[#1E3A4A]
@@ -76,16 +75,15 @@ const isTrend = !isIsil;
         >
 
             {/* Barra decorativa */}
-         <div
-  className={`
+            <div
+                className={`
     absolute top-0 left-0 h-1 w-full
-    ${
-      isIsil
-        ? "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
-        : "bg-gradient-to-r from-purple-500 to-fuchsia-500"
-    }
+    ${isIsil
+                        ? "bg-gradient-to-r from-[#1CBCE8] to-[#6EE7F9]"
+                        : "bg-gradient-to-r from-purple-500 to-fuchsia-500"
+                    }
   `}
-/>
+            />
 
 
 
@@ -162,16 +160,16 @@ const isTrend = !isIsil;
                                     e.stopPropagation();
                                     console.log("CLICK LABORAL", data.id);
                                     if (totalJobs === 0) return;
-onAction?.("laboral", data);
+                                    onAction?.("laboral", data);
 
                                 }}
 
                                 className={`
     rounded-lg p-2 transition
     ${totalJobs === 0
-  ? "opacity-40 cursor-not-allowed"
-  : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-}
+                                        ? "opacity-40 cursor-not-allowed"
+                                        : "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                                    }
 
   `}
                             >
@@ -182,11 +180,11 @@ onAction?.("laboral", data);
                                         Laboral
                                     </span>
 
-                                  {totalJobs > 0 && (
-  <span className="text-[11px] text-gray-400">
-    {totalJobs.toLocaleString()} vacantes
-  </span>
-)}
+                                    {totalJobs > 0 && (
+                                        <span className="text-[11px] text-gray-400">
+                                            {totalJobs.toLocaleString()} vacantes
+                                        </span>
+                                    )}
 
                                 </div>
 
@@ -198,30 +196,30 @@ onAction?.("laboral", data);
                                 </div>
 
                                 <span className="text-[11px] text-gray-500">
-                                  Score laboral: {laborScore.toFixed(1)}
+                                    Score laboral: {laborScore.toFixed(1)}
 
 
                                 </span>
                             </div>
 
                             {/* Tendencias */}
-                           <div
-  onClick={(e) => {
-    e.stopPropagation();
-    console.log("CLICK TENDENCIA CARD", data.id, data.entity_type);
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log("CLICK TENDENCIA CARD", data.id, data.entity_type);
 
-  onAction?.("trend", data);
+                                    onAction?.("trend", data);
 
-  }}
-  title={!hasTrend ? "No hay reportes de tendencia" : "Ver reportes de tendencia"}
-  className={`
+                                }}
+                                title={!hasTrend ? "No hay reportes de tendencia" : "Ver reportes de tendencia"}
+                                className={`
     rounded-lg p-2 transition
     ${hasTrend
-      ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
-      : "opacity-40 cursor-not-allowed"
-    }
+                                        ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#1E3A4A]"
+                                        : "opacity-40 cursor-not-allowed"
+                                    }
   `}
->
+                            >
 
 
 
@@ -255,51 +253,50 @@ onAction?.("laboral", data);
                 </div>
 
                 {/* ================= RIGHT ================= */}
-                <div className="flex flex-col items-end justify-start text-right">
-                    <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
-                        {finalScore.toFixed(1)}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
-                        Resultado final
-                    </span>
+                <div className="flex flex-col items-end justify-between text-right">
+
+                    <div>
+                        <span className="text-4xl font-extrabold text-[#0EA5E9] leading-none">
+                            {finalScore.toFixed(1)}
+                        </span>
+                        <span className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">
+                            Resultado final
+                        </span>
+                    </div>
+
+                    {/* BADGE */}
+
+                  <span
+  className={`
+    mt-4 inline-flex items-center gap-1
+    rounded-full px-3 py-1
+    text-xs font-semibold
+    ${
+      isIsil
+        ? "bg-sky-100 text-sky-700 dark:bg-[#14384F] dark:text-[#7DD3FC]"
+        : "bg-purple-100 text-purple-700 dark:bg-[#2B1C3A] dark:text-[#E9D5FF]"
+    }
+  `}
+>
+  {isIsil ? (
+    <>
+      <GraduationCap className="w-3 h-3" />
+      ISIL
+    </>
+  ) : (
+    <>
+      <TrendingUp className="w-3 h-3" />
+      Trend
+    </>
+  )}
+</span>
+
                 </div>
             </div>
 
             {/* BADGE EMERGENTE (solo certificaciones) */}
-            {!isTrend && isEmergent && (
-                <div
-                    className="
-            absolute bottom-3 right-3
-            flex items-center justify-center
-            w-9 h-9 rounded-full
-            bg-purple-100 text-purple-700
-            shadow-sm
-            ring-1 ring-purple-300
-            group-hover:scale-110 transition
-            dark:bg-purple-900/30 dark:text-purple-300
-          "
-                    title="Certificación emergente con mercado (detectada por tendencias)"
-                >
-                    <Sparkles className="w-4 h-4" />
-                </div>
-            )}
-            {/* BADGE ISIL (solo certificaciones, abajo) */}
-         <div className="pt-4 flex justify-end">
-  <span
-    className={`
-      inline-flex items-center
-      rounded-full px-3 py-1
-      text-[11px] font-semibold uppercase tracking-widest
-      ${
-        isIsil
-          ? "bg-sky-100 text-sky-700 dark:bg-[#14384F] dark:text-[#7DD3FC]"
-          : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-      }
-    `}
-  >
-    {isIsil ? "ISIL" : "TREND"}
-  </span>
-</div>
+
+
 
 
 

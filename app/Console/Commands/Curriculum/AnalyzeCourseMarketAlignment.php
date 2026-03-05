@@ -63,23 +63,39 @@ class AnalyzeCourseMarketAlignment extends Command
             ->values();
 
         /* =====================================================
-           2️⃣ DEMANDA REAL (JOBS)
+           2️⃣ DEMANDA REAL (JOBS DEL AÑO ANALIZADO)
         ===================================================== */
 
-        $jobDemand = DB::table('job_offers as jo')
-            ->leftJoin('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-            ->leftJoin('language_job as lj', 'lj.job_offer_id', '=', 'jo.id')
-            ->leftJoin('methodology_job as mj', 'mj.job_offer_id', '=', 'jo.id')
-            ->where(function ($q) use ($entityIds) {
-                $q->whereIn('tj.market_entity_id', $entityIds)
-                  ->orWhereIn('lj.market_entity_id', $entityIds)
-                  ->orWhereIn('mj.market_entity_id', $entityIds);
-            })
-            ->distinct('jo.id')
-            ->count('jo.id');
+        $jobIds = collect()
+            ->merge(
+                DB::table('technology_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->merge(
+                DB::table('language_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->merge(
+                DB::table('methodology_job')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->pluck('job_offer_id')
+            )
+            ->unique()
+            ->values();
+
+        $jobDemand = 0;
+
+        if ($jobIds->isNotEmpty()) {
+            $jobDemand = DB::table('job_offers')
+                ->whereIn('id', $jobIds)
+                ->whereYear('published_at', $year)
+                ->count();
+        }
 
         /* =====================================================
-           3️⃣ TENDENCIAS REALES (entity_trends)
+           3️⃣ TENDENCIAS REALES
         ===================================================== */
 
         $trendSignals = DB::table('entity_trends')
@@ -98,7 +114,7 @@ class AnalyzeCourseMarketAlignment extends Command
             ->values();
 
         /* =====================================================
-           5️⃣ TOP TECNOLOGÍAS DEL MERCADO (para comparación)
+           5️⃣ TOP TECNOLOGÍAS DEL MERCADO
         ===================================================== */
 
         $topMarketTech = DB::table('technology_metrics')
@@ -109,46 +125,46 @@ class AnalyzeCourseMarketAlignment extends Command
             ->values();
 
         /* =====================================================
-           6️⃣ CONSTRUCCIÓN CONTEXTO IA
+           6️⃣ COMPETENCIAS DEL CURSO
         ===================================================== */
-/* =====================================================
-   🔹 COMPETENCIA DEL CURSO
-===================================================== */
 
-$competencies = DB::table('competency_course as cc')
-    ->join('competencies as comp', 'comp.id', '=', 'cc.competency_id')
-    ->where('cc.course_id', $courseId)
-    ->select('comp.name')
-    ->pluck('comp.name')
-    ->values();
+        $competencies = DB::table('competency_course as cc')
+            ->join('competencies as comp', 'comp.id', '=', 'cc.competency_id')
+            ->where('cc.course_id', $courseId)
+            ->pluck('comp.name')
+            ->values();
 
-      $context = [
-    'course_name' => $course->name,
+        /* =====================================================
+           7️⃣ CONTEXTO PARA IA
+        ===================================================== */
 
-    'course_competencies' => $competencies,
+        $context = [
+            'course_name' => $course->name,
 
-    'current_languages' => $languages->pluck('name'),
-    'current_technologies' => $technologies->pluck('name'),
-    'current_methodologies' => $methodologies->pluck('name'),
+            'course_competencies' => $competencies,
 
-    'job_demand_count' => $jobDemand,
-    'trend_signals_count' => $trendSignals,
+            'current_languages' => $languages->pluck('name'),
+            'current_technologies' => $technologies->pluck('name'),
+            'current_methodologies' => $methodologies->pluck('name'),
 
-    'related_certifications' => $relatedCertifications,
-    'top_market_technologies' => $topMarketTech
-];
+            'job_demand_year' => $jobDemand,
+            'trend_signals_quarter' => $trendSignals,
 
+            'related_certifications' => $relatedCertifications,
+            'top_market_technologies' => $topMarketTech
+        ];
 
-      $prompt = "
+        $prompt = "
 Eres un experto en diseño curricular y alineación estratégica con mercado laboral.
 
-Analiza el curso usando su competencia académica como principal criterio de interpretación.
+Analiza el curso usando su competencia académica como principal criterio.
 
 Contexto:
 " . json_encode($context, JSON_PRETTY_PRINT) . "
 
 PASO 1:
-Clasifica el curso según su naturaleza real basándote en su competencia:
+Clasifica el curso según su naturaleza real:
+
 - Tecnico_programacion
 - Tecnico_infraestructura
 - Analitico_cuantitativo
@@ -157,37 +173,22 @@ Clasifica el curso según su naturaleza real basándote en su competencia:
 
 PASO 2:
 Evalúa alineación considerando:
-- Coherencia con la competencia
-- Entidades actuales del curso
+
+- Competencia del curso
+- Tecnologías actuales
 - Señales reales de empleo
 - Tendencias detectadas
 
 REGLAS ESTRICTAS:
 
-- No sugerir lenguajes de programación si la competencia no menciona desarrollo o implementación técnica.
-- No sugerir BI o herramientas analíticas si el curso no trata análisis de datos.
-- No sugerir Machine Learning salvo que la competencia lo justifique.
-- Para cursos estratégicos priorizar marcos, estándares y certificaciones.
-- Para cursos técnicos priorizar herramientas concretas y certificaciones técnicas.
-- Mantener coherencia absoluta con la competencia declarada.
-
-SI course_category = Estrategico_empresarial:
-- Priorizar certificaciones internacionales relevantes.
-- Priorizar marcos como ISO, ESG, OKR, Balanced Scorecard.
-- Sugerir estándares de responsabilidad social, sostenibilidad o gestión.
-- No dejar la lista vacía si existen certificaciones coherentes.
-
-SI course_category = Tecnico_programacion:
-- Sugerir lenguajes, frameworks y certificaciones técnicas.
-
-SI course_category = Tecnico_infraestructura:
-- Sugerir herramientas de administración y certificaciones oficiales.
-
-SI course_category = Analitico_cuantitativo:
-- Sugerir herramientas estadísticas y certificaciones analíticas.
+- No sugerir lenguajes si la competencia no lo justifica
+- No sugerir ML si no hay análisis de datos
+- Para cursos estratégicos priorizar certificaciones
+- Para cursos técnicos priorizar herramientas concretas
 
 PASO 3:
-Generar JSON con:
+
+Generar JSON:
 
 {
   \"course_category\": \"\",
@@ -202,9 +203,8 @@ Generar JSON con:
 Devuelve SOLO JSON válido.
 ";
 
-
         /* =====================================================
-           7️⃣ LLAMADA IA
+           8️⃣ LLAMADA IA
         ===================================================== */
 
         $response = Http::withHeaders([
@@ -216,8 +216,7 @@ Devuelve SOLO JSON válido.
                 ['role' => 'system', 'content' => 'Responde solo JSON válido'],
                 ['role' => 'user', 'content' => $prompt]
             ],
-          'temperature' => 0.1
-
+            'temperature' => 0.1
         ]);
 
         if (!$response->successful()) {
@@ -226,8 +225,15 @@ Devuelve SOLO JSON válido.
         }
 
         $content = $response->json()['choices'][0]['message']['content'] ?? null;
-        $json = json_decode($content, true);
 
+        $json = json_decode($content, true);
+$currentTech = collect($technologies->pluck('name'))
+    ->merge($languages->pluck('name'))
+    ->map(fn($t) => strtolower(trim($t)));
+
+$missingTechnologies = collect($json['missing_technologies'] ?? [])
+    ->reject(fn($tech) => $currentTech->contains(strtolower(trim($tech))))
+    ->values();
         if (!$json) {
             $this->error("IA no devolvió JSON válido");
             $this->line($content);
@@ -238,19 +244,25 @@ Devuelve SOLO JSON válido.
         $this->line($json['diagnosis'] ?? '');
 
         /* =====================================================
-           8️⃣ GUARDAR
+           9️⃣ GUARDAR
         ===================================================== */
 
         if ($save) {
+
             DB::table('course_ai_recommendations')->insert([
                 'course_id' => $courseId,
                 'diagnosis' => $json['diagnosis'] ?? null,
-                'suggested_entities' => json_encode($json['missing_technologies'] ?? []),
+                'suggested_entities' => json_encode($missingTechnologies),
                 'suggested_methodologies' => json_encode($json['missing_methodologies'] ?? []),
                 'suggested_certifications' => json_encode($json['recommended_certifications'] ?? []),
-                'market_evidence' => json_encode($json['market_justification'] ?? null),
+              'market_evidence' => json_encode([
+    'job_demand_year' => $jobDemand,
+    'trend_signals_quarter' => $trendSignals,
+    'justification' => $json['market_justification'] ?? null
+]),
                 'created_at' => now(),
             ]);
+
         }
 
         $this->info("Análisis completado.");

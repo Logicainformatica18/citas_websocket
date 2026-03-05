@@ -14,11 +14,11 @@ interface Props {
 export default function CourseDetailDrawer({ course, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<
     "empleo" | "tendencias" | "gaps" | "ia"
-  >("empleo");
+  >("ia");
 
   /* ========================= Reset tab ========================= */
   useEffect(() => {
-    setActiveTab("empleo");
+    setActiveTab("ia");
   }, [course?.id]);
 
   /* ========================= Lock scroll ========================= */
@@ -111,9 +111,9 @@ export default function CourseDetailDrawer({ course, onClose }: Props) {
             onClick={() => setActiveTab("tendencias")}
           />
 
- 
 
-         
+
+
         </div>
 
         {/* ================= CONTENT ================= */}
