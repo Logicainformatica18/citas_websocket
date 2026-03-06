@@ -38,8 +38,10 @@ import {
     ChevronDown,
 } from "lucide-react";
 
-const isilBlue = "text-sky-500 dark:text-sky-400";
-
+const colorMarket =
+  " text-teal-500 dark:bg-teal-400/15 dark:text-teal-400";
+const colorTrends = "text-purple-500 dark:text-purple-400";   // morado
+const colorAlign = "text-sky-500 dark:text-sky-400";          // celeste ISIL
 /* ======================================================
    SIDEBAR
 ====================================================== */
@@ -69,8 +71,8 @@ export function AppSidebar() {
                                 href="/dashboard"
                                 className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30"
                             >
-                                <BarChart3 className={`w-5 h-5 ${isilBlue}`} />
-                                <span className="font-semibold">Dashboard</span>
+                                <BarChart3 className={`w-5 h-5 ${colorAlign}`} />
+                                <span className="font-semibold">Dashboard Vera</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -80,7 +82,7 @@ export function AppSidebar() {
                {/* ================= INDICADORES ================= */}
 <CollapsibleSection
     title="Indicadores"
-    icon={<BarChart3 className={isilBlue} />}
+    icon={<BarChart3 className={colorAlign} />}
 >
 
     {/* ===== MERCADO Y DEMANDA ===== */}
@@ -90,43 +92,43 @@ export function AppSidebar() {
 
     <MenuItem
         href="/dashboard/ranking/technologies"
-        icon={<Cpu className={isilBlue} />}
+        icon={<Cpu className={colorMarket} />}
         label="Tecnologías"
     />
 
     <MenuItem
         href="/dashboard/ranking/languages"
-        icon={<Languages className={isilBlue} />}
+        icon={<Languages className={colorMarket} />}
         label="Lenguajes"
     />
 
     <MenuItem
         href="/dashboard/ranking-certificaciones"
-        icon={<Award className={isilBlue} />}
+        icon={<Award className={colorMarket} />}
         label="Certificaciones"
     />
 
     <MenuItem
         href="/dashboard/indicators/seniority"
-        icon={<Users className={isilBlue} />}
+        icon={<Users className={colorMarket} />}
         label="Nivel Profesional"
     />
 
     <MenuItem
         href="/dashboard/indicators/companies"
-        icon={<Building2 className={isilBlue} />}
+        icon={<Building2 className={colorMarket} />}
         label="Empresas"
     />
 
     <MenuItem
         href="/dashboard/indicators/job-demand-geo"
-        icon={<Building2 className={isilBlue} />}
+        icon={<Building2 className={colorMarket} />}
         label="Demanda Ciudad"
     />
 
     <MenuItem
         href="/dashboard/indicadores/modalidad-laboral"
-        icon={<Laptop className={isilBlue} />}
+        icon={<Laptop className={colorMarket} />}
         label="Modalidad Laboral"
     />
 
@@ -137,7 +139,7 @@ export function AppSidebar() {
 
     <MenuItem
         href="/dashboard/indicators/macro-trends"
-        icon={<Brain className={isilBlue} />}
+        icon={<Brain className={colorTrends} />}
         label="Tendencias Macro"
     />
 
@@ -146,15 +148,15 @@ export function AppSidebar() {
         Alineación Académica
     </div>
 
-    <MenuItem
+    {/* <MenuItem
         href="/dashboard/indicators/pe-alignment"
-        icon={<ListChecks className={isilBlue} />}
+        icon={<ListChecks className={colorAlign} />}
         label="Alineación Competencias"
-    />
+    /> */}
 
     <MenuItem
         href="/dashboard/indicators/course-alignment"
-        icon={<GraduationCap className={isilBlue} />}
+        icon={<GraduationCap className={colorAlign} />}
         label="Alineación Cursos"
     />
 
@@ -163,21 +165,21 @@ export function AppSidebar() {
                 {/* ================= ACADÉMICO ================= */}
                 <CollapsibleSection
                     title="Académico"
-                    icon={<GraduationCap className={isilBlue} />}
+                    icon={<GraduationCap className={colorAlign} />}
                 >
                     <MenuItem
                         href="/syllabus"
-                        icon={<FileText className={isilBlue} />}
+                        icon={<FileText className={colorAlign} />}
                         label="Syllabus"
                     />
                     <MenuItem
                         href="/careers"
-                        icon={<BookOpen className={isilBlue} />}
+                        icon={<BookOpen className={colorAlign} />}
                         label="Carreras"
                     />
                     <MenuItem
                         href="/courses"
-                        icon={<GraduationCap className={isilBlue} />}
+                        icon={<GraduationCap className={colorAlign} />}
                         label="Cursos ISIL"
                     />
                 </CollapsibleSection>
@@ -185,32 +187,32 @@ export function AppSidebar() {
                 {/* ================= HABILIDADES ================= */}
                 <CollapsibleSection
                     title="Habilidades"
-                    icon={<Cpu className={isilBlue} />}
+                    icon={<Cpu className={colorAlign} />}
                 >
-                    <MenuItem href="/languages" icon={<Languages className={isilBlue} />} label="Lenguajes" />
-                    <MenuItem href="/technologies" icon={<Cpu className={isilBlue} />} label="Tecnologías" />
-                    <MenuItem href="/methodologies" icon={<Workflow className={isilBlue} />} label="Metodologías" />
-                    <MenuItem href="/competencies" icon={<ListChecks className={isilBlue} />} label="Competencias" />
-                    <MenuItem href="/tech-positions" icon={<ListChecks className={isilBlue} />} label="Roles Tech" />
+                    <MenuItem href="/languages" icon={<Languages className={colorAlign} />} label="Lenguajes" />
+                    <MenuItem href="/technologies" icon={<Cpu className={colorAlign} />} label="Tecnologías" />
+                    <MenuItem href="/methodologies" icon={<Workflow className={colorAlign} />} label="Metodologías" />
+                    <MenuItem href="/competencies" icon={<ListChecks className={colorAlign} />} label="Competencias" />
+                    <MenuItem href="/tech-positions" icon={<ListChecks className={colorAlign} />} label="Roles Tech" />
                 </CollapsibleSection>
 
                 {/* ================= EXTRACCIÓN ================= */}
                 <CollapsibleSection
                     title="Datos"
-                    icon={<FolderSearch className={isilBlue} />}
+                    icon={<FolderSearch className={colorAlign} />}
                 >
-                    <MenuItem href="/job-offers" icon={<BriefcaseBusiness className={isilBlue} />} label="Empleos" />
-                    <MenuItem href="/topics-ia" icon={<FileSearch className={isilBlue} />} label="Topics IA" />
+                    <MenuItem href="/job-offers" icon={<BriefcaseBusiness className={colorAlign} />} label="Empleos" />
+                    <MenuItem href="/topics-ia" icon={<FileSearch className={colorAlign} />} label="Topics IA" />
                 </CollapsibleSection>
 
                 {/* ================= IA ================= */}
                 <CollapsibleSection
                     title="IA VERA"
-                    icon={<Brain className={isilBlue} />}
+                    icon={<Brain className={colorAlign} />}
                 >
                     <MenuItem
                         href="/admin/ai-trainings"
-                        icon={<Database className={isilBlue} />}
+                        icon={<Database className={colorAlign} />}
                         label="Entrenamiento IA"
                     />
                 </CollapsibleSection>
@@ -218,10 +220,10 @@ export function AppSidebar() {
                 {/* ================= ADMIN ================= */}
                 <CollapsibleSection
                     title="Administración"
-                    icon={<Settings className={isilBlue} />}
+                    icon={<Settings className={colorAlign} />}
                 >
-                    <MenuItem href="/users" icon={<UserCircle2 className={isilBlue} />} label="Usuarios" />
-                    <MenuItem href="/roles" icon={<Shield className={isilBlue} />} label="Roles" />
+                    <MenuItem href="/users" icon={<UserCircle2 className={colorAlign} />} label="Usuarios" />
+                    <MenuItem href="/roles" icon={<Shield className={colorAlign} />} label="Roles" />
                 </CollapsibleSection>
 
             </SidebarContent>

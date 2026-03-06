@@ -2,172 +2,331 @@
 
 namespace App\Jobs;
 
-use App\Models\ScrapingSource;
+use App\Models\Syllabus;
+use App\Models\Course;
+use App\Models\Language;
+use App\Models\Technology;
+use App\Models\Methodology;
+use Google\Cloud\Vision\V1\ImageAnnotatorClient;
+use Google\Cloud\Vision\V1\Feature;
+use Google\Cloud\Vision\V1\InputConfig;
+use Google\Cloud\Vision\V1\OutputConfig;
+use Google\Cloud\Vision\V1\GcsSource;
+use Google\Cloud\Vision\V1\GcsDestination;
+use Google\Cloud\Vision\V1\AsyncAnnotateFileRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
-use Exception;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
-class ProcessScrapingSourceJob implements ShouldQueue
+class ProcessSyllabusJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $sourceId;
+    public $syllabusId;
 
-    public function __construct($sourceId)
+    public function __construct($syllabusId)
     {
-        $this->sourceId = $sourceId;
+        $this->syllabusId = $syllabusId;
     }
+private function normalizeName(string $name): string
+{
+    return Str::lower(Str::ascii(trim($name)));
+}
 
-    public function handle()
+    public function handle(): void
     {
-        Log::info("🔥 INICIANDO ProcessScrapingSourceJob para ID {$this->sourceId}");
+        $syllabus = Syllabus::find($this->syllabusId);
 
-        $source = ScrapingSource::find($this->sourceId);
-
-        if (!$source) {
-            Log::error("❌ ScrapingSource {$this->sourceId} no encontrado.");
+        if (!$syllabus) {
+            Log::error("❌ Syllabus con ID {$this->syllabusId} no encontrado.");
             return;
         }
 
-        $source->update([
-            'scrape_status'  => 'processing',
-            'scrape_message' => 'Procesando…',
-            'scrape_result'  => null,
-        ]);
+        $syllabus->update(['status' => 'processing']);
 
         try {
+            // 📂 Subir PDF a GCS
+            $localPath = Storage::disk('public')->path($syllabus->path);
+            $gcsPath = "syllabus/{$syllabus->id}.pdf";
 
-            if (!$source->url || !$source->web_prompt) {
-                Log::error("❌ Falta URL o Prompt", [
-                    'url' => $source->url,
-                    'prompt' => $source->web_prompt,
-                ]);
-                throw new Exception("La fuente no tiene URL o prompt configurado.");
+            $storage = new \Google\Cloud\Storage\StorageClient([
+                'projectId' => env('GCS_PROJECT_ID'),
+                'keyFilePath' => env('GCS_KEY_FILE_PATH'),
+            ]);
+
+            $bucket = $storage->bucket(env('GCS_BUCKET'));
+            $bucket->upload(
+                fopen($localPath, 'r'),
+                ['name' => $gcsPath]
+            );
+
+            $gcsInputUri = "gs://" . env('GCS_BUCKET') . "/" . $gcsPath;
+            Log::info("☁️ PDF subido a GCS", ['uri' => $gcsInputUri]);
+
+            // 📤 Configuración de entrada
+            $gcsSource = (new GcsSource())->setUri($gcsInputUri);
+            $inputConfig = (new InputConfig())
+                ->setMimeType('application/pdf')
+                ->setGcsSource($gcsSource);
+
+            // 📥 Configuración de salida
+            $gcsDestinationUri = "gs://" . env('GCS_BUCKET') . "/syllabus_results/{$syllabus->id}/";
+            $gcsDestination = (new GcsDestination())->setUri($gcsDestinationUri);
+            $outputConfig = (new OutputConfig())->setGcsDestination($gcsDestination);
+
+            $feature = (new Feature())->setType(Feature\Type::DOCUMENT_TEXT_DETECTION);
+
+            // ✅ Crear AsyncAnnotateFileRequest
+            $request = new AsyncAnnotateFileRequest();
+            $request->setInputConfig($inputConfig);
+            $request->setFeatures([$feature]);
+            $request->setOutputConfig($outputConfig);
+
+            $client = new ImageAnnotatorClient([
+                'credentials' => env('GCS_KEY_FILE_PATH'),
+            ]);
+
+       // 📡 Llamar a Vision API con polling extendido
+$operation = $client->asyncBatchAnnotateFiles([$request]);
+
+$maxAttempts = 20;      // hasta 20 intentos (~2 minutos)
+$interval = 6;          // segundos entre intentos
+
+for ($i = 1; $i <= $maxAttempts; $i++) {
+    if ($operation->isDone()) break;
+
+    Log::info("⌛ Esperando OCR (intento {$i}/{$maxAttempts}) para syllabus {$this->syllabusId}...");
+    sleep($interval);
+    $operation->reload(); // vuelve a consultar el estado
+}
+
+if (!$operation->operationSucceeded()) {
+    $errorMessage = $operation->getError() ? $operation->getError()->getMessage() : 'desconocido';
+    throw new \Exception("Error en OCR PDF: {$errorMessage}");
+}
+
+
+            if (!$operation->operationSucceeded()) {
+                throw new \Exception("Error en OCR PDF: " . $operation->getError()->getMessage());
             }
 
-            Log::info("🌐 URL: {$source->url}");
-            Log::info("🔎 Web Prompt recibido: {$source->web_prompt}");
+            Log::info("✅ OCR terminado, resultados en GCS", ['output' => $gcsDestinationUri]);
 
-            /* ============================================================
-                1) INTENTAR DESCARGAR HTML
-            ============================================================ */
-            $html = null;
+            // 📥 Leer JSON de resultados
+            $files = $bucket->objects([
+                'prefix' => "syllabus_results/{$syllabus->id}/",
+            ]);
 
-            try {
-                $html = Http::timeout(20)->get($source->url)->body();
-                Log::info("📥 HTML descargado (".strlen($html)." bytes)");
-            } catch (\Throwable $e) {
-                Log::warning("⚠️ No se pudo descargar HTML: ".$e->getMessage());
+            $jsonData = null;
+            foreach ($files as $file) {
+                if (str_ends_with($file->name(), '.json')) {
+                    $jsonContent = $file->downloadAsString();
+                    $jsonData = json_decode($jsonContent, true);
+                    break;
+                }
             }
 
-            /* ============================================================
-                2) CREAR PROMPT FINAL
-            ============================================================ */
-            $finalPrompt = "
-Analiza la siguiente URL:
+            if (!$jsonData) {
+                throw new \Exception("No se encontraron resultados OCR en GCS.");
+            }
 
-{$source->url}
+            $text = '';
+            foreach ($jsonData['responses'] as $page) {
+                if (!empty($page['fullTextAnnotation']['text'])) {
+                    $text .= $page['fullTextAnnotation']['text'] . "\n";
+                }
+            }
 
-Usa EXACTAMENTE este prompt del usuario:
+            if (!$text) {
+                throw new \Exception("El OCR no devolvió texto.");
+            }
 
-{$source->web_prompt}
+            $syllabus->update(['raw_text' => $text]);
+            Log::info("📝 OCR completado correctamente", [
+                'syllabus_id' => $this->syllabusId,
+                'chars' => strlen($text),
+            ]);
 
-Contenido HTML descargado (si existe):
-" . ($html ?: '[NO HTML DISPONIBLE]') . "
+            // 🤖 Procesar con OpenAI
+     $prompt = "
+Extrae del siguiente sílabo la información en formato JSON estricto.
 
-Devuelve SOLO JSON estricto.
+Reglas:
+- 'curso' debe contener el nombre principal del sílabo.
+- 'lenguajes' incluyen todos los lenguajes utilizados en el desarrollo de software,
+  no solo los de programación. Esto abarca HTML, CSS, SQL, XML, JSON, etc.
+- 'tecnologias' incluyen frameworks, librerías, herramientas de software, modelos, motores,
+  estructuras de datos, algoritmos, conceptos o tecnologías relevantes como 'Inteligencia Artificial'.
+  Para cada elemento incluye su tipo (framework, library, tool, cloud, database, engine, model, concept, etc.),
+  siguiendo una de las categorías existentes en la tabla technology_categories.
+- Si el texto menciona algoritmos heurísticos, árboles de decisión, grafos,
+  búsqueda inteligente o toma de decisiones automatizada, incluye 'Inteligencia Artificial'
+  como tecnología con tipo 'model' o 'concept'.
+- 'metodologias' deben ser metodologías de desarrollo de software (Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps).
+- Ignora metodologías de enseñanza o aprendizaje (aprendizaje cooperativo, adaptativo, basado en problemas, método de casos, etc.).
+- Devuelve SOLO el JSON solicitado, sin texto adicional ni comentarios.
+
+Formato JSON:
+{
+  \"curso\": \"\",
+  \"lenguajes\": [],
+  \"tecnologias\": [
+    { \"nombre\": \"\", \"tipo\": \"\" }
+  ],
+  \"metodologias\": []
+}
+
+Texto:
+$text
 ";
 
-            Log::info("📝 Prompt final listo.");
 
-            /* ============================================================
-                3) LLAMAR OPENAI — VERSION ROBUSTA (extraída del job del sílabo)
-            ============================================================ */
 
-            $response = Http::withToken(env('OPENAI_API_KEY'))
-                ->post("https://api.openai.com/v1/chat/completions", [
+            $openaiResponse = Http::withToken(env('OPENAI_API_KEY'))
+                ->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [
-                        ['role' => 'system', 'content' => 'Eres un scraper experto. Devuelve JSON válido.'],
-                        ['role' => 'user', 'content' => $finalPrompt],
+                        [
+                            'role' => 'system',
+                            'content' => 'Eres un asistente que convierte sílabos en JSON estricto. Devuelve SOLO JSON.'
+                        ],
+                        [
+                            'role' => 'user',
+                            'content' => $prompt
+                        ],
                     ],
-                    'temperature' => 0.1,
-                    'response_format' => ['type' => 'json_object'],
+                    'temperature' => 0.2,
+                    'response_format' => ['type' => 'json_object'], // 👈 fuerza JSON válido
                 ]);
 
-            Log::info("📡 Respuesta OpenAI HTTP ".$response->status());
+            $json = $openaiResponse->json('choices.0.message.content');
 
-            // 1️⃣ Error HTTP
-            if ($response->failed()) {
-                Log::error("❌ Error HTTP OpenAI", [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-                throw new Exception("OpenAI devolvió error HTTP ".$response->status());
+            // 🔥 Limpieza: quitar posibles ```json ... ```
+            $json = trim($json);
+            $json = preg_replace('/^```(json)?/i', '', $json);
+            $json = preg_replace('/```$/', '', $json);
+            $json = trim($json);
+
+            $decoded = json_decode($json, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !$decoded) {
+                throw new \Exception("OpenAI no devolvió JSON válido: " . json_last_error_msg() . " → " . $json);
             }
 
-            // 2️⃣ Validar existencia de choices
-            $json = $response->json();
-
-            if (!isset($json['choices'][0]['message']['content'])) {
-                Log::error("❌ OpenAI sin 'choices'", [
-                    'json' => $json
-                ]);
-                throw new Exception("OpenAI devolvió respuesta inválida (sin choices)");
-            }
-
-            $raw = $json['choices'][0]['message']['content'];
-
-            Log::info("🔥 RAW:", ['raw' => $raw]);
-
-            /* ============================================================
-                4) LIMPIEZA DE JSON
-            ============================================================ */
-            $clean = trim($raw);
-            $clean = preg_replace('/^```(json)?/i', '', $clean);
-            $clean = preg_replace('/```$/', '', $clean);
-            $clean = trim($clean);
-
-            Log::info("🧽 CLEAN JSON:", ['clean' => $clean]);
-
-            $decoded = json_decode($clean, true);
-
-            if (!$decoded) {
-                Log::error("❌ JSON inválido: ".json_last_error_msg());
-                throw new Exception("JSON inválido: ".$clean);
-            }
-
-            Log::info("✅ JSON OK. Keys: ", array_keys($decoded));
-
-            /* ============================================================
-                5) GUARDAR RESULTADO
-            ============================================================ */
-
-            $source->update([
-                'scrape_status'   => 'done',
-                'scrape_message'  => 'OK',
-                'scrape_result'   => json_encode($decoded, JSON_PRETTY_PRINT),
-                'scraped_at'      => now(),
+            // Guardar en DB
+            $syllabus->update([
+                'structured_data' => $decoded,
+                'status' => 'processed',
             ]);
 
-            Log::info("🏁 Scraping completo para ID {$source->id}");
-
-        } catch (Exception $e) {
-
-            Log::error("❌ ERROR SCRAPING ID {$source->id}: ".$e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::info("📊 Datos estructurados guardados", [
+                'curso' => $decoded['curso'] ?? null,
+                'lenguajes' => $decoded['lenguajes'] ?? [],
+                'tecnologias' => $decoded['tecnologias'] ?? [],
+                'metodologias' => $decoded['metodologias'] ?? []
             ]);
 
-            $source->update([
-                'scrape_status'  => 'error',
-                'scrape_message' => $e->getMessage(),
-                'scrape_error'   => $e->getTraceAsString(),
+      // 🧠 Normaliza para comparar sin tildes ni mayúsculas
+
+
+// 🧩 Normalizar nombre del curso detectado
+$normalizedName = Str::title(Str::ascii(trim($decoded['curso'])));
+$normalizedKey = $this->normalizeName($normalizedName);
+
+// 🔍 Buscar coincidencia exacta ignorando tildes y ñ/ni
+$existingCourse = \App\Models\Course::all()->first(function ($c) use ($normalizedKey) {
+    return $this->normalizeName($c->name) === $normalizedKey;
+});
+
+// ⚙️ Crear o reutilizar
+if ($existingCourse) {
+    $course = $existingCourse;
+    Log::info("🔁 Curso encontrado (coincidencia flexible): {$existingCourse->name}");
+} else {
+    $course = \App\Models\Course::create(['name' => $normalizedName]);
+    Log::info("🆕 Curso creado: {$normalizedName}");
+}
+
+            // =====================================================
+// 🔁 ACTUALIZAR RELACIONES SIN ELIMINAR LAS EXISTENTES
+// =====================================================
+
+       // =====================================================
+// 🔁 ACTUALIZAR RELACIONES (REGENERAR COMPLETAMENTE)
+// =====================================================
+
+// 🧠 1. Lenguajes — se reemplazan completamente (el sílabo define los nuevos)
+$languageIds = [];
+if (!empty($decoded['lenguajes'])) {
+    foreach ($decoded['lenguajes'] as $langName) {
+        $lang = \App\Models\Language::firstOrCreate(['name' => trim($langName)]);
+        $languageIds[] = $lang->id;
+    }
+}
+// 🔄 Se eliminan las relaciones anteriores y se agregan las nuevas detectadas
+$course->languages()->sync($languageIds);
+
+// 🧠 2. Tecnologías — también se regeneran, porque cambian con los sílabos
+$techIds = [];
+if (!empty($decoded['tecnologias'])) {
+    foreach ($decoded['tecnologias'] as $techItem) {
+        if (is_array($techItem)) {
+            $name = trim($techItem['nombre'] ?? '');
+            $type = trim($techItem['tipo'] ?? '');
+        } else {
+            $name = trim($techItem);
+            $type = null;
+        }
+
+        if ($name === '') continue;
+
+        $tech = \App\Models\Technology::firstOrCreate(['name' => $name]);
+
+        // 🧩 Si la IA devolvió un tipo y la tecnología no tiene categoría, se asigna
+        if ($type && !$tech->category_id) {
+            $category = \App\Models\TechnologyCategory::firstOrCreate(['name' => $type]);
+            $tech->category_id = $category->id;
+            $tech->save();
+        }
+
+        $techIds[] = $tech->id;
+    }
+}
+// 🔄 Se regeneran las relaciones tecnológicas
+$course->technologies()->sync($techIds);
+
+// 🧠 3. Metodologías — igual, se reemplazan para reflejar solo las vigentes
+$methIds = [];
+if (!empty($decoded['metodologias'])) {
+    foreach ($decoded['metodologias'] as $methName) {
+        $meth = \App\Models\Methodology::firstOrCreate(['name' => trim($methName)]);
+        $methIds[] = $meth->id;
+    }
+}
+// 🔄 Se reemplazan las metodologías anteriores por las nuevas
+$course->methodologies()->sync($methIds);
+
+Log::info("✅ Curso '{$decoded['curso']}' actualizado (relaciones regeneradas completamente).");
+
+
+
+
+
+
+
+
+        } catch (\Exception $e) {
+            Log::error("❌ Error en ProcessSyllabusJob: " . $e->getMessage(), [
+                'syllabus_id' => $this->syllabusId,
             ]);
+
+            $syllabus->update(['status' => 'failed']);
         }
     }
 }

@@ -1,4 +1,4 @@
-import { BookOpen, Briefcase, Globe, AlertTriangle } from "lucide-react";
+import { BookOpen, Briefcase, Globe } from "lucide-react";
 
 interface Props {
   final_index: number;
@@ -13,7 +13,6 @@ export default function CourseAlignmentKPI({
   final_index,
   market_rate,
   trend_rate,
-  gap_total,
   aligned_count,
   total_courses,
 }: Props) {
@@ -32,8 +31,8 @@ export default function CourseAlignmentKPI({
     return "#ef4444";
   };
 
-  const radius = 85;
-  const stroke = 14;
+  const radius = 65;   // 🔹 más pequeño
+  const stroke = 10;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset =
@@ -43,10 +42,10 @@ export default function CourseAlignmentKPI({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
       {/* ===================== GAUGE PRINCIPAL ===================== */}
-      <div className="bg-white dark:bg-[#0A2540] rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center relative">
+      <div className="bg-white dark:bg-[#0A2540] rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center relative">
 
-        <div className="mb-4 p-3 rounded-xl bg-[#E6F7FD] dark:bg-[#123A5A]">
-          <BookOpen className="w-6 h-6 text-[#0077B6]" />
+        <div className="mb-3 p-2 rounded-xl bg-[#E6F7FD] dark:bg-[#123A5A]">
+          <BookOpen className="w-5 h-5 text-[#0077B6]" />
         </div>
 
         <svg height={radius * 2} width={radius * 2}>
@@ -75,20 +74,17 @@ export default function CourseAlignmentKPI({
         </svg>
 
         <div className="absolute flex flex-col items-center">
-          <span className="text-5xl font-bold text-gray-800 dark:text-white">
+          <span className="text-3xl font-bold text-gray-800 dark:text-white">
             {percentage}%
           </span>
-          {/* <span className="text-sm text-gray-500 mt-2">
-            Porcentaje de alineación
-          </span> */}
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="font-semibold" style={{ color: getColor() }}>
+        <div className="mt-2 text-center">
+          <p className="font-semibold text-sm" style={{ color: getColor() }}>
             {getStatusLabel()}
           </p>
-          <p className="text-sm text-gray-500 mt-1">
-            {aligned_count} de {total_courses} cursos alineados
+          <p className="text-xs text-gray-500 mt-1">
+            {aligned_count} de {total_courses} cursos
           </p>
         </div>
       </div>
@@ -115,10 +111,10 @@ export default function CourseAlignmentKPI({
         </div>
 
         {/* TENDENCIAS */}
-        <div className="bg-white dark:bg-[#0A2540] rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
+        <div className="bg-white dark:bg-[#0A2540] rounded-2xl shadow-md p-6 border-l-4 border-purple-500">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
-              <Globe className="w-5 h-5 text-blue-600" />
+            <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-xl">
+              <Globe className="w-5 h-5 text-purple-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500">Tendencias</p>
@@ -127,24 +123,6 @@ export default function CourseAlignmentKPI({
               </p>
               <p className="text-sm text-gray-500">
                 Alineación prospectiva
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* GAP */}
-        <div className="bg-white dark:bg-[#0A2540] rounded-2xl shadow-md p-6 border-l-4 border-red-500">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-100 dark:bg-red-900 rounded-xl">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">GAP Total</p>
-              <p className="text-2xl font-bold">
-                {gap_total} cursos
-              </p>
-              <p className="text-sm text-gray-500">
-                Sin alineación estratégica
               </p>
             </div>
           </div>

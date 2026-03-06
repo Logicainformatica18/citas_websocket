@@ -44,25 +44,54 @@ export default function SyllabusIndex() {
     setPagination(initialPagination);
   }, [initialPagination]);
 
-  const fetchPage = async (url: string) => {
-    try {
-      const res = await axios.get(url);
-      const pager = res.data;
-      setItems(pager.data ?? []);
-      setPagination({
-        data: pager.data ?? [],
-        current_page: pager.current_page ?? 1,
-        last_page: pager.last_page ?? 1,
-        next_page_url: pager.next_page_url ?? null,
-        prev_page_url: pager.prev_page_url ?? null,
-      });
-      setSelectedIds([]);
-    } catch (e) {
-      console.error('Error al cargar página', e);
-      alert('No se pudo cargar la página.');
-    }
-  };
+ const fetchPage = async (url: string) => {
+  try {
 
+    const res = await axios.get(url, {
+      params: { search }
+    });
+
+    const pager = res.data;
+
+    setItems(pager.data ?? []);
+    setPagination({
+      data: pager.data ?? [],
+      current_page: pager.current_page ?? 1,
+      last_page: pager.last_page ?? 1,
+      next_page_url: pager.next_page_url ?? null,
+      prev_page_url: pager.prev_page_url ?? null,
+    });
+
+    setSelectedIds([]);
+
+  } catch (e) {
+    console.error("Error al cargar página", e);
+  }
+};
+const [search, setSearch] = useState("");
+const handleSearch = async (value: string) => {
+  setSearch(value);
+
+  try {
+    const res = await axios.get("/syllabus/fetch", {
+      params: { search: value }
+    });
+
+    const pager = res.data;
+
+    setItems(pager.data ?? []);
+    setPagination({
+      data: pager.data ?? [],
+      current_page: pager.current_page ?? 1,
+      last_page: pager.last_page ?? 1,
+      next_page_url: pager.next_page_url ?? null,
+      prev_page_url: pager.prev_page_url ?? null,
+    });
+
+  } catch (e) {
+    console.error("Error buscando", e);
+  }
+};
   const removeOne = async (id: number, filename: string) => {
     if (!confirm(`¿Eliminar el sílabo "${filename}"?`)) return;
     try {
@@ -125,19 +154,37 @@ return (
     <div className="p-8 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
 
       {/* HEADER ISIL */}
-      <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
-        <h1 className="text-3xl font-semibold flex items-center gap-2">
-          <FileText className="text-[#1CBCE8] w-7 h-7" />
-          <span className="text-[#0C647A] dark:text-[#1CBCE8]">Gestión de Sílabos</span>
-        </h1>
+    <div className="flex items-center justify-between mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow flex items-center gap-2 transition"
-        >
-          <Plus className="w-4 h-4" /> Subir Sílabos
-        </button>
-      </div>
+  <h1 className="text-3xl font-semibold flex items-center gap-2">
+    <FileText className="text-[#1CBCE8] w-7 h-7" />
+    <span className="text-[#0C647A] dark:text-[#1CBCE8]">
+      Gestión de Sílabos
+    </span>
+  </h1>
+
+  <div className="flex items-center gap-3">
+
+    {/* BUSCADOR */}
+    <input
+      type="text"
+      placeholder="Buscar curso..."
+      value={search}
+      onChange={(e) => handleSearch(e.target.value)}
+      className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm
+      bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200
+      focus:ring-2 focus:ring-[#1CBCE8] focus:outline-none"
+    />
+
+    <button
+      onClick={() => setShowModal(true)}
+      className="px-4 py-2 bg-[#1CBCE8] hover:bg-[#17A8D0] text-white rounded-md shadow flex items-center gap-2 transition"
+    >
+      <Plus className="w-4 h-4" /> Subir Sílabos
+    </button>
+
+  </div>
+</div>
 
       {/* BOTÓN ELIMINAR MÚLTIPLE */}
       {selectedIds.length > 0 && (
