@@ -2,11 +2,10 @@ import {
   Home,
   Laptop,
   Users,
-  HelpCircle,
 } from "lucide-react";
 
 interface ModalityItem {
-  modalidad: "remoto" | "híbrido" | "presencial" | "no_precisa";
+  modalidad: "remoto" | "híbrido" | "presencial";
   vacantes: number;
   porcentaje: number;
 }
@@ -47,18 +46,10 @@ export default function ModalityKpiGrid({
       color: "text-orange-500",
       bg: "bg-orange-50 dark:bg-orange-900/20",
     },
-    {
-      key: "no_precisa",
-      label: "Modalidad no precisada",
-      value: `${getValue("no_precisa").toFixed(1)}%`,
-      icon: HelpCircle,
-      color: "text-slate-500",
-      bg: "bg-slate-100 dark:bg-slate-800",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {kpis.map((kpi) => (
         <div
           key={kpi.key}

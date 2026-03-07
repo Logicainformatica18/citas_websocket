@@ -11,7 +11,7 @@ use App\Services\JobMarketStatusBuilder;
 
 class JobModalityIndicatorController extends Controller
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $year   = (int) $request->get('year', 2025);
         $period = $request->get('period', 's2');
@@ -29,22 +29,30 @@ class JobModalityIndicatorController extends Controller
 
         /* =====================================================
            CLASIFICACIÓN PRINCIPAL (KPIs + Donut)
+           SOLO REMOTO / HÍBRIDO / PRESENCIAL
         ===================================================== */
+
         $classified = DB::table('job_offers')
             ->selectRaw("
                 CASE
-                    WHEN modality IN ('remote', 'fully_remote', 'remote_local')
+                    WHEN modality IN ('remote','fully_remote','remote_local')
                         THEN 'remoto'
                     WHEN modality = 'hybrid'
                         THEN 'híbrido'
                     WHEN modality = 'no_remote'
                         THEN 'presencial'
-                    WHEN modality = 'no_precisa' OR modality IS NULL
-                        THEN 'no_precisa'
-                    ELSE 'no_precisa'
                 END AS modalidad
             ")
-            ->whereBetween('published_at', [$range['start'], $range['end']]);
+            ->whereBetween('published_at', [$range['start'], $range['end']])
+
+            // 🔥 ignorar no_precisa y null
+         ->whereIn('modality', [
+    'remote',
+    'fully_remote',
+    'remote_local',
+    'hybrid',
+    'no_remote'
+]);
 
         if ($filters['region']) {
             $classified->where('region', $filters['region']);
@@ -80,9 +88,16 @@ class JobModalityIndicatorController extends Controller
 
         /* =====================================================
            TENDENCIA MENSUAL (%)
+           SOLO SOBRE LAS 3 MODALIDADES
         ===================================================== */
+
         $trendData = DB::table('job_offers')
             ->whereBetween('published_at', [$range['start'], $range['end']])
+
+            // 🔥 ignorar no_precisa
+            ->whereNotNull('modality')
+            ->where('modality','!=','no_precisa')
+
             ->selectRaw("
                 YEAR(published_at)  AS year,
                 MONTH(published_at) AS month_num,
@@ -100,48 +115,41 @@ class JobModalityIndicatorController extends Controller
                 ROUND(
                     SUM(modality = 'no_remote')
                     / COUNT(*) * 100,
-                1) AS presencial,
-
-                ROUND(
-                    SUM(modality = 'no_precisa' OR modality IS NULL)
-                    / COUNT(*) * 100,
-                1) AS no_precisa
+                1) AS presencial
             ")
             ->groupByRaw('YEAR(published_at), MONTH(published_at)')
             ->orderByRaw('YEAR(published_at), MONTH(published_at)')
             ->limit(6)
             ->get()
             ->map(fn ($row) => [
-                'month'       => Carbon::create()->month($row->month_num)->translatedFormat('M'),
-                'remoto'      => (float) $row->remoto,
-                'hibrido'     => (float) $row->hibrido,
-                'presencial'  => (float) $row->presencial,
-                'no_precisa'  => (float) $row->no_precisa,
+                'month'      => Carbon::create()->month($row->month_num)->translatedFormat('M'),
+                'remoto'     => (float) $row->remoto,
+                'hibrido'    => (float) $row->hibrido,
+                'presencial' => (float) $row->presencial,
             ]);
 
-            $jobMarketStatus = JobMarketStatusBuilder::build([
-    'mode'   => 'market',
-    'year'   => $year,
-    'period' => $period,
-]);
+        $jobMarketStatus = JobMarketStatusBuilder::build([
+            'mode'   => 'market',
+            'year'   => $year,
+            'period' => $period,
+        ]);
 
-return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
-    'data'      => $data,
-    'trendData' => $trendData,
-    'filters'   => $filters,
-    'meta'      => [
-        'year'   => $year,
-        'period' => $period,
-        'periodo_label' => $period === 's1'
-            ? "Semestre 1 – Enero a Junio {$year}"
-            : "Semestre 2 – Julio a Diciembre {$year}",
-        'total_vacantes' => $totalVacantes,
-    ],
+        return Inertia::render('Dashboard/Indicators/JobModalityIndicatorPage', [
+            'data'      => $data,
+            'trendData' => $trendData,
+            'filters'   => $filters,
+            'meta'      => [
+                'year'   => $year,
+                'period' => $period,
+                'periodo_label' => $period === 's1'
+                    ? "Semestre 1 – Enero a Junio {$year}"
+                    : "Semestre 2 – Julio a Diciembre {$year}",
+                'total_vacantes' => $totalVacantes,
+            ],
+            'jobMarketStatus' => $jobMarketStatus,
+        ]);
+    }
 
-    // 🔥 CLAVE (MISMO NOMBRE, MISMA ESTRUCTURA)
-    'jobMarketStatus' => $jobMarketStatus,
-]);
-}
 
     /* =====================================================
        AUTOCOMPLETADOS

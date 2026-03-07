@@ -15,6 +15,7 @@ type TrendItem = {
   hibrido: number;
   presencial: number;
 };
+
 const CustomLegend = ({ payload }: any) => {
   return (
     <div className="flex justify-center gap-6 pt-2">
@@ -48,16 +49,9 @@ export default function ModalityTrendChart({
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="
-      rounded-2xl
-      border
-      bg-white
-      p-6
-      shadow-sm
-      dark:bg-[#0F2A3A]
-      dark:border-slate-700
-    ">
-      {/* ===== HEADER ===== */}
+    <div className="rounded-2xl border bg-white p-6 shadow-sm dark:bg-[#0F2A3A] dark:border-slate-700">
+
+      {/* HEADER */}
       <div className="mb-4">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
           Evolución temporal
@@ -67,14 +61,12 @@ export default function ModalityTrendChart({
         </p>
       </div>
 
-      {/* ===== CHART ===== */}
+      {/* CHART */}
       <div className="h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#E5F0F6"
-            />
+
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5F0F6" />
 
             <XAxis
               dataKey="month"
@@ -94,12 +86,9 @@ export default function ModalityTrendChart({
               labelStyle={{ fontWeight: 600 }}
             />
 
-            <Legend
-              verticalAlign="bottom"
-              content={<CustomLegend />}
-            />
+            <Legend verticalAlign="bottom" content={<CustomLegend />} />
 
-            {/* ===== SERIES ===== */}
+            {/* REMOTO */}
             <Line
               type="monotone"
               dataKey="remoto"
@@ -110,6 +99,7 @@ export default function ModalityTrendChart({
               activeDot={{ r: 5 }}
             />
 
+            {/* HÍBRIDO */}
             <Line
               type="monotone"
               dataKey="hibrido"
@@ -121,15 +111,17 @@ export default function ModalityTrendChart({
               activeDot={{ r: 5 }}
             />
 
+            {/* PRESENCIAL */}
             <Line
               type="monotone"
               dataKey="presencial"
               name="Presencial"
-              stroke="#3B82F6"
+              stroke="#F97316"
               strokeWidth={3}
               dot={{ r: 4 }}
               activeDot={{ r: 6 }}
             />
+
           </LineChart>
         </ResponsiveContainer>
       </div>
