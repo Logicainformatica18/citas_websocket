@@ -234,13 +234,13 @@ Log::info('SESSION FINAL', [
 
         return redirect('/');
     }
-      public function logout(Request $request): RedirectResponse
-    {
-        Auth::guard('web')->logout();
+ public function logout(Request $request)
+{
+    Auth::guard('web')->logout();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
 
-        return redirect('/');
-    }
+    return redirect()->away('https://banner9test.isil.pe:9443/samlsso/logout');
+}
 }
