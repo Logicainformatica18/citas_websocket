@@ -186,7 +186,7 @@ const { updateDashboard, refreshDashboard } = useDashboard();
                 setMessages((prev) => [
                     ...prev,
                     { from: "ai", text: data.message },
-                    { from: "ai", text: `\`\`\`sql\n${data.sql_generated}\n\`\`\`` },
+                    // { from: "ai", text: `\`\`\`sql\n${data.sql_generated}\n\`\`\`` },
                 ]);
 
                 // ===========================================
@@ -202,8 +202,8 @@ const { updateDashboard, refreshDashboard } = useDashboard();
                 if (testRes.data.status === "ok") {
                     setMessages((prev) => [
                         ...prev,
-                        { from: "ai", text: `✅ SQL válida (${testRes.data.rows} filas)` },
-                        { from: "ai", text: "Generando explicación final..." },
+                        { from: "ai", text: `✅ Consulta válida (${testRes.data.rows} filas)` },
+                        // { from: "ai", text: "Generando explicación final..." },
                     ]);
 
                     // ===========================================
@@ -237,7 +237,7 @@ const { updateDashboard, refreshDashboard } = useDashboard();
                         // 🧠 1️⃣ Mostrar todos los mensajes generados
                      const newMessages: Message[] = [
   { from: "ai", text: summary },
-  ...(excel_path ? [{ from: "ai", text: `📊 [Descargar Excel](${excel_path})` }] : []),
+//   ...(excel_path ? [{ from: "ai", text: `📊 [Descargar Excel](${excel_path})` }] : []),
   ...(voice_url ? [{ from: "ai", text: `🔊 [Escuchar resumen](${voice_url})` }] : []),
   {
     from: "ai",
@@ -396,10 +396,10 @@ if (data.topic && data.result) {
     // ============================
   if (data.chart_builder_enabled && data.training_id) {
     const chartTypes = [
-        { slug: "bar",  name: "Gráfico de Barras" },
-        { slug: "line", name: "Gráfico de Líneas" },
-        { slug: "pie",  name: "Gráfico Circular" },
-        { slug: "area", name: "Gráfico de Área" }
+        { slug: "Columnas",  name: "Gráfico de Barras" },
+        { slug: "lineal", name: "Gráfico de Líneas" },
+        { slug: "Circular",  name: "Gráfico Circular" },
+        // { slug: "area", name: "Gráfico de Área" }
     ];
 
     newMessages.push({

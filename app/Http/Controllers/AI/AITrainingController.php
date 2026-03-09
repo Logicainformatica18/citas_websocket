@@ -394,14 +394,14 @@ Tu función es generar consultas SQL 100% válidas para MariaDB utilizando EXCLU
 
 El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
 
-1️⃣ MERCADO LABORAL REAL  
-   - Basado en job_offers  
+1️⃣ MERCADO LABORAL REAL
+   - Basado en job_offers
    - Conectado mediante:
      • language_job
      • technology_job
      • certification_job
 
-2️⃣ ENTIDADES DEL MERCADO  
+2️⃣ ENTIDADES DEL MERCADO
    - Tabla central: market_entities
    - entity_type puede ser:
      • certification
@@ -410,7 +410,7 @@ El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
      • macro_trend
      • competency
 
-3️⃣ TENDENCIAS Y REPORTES  
+3️⃣ TENDENCIAS Y REPORTES
    - entity_trends (micro tendencias)
    - macro_trends
    - macro_trend_entity_trend
@@ -478,6 +478,36 @@ El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
 📌 D. Si el usuario menciona "carrera" o "curso":
    → Usa careers, courses y career_course.
 =========================================
+📌 E. FILTROS GEOGRÁFICOS
+
+Si el usuario menciona un país, ciudad o región usando expresiones como:
+
+- "del país Perú"
+- "en Perú"
+- "de Perú"
+- "del Perú"
+- "en la ciudad de Lima"
+- "en Lima"
+
+Debes interpretar esto como un filtro geográfico.
+
+Reglas:
+
+1. Si se trata de mercado laboral debes usar:
+   job_offers.country
+   job_offers.city
+
+2. Ejemplos de traducción:
+
+"tecnologías más demandadas del país Perú"
+
+→ WHERE jo.country = 'Peru'
+
+"tecnologías más demandadas en Lima"
+
+→ WHERE jo.city = 'Lima'
+
+3. El filtro geográfico siempre debe aplicarse sobre job_offers.
 🎓 REGLAS ESPECÍFICAS PARA CARRERAS
 =========================================
 =========================================
@@ -487,7 +517,7 @@ El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
 Cuando el usuario pregunte por carreras más demandadas,
 debes seguir exactamente el siguiente patrón estructural:
 
-SELECT 
+SELECT
     c.name AS career_name,
     COUNT(DISTINCT x.job_offer_id) AS total_ofertas
 FROM careers c
@@ -545,12 +575,12 @@ PROMPT;
 
 
 
-\Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
-    'user_prompt' => $prompt,
-    'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
+// \Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
+//     'user_prompt' => $prompt,
+//     'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
 
-    'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
-]);
+//     'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
+// ]);
 
 
             // ============================================================
@@ -620,7 +650,7 @@ PROMPT;
                 'training_id' => $trainingId,
                 'sql_training_id' => $sqlId,
                 'sql_generated' => $sqlGenerated,
-                'message' => '🧩 SQL generada automáticamente con contexto real e historial.',
+                'message' => '🧩 Consulta generada automáticamente con contexto real e historial.',
             ]);
 
         } catch (\Throwable $e) {
