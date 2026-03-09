@@ -272,10 +272,20 @@ $topCareer = DB::table('careers as c')
             ->distinct()
             ->orderBy('region')
             ->pluck('region'),
-        'careers' => DB::table('careers')
-            ->where('active', 1)
-            ->orderBy('name')
-            ->get(['id', 'name']),
+      'careers' => DB::table('careers as c')
+    ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
+    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+    ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
+    ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
+    ->whereBetween('jo.published_at', $range)
+    ->groupBy('c.id','c.name')
+    ->select(
+        'c.id',
+        'c.name',
+        DB::raw('COUNT(DISTINCT jo.id) as total_jobs')
+    )
+    ->orderByDesc('total_jobs')
+    ->get(),
     ]);
 }
 
@@ -314,8 +324,8 @@ public function searchCountries(Request $request)
 
 public function getData(Request $request)
 {
-    $year     = (int) $request->get('year', 2025);
-    $period   = $request->get('period', 's2');
+    $year     = (int) $request->get('year', 2026);
+    $period   = $request->get('period', 's1');
     $region   = $request->get('region');
     $country  = $request->get('country');
     $careerId = $request->get('career_id');

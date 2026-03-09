@@ -20,18 +20,20 @@ export default function CourseAlignmentFilter({ careers, filters }: Props) {
   };
 
   return (
-    <div className="rounded-2xl border bg-white shadow-sm p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
 
       {/* Label */}
       <div className="flex items-center gap-3">
-        <div className="bg-[#E6F7FD] text-[#1CBCE8] p-2 rounded-xl">
+        <div className="bg-[#E6F7FD] dark:bg-[#0B3A46] text-[#1CBCE8] p-2 rounded-xl">
           <GraduationCap size={18} />
         </div>
+
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Filtro estratégico
           </p>
-          <h3 className="text-sm font-semibold text-[#0A2540]">
+
+          <h3 className="text-sm font-semibold text-[#0A2540] dark:text-slate-200">
             Seleccionar carrera
           </h3>
         </div>
@@ -45,25 +47,25 @@ export default function CourseAlignmentFilter({ careers, filters }: Props) {
           className="
             w-full
             appearance-none
-            bg-muted/40
-            border
-            border-muted
+            bg-slate-100 dark:bg-slate-800
+            border border-slate-200 dark:border-slate-700
             rounded-xl
             px-4
             py-3
             text-sm
             font-medium
-            text-foreground
+            text-slate-800 dark:text-slate-200
             outline-none
             transition
             focus:ring-2
             focus:ring-[#1CBCE8]
             focus:border-[#1CBCE8]
-            hover:bg-muted/60
+            hover:bg-slate-200 dark:hover:bg-slate-700
             cursor-pointer
           "
         >
           <option value="">Seleccionar carrera</option>
+
           {careers.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -72,7 +74,7 @@ export default function CourseAlignmentFilter({ careers, filters }: Props) {
         </select>
 
         {/* Flecha personalizada */}
-        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-xs">
           ▼
         </div>
       </div>

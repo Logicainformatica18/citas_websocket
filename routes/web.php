@@ -271,7 +271,10 @@ Route::get(
 )->name('macro-trends.jobs');
 
 
-
+Route::get(
+    '/indicators/companies/{company}/jobs',
+    [CompanyIndicatorController::class, 'companyJobs']
+);
 // routes/dashboard.php
   Route::get(
             '/indicators/job-demand-geo',

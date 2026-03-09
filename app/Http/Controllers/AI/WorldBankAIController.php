@@ -64,7 +64,7 @@ class WorldBankAIController extends Controller
         $indicator = $request->get('indicator');
         $countries = $request->get('countries', []);
         $from      = $request->get('from', 2020);
-        $to        = $request->get('to', 2025);
+        $to        = $request->get('to', 2026);
 
         Log::info("📩 [WorldBankAIController@getData] Parámetros:", [
             'indicator' => $indicator,

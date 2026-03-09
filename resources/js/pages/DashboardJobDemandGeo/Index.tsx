@@ -20,12 +20,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function JobDemandGeoIndex() {
+
     const {
         meta,
         ranking,
         regions = [],
-        careers = [],        // 🔥 NUEVO
-        filters = {},        // 🔥 NUEVO
+        careers = [],
+        filters = {},
     } = usePage().props as any;
 
     return (
@@ -37,14 +38,21 @@ export default function JobDemandGeoIndex() {
 
             {/* ================= KPIs ================= */}
             <div className="mt-6 space-y-6">
-                <CityDemandKpiGrid meta={meta} />
+
+                {/* 🔥 AHORA PASAMOS careers y filters */}
+                <CityDemandKpiGrid
+                    meta={meta}
+                    careers={careers}
+                    filters={filters}
+                />
+
             </div>
 
             {/* ================= FILTROS ================= */}
             <JobDemandGeoFilters
                 regions={regions}
-                careers={careers}     // 🔥 PASAMOS CARRERAS
-                filters={filters}     // 🔥 PASAMOS FILTROS
+                careers={careers}
+                filters={filters}
             />
 
             {/* ================= MAPA DE CALOR ================= */}
@@ -61,7 +69,7 @@ export default function JobDemandGeoIndex() {
                     filters={filters}
                 />
 
-                {/* METODOLOGÍA (opcional) */}
+                {/* METODOLOGÍA */}
                 {/* <JobDemandGeoMethodologyCard /> */}
 
             </div>

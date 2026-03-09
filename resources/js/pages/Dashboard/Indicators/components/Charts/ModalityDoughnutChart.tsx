@@ -19,20 +19,49 @@ interface Props {
 }
 
 export default function ModalityDoughnutChart({ data }: Props) {
+
+  // Orden fijo de modalidades
+  const modalities = ["remoto", "híbrido", "presencial"];
+
+  // Normalizar datos para garantizar las 3 modalidades
+  const normalizedData = modalities.map((m) => {
+    const found = data.find((d) => d.modalidad === m);
+    return found || { modalidad: m, vacantes: 0, porcentaje: 0 };
+  });
+
   const chartData = {
-    labels: data.map((d) => d.modalidad),
+    labels: normalizedData.map((d) => d.modalidad),
     datasets: [
       {
-        data: data.map((d) => d.vacantes),
+        data: normalizedData.map((d) => d.vacantes),
         backgroundColor: [
           "#00B6E8", // remoto
           "#10B981", // híbrido
           "#F97316", // presencial
-          "#CBD5E1", // desconocido
         ],
         borderWidth: 1,
       },
     ],
+  };
+
+  const chartOptions = {
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+        labels: {
+          boxWidth: 12,
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            const index = context.dataIndex;
+            const item = normalizedData[index];
+            return `${item.modalidad}: ${item.vacantes} (${item.porcentaje}%)`;
+          },
+        },
+      },
+    },
   };
 
   return (
@@ -42,19 +71,7 @@ export default function ModalityDoughnutChart({ data }: Props) {
       </h3>
 
       <div className="max-w-md mx-auto">
-        <Doughnut
-          data={chartData}
-          options={{
-            plugins: {
-              legend: {
-                position: "bottom",
-                labels: {
-                  boxWidth: 12,
-                },
-              },
-            },
-          }}
-        />
+        <Doughnut data={chartData} options={chartOptions} />
       </div>
     </div>
   );

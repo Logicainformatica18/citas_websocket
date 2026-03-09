@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 import { Globe, MapPin, GraduationCap, X } from "lucide-react";
 
 interface Props {
@@ -22,9 +22,8 @@ export default function JobDemandGeoFilters({
     const timeout = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    /* =====================
-       AUTOCOMPLETE SERVER
-    ===================== */
+    /* ================= SEARCH COUNTRIES ================= */
+
     const searchCountries = (q: string) => {
         fetch(
             `/dashboard/indicators/job-demand-geo/search-countries?q=${q}&region=${region}`
@@ -36,9 +35,8 @@ export default function JobDemandGeoFilters({
             });
     };
 
-    /* =====================
-       Escribir → request
-    ===================== */
+    /* ================= TYPE SEARCH ================= */
+
     useEffect(() => {
         if (!region) return;
 
@@ -49,9 +47,8 @@ export default function JobDemandGeoFilters({
         }, 300);
     }, [query]);
 
-    /* =====================
-       Cambiar región
-    ===================== */
+    /* ================= REGION CHANGE ================= */
+
     useEffect(() => {
         setQuery("");
         setResults([]);
@@ -62,9 +59,8 @@ export default function JobDemandGeoFilters({
         }
     }, [region]);
 
-    /* =====================
-       Click fuera
-    ===================== */
+    /* ================= CLICK OUTSIDE ================= */
+
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (
@@ -74,13 +70,13 @@ export default function JobDemandGeoFilters({
                 setOpen(false);
             }
         };
+
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    /* =====================
-       Aplicar filtros
-    ===================== */
+    /* ================= APPLY FILTER ================= */
+
     const applyFilters = (params: any) => {
         router.get(
             "/dashboard/indicators/job-demand-geo",
@@ -97,13 +93,17 @@ export default function JobDemandGeoFilters({
     };
 
     return (
-        <div className="relative z-40 mt-6 flex flex-wrap gap-4 rounded-2xl border bg-white p-4 shadow-sm dark:bg-[#0F2A3A]">
+        <div className="mt-6 flex flex-wrap gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#0F2A3A]">
 
             {/* ================= CARRERA ================= */}
+
             <div className="flex flex-col gap-1 min-w-[220px]">
-                <span className="text-xs font-semibold">Carrera</span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Carrera
+                </span>
 
                 <div className="relative">
+
                     <GraduationCap className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00B6E8]" />
 
                     <select
@@ -113,9 +113,16 @@ export default function JobDemandGeoFilters({
                             setCareerId(v);
                             applyFilters({ career_id: v || null });
                         }}
-                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold"
+                        className="
+                        w-full rounded-xl border border-slate-200
+                        bg-white px-9 py-2 text-sm font-semibold
+                        text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#00B6E8]
+                        dark:border-slate-700 dark:bg-[#0B2233] dark:text-white
+                        "
                     >
                         <option value="">Todas</option>
+
                         {careers.map((c) => (
                             <option key={c.id} value={c.id}>
                                 {c.name}
@@ -131,17 +138,21 @@ export default function JobDemandGeoFilters({
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4 text-slate-400" />
+                            <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* ================= REGIÓN ================= */}
+            {/* ================= REGION ================= */}
+
             <div className="flex flex-col gap-1 min-w-[200px]">
-                <span className="text-xs font-semibold">Región</span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Región
+                </span>
 
                 <div className="relative">
+
                     <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00B6E8]" />
 
                     <select
@@ -154,9 +165,16 @@ export default function JobDemandGeoFilters({
                                 country: null,
                             });
                         }}
-                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold"
+                        className="
+                        w-full rounded-xl border border-slate-200
+                        bg-white px-9 py-2 text-sm font-semibold
+                        text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#00B6E8]
+                        dark:border-slate-700 dark:bg-[#0B2233] dark:text-white
+                        "
                     >
                         <option value="">Todas</option>
+
                         {regions.map((r) => (
                             <option key={r} value={r}>
                                 {r}
@@ -176,20 +194,24 @@ export default function JobDemandGeoFilters({
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4 text-slate-400" />
+                            <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* ================= PAÍS ================= */}
+            {/* ================= COUNTRY ================= */}
+
             <div
                 ref={containerRef}
                 className="relative flex flex-col gap-1 min-w-[260px]"
             >
-                <span className="text-xs font-semibold">País</span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    País
+                </span>
 
                 <div className="relative">
+
                     <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#00B6E8]" />
 
                     <input
@@ -197,7 +219,13 @@ export default function JobDemandGeoFilters({
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => region && setOpen(true)}
                         placeholder="Seleccionar país"
-                        className="w-full rounded-xl border px-9 py-2 text-sm font-semibold"
+                        className="
+                        w-full rounded-xl border border-slate-200
+                        bg-white px-9 py-2 text-sm font-semibold
+                        text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#00B6E8]
+                        dark:border-slate-700 dark:bg-[#0B2233] dark:text-white
+                        "
                     />
 
                     {query && (
@@ -209,13 +237,22 @@ export default function JobDemandGeoFilters({
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2"
                         >
-                            <X className="h-4 w-4 text-slate-400" />
+                            <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
                         </button>
                     )}
                 </div>
 
                 {open && results.length > 0 && (
-                    <div className="absolute bottom-full z-50 mt-1 max-h-64 w-full overflow-auto rounded-xl border bg-white shadow-xl dark:bg-[#102C3C]">
+                    <div
+                        className="
+                        absolute top-full mt-1 w-full
+                        max-h-64 overflow-auto
+                        rounded-xl border border-slate-200
+                        bg-white shadow-xl
+                        z-[2000]
+                        dark:border-slate-700 dark:bg-[#102C3C]
+                        "
+                    >
                         {results.map((c) => (
                             <button
                                 key={c}
@@ -224,7 +261,12 @@ export default function JobDemandGeoFilters({
                                     setOpen(false);
                                     applyFilters({ country: c });
                                 }}
-                                className="block w-full px-4 py-2 text-left text-sm hover:bg-[#E6F7FD]"
+                                className="
+                                block w-full px-4 py-2 text-left text-sm
+                                text-slate-700
+                                hover:bg-[#E6F7FD]
+                                dark:text-white dark:hover:bg-[#143B50]
+                                "
                             >
                                 {c}
                             </button>
@@ -235,3 +277,4 @@ export default function JobDemandGeoFilters({
         </div>
     );
 }
+
