@@ -48,8 +48,6 @@ onFinish: () => reset('password'),
 
 return (
 <> <Head title="Observatorio Tecnológico" />
-
-```
   <div
     className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative px-6"
     style={{ backgroundImage: "url('/logo/isil_bg.jpg')" }}
