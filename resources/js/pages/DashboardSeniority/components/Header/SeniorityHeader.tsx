@@ -111,7 +111,7 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                                 </p>
 
                                 <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
-                                    Distribución de Seniority
+                                    Distribución de Nivel Profesional
                                 </h1>
                             </div>
                         </div>

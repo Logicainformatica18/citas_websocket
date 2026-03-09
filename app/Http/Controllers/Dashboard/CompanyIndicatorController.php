@@ -12,6 +12,24 @@ use App\Services\JobMarketStatusBuilder;
 
 class CompanyIndicatorController extends Controller
 {
+public function companyJobs(Request $request, $company)
+{
+    $jobs = DB::table('job_offers')
+        ->select(
+            'id',
+            'title',
+            'country',
+            'published_at',
+            'url'   // 🔹 agregar url
+        )
+        ->where('company', 'LIKE', "%{$company}%")
+        ->orderByDesc('published_at')
+        ->paginate(5);
+
+    $jobs->withPath("/dashboard/indicators/companies/$company/jobs");
+
+    return response()->json($jobs);
+}
     /* =====================================================
        Helper: SQL para normalizar región
     ===================================================== */
@@ -59,8 +77,8 @@ class CompanyIndicatorController extends Controller
         /* =========================================
            Defaults
         ========================================= */
-        $year    = (int) $request->get('year', 2025);
-        $period  = $request->get('period', 's2');
+        $year    = (int) $request->get('year', 2026);
+        $period  = $request->get('period', 's1');
         $region  = $request->get('region'); // ya normalizada
         $country = $request->get('country');
         $perPage = (int) $request->get('per_page', 7);

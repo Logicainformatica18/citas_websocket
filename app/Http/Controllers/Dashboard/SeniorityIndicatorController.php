@@ -15,8 +15,8 @@ class SeniorityIndicatorController extends Controller
     ===================================================== */
     public function index(Request $request)
     {
-        $year   = (int) $request->get('year', 2025);
-        $period = $request->get('period', 's2');
+        $year   = (int) $request->get('year', 2026);
+        $period = $request->get('period', 's1');
 
         $careers = $request->filled('career')
             ? array_values(array_filter((array) $request->career))
@@ -122,8 +122,8 @@ END
     ===================================================== */
   public function distributionByCareer(Request $request)
 {
-    $year   = (int) $request->get('year', 2025);
-    $period = $request->get('period', 's2');
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
 
     $range = $this->getPeriodRange($period, $year);
 

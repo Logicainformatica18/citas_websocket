@@ -13,8 +13,8 @@ class JobModalityIndicatorController extends Controller
 {
    public function index(Request $request)
     {
-        $year   = (int) $request->get('year', 2025);
-        $period = $request->get('period', 's2');
+        $year   = (int) $request->get('year', 2026);
+        $period = $request->get('period', 's1');
 
         $range = $this->getPeriodRange($year, $period);
 

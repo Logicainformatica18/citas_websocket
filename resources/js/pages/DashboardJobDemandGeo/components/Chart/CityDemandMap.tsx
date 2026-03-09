@@ -6,10 +6,12 @@ import { usePage } from "@inertiajs/react";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
+import L from "leaflet";
 
 /* ================= HEATMAP LAYER ================= */
 
 function GlobalHeatLayer({ data }: { data: any[] }) {
+
     const map = useMap();
     const layerRef = useRef<any>(null);
 
@@ -22,20 +24,24 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
     };
 
     useEffect(() => {
+
         if (!map) return;
 
         if (!layerRef.current) {
+
             // @ts-ignore
-            layerRef.current = window.L.heatLayer([], {
+            layerRef.current = L.heatLayer([], {
                 radius: 40,
                 blur: 25,
                 maxZoom: 8,
                 gradient,
                 minOpacity: 0.35,
             }).addTo(map);
+
         }
 
         if (data?.length) {
+
             const points = data.map((d) => [
                 d.lat,
                 d.lng,
@@ -43,7 +49,16 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
             ]);
 
             layerRef.current.setLatLngs(points);
+
         }
+
+        return () => {
+            if (layerRef.current) {
+                map.removeLayer(layerRef.current);
+                layerRef.current = null;
+            }
+        };
+
     }, [map, data]);
 
     return null;
@@ -52,16 +67,20 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
 /* ================= MAP EVENTS ================= */
 
 function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
+
     const map = useMap();
     const debounceRef = useRef<any>(null);
 
     useEffect(() => {
+
         const handler = () => {
+
             clearTimeout(debounceRef.current);
 
             debounceRef.current = setTimeout(() => {
                 onZoom(map.getZoom());
-            }, 800);
+            }, 500);
+
         };
 
         map.on("zoomend", handler);
@@ -71,6 +90,7 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
             map.off("zoomend", handler);
             map.off("moveend", handler);
         };
+
     }, [map, onZoom]);
 
     return null;
@@ -102,8 +122,6 @@ export default function CityDemandHeatmap() {
             zoom,
         });
 
-        /* evitar requests duplicadas */
-
         if (queryKey === lastQuery.current) return;
 
         lastQuery.current = queryKey;
@@ -125,11 +143,11 @@ export default function CityDemandHeatmap() {
                 }
             );
 
-            setData(res.data.results || []);
+            setData(res.data?.results ?? []);
 
         } catch (e) {
 
-            console.error("❌ Error cargando heatmap", e);
+            console.error("Error cargando heatmap", e);
 
         } finally {
 
@@ -159,6 +177,7 @@ export default function CityDemandHeatmap() {
     }, [fetchData]);
 
     return (
+
         <Card className="border border-[#00B6E8]/30 bg-white dark:bg-[#0A2540] shadow-xl">
 
             <CardContent className="p-6 flex flex-col gap-4">
@@ -183,8 +202,9 @@ export default function CityDemandHeatmap() {
 
                     <MapContainer
                         center={[-12.0464, -77.0428]}
-                        zoom={5}
+                        zoom={zoom}
                         style={{ height: "100%", width: "100%" }}
+                        scrollWheelZoom
                     >
 
                         <TileLayer
@@ -209,5 +229,7 @@ export default function CityDemandHeatmap() {
             </CardContent>
 
         </Card>
+
     );
 }
+

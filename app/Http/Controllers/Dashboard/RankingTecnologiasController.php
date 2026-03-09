@@ -343,8 +343,8 @@ private function getBaseContext(Request $request): array
     /* ==================================================
        AÑO / PERIODO
     ================================================== */
-    $year   = (int) $request->get('year', 2025);
-    $period = $request->get('period', 's2');
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
     $quarter = $period === 's1' ? 1 : 4;
 
     /* ==================================================

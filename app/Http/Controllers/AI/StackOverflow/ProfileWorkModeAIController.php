@@ -23,7 +23,7 @@ class ProfileWorkModeAIController extends Controller
 
 public function getData(Request $request)
 {
-    $year = $request->get('year', 2025);
+    $year = $request->get('year', 2026);
     $countries = $request->get('countries', []);
     $industries = $request->get('industries', []);
     $ed_levels = $request->get('ed_levels', []);
