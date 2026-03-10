@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Carbon\Carbon;
 
-class RunAllJobs2 extends Command
+class RunAllJobs3 extends Command
 {
     protected $signature = 'jobs:run-all2 {--sleep=1 : Segundos de pausa entre comandos}';
     protected $description = '🚀 Ejecuta todos los comandos de scraping y carga de datos, mostrando progreso en tiempo real.';
@@ -18,9 +18,7 @@ class RunAllJobs2 extends Command
 // 'certifications:discover-gaps',
 // 'languages:discover-gaps',
 // 'technologies:discover-gaps',
-'trends:discover-languages --limit=50 --sleep=5',
-'trends:discover-methodologies --limit=50 --sleep=5',
-'trends:discover-technologies --limit=1500 --sleep=5',
+
 'trends:discover-exa',
 'trends:discover-global'
 
