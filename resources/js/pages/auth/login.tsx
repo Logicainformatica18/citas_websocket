@@ -52,7 +52,7 @@ return (
     className="min-h-screen w-full flex items-center justify-center bg-cover  relative px-6"
     style={{ backgroundImage: "url('/logo/isil_bg2.jpeg')" }}
   >
-<div className="absolute inset-0 bg-[#0B2A3A]/31" />
+<div className="absolute inset-0 bg-[#0B2A3A]/21" />
 
     <div className="relative w-full max-w-xl">
 

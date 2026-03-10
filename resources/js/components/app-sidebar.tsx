@@ -8,8 +8,8 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import { Link } from "@inertiajs/react";
-import { useState } from "react";
+import { Link, usePage } from "@inertiajs/react";
+import { useState, useEffect } from "react";
 
 import AppLogo from "./app-logo";
 import { NavUser } from "@/components/nav-user";
@@ -38,14 +38,29 @@ import {
     ChevronDown,
 } from "lucide-react";
 
+
+
+
 const colorMarket =
-  " text-teal-500 dark:bg-teal-400/15 dark:text-teal-400";
+    " text-teal-500 dark:bg-teal-400/15 dark:text-teal-400";
 const colorTrends = "text-purple-500 dark:text-purple-400";   // morado
 const colorAlign = "text-sky-500 dark:text-sky-400";          // celeste ISIL
 /* ======================================================
    SIDEBAR
 ====================================================== */
 export function AppSidebar() {
+    type PageProps = {
+        permissions: string[];
+    };
+    const { permissions } = usePage<PageProps>().props;
+    const has = (perm: string) => permissions.includes(perm);
+
+    const isAdmin = has("administrar");
+    useEffect(() => {
+        if (isAdmin) {
+            console.log("Usuario ADMIN detectado");
+        }
+    }, []);
     return (
         <Sidebar variant="inset">
             {/* ================= LOGO ================= */}
@@ -79,89 +94,90 @@ export function AppSidebar() {
                 </SidebarMenu>
 
                 {/* ================= INDICADORES ================= */}
-               {/* ================= INDICADORES ================= */}
-<CollapsibleSection
-    title="Indicadores"
-    icon={<BarChart3 className={colorAlign} />}
->
+                {/* ================= INDICADORES ================= */}
+                <CollapsibleSection
+                    title="Indicadores"
+                    icon={<BarChart3 className={colorAlign} />}
+                >
 
-    {/* ===== MERCADO Y DEMANDA ===== */}
-    <div className="pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
-        Mercado y Demanda
-    </div>
+                    {/* ===== MERCADO Y DEMANDA ===== */}
+                    <div className="pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+                        Mercado y Demanda
+                    </div>
 
-    <MenuItem
-        href="/dashboard/ranking/technologies"
-        icon={<Cpu className={colorMarket} />}
-        label="Tecnologías"
-    />
+                    <MenuItem
+                        href="/dashboard/ranking/technologies"
+                        icon={<Cpu className={colorMarket} />}
+                        label="Tecnologías"
+                    />
 
-    <MenuItem
-        href="/dashboard/ranking/languages"
-        icon={<Languages className={colorMarket} />}
-        label="Lenguajes"
-    />
+                    <MenuItem
+                        href="/dashboard/ranking/languages"
+                        icon={<Languages className={colorMarket} />}
+                        label="Lenguajes"
+                    />
 
-    <MenuItem
-        href="/dashboard/ranking-certificaciones"
-        icon={<Award className={colorMarket} />}
-        label="Certificaciones"
-    />
+                    <MenuItem
+                        href="/dashboard/ranking-certificaciones"
+                        icon={<Award className={colorMarket} />}
+                        label="Certificaciones"
+                    />
 
-    <MenuItem
-        href="/dashboard/indicators/seniority"
-        icon={<Users className={colorMarket} />}
-        label="Nivel Profesional"
-    />
+                    <MenuItem
+                        href="/dashboard/indicators/seniority"
+                        icon={<Users className={colorMarket} />}
+                        label="Nivel Profesional"
+                    />
 
-    <MenuItem
-        href="/dashboard/indicators/companies"
-        icon={<Building2 className={colorMarket} />}
-        label="Empresas"
-    />
+                    <MenuItem
+                        href="/dashboard/indicators/companies"
+                        icon={<Building2 className={colorMarket} />}
+                        label="Empresas"
+                    />
 
-    <MenuItem
-        href="/dashboard/indicators/job-demand-geo"
-        icon={<Building2 className={colorMarket} />}
-        label="Demanda Ciudad"
-    />
+                    <MenuItem
+                        href="/dashboard/indicators/job-demand-geo"
+                        icon={<Building2 className={colorMarket} />}
+                        label="Demanda Ciudad"
+                    />
 
-    <MenuItem
-        href="/dashboard/indicadores/modalidad-laboral"
-        icon={<Laptop className={colorMarket} />}
-        label="Modalidad Laboral"
-    />
+                    <MenuItem
+                        href="/dashboard/indicadores/modalidad-laboral"
+                        icon={<Laptop className={colorMarket} />}
+                        label="Modalidad Laboral"
+                    />
 
-    {/* ===== TENDENCIAS ===== */}
-    <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
-        Tendencias
-    </div>
+                    {/* ===== TENDENCIAS ===== */}
+                    <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+                        Tendencias
+                    </div>
 
-    <MenuItem
-        href="/dashboard/indicators/macro-trends"
-        icon={<Brain className={colorTrends} />}
-        label="Tendencias Macro"
-    />
+                    <MenuItem
+                        href="/dashboard/indicators/macro-trends"
+                        icon={<Brain className={colorTrends} />}
+                        label="Tendencias Macro"
+                    />
 
-    {/* ===== ALINEACIÓN ACADÉMICA ===== */}
-    <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
-        Alineación Académica
-    </div>
+                    {/* ===== ALINEACIÓN ACADÉMICA ===== */}
+                    <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+                        Alineación Académica
+                    </div>
 
-    {/* <MenuItem
+                    {/* <MenuItem
         href="/dashboard/indicators/pe-alignment"
         icon={<ListChecks className={colorAlign} />}
         label="Alineación Competencias"
     /> */}
 
-    <MenuItem
-        href="/dashboard/indicators/course-alignment"
-        icon={<GraduationCap className={colorAlign} />}
-        label="Alineación Cursos"
-    />
+                    <MenuItem
+                        href="/dashboard/indicators/course-alignment"
+                        icon={<GraduationCap className={colorAlign} />}
+                        label="Alineación Cursos"
+                    />
 
-</CollapsibleSection>
-
+                </CollapsibleSection>
+{isAdmin && (
+<>
                 {/* ================= ACADÉMICO ================= */}
                 <CollapsibleSection
                     title="Académico"
@@ -225,7 +241,8 @@ export function AppSidebar() {
                     <MenuItem href="/users" icon={<UserCircle2 className={colorAlign} />} label="Usuarios" />
                     <MenuItem href="/roles" icon={<Shield className={colorAlign} />} label="Roles" />
                 </CollapsibleSection>
-
+</>
+)}
             </SidebarContent>
 
             <SidebarFooter>
