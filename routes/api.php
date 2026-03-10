@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 */
 use App\Http\Controllers\AI\DashboardAIController;
 use App\Http\Controllers\AI\AITrainingController;
+use App\Http\Controllers\CourseController;
 
 Route::prefix('ai')->group(function () {
     Route::post('/training/start', [AITrainingController::class, 'startTraining']);
@@ -27,6 +28,7 @@ Route::prefix('ai')->group(function () {
     // 📎 Análisis de archivos
     Route::post('file/analyze', [DashboardAIController::class, 'analyzeFile']);
 });
+Route::get('/courses/list', [CourseController::class, 'listAll']);
 require __DIR__.'/api/auth.php';
 
 Route::middleware('auth:sanctum')->group(function () {
