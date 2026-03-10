@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use App\Models\Prueba;
 use App\Services\Ranking\MacroTrendScoreService;
-
+use App\Jobs\DiscoverMacroTrendsJob;
 class MacroTrendsIndicatorController extends Controller
 {
     protected MacroTrendScoreService $service;
@@ -63,22 +63,22 @@ class MacroTrendsIndicatorController extends Controller
     /* =====================================================
        EJECUTAR DESCUBRIMIENTO GLOBAL
     ===================================================== */
-    public function runDiscover(Request $request)
-    {
-        $data = $request->validate([
-            'year'   => 'required|integer',
-            'period' => 'required|in:s1,s2',
-        ]);
+public function runDiscover(Request $request)
+{
+    $data = $request->validate([
+        'year'   => 'required|integer',
+        'period' => 'required|in:s1,s2',
+    ]);
 
-        $quarter = $data['period'] === 's1' ? 1 : 3;
+    $quarter = $data['period'] === 's1' ? 1 : 3;
 
-        Artisan::call('trends:discover-global', [
-            '--year'    => $data['year'],
-            '--quarter' => $quarter,
-        ]);
+    DiscoverMacroTrendsJob::dispatch(
+        $data['year'],
+        $quarter
+    );
 
-        return back()->with('success', 'Descubrimiento ejecutado correctamente.');
-    }
+    return back()->with('success', 'Descubrimiento iniciado en segundo plano.');
+}
 
     /* =====================================================
        LISTADO GENERAL (RANKING)

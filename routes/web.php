@@ -240,7 +240,8 @@ Route::get(
         [PeAlignmentIndicatorController::class, 'trendsByCompetency']
     )->name('dashboard.indicators.pe-alignment.trends');
 
-
+Route::post('/indicators/macro-trends/run', [MacroTrendsIndicatorController::class, 'runDiscover'])
+    ->name('macro-trends.run');
 Route::post(
     '/indicators/macro-trends/weights',
     [MacroTrendsIndicatorController::class, 'storeWeights']

@@ -21,6 +21,8 @@ class RunAllJobs2 extends Command
 'trends:discover-languages --limit=50 --sleep=5',
 'trends:discover-methodologies --limit=50 --sleep=5',
 'trends:discover-technologies --limit=1500 --sleep=5',
+'trends:discover-exa',
+'trends:discover-global'
 
 
 

@@ -116,14 +116,14 @@ const filters = pageProps?.filters ?? {};
             </div>
 
             {/* Discover Button */}
-            <button
+           {/* <button
               onClick={handleRunDiscover}
               disabled={loading}
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:bg-indigo-700 transition disabled:opacity-60"
             >
               <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               {loading ? "Procesando..." : "Descubrir nuevas"}
-            </button>
+            </button> */}
           </div>
         </div>
 

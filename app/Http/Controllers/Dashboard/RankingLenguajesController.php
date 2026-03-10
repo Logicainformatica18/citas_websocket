@@ -163,22 +163,15 @@ $availableCareers = DB::table('careers')
     /* ==================================================
        2. SUBQUERY TENDENCIAS (entity_trends)
     ================================================== */
-   $quarter = $period === 's1' ? 1 : 2;
+  $quarter = $period === 's1' ? 1 : 4;
 
 $reportsSub = DB::table('entity_trends as et')
     ->join('market_entities as me', function ($j) {
         $j->on('me.id', '=', 'et.market_entity_id')
           ->where('me.entity_type', 'language');
     })
-    // año del análisis
     ->where('et.year', $year)
-    ->where('et.quarter', $quarter)
-
-    // 🔥 año real de la fuente
-    ->where(function ($q) use ($year) {
-    $q->whereNull('et.year') // compatibilidad vieja
-      ->orWhere('et.year', '>=', $year - 1);
-}) ->select(
+->where('et.quarter', $quarter)->select(
             'me.id as language_id',
             DB::raw('COUNT(DISTINCT et.id) as report_mentions')
         )
@@ -205,11 +198,6 @@ $reportsSub = DB::table('entity_trends as et')
             })
             ->where('et.year', $year)
 ->where('et.quarter', $quarter)
-->where(function ($q) use ($year) {
-    $q->whereNull('et.year')
-      ->orWhere('et.year', '>=', $year - 1);
-})
-
             ->count('et.id'),
         1
     );
@@ -276,8 +264,8 @@ $reportsSub = DB::table('entity_trends as et')
       DB::raw("
     ROUND(
         (
-            ((COALESCE(labor.offers,0) / {$maxLabor}) * 100 * {$laborWeight})
-          + ((COALESCE(reports.report_mentions,0) / {$totalReports}) * 100 * {$trendWeight})
+            ((LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100 * {$laborWeight})
+          + ((LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100 * {$trendWeight})
         ),
     1) as final_score
 "),
@@ -532,16 +520,16 @@ private function getLanguagesRanking(array $ctx)
         DB::raw('COALESCE(labor.offers,0) as total_jobs'),
         DB::raw('COALESCE(reports.report_mentions,0) as trend_reports'),
 
-     DB::raw("
-    ROUND(
-        (COALESCE(labor.offers,0) / {$maxLabor}) * 100,
-    1) as labor_score
+    DB::raw("
+ROUND(
+(LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100,
+1) as labor_score
 "),
 
 
       DB::raw("
     ROUND(
-        (COALESCE(reports.report_mentions,0) / {$totalReports}) * 100,
+      (LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100,
     1) as trend_score
 "),
 
@@ -549,9 +537,9 @@ private function getLanguagesRanking(array $ctx)
         DB::raw("
             ROUND(
                 (
-                    (LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100 * {$ctx['laborWeight']}
-                    +
-                    (COALESCE(reports.report_mentions,0) / {$totalReports}) * 100 * {$ctx['trendWeight']}
+                  (LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100 * {$ctx['laborWeight']}
++
+(LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100 * {$ctx['trendWeight']}
                 ),
             1) as final_score
         ")
@@ -615,16 +603,12 @@ public function trendsByLanguage(Request $request, int $marketEntityId)
 
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 2;
+   $quarter = $period === 's1' ? 1 : 4;
 
     $trends = DB::table('entity_trends')
         ->where('market_entity_id', $marketEntityId)
         ->where('year', $year)
         ->where('quarter', $quarter)
-        ->where(function ($q) use ($year) {
-            $q->whereNull('year')
-              ->orWhere('year', '>=', $year - 1);
-        })
         ->orderByDesc('trend_score')
         ->paginate($perPage, [
             'id',

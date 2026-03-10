@@ -7,38 +7,38 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class DiscoverGlobalMacroTrendsCommand extends Command
+class DiscoverMacroTrendsExaCommand extends Command
 {
-    protected $signature = 'trends:discover-global
+    protected $signature = 'trends:discover-exa
                             {--year=}
                             {--quarter=}
-                            {--limit=30}';
+                            {--limit=40}';
 
-    protected $description = 'Descubre macro tendencias usando Tavily + GPT';
+    protected $description = 'Discover macro technology trends using Exa search + GPT analysis';
 
     public function handle()
     {
-        $year    = $this->option('year') ?? now()->year;
+        $year = $this->option('year') ?? now()->year;
         $quarter = $this->option('quarter') ?? now()->quarter;
-        $limit   = (int) $this->option('limit');
+        $limit = (int) $this->option('limit');
 
-        $this->info("🌍 Buscando artículos de tendencias {$year}");
+        $this->info("🔎 Searching trend articles with Exa ({$year})");
 
         try {
 
             $articles = $this->searchArticles($year, $limit);
 
-            if (empty($articles)) {
-                $this->warn("No se encontraron artículos");
+            if (!$articles) {
+                $this->warn("No articles found");
                 return Command::SUCCESS;
             }
 
-            $this->info("Artículos encontrados: ".count($articles));
+            $this->info("Articles found: ".count($articles));
 
-            $trends = $this->extractTrends($articles);
+            $trends = $this->analyzeWithGPT($articles);
 
             if (!$trends) {
-                $this->warn("GPT no devolvió tendencias");
+                $this->warn("GPT returned no trends");
                 return Command::SUCCESS;
             }
 
@@ -77,13 +77,13 @@ class DiscoverGlobalMacroTrendsCommand extends Command
                 ]);
             }
 
-            $this->info("✅ Tendencias guardadas");
+            $this->info("✅ Trends stored successfully");
 
         } catch (\Throwable $e) {
 
             $this->error("Error: ".$e->getMessage());
 
-            Log::error('[GLOBAL-TRENDS]', [
+            Log::error('[TREND-DISCOVERY]', [
                 'error' => $e->getMessage()
             ]);
         }
@@ -91,17 +91,17 @@ class DiscoverGlobalMacroTrendsCommand extends Command
         return Command::SUCCESS;
     }
 
-    /* =====================================================
-       BUSCAR ARTÍCULOS CON TAVILY
-    ===================================================== */
+    /* ==============================================
+       SEARCH ARTICLES WITH EXA
+    ============================================== */
 
     protected function searchArticles(int $year, int $limit): array
     {
         $queries = [
             "technology trends {$year}",
             "AI trends {$year}",
-            "future of work technology {$year}",
-            "cybersecurity trends report {$year}",
+            "future of work technology trends {$year}",
+            "cybersecurity trends {$year}",
             "digital transformation trends {$year}"
         ];
 
@@ -109,15 +109,19 @@ class DiscoverGlobalMacroTrendsCommand extends Command
 
         foreach ($queries as $query) {
 
-            $response = Http::post(
-                'https://api.tavily.com/search',
-                [
-                    'api_key' => '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',
-                    'query' => $query,
-                    'search_depth' => 'basic',
-                    'max_results' => $limit
+            $response = Http::withHeaders([
+                'x-api-key' => '6124bb4b-8b1f-4227-83f8-4244255c36c7',
+                'Content-Type' => 'application/json'
+            ])->post('https://api.exa.ai/search', [
+                "query" => $query,
+                "type" => "auto",
+                "num_results" => $limit,
+                "contents" => [
+                    "highlights" => [
+                        "max_characters" => 2000
+                    ]
                 ]
-            );
+            ]);
 
             $data = $response->json();
 
@@ -129,7 +133,7 @@ class DiscoverGlobalMacroTrendsCommand extends Command
 
                 $results[] = [
                     'title' => $item['title'] ?? '',
-                    'url'   => $item['url']
+                    'url' => $item['url']
                 ];
             }
         }
@@ -137,17 +141,15 @@ class DiscoverGlobalMacroTrendsCommand extends Command
         return $results;
     }
 
-    /* =====================================================
-       EXTRAER TENDENCIAS CON GPT
-    ===================================================== */
+    /* ==============================================
+       ANALYZE WITH GPT
+    ============================================== */
 
-    protected function extractTrends(array $articles): ?array
+    protected function analyzeWithGPT(array $articles): ?array
     {
-        $apiKey = config('services.openai.key');
-
         $prompt = $this->buildPrompt($articles);
 
-        $response = Http::withToken($apiKey)
+        $response = Http::withToken(config('services.openai.key'))
             ->timeout(200)
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-5',
@@ -168,9 +170,9 @@ class DiscoverGlobalMacroTrendsCommand extends Command
         return $this->extractJson($text)['trends'] ?? null;
     }
 
-    /* =====================================================
-       VALIDAR URL
-    ===================================================== */
+    /* ==============================================
+       VALIDATE URL
+    ============================================== */
 
     protected function validateUrl(string $url): bool
     {
@@ -189,58 +191,51 @@ class DiscoverGlobalMacroTrendsCommand extends Command
         }
     }
 
-    /* =====================================================
-       PROMPT GPT
-    ===================================================== */
+    /* ==============================================
+       PROMPT
+    ============================================== */
 
- protected function buildPrompt(array $articles): string
-{
-    $list = collect($articles)
-        ->take(40) // más contexto mejora resultados
-        ->map(fn($a) => "- {$a['title']} ({$a['url']})")
-        ->implode("\n");
+    protected function buildPrompt(array $articles): string
+    {
+        $list = collect($articles)
+            ->take(40)
+            ->map(fn($a) => "- {$a['title']} ({$a['url']})")
+            ->implode("\n");
 
-    return <<<PROMPT
-You are a global technology intelligence analyst.
+        return <<<PROMPT
+You are analyzing articles about technology trends.
 
-Below is a list of real articles about technology, digital transformation, AI, and future trends.
-
-ARTICLES:
+ARTICLES
 {$list}
 
 TASK
-Identify 6–12 MACRO technology trends shaping global digital transformation.
+Identify 8–12 macro technology trends shaping global digital transformation.
 
-REQUIREMENTS
-- Trend names MUST be written in Spanish.
-- Descriptions MUST be written in Spanish.
-- Use short strategic descriptions (max 3 sentences).
-- Use the article list as evidence.
-- Do NOT invent sources.
-- Keep the original article title and URL exactly as provided.
-- Prefer trends appearing across multiple sources.
+IMPORTANT
+- Trend names must be in Spanish
+- Descriptions must be in Spanish
+- Use the article list as evidence
+- Do NOT invent sources
+- Keep the original article title and URL
 
-OUTPUT
-Return STRICT JSON only.
+Return JSON only.
 
 {
  "trends":[
   {
-   "name":"Nombre de la tendencia en español",
-   "description":"Explicación estratégica breve en español",
+   "name":"Nombre de tendencia",
+   "description":"Explicación breve",
    "source":{
-      "name":"Website or institution",
+      "name":"Website",
       "title":"Original article title",
       "url":"https://...",
-      "type":"article | report | study"
+      "type":"article"
    }
   }
  ]
 }
-
-Do NOT include any text outside the JSON.
 PROMPT;
-}
+    }
 
     protected function extractJson(string $text): array
     {
