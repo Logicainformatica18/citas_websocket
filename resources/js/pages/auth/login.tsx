@@ -49,10 +49,10 @@ onFinish: () => reset('password'),
 return (
 <> <Head title="Observatorio Tecnológico" />
   <div
-    className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative px-6"
-    style={{ backgroundImage: "url('/logo/isil_bg.jpg')" }}
+    className="min-h-screen w-full flex items-center justify-center bg-cover  relative px-6"
+    style={{ backgroundImage: "url('/logo/isil_bg2.jpeg')" }}
   >
-<div className="absolute inset-0 bg-[#0B2A3A]/51 backdrop-blur-sm" />
+<div className="absolute inset-0 bg-[#0B2A3A]/31" />
 
     <div className="relative w-full max-w-xl">
 
@@ -63,13 +63,19 @@ return (
           <Activity className="w-8 h-8 text-white" />
         </div>
 
-        <h1 className="text-3xl font-bold">
-          Observatorio Tecnológico
-        </h1>
+      <h1
+  className="text-3xl font-bold"
+  style={{ textShadow: "0 0 6px rgba(0,174,239,0.6)" }}
+>
+  Observatorio Tecnológico
+</h1>
 
-        <p className="text-sm text-gray-200 mt-2">
-          Accede a tu plataforma de monitoreo
-        </p>
+<p
+  className="text-sm text-gray-200 mt-2"
+  style={{ textShadow: "0 0 4px rgba(0,174,239,0.5)" }}
+>
+  Accede a tu plataforma de monitoreo
+</p>
       </div>
 
       <div className="bg-[#EDEDED] rounded-xl shadow-2xl p-10">

@@ -76,14 +76,14 @@ const runGapDiscovery = async () => {
     );
   };
 
-  return (
+ return (
   <>
     <header className="relative overflow-hidden border-b bg-teal-50 dark:bg-[#0A2540] px-4 sm:px-6 lg:px-8">
 
       {/* BACKGROUND */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-teal-400/30 blur-3xl" />
-        <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-teal-300/20 blur-3xl" />
+        <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-teal-300/30 blur-3xl" />
+        <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-teal-200/20 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl py-10 md:py-14">
@@ -94,12 +94,12 @@ const runGapDiscovery = async () => {
 
             {/* Title */}
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500 shadow-lg">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400 shadow-lg">
                 <BarChart3 className="h-6 w-6 text-white" />
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+                <p className="text-sm font-semibold text-teal-600 dark:text-teal-300">
                   Observatorio Tecnológico ISIL
                 </p>
 
@@ -120,7 +120,7 @@ const runGapDiscovery = async () => {
 
               {/* AÑO */}
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-teal-700 dark:text-slate-300">
+                <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
                   Año de análisis
                 </span>
 
@@ -139,7 +139,7 @@ const runGapDiscovery = async () => {
 
               {/* SEMESTRE */}
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-teal-700 dark:text-slate-300">
+                <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
                   Semestre
                 </span>
 
@@ -155,8 +155,8 @@ const runGapDiscovery = async () => {
                       }
                       className={`px-6 py-2 text-sm font-semibold ${
                         meta.period === s.value
-                          ? "bg-teal-500 text-white"
-                          : "text-teal-700 hover:bg-teal-100"
+                          ? "bg-teal-400 text-white"
+                          : "text-teal-600 hover:bg-teal-50"
                       }`}
                     >
                       {s.label}
@@ -168,7 +168,7 @@ const runGapDiscovery = async () => {
               {/* BADGES */}
               <div className="flex flex-wrap items-center gap-3">
                 <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
-                  <Database className="h-3 w-3 text-teal-500" />
+                  <Database className="h-3 w-3 text-teal-400" />
                   {meta.vacantes_analizadas.toLocaleString()} vacantes
                 </Badge>
 
@@ -180,9 +180,9 @@ const runGapDiscovery = async () => {
                 {/* Datos Generales */}
                 <button
                   onClick={() => setOpenMarketModal(true)}
-                  className="group flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow transition hover:border-teal-500 hover:shadow-md"
+                  className="group flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow transition hover:border-teal-400 hover:shadow-md"
                 >
-                  <Database className="h-4 w-4 text-teal-500" />
+                  <Database className="h-4 w-4 text-teal-400" />
 
                   <span className="text-sm font-semibold text-[#0A2540]">
                     Datos Generales
@@ -211,19 +211,19 @@ const runGapDiscovery = async () => {
                 {/* METODOLOGÍA */}
                 <button
                   onClick={onEditWeights}
-                  className="group w-full rounded-2xl border border-teal-500/40 bg-white p-5 text-left shadow-xl transition-all hover:border-teal-500 hover:shadow-2xl dark:bg-[#102C3C]"
+                  className="group w-full rounded-2xl border border-teal-400/40 bg-white p-5 text-left shadow-xl transition-all hover:border-teal-400 hover:shadow-2xl dark:bg-[#102C3C]"
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-teal-500">
+                    <p className="text-xs font-bold uppercase tracking-wider">
                       Metodología de cálculo
                     </p>
 
-                    <Settings2 className="h-4 w-4 text-teal-500" />
+                    <Settings2 className="h-4 w-4 text-teal-400" />
                   </div>
 
                   <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
                     <p>
-                      <span className="font-bold text-teal-500">
+                      <span className="font-bold text-teal-400">
                         {labor}%
                       </span>{" "}
                       Demanda laboral
@@ -241,11 +241,11 @@ const runGapDiscovery = async () => {
                     Score = ({laborFactor} × Laboral) + ({trendFactor} × Tendencias)
                   </p>
 
-                  <p className="mt-3 border-t border-teal-500/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+                  <p className="mt-3 border-t border-teal-400/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
                     Los cálculos se realizan únicamente con datos del Periodo seleccionado.
                   </p>
 
-                  <p className="mt-3 text-xs font-semibold text-teal-500 group-hover:underline">
+                  <p className="mt-3 text-xs font-semibold text-teal-400 group-hover:underline">
                     Haz clic para editar ponderaciones
                   </p>
                 </button>
@@ -254,7 +254,7 @@ const runGapDiscovery = async () => {
                 <button
                   onClick={runGapDiscovery}
                   disabled={runningIA}
-                  className="mt-4 w-full rounded-2xl bg-teal-500 px-4 py-3 text-white font-semibold shadow-lg transition hover:bg-teal-600 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="mt-4 w-full rounded-2xl bg-teal-400 px-4 py-3 text-white font-semibold shadow-lg transition hover:bg-teal-500 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <Sparkles size={18} />
 

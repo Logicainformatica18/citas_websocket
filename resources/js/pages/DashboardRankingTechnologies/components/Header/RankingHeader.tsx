@@ -82,9 +82,9 @@ export function Header({
     };
 
     return (
-        <>
-            <header
-                className="
+  <>
+    <header
+      className="
 relative
 overflow-hidden
 border-b
@@ -92,71 +92,71 @@ bg-teal-50
 dark:bg-[#0A2540]
 px-4 sm:px-6 lg:px-8
 "
-            >
+    >
 
-                {/* BACKGROUND */}
+      {/* BACKGROUND */}
 
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-teal-400/30 blur-3xl" />
-                    <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-teal-300/20 blur-3xl" />
-                </div>
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-teal-300/30 blur-3xl" />
+        <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-teal-200/20 blur-3xl" />
+      </div>
 
-                {/* CONTENT */}
+      {/* CONTENT */}
 
-                <div className="relative mx-auto max-w-7xl py-10 md:py-14">
-                    <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+      <div className="relative mx-auto max-w-7xl py-10 md:py-14">
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
 
-                        {/* LEFT */}
+          {/* LEFT */}
 
-                        <div className="space-y-6 max-w-3xl">
+          <div className="space-y-6 max-w-3xl">
 
-                            {/* TITLE */}
+            {/* TITLE */}
 
-                            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
 
-                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500 shadow-lg">
-                                    <BarChart3 className="h-6 w-6 text-white" />
-                                </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400 shadow-lg">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
 
-                                <div>
+              <div>
 
-                                    <p className="text-sm font-semibold text-teal-700 dark:text-teal-300">
-                                        Observatorio Tecnológico ISIL
-                                    </p>
+                <p className="text-sm font-semibold text-teal-600 dark:text-teal-300">
+                  Observatorio Tecnológico ISIL
+                </p>
 
-                                    <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
-                                        Ranking de Tecnologías
-                                    </h1>
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
+                  Ranking de Tecnologías
+                </h1>
 
-                                </div>
-                            </div>
+              </div>
+            </div>
 
-                            {/* DESCRIPTION */}
+            {/* DESCRIPTION */}
 
-                            <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
-                                Análisis automatizado de tecnologías más demandadas en el mercado
-                                laboral, integrando ofertas reales y reportes de tendencias
-                                tecnológicas globales.
-                            </p>
+            <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+              Análisis automatizado de tecnologías más demandadas en el mercado
+              laboral, integrando ofertas reales y reportes de tendencias
+              tecnológicas globales.
+            </p>
 
-                            {/* CONTROLES */}
+            {/* CONTROLES */}
 
-                            <div className="flex flex-wrap items-end gap-8">
+            <div className="flex flex-wrap items-end gap-8">
 
-                                {/* AÑO */}
+              {/* AÑO */}
 
-                                <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
 
-                                    <span className="text-xs font-semibold text-teal-700 dark:text-slate-300">
-                                        Año de análisis
-                                    </span>
+                <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
+                  Año de análisis
+                </span>
 
-                                    <div className="relative rounded-xl border bg-white shadow-sm">
+                <div className="relative rounded-xl border bg-white shadow-sm">
 
-                                        <select
-                                            value={meta.year}
-                                            onChange={(e) => onChange({ year: Number(e.target.value) })}
-                                            className="
+                  <select
+                    value={meta.year}
+                    onChange={(e) => onChange({ year: Number(e.target.value) })}
+                    className="
 w-[120px]
 appearance-none
 bg-transparent
@@ -168,69 +168,70 @@ text-[#0A2540]
 cursor-pointer
 focus:outline-none
 "
-                                        >
+                  >
 
-                                            {[2025, 2026].map((y) => (
-                                                <option key={y} value={y}>{y}</option>
-                                            ))}
+                    {[2025, 2026].map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
 
-                                        </select>
+                  </select>
 
-                                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-teal-500 opacity-70">
-                                            ⌄
-                                        </span>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-teal-400 opacity-70">
+                    ⌄
+                  </span>
 
-                                    </div>
-                                </div>
+                </div>
+              </div>
 
-                                {/* SEMESTRE */}
+              {/* SEMESTRE */}
 
-                                <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
 
-                                    <span className="text-xs font-semibold text-teal-700 dark:text-slate-300">
-                                        Semestre
-                                    </span>
+                <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
+                  Semestre
+                </span>
 
-                                    <div className="flex rounded-xl overflow-hidden border bg-white shadow-sm">
+                <div className="flex rounded-xl overflow-hidden border bg-white shadow-sm">
 
-                                        {[
-                                            { value: "s1", label: "Ene – Jun" },
-                                            { value: "s2", label: "Jul – Dic" },
-                                        ].map((s) => (
-                                            <button
-                                                key={s.value}
-                                                onClick={() => onChange({ period: s.value as "s1" | "s2" })}
-                                                className={`px-6 py-2 text-sm font-semibold transition-all ${meta.period === s.value
-                                                        ? "bg-teal-500 text-white shadow-inner"
-                                                        : "text-teal-700 hover:bg-teal-100"
-                                                    }`}
-                                            >
-                                                {s.label}
-                                            </button>
-                                        ))}
+                  {[
+                    { value: "s1", label: "Ene – Jun" },
+                    { value: "s2", label: "Jul – Dic" },
+                  ].map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => onChange({ period: s.value as "s1" | "s2" })}
+                      className={`px-6 py-2 text-sm font-semibold transition-all ${
+                        meta.period === s.value
+                          ? "bg-teal-400 text-white shadow-inner"
+                          : "text-teal-600 hover:bg-teal-50"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
 
-                                    </div>
-                                </div>
+                </div>
+              </div>
 
-                                {/* BADGES */}
+              {/* BADGES */}
 
-                                <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
 
-                                    <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
-                                        <Database className="h-3 w-3 text-teal-500" />
-                                        {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
-                                    </Badge>
+                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
+                  <Database className="h-3 w-3 text-teal-400" />
+                  {meta.vacantes_analizadas.toLocaleString()} vacantes analizadas
+                </Badge>
 
-                                    <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
-                                        <Sparkles className="h-3 w-3 text-teal-500" />
-                                        {meta.reportes_analizados.toLocaleString()} reportes analizados
-                                    </Badge>
+                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
+                  <Sparkles className="h-3 w-3 text-teal-400" />
+                  {meta.reportes_analizados.toLocaleString()} reportes analizados
+                </Badge>
 
-                                    {/* DATOS GENERALES */}
+                {/* DATOS GENERALES */}
 
-                                    <button
-                                        onClick={() => setOpenMarketModal(true)}
-                                        className="
+                <button
+                  onClick={() => setOpenMarketModal(true)}
+                  className="
 group
 flex
 items-center
@@ -242,155 +243,151 @@ px-3
 py-2
 shadow
 transition
-hover:border-teal-500
+hover:border-teal-400
 hover:shadow-md
 "
-                                    >
+                >
 
-                                        <Database className="h-4 w-4 text-teal-500" />
+                  <Database className="h-4 w-4 text-teal-400" />
 
-                                        <span className="text-sm font-semibold text-[#0A2540]">
-                                            Datos Generales
-                                        </span>
+                  <span className="text-sm font-semibold text-[#0A2540]">
+                    Datos Generales
+                  </span>
 
-                                        <span className="text-xs text-slate-500 group-hover:underline">
-                                            ver detalle
-                                        </span>
+                  <span className="text-xs text-slate-500 group-hover:underline">
+                    ver detalle
+                  </span>
 
-                                    </button>
+                </button>
 
-                                </div>
-                            </div>
+              </div>
+            </div>
 
-                            {/* PERIODO */}
+          </div>
 
+          {/* RIGHT */}
 
+          <div className="flex w-full max-w-sm flex-col">
 
-                        </div>
+            {/* METODOLOGÍA */}
 
-                        {/* RIGHT */}
-
-                        <div className="flex w-full max-w-sm flex-col">
-
-                            {/* METODOLOGÍA */}
-
-                            <button
-                                onClick={onEditWeights}
-                                className="
+            <button
+              onClick={onEditWeights}
+              className="
 group
 w-full
 rounded-2xl
-border border-teal-500/40
+border border-teal-400/40
 bg-white
 p-5
 text-left
 shadow-xl
 transition-all
-hover:border-teal-500
+hover:border-teal-400
 hover:shadow-2xl
 dark:bg-[#102C3C]
 "
-                            >
+            >
 
-                                <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between">
 
-                                    <p className="text-xs font-bold uppercase tracking-wider text-teal-500">
-                                        Metodología de cálculo
-                                    </p>
+                <p className="text-xs font-bold uppercase tracking-wider">
+                  Metodología de cálculo
+                </p>
 
-                                    <Settings2 className="h-4 w-4 text-teal-500" />
+                <Settings2 className="h-4 w-4 text-teal-400" />
 
-                                </div>
+              </div>
 
-                                {(() => {
+              {(() => {
 
-                                    const labor = Number(weights?.laborWeight ?? 70);
-                                    const trends = Number(weights?.trendsWeight ?? (100 - labor));
+                const labor = Number(weights?.laborWeight ?? 70);
+                const trends = Number(weights?.trendsWeight ?? (100 - labor));
 
-                                    const laborFactor = (labor / 100).toFixed(1);
-                                    const trendsFactor = (trends / 100).toFixed(1);
+                const laborFactor = (labor / 100).toFixed(1);
+                const trendsFactor = (trends / 100).toFixed(1);
 
-                                    return (
-                                        <>
+                return (
+                  <>
 
-                                            <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
+                    <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
 
-                                                <p>
-                                                    <span className="font-bold text-teal-500">{labor}%</span> Demanda laboral
-                                                </p>
+                      <p>
+                        <span className="font-bold text-teal-400">{labor}%</span> Demanda laboral
+                      </p>
 
-                                                <p>
-                                                    <span className="font-bold text-teal-500">{trends}%</span> Tendencias tecnológicas
-                                                </p>
+                      <p>
+                        <span className="font-bold text-teal-400">{trends}%</span> Tendencias tecnológicas
+                      </p>
 
-                                            </div>
+                    </div>
 
-                                            <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                                                Score = ({laborFactor} × Laboral) + ({trendsFactor} × Tendencias)
-                                            </p>
+                    <p className="mt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+                      Score = ({laborFactor} × Laboral) + ({trendsFactor} × Tendencias)
+                    </p>
 
-                                            <p className="mt-3 border-t border-teal-500/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
-                                                Los cálculos se realizan únicamente con datos del Periodo seleccionado.
-                                            </p>
+                    <p className="mt-3 border-t border-teal-400/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
+                      Los cálculos se realizan únicamente con datos del Periodo seleccionado.
+                    </p>
 
-                                            <p className="mt-3 text-xs font-semibold text-teal-500 group-hover:underline">
-                                                Haz clic para editar ponderaciones
-                                            </p>
+                    <p className="mt-3 text-xs font-semibold text-teal-400 group-hover:underline">
+                      Haz clic para editar ponderaciones
+                    </p>
 
-                                        </>
-                                    );
+                  </>
+                );
 
-                                })()}
+              })()}
 
-                            </button>
+            </button>
 
-                            {/* BOTÓN IA */}
+            {/* BOTÓN IA */}
 
-                            <button
-                                onClick={runGapDiscovery}
-                                disabled={runningIA}
-                                className="
+            <button
+              onClick={runGapDiscovery}
+              disabled={runningIA}
+              className="
 mt-4
 w-full
 rounded-2xl
-bg-teal-500
+bg-teal-400
 px-4
 py-3
 text-white
 font-semibold
 shadow-lg
 transition
-hover:bg-teal-600
+hover:bg-teal-500
 disabled:opacity-60
 flex
 items-center
 justify-center
 gap-2
 "
-                            >
+            >
 
-                                <Sparkles size={18} />
+              <Sparkles size={18} />
 
-                                {runningIA
-                                    ? "Detectando tecnologías..."
-                                    : "Detectar nuevas tecnologías con IA"}
+              {runningIA
+                ? "Detectando tecnologías..."
+                : "Detectar nuevas tecnologías con IA"}
 
-                            </button>
+            </button>
 
-                        </div>
+          </div>
 
-                    </div>
-                </div>
+        </div>
+      </div>
 
-            </header>
+    </header>
 
-            <JobMarketStatusModal
-                open={openMarketModal}
-                onOpenChange={setOpenMarketModal}
-                data={jobMarketStatus}
-                scrapingStatus={scrapingStatus}
-            />
+    <JobMarketStatusModal
+      open={openMarketModal}
+      onOpenChange={setOpenMarketModal}
+      data={jobMarketStatus}
+      scrapingStatus={scrapingStatus}
+    />
 
-        </>
-    );
+  </>
+);
 }

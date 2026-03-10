@@ -69,139 +69,140 @@ export function SeniorityHeader({ meta }: HeaderProps) {
         }
     };
 
-    return (
+  return (
 
-
-        <header
-            className="
+    <header
+        className="
         relative
         overflow-hidden
         border-b
-        bg-[#E6F7FD]
+        bg-teal-50
         dark:bg-[#0A2540]
         px-4 sm:px-6 lg:px-8
       "
-        >
-            <JobMarketStatusModal
-  open={openMarketModal}
-  onOpenChange={setOpenMarketModal}
-  data={jobMarketStatus}
-/>
-            {/* ===== BACKGROUND ===== */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-[#00B6E8]/30 blur-3xl" />
-                <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-[#1CBCE8]/20 blur-3xl" />
-            </div>
+    >
+        <JobMarketStatusModal
+            open={openMarketModal}
+            onOpenChange={setOpenMarketModal}
+            data={jobMarketStatus}
+        />
 
-            {/* ===== CONTENT ===== */}
-            <div className="relative mx-auto max-w-7xl py-10 md:py-14">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* ===== BACKGROUND ===== */}
+        <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-teal-300/30 blur-3xl" />
+            <div className="absolute right-0 bottom-0 h-80 w-80 rounded-full bg-teal-200/20 blur-3xl" />
+        </div>
 
-                    {/* ================= LEFT ================= */}
-                    <div className="space-y-6 lg:col-span-2 max-w-3xl">
-                        {/* Title */}
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00B6E8] shadow-lg">
-                                <BarChart3 className="h-6 w-6 text-white" />
-                            </div>
+        {/* ===== CONTENT ===== */}
+        <div className="relative mx-auto max-w-7xl py-10 md:py-14">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                            <div>
-                                <p className="text-sm font-semibold text-[#005F7A] dark:text-[#7DD3FC]">
-                                    Observatorio Tecnológico ISIL
-                                </p>
+                {/* ================= LEFT ================= */}
+                <div className="space-y-6 lg:col-span-2 max-w-3xl">
 
-                                <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
-                                    Distribución de Nivel Profesional
-                                </h1>
+                    {/* Title */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400 shadow-lg">
+                            <BarChart3 className="h-6 w-6 text-white" />
+                        </div>
+
+                        <div>
+                            <p className="text-sm font-semibold text-teal-600 dark:text-teal-300">
+                                Observatorio Tecnológico ISIL
+                            </p>
+
+                            <h1 className="text-3xl font-extrabold tracking-tight text-[#0A2540] dark:text-slate-100">
+                                Distribución de Nivel Profesional
+                            </h1>
+                        </div>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+                        {hasCareerFilter
+                            ? "Análisis del nivel de experiencia solicitado por el mercado laboral, alineado a la carrera seleccionada."
+                            : "Análisis del nivel de experiencia solicitado por el mercado laboral, a nivel general."}
+                    </p>
+
+                    {/* ===== CONTROLES ===== */}
+                    <div className="flex flex-wrap items-end gap-8">
+
+                        {/* Año */}
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
+                                Año de análisis
+                            </span>
+
+                            <div className="relative group rounded-xl border bg-white shadow-sm transition-all hover:border-teal-400 hover:shadow-md">
+                                <select
+                                    value={meta.year}
+                                    onChange={(e) => onChange({ year: Number(e.target.value) })}
+                                    className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
+                                >
+                                    {[2025, 2026].map((y) => (
+                                        <option key={y} value={y}>
+                                            {y}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-teal-400 opacity-70 group-hover:opacity-100 transition">
+                                    ⌄
+                                </span>
                             </div>
                         </div>
 
-                        {/* Description */}
-                        <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
-                            {hasCareerFilter
-                                ? "Análisis del nivel de experiencia solicitado por el mercado laboral, alineado a la carrera seleccionada."
-                                : "Análisis del nivel de experiencia solicitado por el mercado laboral, a nivel general."}
-                        </p>
+                        {/* Semestre */}
+                        <div className="relative flex flex-col gap-2">
+                            <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
+                                Semestre
+                            </span>
 
+                            <div className="flex rounded-xl border bg-white shadow-sm overflow-hidden dark:bg-[#0F2A3A] transition-all hover:border-teal-400 hover:shadow-md">
+                                {[
+                                    { value: "s1", label: "Ene – Jun" },
+                                    { value: "s2", label: "Jul – Dic" },
+                                ].map((s) => {
+                                    const active = meta.period === s.value;
 
-                        {/* ===== CONTROLES ===== */}
-                        <div className="flex flex-wrap items-end gap-8">
-
-                            {/* Año */}
-                            <div className="flex flex-col gap-2">
-                                <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
-                                    Año de análisis
-                                </span>
-
-                                <div className="relative group rounded-xl border bg-white shadow-sm transition-all hover:border-[#00B6E8] hover:shadow-md">
-                                    <select
-                                        value={meta.year}
-                                        onChange={(e) => onChange({ year: Number(e.target.value) })}
-                                        className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
-                                    >
-                                        {[ 2025, 2026].map((y) => (
-                                            <option key={y} value={y}>
-                                                {y}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#00B6E8] opacity-70 group-hover:opacity-100 transition">
-                                        ⌄
-                                    </span>
-                                </div>
+                                    return (
+                                        <button
+                                            key={s.value}
+                                            onClick={() => onChange({ period: s.value as "s1" | "s2" })}
+                                            className={`px-6 py-2 text-sm font-semibold transition-all ${
+                                                active
+                                                    ? "bg-teal-400 text-white shadow-inner"
+                                                    : "text-teal-600 hover:bg-teal-50 dark:text-slate-300 dark:hover:bg-[#123A52]"
+                                            }`}
+                                        >
+                                            {s.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
 
-                            {/* Semestre */}
-                            <div className="relative flex flex-col gap-2">
-                                <span className="text-xs font-semibold text-[#005F7A] dark:text-slate-300">
-                                    Semestre
-                                </span>
+                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-teal-600/70 dark:text-slate-400 whitespace-nowrap">
+                                Haz clic para cambiar el Periodo
+                            </span>
+                        </div>
 
-                                <div className="flex rounded-xl border bg-white shadow-sm overflow-hidden dark:bg-[#0F2A3A] transition-all hover:border-[#00B6E8] hover:shadow-md">
-                                    {[
-                                        { value: "s1", label: "Ene – Jun" },
-                                        { value: "s2", label: "Jul – Dic" },
-                                    ].map((s) => {
-                                        const active = meta.period === s.value;
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-3">
 
-                                        return (
-                                            <button
-                                                key={s.value}
-                                                onClick={() => onChange({ period: s.value as "s1" | "s2" })}
-                                                className={`px-6 py-2 text-sm font-semibold transition-all ${active
-                                                        ? "bg-[#00B6E8] text-white shadow-inner"
-                                                        : "text-[#005F7A] hover:bg-[#E6F7FD] dark:text-slate-300 dark:hover:bg-[#123A52]"
-                                                    }`}
-                                            >
-                                                {s.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                            <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+                                <Database className="h-3 w-3 text-teal-400" />
+                                {meta.vacantes_analizadas.toLocaleString()}{" "}
+                                {hasCareerFilter ? "vacantes alineadas a carrera" : "vacantes del mercado"}
+                            </Badge>
 
-                                <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-[#005F7A]/70 dark:text-slate-400 whitespace-nowrap">
-                                    Haz clic para cambiar el Periodo
-                                </span>
-                            </div>
+                            <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
+                                <Briefcase className="h-3 w-3 text-teal-400" />
+                                Distribución por nivel
+                            </Badge>
 
-                            {/* Badges */}
-                            <div className="flex flex-wrap items-center gap-3">
-
-
-                                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-                                    <Database className="h-3 w-3 text-[#00B6E8]" />
-                                    {meta.vacantes_analizadas.toLocaleString()}{" "}
-                                    {hasCareerFilter ? "vacantes alineadas a carrera" : "vacantes del mercado"}
-                                </Badge>
-
-
-                                <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-                                    <Briefcase className="h-3 w-3 text-[#00B6E8]" />
-                                    Distribución por nivel
-                                </Badge>
-                                 <button
-  onClick={() => setOpenMarketModal(true)}
-  className="
+                            <button
+                                onClick={() => setOpenMarketModal(true)}
+                                className="
     group
     flex
     items-center
@@ -215,64 +216,68 @@ export function SeniorityHeader({ meta }: HeaderProps) {
     transition-all
     hover:-translate-y-[1px]
     hover:shadow-xl
-    hover:border-[#00B6E8]
+    hover:border-teal-400
     dark:bg-[#102C3C]
   "
->
-  <Database className="h-4 w-4 text-[#00B6E8]" />
-  <span className="text-sm font-semibold text-[#0A2540] dark:text-slate-200">
-    Datos Generales
-  </span>
-  <span className="text-xs text-slate-500 group-hover:underline">
-    ver detalle
-  </span>
-</button>
-                            </div>
-                        </div>
+                            >
+                                <Database className="h-4 w-4 text-teal-400" />
 
-                        {/* Active period */}
-                        <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
-                            <span className="font-semibold text-[#0A2540] dark:text-white">
-                                Periodo activo:
-                            </span>{" "}
-                            {meta.periodo_label}
+                                <span className="text-sm font-semibold text-[#0A2540] dark:text-slate-200">
+                                    Datos Generales
+                                </span>
+
+                                <span className="text-xs text-slate-500 group-hover:underline">
+                                    ver detalle
+                                </span>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    {/* Active period */}
+                    <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">
+                        <span className="font-semibold text-[#0A2540] dark:text-white">
+                            Periodo activo:
+                        </span>{" "}
+                        {meta.periodo_label}
+                    </p>
+
+                </div>
+
+                {/* ================= RIGHT – METODOLOGÍA ================= */}
+                <div className="border rounded-xl p-5 bg-white/80 dark:bg-[#0F2A3A] dark:border-[#1E3A4A] backdrop-blur">
+
+                    <div className="flex items-center gap-2 mb-3">
+                        <Info className="h-4 w-4 text-teal-400" />
+                        <p className="font-semibold  dark:text-slate-100">
+                            Metodología de cálculo
                         </p>
                     </div>
 
-                    {/* ================= RIGHT – METODOLOGÍA ================= */}
-                    <div className="border rounded-xl p-5 bg-white/80 dark:bg-[#0F2A3A] dark:border-[#1E3A4A] backdrop-blur">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Info className="h-4 w-4 text-[#00B6E8]" />
-                            <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                Metodología de cálculo
-                            </p>
-                        </div>
+                    <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                        <li>• Detección del seniority solicitado en cada vacante.</li>
+                        <li>• Normalización de experiencia (junior / mid / senior).</li>
+                        <li>
+                            • {hasCareerFilter
+                                ? "Asociación directa a la carrera seleccionada mediante tech positions."
+                                : "Cobertura del mercado laboral general (sin filtro por carrera)."}
+                        </li>
+                        <li>• Cálculo porcentual por carrera.</li>
+                    </ul>
 
-                        <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                            <li>• Detección del seniority solicitado en cada vacante.</li>
-                            <li>• Normalización de experiencia (junior / mid / senior).</li>
-                            <li>
-                                • {hasCareerFilter
-                                    ? "Asociación directa a la carrera seleccionada mediante tech positions."
-                                    : "Cobertura del mercado laboral general (sin filtro por carrera)."}
-                            </li>
+                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                        % nivel = (vacantes del nivel ÷ total vacantes de la carrera) × 100
+                    </p>
 
-                            <li>• Cálculo porcentual por carrera.</li>
-                        </ul>
+                    <p className="mt-2 text-xs font-semibold text-teal-600 dark:text-teal-300">
+                        Peso del indicador: 100%
+                    </p>
 
-                        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                            % nivel = (vacantes del nivel ÷ total vacantes de la carrera) × 100
-                        </p>
-
-                        <p className="mt-2 text-xs font-semibold text-[#005F7A] dark:text-[#7DD3FC]">
-                            Peso del indicador: 100%
-                        </p>
-
-                        {/* ===== ACTION ===== */}
-                        <button
-                            onClick={updateSeniority}
-                            disabled={updating}
-                            className={`
+                    {/* ===== ACTION ===== */}
+                    <button
+                        onClick={updateSeniority}
+                        disabled={updating}
+                        className={`
                 mt-4
                 w-full
                 flex
@@ -286,26 +291,26 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                 text-sm
                 font-semibold
                 transition
-                ${updating
-                                    ? "bg-slate-200 text-slate-500 cursor-not-allowed dark:bg-slate-700"
-                                    : "bg-[#E6F7FD] text-[#005F7A] hover:bg-[#DFF3FB] dark:bg-[#123A52] dark:hover:bg-[#1B4A63]"
-                                }
+                ${
+                            updating
+                                ? "bg-slate-200 text-slate-500 cursor-not-allowed dark:bg-slate-700"
+                                : "bg-teal-50 text-teal-600 hover:bg-teal-100 dark:bg-[#123A52] dark:hover:bg-[#1B4A63]"
+                        }
               `}
-                        >
-                            <RefreshCcw className={`h-4 w-4 ${updating ? "animate-spin" : ""}`} />
-                            {updating ? "Actualizando seniority…" : "Recalcular seniority"}
-                        </button>
+                    >
+                        <RefreshCcw className={`h-4 w-4 ${updating ? "animate-spin" : ""}`} />
+                        {updating ? "Actualizando seniority…" : "Recalcular seniority"}
+                    </button>
 
-                        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 text-center">
-                            Aplica solo a vacantes sin seniority definido
-                        </p>
-                    </div>
+                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 text-center">
+                        Aplica solo a vacantes sin seniority definido
+                    </p>
+
                 </div>
+
             </div>
-        </header>
+        </div>
+    </header>
 
-
-
-
-    );
+);
 }
