@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class RunAllJobs3 extends Command
 {
-    protected $signature = 'jobs:run-all2 {--sleep=1 : Segundos de pausa entre comandos}';
+    protected $signature = 'jobs:run-all3 {--sleep=1 : Segundos de pausa entre comandos}';
     protected $description = '🚀 Ejecuta todos los comandos de scraping y carga de datos, mostrando progreso en tiempo real.';
 
     public function handle()
