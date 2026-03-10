@@ -182,26 +182,17 @@ class MarketEntityController extends Controller
     /**
      * 🗑️ Eliminar entidad
      */
-    public function destroy($id)
-    {
-        return DB::transaction(function () use ($id) {
+ public function destroy($id)
+{
+    $entity = MarketEntity::findOrFail($id);
 
-            $entity = MarketEntity::with('entityTrends')->findOrFail($id);
+    $entity->careers()->detach(); // solo si es pivot
+    $entity->delete();
 
-            if ($entity->entityTrends()->exists()) {
-                return response()->json([
-                    'message' => '⚠️ No se puede eliminar. Tiene trends asociados.'
-                ], 422);
-            }
-
-            $entity->careers()->detach();
-            $entity->delete();
-
-            return response()->json([
-                'message' => '🗑️ Entidad eliminada correctamente.'
-            ]);
-        });
-    }
+    return response()->json([
+        'message' => '🗑️ Entidad eliminada correctamente.'
+    ]);
+}
 
     /**
      * 🔄 Toggle has_trend
