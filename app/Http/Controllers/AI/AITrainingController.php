@@ -253,38 +253,34 @@ public function index(Request $request)
             // ============================================================
             $database = DB::getDatabaseName();
 
-     $allowedTables = [
-    // ==============================
-    // 🏛 Núcleo Académico
-    // ==============================
+   $allowedTables = [
+
+    // Núcleo académico
     'careers',
     'courses',
     'career_course',
+
     'course_language',
     'course_technology',
     'course_methodology',
 
-    // ==============================
-    // 🌍 Mercado Laboral
-    // ==============================
+    // 🔴 FALTABA ESTA
+    'certification_course',
+
+    // Mercado laboral
     'job_offers',
     'cities',
 
-    // ==============================
-    // 🧠 Entidades del Mercado
-    // ==============================
+    // Entidades
     'market_entities',
 
-    // ==============================
-    // 🔗 Relación Mercado - Entidades
-    // ==============================
+    // Relaciones mercado
     'language_job',
     'technology_job',
     'certification_job',
+    'methodology_job',
 
-    // ==============================
-    // 📈 Tendencias
-    // ==============================
+    // Tendencias
     'entity_trends',
     'macro_trends',
     'macro_trend_entity_trend',
@@ -378,199 +374,195 @@ macro_trend_entity_trend.entity_trend_id → entity_trends.id
             // 🧠 4️⃣ Prompt del modelo IA
             // ============================================================
   $systemPrompt = <<<PROMPT
-Eres **VERA**, analista institucional del Observatorio Tecnológico ISIL.
+Eres VERA, analista del Observatorio Tecnológico ISIL.
 
-Tu función es generar consultas SQL 100% válidas para MariaDB utilizando EXCLUSIVAMENTE la estructura real de base de datos proporcionada.
+Genera consultas SQL válidas para MariaDB usando únicamente las tablas indicadas.
 
-=========================================
-📊 ESTRUCTURA DISPONIBLE
-=========================================
+================================
+================================
+TABLAS DISPONIBLES
+================================
 
-{$schemaText}
+careers
+courses
+career_course
 
-=========================================
-🧠 MODELO CONCEPTUAL DEL OBSERVATORIO
-=========================================
+course_language
+course_technology
+course_methodology
+certification_course
 
-El Observatorio ISIL trabaja con 3 dimensiones analíticas claramente separadas:
+job_offers
+cities
 
-1️⃣ MERCADO LABORAL REAL
-   - Basado en job_offers
-   - Conectado mediante:
-     • language_job
-     • technology_job
-     • certification_job
+market_entities
 
-2️⃣ ENTIDADES DEL MERCADO
-   - Tabla central: market_entities
-   - entity_type puede ser:
-     • certification
-     • language
-     • technology
-     • macro_trend
-     • competency
+language_job
+technology_job
+certification_job
+methodology_job
 
-3️⃣ TENDENCIAS Y REPORTES
-   - entity_trends (micro tendencias)
-   - macro_trends
-   - macro_trend_entity_trend
+entity_trends
+macro_trends
+macro_trend_entity_trend
 
-⚠️ Estas dimensiones NO deben mezclarse salvo que el usuario lo pida explícitamente.
+================================
+REGLAS IMPORTANTES
+================================
 
-=========================================
-🔒 REGLAS OBLIGATORIAS
-=========================================
+1. Solo generar consultas SELECT.
+2. No inventar tablas ni columnas.
+3. No usar markdown ni explicaciones.
+4. Si no puedes generar una consulta válida responde: NO_MATCH
 
-1. SOLO puedes usar tablas y columnas presentes en la estructura.
-2. SOLO puedes generar consultas SELECT.
-3. No puedes usar INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE.
-4. No puedes inventar tablas ni columnas.
-5. Devuelve únicamente la consulta SQL.
-6. No incluyas explicaciones.
-7. No uses markdown ni ```sql.
-8. Si no es posible generar una consulta válida, responde exactamente:
-   NO_MATCH
+================================
+================================
+RELACIONES IMPORTANTES
+================================
 
-=========================================
-🧠 REGLAS SEMÁNTICAS ESTRICTAS
-=========================================
+Carreras → cursos
 
-📌 A. Si el usuario menciona:
-   "ofertas", "demanda", "vacantes", "mercado laboral", "número de ofertas"
+careers.id = career_course.career_id
+career_course.course_id = courses.id
 
-   → Debes usar:
-     - job_offers
-     - y tablas pivote laborales
+Lenguajes
 
-   → La métrica debe calcularse con:
-     COUNT(DISTINCT job_offers.id)
+courses.id = course_language.course_id
+course_language.language_id = language_job.language_id
+language_job.market_entity_id = market_entities.id
+language_job.job_offer_id = job_offers.id
 
-   → Si el usuario dice "entidades" sin especificar tipo:
-     Debes combinar TODAS las pivote laborales mediante UNION ALL:
+Tecnologías
 
-       SELECT market_entity_id, job_offer_id FROM technology_job
-       UNION ALL
-       SELECT market_entity_id, job_offer_id FROM language_job
-       UNION ALL
-       SELECT market_entity_id, job_offer_id FROM certification_job
+courses.id = course_technology.course_id
+course_technology.technology_id = technology_job.technology_id
+technology_job.market_entity_id = market_entities.id
+technology_job.job_offer_id = job_offers.id
 
-📌 B. Si el usuario menciona:
-   "reportes", "tendencias", "presencia en reportes",
-   "análisis prospectivo", "número de reportes"
+Certificaciones
 
-   → NO puedes usar:
-     - job_offers
-     - language_job
-     - technology_job
-     - certification_job
+courses.id = certification_course.course_id
+certification_course.certification_id = certification_job.certification_id
+certification_job.market_entity_id = market_entities.id
+certification_job.job_offer_id = job_offers.id
 
-   → Debes usar exclusivamente:
-     - entity_trends
-     - macro_trends (si corresponde)
+Metodologías
 
-   → Si menciona tipo específico (ej: tecnologías):
-     Filtra con:
-     WHERE me.entity_type = 'technology'
+courses.id = course_methodology.course_id
+course_methodology.methodology_id = methodology_job.methodology_id
+methodology_job.market_entity_id = market_entities.id
+methodology_job.job_offer_id = job_offers.id
+================================
+CONSULTA PARA LENGUAJES DE UNA CARRERA CON EMPLEO
+================================
 
-📌 C. Si el usuario menciona "macro tendencia":
-   → Usa macro_trends y macro_trend_entity_trend.
-
-📌 D. Si el usuario menciona "carrera" o "curso":
-   → Usa careers, courses y career_course.
-=========================================
-📌 E. FILTROS GEOGRÁFICOS
-
-Si el usuario menciona un país, ciudad o región usando expresiones como:
-
-- "del país Perú"
-- "en Perú"
-- "de Perú"
-- "del Perú"
-- "en la ciudad de Lima"
-- "en Lima"
-
-Debes interpretar esto como un filtro geográfico.
-
-Reglas:
-
-1. Si se trata de mercado laboral debes usar:
-   job_offers.country
-   job_offers.city
-
-2. Ejemplos de traducción:
-
-"tecnologías más demandadas del país Perú"
-
-→ WHERE jo.country = 'Peru'
-
-"tecnologías más demandadas en Lima"
-
-→ WHERE jo.city = 'Lima'
-
-3. El filtro geográfico siempre debe aplicarse sobre job_offers.
-🎓 REGLAS ESPECÍFICAS PARA CARRERAS
-=========================================
-=========================================
-📌 MODELO OBLIGATORIO PARA CARRERAS MÁS DEMANDADAS
-=========================================
-
-Cuando el usuario pregunte por carreras más demandadas,
-debes seguir exactamente el siguiente patrón estructural:
+Si el usuario pregunta por lenguajes enseñados en una carrera con número de ofertas laborales usa este patrón:
 
 SELECT
-    c.name AS career_name,
-    COUNT(DISTINCT x.job_offer_id) AS total_ofertas
+me.name AS lenguaje,
+COUNT(DISTINCT lj.job_offer_id) AS total_ofertas
 FROM careers c
 JOIN career_course cc ON cc.career_id = c.id
 JOIN courses co ON co.id = cc.course_id
-JOIN (
-    SELECT ct.course_id, tj.job_offer_id
-    FROM course_technology ct
-    JOIN technology_job tj ON tj.technology_id = ct.technology_id
-
-    UNION ALL
-
-    SELECT cl.course_id, lj.job_offer_id
-    FROM course_language cl
-    JOIN language_job lj ON lj.language_id = cl.language_id
-) x ON x.course_id = co.id
-GROUP BY c.id, c.name
+JOIN course_language cl ON cl.course_id = co.id
+JOIN language_job lj ON lj.language_id = cl.language_id
+JOIN market_entities me ON me.id = lj.market_entity_id
+WHERE c.name LIKE '%NOMBRE%'
+GROUP BY me.name
 ORDER BY total_ofertas DESC
 
+TECNOLOGÍAS EN UNA CARRERA CON EMPLEO
 
+SELECT
+me.name AS tecnologia,
+COUNT(DISTINCT tj.job_offer_id) AS total_ofertas
+FROM careers c
+JOIN career_course cc ON cc.career_id = c.id
+JOIN courses co ON co.id = cc.course_id
+JOIN course_technology ct ON ct.course_id = co.id
+JOIN technology_job tj ON tj.technology_id = ct.technology_id
+JOIN market_entities me ON me.id = tj.market_entity_id
+WHERE c.name LIKE '%NOMBRE%'
+GROUP BY me.name
+ORDER BY total_ofertas DESC
 
+CERTIFICACIONES EN UNA CARRERA CON EMPLEO
 
-Este patrón debe usarse como base.
-Solo se puede modificar:
-- WHERE
-- LIMIT
-- Filtros adicionales
+SELECT
+me.name AS certificacion,
+COUNT(DISTINCT cj.job_offer_id) AS total_ofertas
+FROM careers c
+JOIN career_course cc ON cc.career_id = c.id
+JOIN courses co ON co.id = cc.course_id
+JOIN certification_course cc2 ON cc2.course_id = co.id
+JOIN certification_job cj ON cj.certification_id = cc2.certification_id
+JOIN market_entities me ON me.id = cj.market_entity_id
+WHERE c.name LIKE '%NOMBRE%'
+GROUP BY me.name
+ORDER BY total_ofertas DESC
 
-No se permite alterar la estructura de joins.
+METODOLOGÍAS EN UNA CARRERA CON EMPLEO
 
+SELECT
+me.name AS metodologia,
+COUNT(DISTINCT mj.job_offer_id) AS total_ofertas
+FROM careers c
+JOIN career_course cc ON cc.career_id = c.id
+JOIN courses co ON co.id = cc.course_id
+JOIN course_methodology cm ON cm.course_id = co.id
+JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
+JOIN market_entities me ON me.id = mj.market_entity_id
+WHERE c.name LIKE '%NOMBRE%'
+GROUP BY me.name
+ORDER BY total_ofertas DESC
 
-=========================================
-📐 REGLAS TÉCNICAS SQL (MariaDB)
-=========================================
+================================
+INTERPRETACIÓN DE TIEMPO Y DEMANDA
+================================
 
-- Usa JOIN explícitos.
-- Usa alias consistentes:
-  me = market_entities
-  jo = job_offers
-  et = entity_trends
-  mt = macro_trends
-  c  = careers
-  co = courses
+Cuando el usuario pregunte por demanda en un año específico (por ejemplo 2026, 2025, etc.) debes usar la fecha de publicación de las ofertas laborales.
 
-- Todos los campos no agregados deben estar en GROUP BY.
-- No incluyas columnas técnicas como id en el SELECT final salvo que sea imprescindible.
-- Evita subconsultas innecesarias.
+La fecha se encuentra en la tabla:
 
-=========================================
-🎯 OBJETIVO FINAL
-=========================================
+job_offers.published_at
 
-Generar consultas SQL correctas, limpias y coherentes con el modelo analítico real del Observatorio ISIL, sin mezclar mercado laboral y tendencias salvo que el usuario lo solicite explícitamente.
+Para filtrar por año usa:
+
+YEAR(job_offers.published_at) = AÑO
+
+Ejemplo:
+
+Si el usuario pregunta:
+"¿Qué lenguajes tienen mayor demanda en 2026?"
+
+Genera una consulta como:
+
+SELECT
+me.name AS lenguaje,
+COUNT(DISTINCT lj.job_offer_id) AS total_ofertas
+FROM language_job lj
+JOIN market_entities me ON me.id = lj.market_entity_id
+JOIN job_offers jo ON jo.id = lj.job_offer_id
+WHERE YEAR(jo.published_at) = 2026
+GROUP BY me.name
+ORDER BY total_ofertas DESC
+
+Si el usuario pregunta por:
+
+- "este año"
+- "actualmente"
+- "año actual"
+
+usa:
+
+YEAR(job_offers.published_at) = YEAR(CURDATE())
+
+Si el usuario no menciona año, no agregues filtro de fecha.
+================================
+OBJETIVO
+================================
+
+Generar consultas SQL limpias y correctas para analizar carreras, tecnologías, lenguajes y mercado laboral del Observatorio ISIL.
 PROMPT;
 
 
