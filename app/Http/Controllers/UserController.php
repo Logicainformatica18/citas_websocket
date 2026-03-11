@@ -44,37 +44,39 @@ class UserController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'dni' => 'nullable|string|max:100',
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'nullable|string|max:255',
-            'names' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-            'sex' => 'nullable|string|max:1',
-            'datebirth' => 'nullable|date',
-            'cellphone' => 'nullable|string|max:20',
-            'role' => 'nullable|string|exists:roles,name',
-            'photo' => 'nullable|file|max:2048',
-        ]);
+{
+    $request->validate([
+        'firstname' => 'required|string|max:255',
+        'lastname' => 'required|string|max:255',
+        'dni' => 'nullable|string|max:100',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|string|min:6',
+        'sex' => 'nullable|string|max:1',
+        'cellphone' => 'nullable|string|max:20',
+    ]);
 
-        $user = new User();
-        $user->fill($request->only(['dni', 'firstname', 'lastname', 'names', 'email', 'sex', 'datebirth', 'cellphone']));
-        $user->password = Hash::make($request->password);
+    $user = new User();
 
-        if ($request->hasFile('photo')) {
-            $user->photo = fileStore($request->file('photo'), 'imageusers');
-        }
+    $user->firstname = $request->firstname;
+    $user->lastname = $request->lastname;
 
-        $user->save();
+    // nombre completo automático
+    $user->names = trim($request->firstname . ' ' . $request->lastname);
 
-        if ($request->role) {
-            $user->assignRole($request->role);
-        }
+    $user->dni = $request->dni;
+    $user->email = $request->email;
+    $user->sex = $request->sex;
+    $user->cellphone = $request->cellphone;
 
-        return response()->json(['message' => '✅ Usuario creado', 'user' => $user]);
-    }
+    $user->password = Hash::make($request->password);
+
+    $user->save();
+
+    return response()->json([
+        'message' => 'Usuario creado',
+        'user' => $user
+    ]);
+}
 
     public function show($id)
     {
@@ -89,41 +91,41 @@ class UserController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $user = User::findOrFail($id);
+{
+    $user = User::findOrFail($id);
 
-        $request->validate([
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'required|string|max:255',
-            'names' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'password' => 'nullable|string|min:6',
-            'sex' => 'nullable|string|max:1',
-            'datebirth' => 'nullable|date',
-            'cellphone' => 'nullable|string|max:20',
-            'role' => 'nullable|string|exists:roles,name',
-            'photo' => 'nullable|file|max:2048',
-        ]);
+    $request->validate([
+        'firstname' => 'required|string|max:255',
+        'lastname' => 'required|string|max:255',
+        'dni' => 'nullable|string|max:100',
+        'email' => 'required|email|unique:users,email,' . $id,
+        'password' => 'nullable|string|min:6',
+        'sex' => 'nullable|string|max:1',
+        'cellphone' => 'nullable|string|max:20',
+    ]);
 
-        $user->fill($request->except(['password', 'role', 'photo']));
+    $user->firstname = $request->firstname;
+    $user->lastname = $request->lastname;
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
+    // actualizar nombre completo
+    $user->names = trim($request->firstname . ' ' . $request->lastname);
 
-        if ($request->hasFile('photo')) {
-            $user->photo = fileUpdate($request->file('photo'), 'imageusers', $user->photo);
-        }
+    $user->dni = $request->dni;
+    $user->email = $request->email;
+    $user->sex = $request->sex;
+    $user->cellphone = $request->cellphone;
 
-        $user->save();
-
-        if ($request->has('role')) {
-            $user->syncRoles([$request->role]);
-        }
-
-        return response()->json(['message' => '✅ Usuario actualizado', 'user' => $user]);
+    if ($request->filled('password')) {
+        $user->password = Hash::make($request->password);
     }
 
+    $user->save();
+
+    return response()->json([
+        'message' => 'Usuario actualizado',
+        'user' => $user
+    ]);
+}
     public function destroy($id)
     {
         $user = User::findOrFail($id);
