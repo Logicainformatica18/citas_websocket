@@ -18,11 +18,18 @@ class RunAllJobs2 extends Command
 // 'certifications:discover-gaps',
 // 'languages:discover-gaps',
 // 'technologies:discover-gaps',
-'trends:discover-languages --limit=50 --sleep=5',
-'trends:discover-methodologies --limit=50 --sleep=5',
+
+// 'trends:discover-languages --limit=50 --sleep=5',
+// 'trends:discover-methodologies --limit=50 --sleep=5',
 'trends:discover-technologies --limit=1500 --sleep=5',
+// macrotendencias
 'trends:discover-exa',
-'trends:discover-global'
+'trends:discover-global',
+
+//tendencia mediante duck navegador search
+'searchtrend:discover-languages --limit=50 --sleep=5',
+'searchtrend:discover-methodologies --limit=50 --sleep=5',
+'searchtrend:discover-technologies --limit=1500 --sleep=5'
 
 
 
