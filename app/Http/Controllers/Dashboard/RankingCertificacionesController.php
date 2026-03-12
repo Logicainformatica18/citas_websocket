@@ -156,6 +156,7 @@ $totalReports = $this->getTrendReportsCountByRange(
             /* ================= FILTROS ================= */
             'filters' => [
                 'year'           => $context['year'],
+                'search' => $request->get('search'),
                 'period'         => $context['period'],
                 'area'           => $context['areas'],
                 'career'         => $context['careers'],
@@ -230,6 +231,7 @@ private function getBaseContext(Request $request): array
 
     return [
         'year' => $year,
+         'search' => $request->get('search'),
         'period' => $period,
         'quarter' => $period === 's1' ? 1 : 4,
         'range' => $this->getPeriodRange($period, $year),
@@ -299,7 +301,20 @@ private function getCertificationsRanking(array $ctx)
             $j->on('reports.certification_id', '=', 'me.id');
         })
         ->where('me.entity_type', 'certification');
+/* ==================================================
+   BUSCADOR
+================================================== */
+if (!empty($ctx['search'])) {
 
+    $search = strtolower($ctx['search']);
+
+    $query->where(function ($q) use ($search) {
+        $q->whereRaw('LOWER(me.name) LIKE ?', ["%{$search}%"])
+          ->orWhereRaw('LOWER(me.vendor) LIKE ?', ["%{$search}%"])
+          ->orWhereRaw('LOWER(me.level) LIKE ?', ["%{$search}%"])
+          ->orWhereRaw('LOWER(me.category) LIKE ?', ["%{$search}%"]);
+    });
+}
     /* ==================================================
        5. FILTRO ÁREAS
     ================================================== */

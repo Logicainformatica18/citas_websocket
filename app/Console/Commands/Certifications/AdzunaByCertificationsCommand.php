@@ -78,8 +78,7 @@ class AdzunaByCertificationsCommand extends Command
         /* =====================================================
            🔁 BASE QUERY (Market Entities tipo certification)
         ===================================================== */
-     $baseQuery = MarketEntity::where('entity_type', 'certification')
-    ->orderBy('id');
+     $baseQuery = MarketEntity::where('entity_type', 'certification')->orderBy('id');
 
 
         /* =====================================================
