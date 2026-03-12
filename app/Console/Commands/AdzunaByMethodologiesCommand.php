@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+   use App\Models\MarketEntity;
 class AdzunaByMethodologiesCommand extends Command
 {
     protected $signature = 'adzuna:methodologies {--country=us} {--pages=1}';
@@ -56,245 +57,273 @@ class AdzunaByMethodologiesCommand extends Command
         'remote' => ['city' => 'Remoto', 'lat' => 0.0000, 'lng' => 0.0000, 'country' => 'Remote'],
     ];
 
-    public function handle()
+public function handle()
+{
+    /* =====================================================
+       0. REGISTRAR EJECUCIÓN DEL SCRAPER
+    ===================================================== */
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Adzuna',
+        'methodologies'
+    );
+
+    $totalFoundAll = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll = 0;
+
+    /* =====================================================
+       1. PARÁMETROS
+    ===================================================== */
+
+    $country = strtolower($this->option('country'));
+    $pages   = (int) $this->option('pages');
+
+    $appId  = config('services.adzuna.app_id');
+    $appKey = config('services.adzuna.app_key');
+
+    $baseUrl = config(
+        'services.adzuna.base_url',
+        'https://api.adzuna.com/v1/api/jobs'
+    );
+
+    /* =====================================================
+       2. METODOLOGÍAS DESDE market_entities
+    ===================================================== */
+
+   $methodologies = MarketEntity::where('entity_type','methodology')
+    ->orderBy('id')
+    ->get();
+$this->info("Total metodologías encontradas: " . $methodologies->count());
+    $this->info("🌍 Iniciando importación desde Adzuna...");
+
+    /* =====================================================
+       3. LOOP PRINCIPAL
+    ===================================================== */
+
+    foreach ($methodologies as $entity)
     {
-        /* =====================================================
-           0. REGISTRAR EJECUCIÓN DEL SCRAPER
-        ===================================================== */
-        $run = ScraperRunService::start(
-            $this->signature,   // adzuna:methodologies
-            'Adzuna',
-            'methodologies'
-        );
+        $this->info("Iterando metodología ID {$entity->id} - {$entity->name}");
+        $marketEntityId = $entity->id;
+        $mName = $entity->name;
 
-        $totalFoundAll = 0;
-        $totalInsertedAll = 0;
-        $totalSkippedAll = 0;
+        $this->warn("\n💡 Procesando metodología: {$mName}");
 
-        /* =====================================================
-           1. PARÁMETROS
-        ===================================================== */
-        $country = strtolower($this->option('country'));
-        $pages = (int) $this->option('pages');
+        /* =====================
+           asegurar registro en methodologies
+        ===================== */
 
+      $methodology = $this->getMethodologyFromMarketEntity($marketEntityId, $mName);
 
-        $lastMethodologyId = MethodologyMetric::where('source', 'Adzuna')
-            ->orderByDesc('created_at')
-            ->value('methodology_id');
-        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
-            $q->select('course_methodology.methodology_id')
-                ->from('course_methodology')
-                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-        })
-            ->orderBy('methodologies.id');
+if(!$methodology){
+    $this->warn("⚠ Metodología {$mName} no existe en tabla methodologies — se usará solo market_entity");
+}
 
-        $methodologiesQuery = clone $baseQuery;
+        $mId = $methodology->id;
 
-        if ($lastMethodologyId) {
-            $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
-        }
+        $totalFound = 0;
+        $totalNew = 0;
+        $totalDuplicates = 0;
+        $totalUnmapped = 0;
 
-        $methodologies = $methodologiesQuery->pluck('name', 'id');
+        $countries = [];
+        $modalities = [];
 
-        if ($methodologies->isEmpty()) {
-            // 🔁 ciclo completo → volver al inicio
-            $methodologies = $baseQuery->pluck('name', 'id');
-        }
+        for ($page = 1; $page <= $pages; $page++)
+        {
+            $url = "{$baseUrl}/{$country}/search/{$page}"
+                . "?app_id={$appId}&app_key={$appKey}"
+                . "&results_per_page=100"
+                . "&what=" . urlencode($mName);
 
+            try {
 
-        $appId = config('services.adzuna.app_id');
-        $appKey = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
+                $response = Http::timeout(25)->get($url);
 
-        $this->info("🌍 Iniciando importación desde Adzuna para {$methodologies->count()} metodologías...");
+                if ($response->failed()) {
+                    $this->error("❌ Error API (página {$page})");
+                    continue;
+                }
 
-        /* =====================================================
-           2. LOOP PRINCIPAL
-        ===================================================== */
-        foreach ($methodologies as $mId => $mName) {
-            $this->warn("\n💡 Procesando metodología: {$mName}");
+                $results = $response->json('results') ?? [];
 
-            $totalFound = $totalNew = $totalDuplicates = $totalUnmapped = 0;
-            $countries = [];
-            $modalities = [];
+                $totalFound += count($results);
+                $totalFoundAll += count($results);
 
-            for ($page = 1; $page <= $pages; $page++) {
-                $url = "{$baseUrl}/{$country}/search/{$page}"
-                    . "?app_id={$appId}&app_key={$appKey}"
-                    . "&results_per_page=100"
-                    . "&what=" . urlencode($mName);
+                foreach ($results as $job)
+                {
+                    $title   = $job['title'] ?? 'N/A';
+                    $company = $job['company']['display_name'] ?? null;
+                    $desc    = strtolower($job['description'] ?? '');
 
-                try {
-                    $response = Http::timeout(25)->get($url);
-                    if ($response->failed()) {
-                        $this->error("❌ Error API (página {$page})");
-                        continue;
-                    }
+                    $loc = strtolower(
+                        ($job['location']['display_name'] ?? '') . ' ' . $title
+                    );
 
-                    $results = $response->json('results') ?? [];
-                    $totalFound += count($results);
-                    $totalFoundAll += count($results);
+                    $urlJob = $job['redirect_url'] ?? null;
 
-                    foreach ($results as $job) {
-                        $title = $job['title'] ?? 'N/A';
-                        $company = $job['company']['display_name'] ?? null;
-                        $desc = strtolower($job['description'] ?? '');
-                        $loc = strtolower(($job['location']['display_name'] ?? '') . ' ' . $title);
-                        $urlJob = $job['redirect_url'] ?? null;
+                    $modality = $this->detectModality($loc,$desc);
 
-                        // 🧭 Modalidad
-                        $modality = $this->detectModality($loc, $desc);
+                    $area = $job['location']['area'] ?? [];
 
-                        /* =====================
-                           UBICACIÓN
-                        ===================== */
-                        $area = $job['location']['area'] ?? [];
-                        $city = $area[1] ?? ($area[0] ?? null);
-                        $countryName = $area[0] ?? null;
+                    $city        = $area[1] ?? ($area[0] ?? null);
+                    $countryName = $area[0] ?? null;
 
-                        $isoToName = [
-                            'DE' => 'Alemania',
-                            'FR' => 'Francia',
-                            'ES' => 'España',
-                            'IT' => 'Italia',
-                            'GB' => 'Reino Unido',
-                            'US' => 'Estados Unidos',
-                            'CA' => 'Canadá',
-                            'BR' => 'Brasil',
-                            'MX' => 'México',
-                            'IN' => 'India',
-                            'SG' => 'Singapur',
-                            'NL' => 'Países Bajos',
-                            'PL' => 'Polonia',
-                            'BE' => 'Bélgica',
-                            'CH' => 'Suiza',
-                            'ZA' => 'Sudáfrica',
-                            'NZ' => 'Nueva Zelanda',
-                            'AU' => 'Australia',
-                            'PT' => 'Portugal'
-                        ];
+                    $isoToName = [
+                        'DE'=>'Alemania','FR'=>'Francia','ES'=>'España',
+                        'IT'=>'Italia','GB'=>'Reino Unido','US'=>'Estados Unidos',
+                        'CA'=>'Canadá','BR'=>'Brasil','MX'=>'México',
+                        'IN'=>'India','SG'=>'Singapur','NL'=>'Países Bajos',
+                        'PL'=>'Polonia','BE'=>'Bélgica','CH'=>'Suiza',
+                        'ZA'=>'Sudáfrica','NZ'=>'Nueva Zelanda',
+                        'AU'=>'Australia','PT'=>'Portugal'
+                    ];
 
-                        $countryCode = strtoupper($countryName ?? $country);
-                        $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryCode));
+                    $countryCode = strtoupper($countryName ?? $country);
 
-                        [$city, $latitude, $longitude] =
-                            $this->getCoordsFromCountry($city, strtolower($countryCode));
+                    $countryFull = $isoToName[$countryCode]
+                        ?? ucfirst(strtolower($countryCode));
 
-                        if (!$latitude || !$longitude) {
-                            if (isset($this->capitalMap[strtolower($countryCode)])) {
-                                $cap = $this->capitalMap[strtolower($countryCode)];
-                                $city = $cap['city'];
-                                $latitude = $cap['lat'];
-                                $longitude = $cap['lng'];
-                                $this->stats['fallback']++;
-                            } else {
-                                $this->stats['skipped']++;
-                                $totalUnmapped++;
-                                $totalSkippedAll++;
-                                continue;
-                            }
+                    [$city,$latitude,$longitude] =
+                        $this->getCoordsFromCountry(
+                            $city,
+                            strtolower($countryCode)
+                        );
+
+                    if (!$latitude || !$longitude)
+                    {
+                        if (isset($this->capitalMap[strtolower($countryCode)]))
+                        {
+                            $cap = $this->capitalMap[strtolower($countryCode)];
+
+                            $city      = $cap['city'];
+                            $latitude  = $cap['lat'];
+                            $longitude = $cap['lng'];
+
+                            $this->stats['fallback']++;
                         }
-
-                        /* =====================
-                           DUPLICADOS
-                        ===================== */
-                        $existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
-
-                        if ($existing) {
-                            $existing->methodologies()->syncWithoutDetaching([$mId]);
-                            $totalDuplicates++;
+                        else
+                        {
+                            $this->stats['skipped']++;
+                            $totalUnmapped++;
                             $totalSkippedAll++;
                             continue;
                         }
-
-                        /* =====================
-                           CREAR OFERTA
-                        ===================== */
-                        $region = RegionHelper::fromCountry($countryFull);
-
-                        $offer = JobOffer::create([
-                            'title' => $title,
-                            'company' => $company,
-                            'country' => $countryFull,
-                            'city' => $city,
-                            'latitude' => $latitude,
-                            'longitude' => $longitude,
-                            'modality' => $modality,
-                            'salary_min' => $job['salary_min'] ?? null,
-                            'salary_max' => $job['salary_max'] ?? null,
-                            'currency' => $job['salary_currency'] ?? 'USD',
-                            'compensation_type' => $job['contract_time'] ?? $job['contract_type'],
-                            'experience_level' => $this->extractExperience($desc),
-                            'education_level' => $this->extractEducation($desc),
-                            'certifications' => $this->extractCertifications($desc),
-                            'skills' => $this->extractSkills($desc),
-                            'requirements' => strip_tags($job['description'] ?? null),
-                            'source' => 'Adzuna',
-                            'external_id' => $job['id'] ?? null,
-                            'url' => $urlJob,
-                            'search_query' => $mName,
-                            'published_at' => isset($job['created'])
-                                ? Carbon::parse($job['created'])
-                                : now(),
-                            'region' => $region,
-                        ]);
-
-                        $offer->methodologies()->syncWithoutDetaching([$mId]);
-
-                        $totalNew++;
-                        $totalInsertedAll++;
-
-                        $countries[$countryFull] =
-                            ($countries[$countryFull] ?? 0) + 1;
-                        $modalities[$modality] =
-                            ($modalities[$modality] ?? 0) + 1;
                     }
 
-                    sleep(1.2);
-                } catch (\Throwable $e) {
-                    Log::error("⚠️ {$mName}: {$e->getMessage()}");
-                    ScraperRunService::failed($run, $e);
-                    return Command::FAILURE;
+                    $existing = JobOffer::where(
+                        'external_id',
+                        $job['id'] ?? null
+                    )->first();
+
+                    if ($existing)
+                    {
+                        $existing->methodologies()->syncWithoutDetaching([
+                            $mId => [
+                                'market_entity_id' => $marketEntityId
+                            ]
+                        ]);
+
+                        $totalDuplicates++;
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $region = RegionHelper::fromCountry($countryFull);
+
+                    $offer = JobOffer::create([
+                        'title' => $title,
+                        'company' => $company,
+                        'country' => $countryFull,
+                        'city' => $city,
+                        'latitude' => $latitude,
+                        'longitude' => $longitude,
+                        'modality' => $modality,
+                        'salary_min' => $job['salary_min'] ?? null,
+                        'salary_max' => $job['salary_max'] ?? null,
+                        'currency' => $job['salary_currency'] ?? 'USD',
+                        'compensation_type' =>
+                            $job['contract_time']
+                            ?? $job['contract_type'],
+                        'experience_level' =>
+                            $this->extractExperience($desc),
+                        'education_level' =>
+                            $this->extractEducation($desc),
+                        'certifications' =>
+                            $this->extractCertifications($desc),
+                        'skills' =>
+                            $this->extractSkills($desc),
+                        'requirements' =>
+                            strip_tags($job['description'] ?? null),
+                        'source' => 'Adzuna',
+                        'external_id' => $job['id'] ?? null,
+                        'url' => $urlJob,
+                        'search_query' => $mName,
+                        'published_at' =>
+                            isset($job['created'])
+                                ? Carbon::parse($job['created'])
+                                : now(),
+                        'region' => $region,
+                    ]);
+
+                    $offer->methodologies()->syncWithoutDetaching([
+                        $mId => [
+                            'market_entity_id' => $marketEntityId
+                        ]
+                    ]);
+
+                    $totalNew++;
+                    $totalInsertedAll++;
+
+                    $countries[$countryFull] =
+                        ($countries[$countryFull] ?? 0) + 1;
+
+                    $modalities[$modality] =
+                        ($modalities[$modality] ?? 0) + 1;
                 }
+
+                sleep(1.2);
+
+            } catch (\Throwable $e) {
+
+                Log::error("⚠️ {$mName}: {$e->getMessage()}");
+
+                ScraperRunService::failed($run,$e);
+
+              continue;
             }
-
-            /* =====================
-               MÉTRICA DIARIA
-            ===================== */
-
-           MethodologyMetric::updateOrCreate(
-    [
-        'methodology_id' => $mId,
-        'run_date'       => now()->toDateString(),
-        'source'         => 'Adzuna',
-    ],
-    [
-        'methodology_name'     => $mName,
-        'jobs_found_count'     => $totalFound,
-        'jobs_new_count'       => $totalNew,
-        'countries_breakdown'  => $countries,
-        'modality_breakdown'   => $modalities,
-    ]
-);
-
-
-            $this->info("✅ {$mName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
         }
 
-        /* =====================================================
-           3. FINALIZAR SCRAPER
-        ===================================================== */
-        ScraperRunService::success(
-            $run,
-            $totalFoundAll,
-            $totalInsertedAll,
-            $totalSkippedAll
+        MethodologyMetric::updateOrCreate(
+        [
+            'market_entity_id' => $marketEntityId,
+            'run_date' => now()->toDateString(),
+            'source' => 'Adzuna',
+        ],
+        [
+            'methodology_id' => $mId,
+            'methodology_name' => $mName,
+            'jobs_found_count' => $totalFound,
+            'jobs_new_count'   => $totalNew,
+            'countries_breakdown' => $countries,
+            'modality_breakdown'  => $modalities,
+        ]
         );
 
-        $this->info("🎯 Proceso completado correctamente");
-        return Command::SUCCESS;
+        $this->info("✅ {$mName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
     }
 
+    ScraperRunService::success(
+        $run,
+        $totalFoundAll,
+        $totalInsertedAll,
+        $totalSkippedAll
+    );
+
+    $this->info("🎯 Proceso completado correctamente");
+
+    return Command::SUCCESS;
+}
     protected function detectModality(string $location, string $description): string
     {
         $text = strtolower($location . ' ' . $description);
@@ -433,5 +462,11 @@ class AdzunaByMethodologiesCommand extends Command
 
         return !empty($skills) ? implode(', ', $skills) : null;
     }
-
+protected function getMethodologyFromMarketEntity($marketEntityId, $methodologyName)
+{
+    return Methodology::firstOrCreate(
+        ['market_entity_id' => $marketEntityId],
+        ['name' => $methodologyName]
+    );
+}
 }
