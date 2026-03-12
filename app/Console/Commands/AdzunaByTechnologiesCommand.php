@@ -81,7 +81,7 @@ public function handle()
            TECNOLOGÍAS DESDE market_entities
         ========================================= */
 
-        $baseQuery = MarketEntity::where('entity_type','technology')->where('name','like','%Redis%')
+        $baseQuery = MarketEntity::where('entity_type','technology')
             ->orderBy('id');
 
         $lastTechnologyId = TechnologyMetric::where('source','Adzuna')
