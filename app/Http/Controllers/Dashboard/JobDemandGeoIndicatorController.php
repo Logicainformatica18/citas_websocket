@@ -64,7 +64,8 @@ public function getMapData(Request $request)
     $query = DB::table('job_offers as jo')
         ->whereBetween('jo.published_at', $range)
         ->whereNotNull('jo.latitude')
-        ->whereNotNull('jo.longitude');
+        ->whereNotNull('jo.longitude')
+    ->whereRaw("$regionSql <> 'Desconocido'");
 
     if ($country) {
         $query->where('jo.country', $country);
@@ -137,7 +138,8 @@ public function index(Request $request)
 $baseQuery = DB::table('job_offers as jo')
     ->join('job_offer_alignment as a', 'a.job_offer_id', '=', 'jo.id')
     ->whereBetween('jo.published_at', $range)
-    ->whereNotNull('jo.city');
+    ->whereNotNull('jo.city')
+    ->whereRaw("$regionSql <> 'Desconocido'");
 if ($careerId) {
     $baseQuery->where('a.career_id', $careerId);
 }
@@ -267,11 +269,12 @@ $topCareer = DB::table('careers as c')
             'country'   => $country,
             'career_id' => $careerId,
         ],
-        'regions' => DB::table('job_offers')
-            ->selectRaw("$regionSql as region")
-            ->distinct()
-            ->orderBy('region')
-            ->pluck('region'),
+      'regions' => DB::table('job_offers')
+    ->selectRaw("$regionSql as region")
+    ->whereRaw("$regionSql <> 'Desconocido'")
+    ->distinct()
+    ->orderBy('region')
+    ->pluck('region'),
       'careers' => DB::table('careers as c')
     ->join('career_course as cc', 'cc.career_id', '=', 'c.id')
     ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
@@ -291,12 +294,27 @@ $topCareer = DB::table('careers as c')
 
 public function rebuildAlignment()
 {
-    Artisan::call('jobs:build-alignment', [
+    $commands = [
+        'normalize:asia-countries',
+        'normalize:europe-countries',
+        'joboffers:normalize-regions',
+        'joboffers:normalize-north-america',
+        'joboffers:normalize-oceania',
+        'normalize:geo-regions',
+        'normalize:peru-regions',
+        'market:fix-null-entities',
+    ];
+
+    foreach ($commands as $command) {
+        Artisan::queue($command);
+    }
+
+    Artisan::queue('jobs:build-alignment', [
         '--truncate' => true
     ]);
 
     return response()->json([
-        'message' => 'Alineación reconstruida correctamente'
+        'message' => 'Pipeline de normalización enviado a cola'
     ]);
 }
 public function searchCountries(Request $request)
@@ -339,7 +357,8 @@ public function getData(Request $request)
     $query = DB::table('job_offers as jo')
         ->whereBetween('jo.published_at', $range)
         ->whereNotNull('jo.latitude')
-        ->whereNotNull('jo.longitude');
+        ->whereNotNull('jo.longitude')
+         ->whereRaw("$regionSql <> 'Desconocido'");
 
     if ($country) {
         $query->where('jo.country', $country);

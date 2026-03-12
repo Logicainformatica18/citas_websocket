@@ -123,7 +123,7 @@ public function index(Request $request)
        0. CONTEXTO BASE (IGUAL A CERTIFICACIONES)
     ================================================== */
     $career = $request->input('career');
-
+$search = $request->get('search');
 $career = $career
     ? (is_array($career) ? $career : [$career])
     : [];
@@ -213,7 +213,9 @@ $reportsSub = DB::table('entity_trends as et')
             $j->on('reports.language_id', '=', 'me.id');
         })
         ->where('me.entity_type', 'language');
-
+if ($search) {
+    $query->where('me.name', 'like', "%{$search}%");
+}
 
         if (!empty($career)) {
     $query->whereExists(function ($q) use ($career) {
@@ -301,6 +303,7 @@ $reportsSub = DB::table('entity_trends as et')
                 'year'   => $year,
                 'period' => $period,
                 'career' => $career, // 🔥 CLAVE
+                'search' => $search,
             ],
 
             'weights' => [

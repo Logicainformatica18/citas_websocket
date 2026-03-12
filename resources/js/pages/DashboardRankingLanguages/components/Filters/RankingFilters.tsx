@@ -9,6 +9,7 @@ export default function RankingFilters() {
   const { filters, availableCareers } = usePage().props as {
     filters: {
       career?: string[];
+      search?: string;
     };
     availableCareers: {
       id: number;
@@ -18,10 +19,12 @@ export default function RankingFilters() {
   };
 
   const [openCareer, setOpenCareer] = useState(false);
+  const [search, setSearch] = useState(filters.search ?? "");
+
   const careerRef = useRef<HTMLDivElement>(null);
 
   /* =====================================================
-     🔥 NORMALIZAR SIEMPRE A ARRAY
+     NORMALIZAR ARRAY
   ===================================================== */
   const selectedCareers: string[] = Array.isArray(filters.career)
     ? filters.career
@@ -30,7 +33,7 @@ export default function RankingFilters() {
     : [];
 
   /* =========================================
-     Cerrar combo al hacer click afuera
+     Cerrar combos
   ========================================= */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -44,7 +47,7 @@ export default function RankingFilters() {
   }, []);
 
   /* =========================================
-     Navegación central (MISMO PATRÓN)
+     Navegación central
   ========================================= */
   const navigate = (next: Record<string, any>, resetPage = false) => {
     const payload: any = {
@@ -53,6 +56,7 @@ export default function RankingFilters() {
     };
 
     if (!payload.career?.length) delete payload.career;
+    if (!payload.search) delete payload.search;
 
     router.get(
       route("dashboard.ranking.languages"),
@@ -64,6 +68,20 @@ export default function RankingFilters() {
         preserveState: true,
         replace: true,
       }
+    );
+  };
+
+  /* =========================================
+     Search
+  ========================================= */
+  const runSearch = (value: string) => {
+    setSearch(value);
+
+    navigate(
+      {
+        search: value || null,
+      },
+      true
     );
   };
 
@@ -87,11 +105,30 @@ export default function RankingFilters() {
   return (
     <div className="space-y-4">
       {/* =========================
-          FILTROS
+          FILTROS PRINCIPALES
       ========================= */}
-      <div className="flex flex-wrap gap-4">
-        {/* ===== CARRERA ISIL ===== */}
-        <div ref={careerRef}>
+      <div className="flex flex-wrap gap-4 items-stretch">
+
+        {/* ===== BUSCADOR ===== */}
+        <div className="flex-1 min-w-[260px]">
+          <input
+            type="text"
+            placeholder="Buscar lenguaje..."
+            value={search}
+            onChange={(e) => runSearch(e.target.value)}
+            className="
+              w-full rounded-xl border px-4 py-2
+              bg-white text-gray-700 border-gray-300
+              dark:bg-[#0F2A3A]
+              dark:text-slate-200
+              dark:border-[#1E3A4A]
+              focus:border-[#1CBCE8] focus:outline-none
+            "
+          />
+        </div>
+
+        {/* ===== CARRERA ===== */}
+        <div ref={careerRef} className="flex-1 min-w-[240px]">
           <Combo
             label="Carrera ISIL"
             open={openCareer}
@@ -103,6 +140,7 @@ export default function RankingFilters() {
             renderLabel={(c: any) => c.name}
           />
         </div>
+
       </div>
 
       {/* =========================
@@ -133,7 +171,7 @@ export default function RankingFilters() {
 }
 
 /* =====================================================
-   UI Components (MISMO QUE CERTIFICACIONES)
+   UI Components
 ===================================================== */
 
 function Combo({
@@ -148,7 +186,8 @@ function Combo({
   disabled = false,
 }: any) {
   return (
-    <div className="relative w-72">
+    <div className="relative w-full">
+
       <button
         disabled={disabled}
         onClick={() => !disabled && setOpen(!open)}
@@ -165,6 +204,7 @@ function Combo({
         <span className="text-sm">
           {selected.length ? `${selected.length} seleccionados` : label}
         </span>
+
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>
 
@@ -196,6 +236,7 @@ function Combo({
                   onChange={() => onToggle(value)}
                   className="accent-[#1CBCE8]"
                 />
+
                 {renderLabel(item)}
               </label>
             );
@@ -218,6 +259,7 @@ function Chip({ label, onRemove }: any) {
       "
     >
       {label}
+
       <button onClick={onRemove} className="hover:text-red-500">
         <X className="h-3 w-3" />
       </button>

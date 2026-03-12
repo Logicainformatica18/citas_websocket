@@ -62,7 +62,7 @@ const rebuildAlignment = async () => {
 
   Swal.fire({
     title: "Actualizando alineación...",
-    text: "Esto puede tardar unos segundos",
+    text: "Esto puede tardar unos minutos",
     allowOutsideClick: false,
     allowEscapeKey: false,
     didOpen: () => {

@@ -44,6 +44,7 @@ class JobModalityIndicatorController extends Controller
                 END AS modalidad
             ")
             ->whereBetween('published_at', [$range['start'], $range['end']])
+            ->where('region','!=','Desconocido')   // 🔥 ignorar región desconocida
 
             // 🔥 ignorar no_precisa y null
          ->whereIn('modality', [
@@ -93,10 +94,11 @@ class JobModalityIndicatorController extends Controller
 
         $trendData = DB::table('job_offers')
             ->whereBetween('published_at', [$range['start'], $range['end']])
-
+->where('region','!=','Desconocido')   // 🔥
             // 🔥 ignorar no_precisa
             ->whereNotNull('modality')
             ->where('modality','!=','no_precisa')
+
 
             ->selectRaw("
                 YEAR(published_at)  AS year,
@@ -159,7 +161,8 @@ class JobModalityIndicatorController extends Controller
         $term = trim($request->get('q', ''));
 
         return DB::table('job_offers')
-            ->whereNotNull('region')
+    ->whereNotNull('region')
+    ->where('region','!=','Desconocido')
             ->when($term, fn ($q) =>
                 $q->where('region', 'like', "%{$term}%")
             )
@@ -176,6 +179,7 @@ class JobModalityIndicatorController extends Controller
 
         return DB::table('job_offers')
             ->whereNotNull('country')
+             ->where('region','!=','Desconocido')
             ->when($region, fn ($q) =>
                 $q->where('region', $region)
             )

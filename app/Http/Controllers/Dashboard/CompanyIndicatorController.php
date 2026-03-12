@@ -96,14 +96,12 @@ public function companyJobs(Request $request, $company)
             'perPage'
         ));
 
-        $regionSql = $this->normalizedRegionSql();
+       $regionSql = $this->normalizedRegionSql();
 
-        /* =========================================
-           2️⃣ Query base (con región normalizada)
-        ========================================= */
-        $baseQuery = DB::table('job_offers')
-            ->whereNotNull('company')
-            ->whereBetween('published_at', [$range['start'], $range['end']]);
+$baseQuery = DB::table('job_offers')
+    ->whereNotNull('company')
+    ->whereBetween('published_at', [$range['start'], $range['end']])
+    ->whereRaw("$regionSql <> 'Desconocido'");
 
         if ($region) {
             $baseQuery->whereRaw("$regionSql = ?", [$region]);
@@ -144,11 +142,12 @@ public function companyJobs(Request $request, $company)
         /* =========================================
            5️⃣ Regiones NORMALIZADAS (para filtro)
         ========================================= */
-        $regions = DB::table('job_offers')
-            ->selectRaw("$regionSql as region")
-            ->distinct()
-            ->orderBy('region')
-            ->pluck('region');
+      $regions = DB::table('job_offers')
+    ->selectRaw("$regionSql as region")
+    ->whereRaw("$regionSql <> 'Desconocido'")
+    ->distinct()
+    ->orderBy('region')
+    ->pluck('region');
 
         /* =========================================
            6️⃣ Meta
