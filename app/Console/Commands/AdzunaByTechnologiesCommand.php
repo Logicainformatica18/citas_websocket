@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Console\Commands;
-
+use App\Models\MarketEntity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -58,118 +58,95 @@ class AdzunaByTechnologiesCommand extends Command
 
 public function handle()
 {
-    /* =========================================
-       1️⃣ START SCRAPER RUN
-    ========================================= */
     $run = ScraperRunService::start(
         $this->signature,
         'Adzuna',
         'technologies'
     );
 
-    // 🔢 contadores GLOBALES del run
-    $foundAll   = 0;
+    $foundAll = 0;
     $insertedAll = 0;
-    $skippedAll  = 0;
+    $skippedAll = 0;
 
     try {
+
         $country = strtolower($this->option('country'));
         $pages   = (int) $this->option('pages');
 
-
-        $lastTechnologyId = TechnologyMetric::where('source', 'Adzuna')
-    ->orderByDesc('created_at')
-    ->value('technology_id');
-
-$baseQuery = Technology::whereIn('technologies.id', function ($q) {
-        $q->select('course_technology.technology_id')
-          ->from('course_technology')
-          ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-    })
-    ->orderBy('technologies.id');
-$technologiesQuery = clone $baseQuery;
-
-if ($lastTechnologyId) {
-    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
-}
-
-$technologies = $technologiesQuery->pluck('name', 'id');
-if ($technologies->isEmpty()) {
-    // 🔁 Ciclo completo → reinicia desde la primera tecnología
-    $technologies = $baseQuery->pluck('name', 'id');
-}
-
-
-
-
-
-
-
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
+        $baseUrl = config('services.adzuna.base_url','https://api.adzuna.com/v1/api/jobs');
 
-        $this->info("🌍 Iniciando importación desde Adzuna para {$technologies->count()} tecnologías...");
+        /* =========================================
+           TECNOLOGÍAS DESDE market_entities
+        ========================================= */
 
-        foreach ($technologies as $techId => $techName) {
+        $baseQuery = MarketEntity::where('entity_type','technology')->where('name','like','%Redis%')
+            ->orderBy('id');
+
+        $lastTechnologyId = TechnologyMetric::where('source','Adzuna')
+            ->orderByDesc('created_at')
+            ->value('technology_id');
+
+        $technologiesQuery = clone $baseQuery;
+
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('id','>',$lastTechnologyId);
+        }
+
+        $technologies = $technologiesQuery->pluck('name','id');
+
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->pluck('name','id');
+        }
+
+        $this->info("🌍 Iniciando importación para {$technologies->count()} tecnologías...");
+
+        foreach ($technologies as $marketEntityId => $techName) {
+
             $this->warn("\n💡 Procesando tecnología: {$techName}");
 
-            $totalFound = $totalNew = $totalDuplicates = $totalUnmapped = 0;
-            $countries  = [];
+            /* =========================================
+               CREAR TECHNOLOGY SI NO EXISTE
+            ========================================= */
+
+           $technology = Technology::firstOrCreate(
+    ['name' => $techName],
+    ['market_entity_id' => $marketEntityId]
+);
+
+            $techId = $technology->id;
+
+            $totalFound = 0;
+            $totalNew = 0;
+            $totalDuplicates = 0;
+            $totalUnmapped = 0;
+
+            $countries = [];
             $modalities = [];
 
             for ($page = 1; $page <= $pages; $page++) {
+
                 $url = "{$baseUrl}/{$country}/search/{$page}"
                     . "?app_id={$appId}&app_key={$appKey}"
                     . "&results_per_page=100"
                     . "&what=" . urlencode($techName);
 
                 $response = Http::timeout(25)->get($url);
+
                 if ($response->failed()) {
                     continue;
                 }
 
                 $results = $response->json('results') ?? [];
+$this->info("Resultados encontrados: ".count($results));
                 $totalFound += count($results);
-                $foundAll   += count($results);
+                $foundAll += count($results);
 
                 foreach ($results as $job) {
-                    $title   = $job['title'] ?? 'N/A';
-                    $company = $job['company']['display_name'] ?? null;
-                    $desc    = strtolower($job['description'] ?? '');
-                    $loc     = strtolower(($job['location']['display_name'] ?? '') . ' ' . $title);
-                    $urlJob  = $job['redirect_url'] ?? null;
 
-                    /* ================= MODALIDAD ================= */
-                    $modality = $this->detectModality($loc, $desc);
+                    $existing = JobOffer::where('external_id',$job['id'] ?? null)->first();
 
-                    /* ================= UBICACIÓN ================= */
-                    $area        = $job['location']['area'] ?? [];
-                    $city        = $area[1] ?? ($area[0] ?? null);
-                    $countryName = $area[0] ?? null;
-
-                    $isoToName = [
-                        'DE'=>'Alemania','FR'=>'Francia','ES'=>'España','IT'=>'Italia',
-                        'GB'=>'Reino Unido','US'=>'Estados Unidos','CA'=>'Canadá','BR'=>'Brasil',
-                        'MX'=>'México','IN'=>'India','SG'=>'Singapur','NL'=>'Países Bajos',
-                        'PL'=>'Polonia','BE'=>'Bélgica','CH'=>'Suiza','ZA'=>'Sudáfrica',
-                        'NZ'=>'Nueva Zelanda','AU'=>'Australia','PT'=>'Portugal'
-                    ];
-
-                    $countryCode = strtoupper($countryName ?? $country);
-                    $countryFull = $isoToName[$countryCode] ?? ucfirst(strtolower($countryCode));
-
-                    [$city, $latitude, $longitude] =
-                        $this->getCoordsFromCountry($city, strtolower($countryCode));
-
-                    if (!$latitude || !$longitude) {
-                        $skippedAll++;
-                        $totalUnmapped++;
-                        continue;
-                    }
-
-                    /* ================= DUPLICADOS ================= */
-                    $existing = JobOffer::where('external_id', $job['id'] ?? null)->first();
                     if ($existing) {
                         $existing->technologies()->syncWithoutDetaching([$techId]);
                         $totalDuplicates++;
@@ -177,13 +154,35 @@ if ($technologies->isEmpty()) {
                         continue;
                     }
 
-                    /* ================= INSERT ================= */
-                    $region = RegionHelper::fromCountry($countryFull);
+                    $title   = $job['title'] ?? 'N/A';
+                    $company = $job['company']['display_name'] ?? null;
+                    $desc    = strtolower($job['description'] ?? '');
+                    $loc     = strtolower(($job['location']['display_name'] ?? '') . ' ' . $title);
+                    $urlJob  = $job['redirect_url'] ?? null;
+
+                    $modality = $this->detectModality($loc,$desc);
+
+                    $area = $job['location']['area'] ?? [];
+                    $city = $area[1] ?? ($area[0] ?? null);
+                    $countryName = $area[0] ?? null;
+
+                    $countryCode = strtoupper($countryName ?? $country);
+
+                    [$city,$latitude,$longitude] =
+                        $this->getCoordsFromCountry($city,strtolower($countryCode));
+
+                    if (!$latitude || !$longitude) {
+                        $skippedAll++;
+                        $totalUnmapped++;
+                        continue;
+                    }
+
+                    $region = RegionHelper::fromCountry($countryCode);
 
                     $offer = JobOffer::create([
                         'title'        => $title,
                         'company'      => $company,
-                        'country'      => $countryFull,
+                        'country'      => $countryCode,
                         'city'         => $city,
                         'latitude'     => $latitude,
                         'longitude'    => $longitude,
@@ -206,36 +205,34 @@ if ($technologies->isEmpty()) {
                     $totalNew++;
                     $insertedAll++;
 
-                    $countries[$countryFull] =
-                        ($countries[$countryFull] ?? 0) + 1;
+                    $countries[$countryCode] =
+                        ($countries[$countryCode] ?? 0) + 1;
+
                     $modalities[$modality] =
                         ($modalities[$modality] ?? 0) + 1;
                 }
 
-                sleep(1.2);
+                sleep(1);
             }
 
-            $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-            TechnologyMetric::updateOrCreate(
-    [
-        'technology_id' => $techId,
-        'run_date'      => now()->toDateString(),
-        'source'        => 'Adzuna',
-    ],
-    [
-        'technology_name'    => $techName,
-        'jobs_found_count'   => $totalFound,
-        'jobs_new_count'     => $totalNew,
-        'countries_breakdown' => $countries,
-        'modality_breakdown'  => $modalities,
-    ]
-);
+            $this->info("✅ {$techName}: {$totalNew} nuevas | {$totalFound} encontradas");
 
+            TechnologyMetric::updateOrCreate(
+                [
+                    'technology_id'=>$techId,
+                    'run_date'=>now()->toDateString(),
+                    'source'=>'Adzuna'
+                ],
+                [
+                    'technology_name'=>$techName,
+                    'jobs_found_count'=>$totalFound,
+                    'jobs_new_count'=>$totalNew,
+                    'countries_breakdown'=>$countries,
+                    'modality_breakdown'=>$modalities
+                ]
+            );
         }
 
-        /* =========================================
-           2️⃣ SUCCESS SCRAPER RUN
-        ========================================= */
         ScraperRunService::success(
             $run,
             $foundAll,
@@ -243,13 +240,11 @@ if ($technologies->isEmpty()) {
             $skippedAll
         );
 
-        $this->info("🎯 Proceso completado correctamente");
     } catch (\Throwable $e) {
-        /* =========================================
-           3️⃣ FAILED SCRAPER RUN
-        ========================================= */
-        ScraperRunService::failed($run, $e);
+
+        ScraperRunService::failed($run,$e);
         throw $e;
+
     }
 }
 

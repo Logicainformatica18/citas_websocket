@@ -8,63 +8,78 @@ use Illuminate\Support\Facades\DB;
 class FixNullMarketEntityRelations extends Command
 {
     protected $signature = 'market:fix-null-entities';
-    protected $description = 'Corrige market_entity_id NULL en language_job, technology_job y methodology_job';
+    protected $description = 'Corrige market_entity_id NULL en entidades y pivots';
 
     public function handle()
     {
-        $this->info("🔧 Corrigiendo NULL market_entity_id...");
+        $this->info("🔧 Iniciando reparación de market_entity_id...");
 
         DB::beginTransaction();
 
         try {
 
             /* =========================================================
-               1️⃣ LANGUAGES
+               1️⃣ TECHNOLOGIES → llenar market_entity_id
             ========================================================= */
-            $updatedLanguages = DB::update("
+            $fixTechnologies = DB::update("
+                UPDATE technologies t
+                JOIN market_entities me
+                    ON LOWER(me.name) = LOWER(t.name)
+                SET t.market_entity_id = me.id
+                WHERE t.market_entity_id IS NULL
+                AND me.entity_type = 'technology'
+            ");
+
+            $this->info("✅ technologies corregidas: {$fixTechnologies}");
+
+            /* =========================================================
+               2️⃣ LANGUAGES PIVOT
+            ========================================================= */
+            $fixLanguages = DB::update("
                 UPDATE language_job lj
                 JOIN languages l ON l.id = lj.language_id
-                JOIN market_entities me ON me.id = l.market_entity_id
                 SET lj.market_entity_id = l.market_entity_id
                 WHERE lj.market_entity_id IS NULL
+                AND l.market_entity_id IS NOT NULL
             ");
 
-            $this->info("✅ language_job corregidos: {$updatedLanguages}");
+            $this->info("✅ language_job corregidos: {$fixLanguages}");
 
             /* =========================================================
-               2️⃣ TECHNOLOGIES
+               3️⃣ TECHNOLOGY PIVOT
             ========================================================= */
-            $updatedTechnologies = DB::update("
+            $fixTechnologiesPivot = DB::update("
                 UPDATE technology_job tj
                 JOIN technologies t ON t.id = tj.technology_id
-                JOIN market_entities me ON me.id = t.market_entity_id
                 SET tj.market_entity_id = t.market_entity_id
                 WHERE tj.market_entity_id IS NULL
+                AND t.market_entity_id IS NOT NULL
             ");
 
-            $this->info("✅ technology_job corregidos: {$updatedTechnologies}");
+            $this->info("✅ technology_job corregidos: {$fixTechnologiesPivot}");
 
             /* =========================================================
-               3️⃣ METHODOLOGIES
+               4️⃣ METHODOLOGY PIVOT
             ========================================================= */
-            $updatedMethodologies = DB::update("
+            $fixMethodologies = DB::update("
                 UPDATE methodology_job mj
                 JOIN methodologies m ON m.id = mj.methodology_id
-                JOIN market_entities me ON me.id = m.market_entity_id
                 SET mj.market_entity_id = m.market_entity_id
                 WHERE mj.market_entity_id IS NULL
+                AND m.market_entity_id IS NOT NULL
             ");
 
-            $this->info("✅ methodology_job corregidos: {$updatedMethodologies}");
+            $this->info("✅ methodology_job corregidos: {$fixMethodologies}");
 
             DB::commit();
 
-            $this->info("🎯 Limpieza completada correctamente.");
+            $this->info("🎯 Reparación completada correctamente.");
 
         } catch (\Throwable $e) {
 
             DB::rollBack();
             $this->error("❌ Error: " . $e->getMessage());
+
         }
 
         return Command::SUCCESS;

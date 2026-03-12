@@ -84,12 +84,17 @@ public function marketEntities()
     /**
      * 🔹 Relación con tecnologías
      */
-    public function technologies()
-    {
-        return $this->belongsToMany(Technology::class, 'technology_job')
-                    ->withTimestamps();
-    }
-
+ public function technologies()
+{
+    return $this->belongsToMany(
+        Technology::class,
+        'technology_job',
+        'job_offer_id',
+        'technology_id'
+    )
+    ->withPivot('market_entity_id')
+    ->withTimestamps();
+}
     /**
      * 🔹 Relación con metodologías
      */

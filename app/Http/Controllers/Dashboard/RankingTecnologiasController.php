@@ -10,7 +10,7 @@ use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 use Illuminate\Support\Facades\Artisan;
- 
+
 use Illuminate\Support\Facades\Log;
 
 class RankingTecnologiasController extends Controller
@@ -94,7 +94,7 @@ public function index(Request $request)
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
     $quarter = $period === 's1' ? 1 : 4;
-
+$search = $request->get('search');
     $range = $this->getPeriodRange($period, $year);
 
     /* ==================================================
@@ -171,7 +171,9 @@ public function index(Request $request)
         ->leftJoinSub($laborSub, 'labor', 'labor.market_entity_id', '=', 'me.id')
         ->leftJoinSub($trendSub, 'trends', 'trends.market_entity_id', '=', 'me.id')
         ->where('me.entity_type', 'technology');
-
+if ($search) {
+    $query->where('me.name', 'LIKE', "%{$search}%");
+}
     /* ==================================================
        4. FILTRO POR CARRERA (career_market_entity)
     ================================================== */
@@ -270,6 +272,7 @@ public function index(Request $request)
                 'year'   => $year,
                 'period'=> $period,
                 'career'=> $careers,
+                  'search' => $search,
                 'ranking_type' => $rankingType !== 'all' ? $rankingType : null,
             ],
 
@@ -442,7 +445,7 @@ public function reportsByTechnology(Request $request, int $marketEntityId)
     ]);
 }
 
- 
+
 
 public function technologyTrendDetail(Request $request, int $trendId)
 {

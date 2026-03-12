@@ -10,6 +10,7 @@ export default function RankingFilters() {
   } = usePage().props as any;
 
   const [openCareer, setOpenCareer] = useState(false);
+  const [search, setSearch] = useState(filters.search ?? "");
   const careerRef = useRef<HTMLDivElement>(null);
 
   const activeCareers = filters.career ?? [];
@@ -85,7 +86,33 @@ export default function RankingFilters() {
 
       {/* ================= COMBOS ================= */}
       <div className="flex flex-wrap gap-4">
+{/* ================= BUSCADOR ================= */}
+<div className="w-full md:w-80">
+  <input
+    type="text"
+    placeholder="Buscar tecnología..."
+    value={search}
+    onChange={(e) => {
+      const value = e.target.value;
+      setSearch(value);
 
+      navigate(
+        {
+          search: value || undefined,
+        },
+        true
+      );
+    }}
+    className="
+      w-full rounded-xl border px-4 py-2 text-sm
+      bg-white text-gray-700 border-gray-300
+      dark:bg-[#0F2A3A]
+      dark:text-slate-200
+      dark:border-[#1E3A4A]
+      focus:border-[#1CBCE8] focus:ring-0
+    "
+  />
+</div>
         {/* ===== CARRERA ISIL ===== */}
         <div ref={careerRef}>
           <div className="relative w-64">
