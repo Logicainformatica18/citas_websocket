@@ -12,7 +12,9 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
-
+use App\Models\MarketEntity;
+use App\Models\MarketEntityMetric;
+ 
 
 class ArbeitnowByLanguagesCommand extends Command
 {
@@ -74,24 +76,24 @@ class ArbeitnowByLanguagesCommand extends Command
 
         try {
 
-            $lastLanguageId = LanguageMetric::where('source', 'Arbeitnow')
-                ->orderByDesc('created_at')
-                ->value('language_id');
+           $baseQuery = MarketEntity::where('entity_type','language')
+    ->orderBy('id');
 
-            $baseQuery = Language::whereIn('languages.id', function ($q) {
-                $q->select('course_language.language_id')
-                    ->from('course_language')
-                    ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-            })
-                ->orderBy('languages.id');
+$lastLanguageId = MarketEntityMetric::where('source','Arbeitnow')
+    ->orderByDesc('created_at')
+    ->value('market_entity_id');
 
-            $languagesQuery = clone $baseQuery;
+$languagesQuery = clone $baseQuery;
 
-            if ($lastLanguageId) {
-                $languagesQuery->where('languages.id', '>', $lastLanguageId);
-            }
+if ($lastLanguageId) {
+    $languagesQuery->where('id','>', $lastLanguageId);
+}
 
-            $languages = $languagesQuery->get();
+$languages = $languagesQuery->pluck('name','id');
+
+if ($languages->isEmpty()) {
+    $languages = $baseQuery->pluck('name','id');
+}
 
             if ($languages->isEmpty()) {
                 // 🔁 ciclo completo → volver al inicio
@@ -101,9 +103,14 @@ class ArbeitnowByLanguagesCommand extends Command
 
             $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
 
-            foreach ($languages as $language) {
-                $languageId = $language->id;
-                $languageName = $language->name;
+           foreach ($languages as $marketEntityId => $languageName) {
+
+$this->warn("\n💡 Procesando lenguaje: {$languageName}");
+
+$language = $this->getLanguageFromMarketEntity(
+    $marketEntityId,
+    $languageName
+);
 
                 $this->warn("\n💡 Procesando lenguaje: {$languageName}");
 
@@ -188,7 +195,11 @@ class ArbeitnowByLanguagesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->languages()->syncWithoutDetaching([$languageId]);
+                       $existing->languages()->syncWithoutDetaching([
+    $language->id => [
+        'market_entity_id' => $marketEntityId
+    ]
+]);
                         $skippedAll++;
                         continue;
                     }
@@ -216,7 +227,11 @@ class ArbeitnowByLanguagesCommand extends Command
                         'region' => $region,
                     ]);
 
-                    $offer->languages()->syncWithoutDetaching([$languageId]);
+                  $offer->languages()->syncWithoutDetaching([
+    $language->id => [
+        'market_entity_id' => $marketEntityId
+    ]
+]);
 
                     $totalNew++;
                     $insertedAll++;
@@ -228,20 +243,20 @@ class ArbeitnowByLanguagesCommand extends Command
                 }
 
                 /* ================= MÉTRICA DIARIA ================= */
-                LanguageMetric::updateOrCreate(
-                    [
-                        'language_id' => $languageId,
-                        'run_date' => now()->toDateString(),
-                        'source' => 'Arbeitnow',
-                    ],
-                    [
-                        'language_name' => $languageName,
-                        'jobs_found_count' => $totalFound,
-                        'jobs_new_count' => $totalNew,
-                        'countries_breakdown' => $countries,
-                        'modality_breakdown' => $modalities,
-                    ]
-                );
+             MarketEntityMetric::updateOrCreate(
+[
+    'market_entity_id' => $marketEntityId,
+    'run_date' => now()->toDateString(),
+    'source' => 'Arbeitnow'
+],
+[
+    'entity_name' => $languageName,
+    'jobs_found_count' => $totalFound,
+    'jobs_new_count' => $totalNew,
+    'countries_breakdown' => $countries,
+    'modality_breakdown' => $modalities
+]
+);
 
 
 
@@ -268,7 +283,13 @@ class ArbeitnowByLanguagesCommand extends Command
         }
     }
 
-
+protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
+{
+    return Language::firstOrCreate(
+        ['name' => $languageName],   // buscar por nombre
+        ['market_entity_id' => $marketEntityId]
+    );
+}
     protected function extractCity(?string $location): ?string
     {
         if (empty($location))
