@@ -87,6 +87,8 @@ Route::middleware('web')->group(function () {
         ->name('logout');
 });
 
+//http://localhost:8000/auth/saml2/logout
+
 
 // Route::get('/__auth-debug', function () {
 //     return response()->json([
