@@ -286,8 +286,8 @@ $language = $this->getLanguageFromMarketEntity(
 protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
 {
     return Language::firstOrCreate(
-        ['name' => $languageName],   // buscar por nombre
-        ['market_entity_id' => $marketEntityId]
+        ['market_entity_id' => $marketEntityId],
+        ['name' => $languageName]
     );
 }
     protected function extractCity(?string $location): ?string

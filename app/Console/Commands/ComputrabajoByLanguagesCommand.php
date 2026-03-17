@@ -14,6 +14,8 @@ use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+use App\Models\MarketEntity;
+use App\Models\MarketEntityMetric;
 
 class ComputrabajoByLanguagesCommand extends Command
 {
@@ -45,6 +47,14 @@ protected $currencyMap = [
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
+
+    protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
+{
+    return Language::firstOrCreate(
+        ['market_entity_id' => $marketEntityId],
+        ['name' => $languageName]
+    );
+}
   public function handle()
 {
     // 🧾 Iniciar tracking del scraper
@@ -60,34 +70,22 @@ protected $currencyMap = [
 
     try {
 
-    $lastLanguageId = LanguageMetric::where('source', 'Computrabajo')
+   $lastLanguageId = MarketEntityMetric::where('source', 'Computrabajo')
     ->orderByDesc('created_at')
-    ->value('language_id');
+    ->value('market_entity_id');
 
 
-      $baseQuery = Language::select(
-        'languages.id',
-        'languages.name',
-        'semantic_contexts.search_context'
-    )
-    ->leftJoin('semantic_contexts', 'semantic_contexts.id', '=', 'languages.context_id')
-    ->whereIn('languages.id', function ($q) {
-        $q->select('course_language.language_id')
-          ->from('course_language')
-          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-    })
-    ->orderBy('languages.id');
-
+     $baseQuery = MarketEntity::where('entity_type', 'language')
+    ->orderBy('id');
 $languagesQuery = clone $baseQuery;
 
 if ($lastLanguageId) {
-    $languagesQuery->where('languages.id', '>', $lastLanguageId);
+    $languagesQuery->where('id', '>', $lastLanguageId);
 }
 
 $languages = $languagesQuery->get();
 
 if ($languages->isEmpty()) {
-    // 🔁 ciclo completo → volver al inicio
     $languages = $baseQuery->get();
 }
 
@@ -96,25 +94,34 @@ if ($languages->isEmpty()) {
 
         $this->info("🌐 Scrapeando Computrabajo para {$languages->count()} lenguajes ({$pages} páginas por país)...");
 
-        foreach ($languages as $lang) {
-            $langId   = $lang->id;
-            $langName = $lang->name;
-            $context  = $lang->search_context;
+   foreach ($languages as $marketEntity) {
 
-            $this->warn("\n💡 Lenguaje actual: {$langName} ({$context})");
+    $marketEntityId = $marketEntity->id;
+    $langName = $marketEntity->name;
+
+    // 🔥 clave: crear o recuperar language
+    $language = $this->getLanguageFromMarketEntity(
+        $marketEntityId,
+        $langName
+    );
+
+    $langId = $language->id;
+           
+
+$this->warn("\n💡 Lenguaje actual: {$langName}");
 
             $totalFound = 0;
             $totalNew   = 0;
             $countries  = [];
             $modalities = [];
 
-            $slugLang = $this->makeSearchSlug($langName, $context);
+$slugLang = $this->makeSearchSlug($langName, null);
 
             foreach ($this->countryMap as $code => $country) {
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
-                    $url = "https://{$code}.computrabajo.com/trabajo-de-{$slugLang}?p={$i}";
+                    $url = "https://{$code}.computrabajo.com/trabajo-de-programador-{$slugLang}?p={$i}";
                     $this->line("🔗 Página {$i}: {$url}");
 
                     try {
@@ -145,8 +152,9 @@ if ($languages->isEmpty()) {
                                 &$totalSkippedAll,
                                 $country,
                                 $langName,
-                                $code,
-                                $langId
+                              $code,
+$langId,
+$marketEntityId
                             ) {
 
                             try {
@@ -197,7 +205,11 @@ if ($languages->isEmpty()) {
                                     ->first();
 
                                 if ($existingOffer) {
-                                    $existingOffer->languages()->syncWithoutDetaching([$langId]);
+                                   $existingOffer->languages()->syncWithoutDetaching([
+    $langId => [
+        'market_entity_id' => $marketEntityId
+    ]
+]);
                                     $totalSkippedAll++;
                                     return;
                                 }
@@ -226,7 +238,11 @@ if ($languages->isEmpty()) {
                                     'updated_at'   => now(),
                                 ]);
 
-                                $offerModel->languages()->syncWithoutDetaching([$langId]);
+                        $offerModel->languages()->syncWithoutDetaching([
+    $langId => [
+        'market_entity_id' => $marketEntityId
+    ]
+]);
 
                                 $totalNew++;
                                 $totalInsertedAll++;
@@ -247,21 +263,20 @@ if ($languages->isEmpty()) {
                 sleep(4);
             }
 
-            LanguageMetric::updateOrCreate(
-                [
-                    'language_id' => $langId,
-                    'run_date'    => Carbon::today(),
-                    'source'      => 'Computrabajo',
-                ],
-                [
-                    'language_name'     => $langName,
-                    'jobs_found_count'  => $totalFound,
-                    'jobs_new_count'    => $totalNew,
-                    'countries_breakdown'=> $countries,
-                    'modality_breakdown'=> $modalities,
-                    'updated_at'        => now(),
-                ]
-            );
+           MarketEntityMetric::updateOrCreate(
+    [
+        'market_entity_id' => $marketEntityId,
+        'run_date' => Carbon::today(),
+        'source' => 'Computrabajo',
+    ],
+    [
+        'entity_name' => $langName,
+        'jobs_found_count' => $totalFound,
+        'jobs_new_count' => $totalNew,
+        'countries_breakdown' => $countries,
+        'modality_breakdown' => $modalities,
+    ]
+);
 
             $totalFoundAll += $totalFound;
             $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
