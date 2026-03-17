@@ -7,72 +7,160 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Services\JobMarketStatusBuilder;
+use App\Services\ScrapingStatusService;
 
 class SeniorityIndicatorController extends Controller
 {
+private function buildGeneralData(array $range, array $careers = []): array
+{
+    /* =========================================
+       GLOBAL
+    ========================================= */
+
+    $total = DB::table('job_offers')->count();
+
+    $monthStart = now()->startOfMonth();
+
+    $newMonth = DB::table('job_offers')
+        ->where('created_at', '>=', $monthStart)
+        ->count();
+
+    $first = DB::table('job_offers')
+        ->orderBy('created_at')
+        ->value('created_at');
+
+    /* =========================================
+       PERIOD (🔥 USA TU BASE REAL)
+    ========================================= */
+
+    $base = $this->baseCareerQuery($range, $careers);
+
+    $offers = $base->count();
+
+    $days = \Carbon\Carbon::parse($range['start'])
+        ->diffInDays(\Carbon\Carbon::parse($range['end'])) + 1;
+
+    return [
+        'global' => [
+            'offers_total'     => $total,
+            'offers_new_month' => $newMonth,
+            'history_age'      => $first
+                ? \Carbon\Carbon::parse($first)->diffForHumans(null, true)
+                : null,
+        ],
+
+        'period' => [
+            'offers_analysed' => $offers,
+            'avg_per_day'     => $days > 0 ? round($offers / $days, 2) : 0,
+            'days_covered'    => $days,
+            'date_range'      => [
+                'from' => $range['start'],
+                'to'   => $range['end'],
+            ],
+        ],
+
+        /* 🔥 ESTO ES PARA EL BLOQUE DE SCRAPING */
+        'scraping' => [
+            'exists' => false // luego lo sobreescribes como ya haces
+        ],
+    ];
+}
     /* =====================================================
        0️⃣ Vista principal (Inertia)
     ===================================================== */
-    public function index(Request $request)
-    {
-        $year   = (int) $request->get('year', 2026);
-        $period = $request->get('period', 's1');
+   public function index(Request $request, JobMarketStatusBuilder $builder)
+{
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
 
-        $careers = $request->filled('career')
-            ? array_values(array_filter((array) $request->career))
-            : [];
+    $careers = $request->filled('career')
+        ? array_values(array_filter((array) $request->career))
+        : [];
 
-        $range = $this->getPeriodRange($period, $year);
+    $range = $this->getPeriodRange($period, $year);
 
- $base = $this->baseCareerQuery($range, $careers);
-$vacantesAnalizadas = $base->count();
+    /* =====================================================
+       BASE
+    ===================================================== */
+    $base = $this->baseCareerQuery($range, $careers);
+    $vacantesAnalizadas = $base->count();
 
-        $availableCareers = DB::table('careers')
-            ->where('active', 1)
-            ->orderBy('name')
-            ->get(['id','name','slug']);
+    $availableCareers = DB::table('careers')
+        ->where('active', 1)
+        ->orderBy('name')
+        ->get(['id','name','slug']);
 
-      $rows = $this->baseCareerQuery($range, $careers)
-    ->select('jo.seniority', DB::raw('COUNT(*) as total'))
-    ->groupBy('jo.seniority')
-    ->get();
+    /* =====================================================
+       🔥 JOB MARKET DATA (CLAVE)
+    ===================================================== */
+   $jobMarketData = $this->buildGeneralData($range, $careers);
 
-$total = $rows->sum('total');
-
-$jobMarketStatus = collect(['junior','mid','senior'])
-    ->map(function ($level) use ($rows, $total) {
-
-        $row = $rows->firstWhere('seniority', $level);
-        $jobs = $row ? (int)$row->total : 0;
-
-        return [
-            'level' => $level,
-            'jobs' => $jobs,
-            'percentage' => $total > 0
-                ? round(($jobs / $total) * 100, 2)
-                : 0,
-        ];
-    });
-
-        return Inertia::render('DashboardSeniority/Index', [
-            'filters' => [
-                'year'   => $year,
-                'period' => $period,
-                'career' => $careers,
-            ],
-            'availableCareers' => $availableCareers,
-            'meta' => [
-                'year' => $year,
-                'period' => $period,
-                'periodo_label' =>
-                    $period === 's1'
-                        ? "Semestre 1 – Enero a Junio {$year}"
-                        : "Semestre 2 – Julio a Diciembre {$year}",
-                'vacantes_analizadas' => $vacantesAnalizadas,
-            ],
-            'jobMarketStatus' => $jobMarketStatus,
-        ]);
+    // Scraping status (opcional pero recomendado)
+    try {
+        $scrapingStatus = ScrapingStatusService::getByEntity('jobs');
+    } catch (\Throwable $e) {
+        $scrapingStatus = null;
     }
+
+    // Unificar
+    $jobMarketData['scraping'] = $scrapingStatus;
+
+    /* =====================================================
+       DISTRIBUCIÓN SENIORITY (TU LÓGICA)
+    ===================================================== */
+    $rows = $this->baseCareerQuery($range, $careers)
+        ->select('jo.seniority', DB::raw('COUNT(*) as total'))
+        ->groupBy('jo.seniority')
+        ->get();
+
+    $total = $rows->sum('total');
+
+    $jobMarketStatus = collect(['junior','mid','senior'])
+        ->map(function ($level) use ($rows, $total) {
+
+            $row = $rows->firstWhere('seniority', $level);
+            $jobs = $row ? (int)$row->total : 0;
+
+            return [
+                'level' => $level,
+                'jobs' => $jobs,
+                'percentage' => $total > 0
+                    ? round(($jobs / $total) * 100, 2)
+                    : 0,
+            ];
+        });
+
+
+
+    /* =====================================================
+       RENDER
+    ===================================================== */
+    return Inertia::render('DashboardSeniority/Index', [
+        'filters' => [
+            'year'   => $year,
+            'period' => $period,
+            'career' => $careers,
+        ],
+
+        'availableCareers' => $availableCareers,
+
+        /* 🔥 ESTE ES EL QUE USA TU MODAL */
+        'jobMarketData' => $jobMarketData,
+
+        /* 👉 ESTE ES TU GRÁFICO */
+        'jobMarketStatus' => $jobMarketStatus,
+
+        'meta' => [
+            'year' => $year,
+            'period' => $period,
+            'periodo_label' =>
+                $period === 's1'
+                    ? "Semestre 1 – Enero a Junio {$year}"
+                    : "Semestre 2 – Julio a Diciembre {$year}",
+            'vacantes_analizadas' => $vacantesAnalizadas,
+        ],
+    ]);
+}
 
     /* =====================================================
        1️⃣ Normalización de seniority
@@ -144,11 +232,14 @@ END
             ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
             ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
             ->where('cc.career_id', $career->id)
-            ->whereBetween(
-                DB::raw('DATE(COALESCE(jo.published_at, jo.created_at))'),
-                [$range['start'], $range['end']]
-            )
-            ->whereIn('jo.seniority', ['junior','mid','senior'])
+           ->where(function ($q) use ($range) {
+    $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
+      ->orWhere(function ($q2) use ($range) {
+          $q2->whereNull('jo.published_at')
+             ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
+      });
+})
+          ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
             ->distinct()
             ->pluck('jo.id');
 
@@ -204,11 +295,14 @@ END
 private function baseCareerQuery(array $range, array $careers = [])
 {
     return DB::table('job_offers as jo')
-        ->whereBetween(
-            DB::raw('DATE(COALESCE(jo.published_at, jo.created_at))'),
-            [$range['start'], $range['end']]
-        )
-        ->whereIn('jo.seniority', ['junior','mid','senior'])
+      ->where(function ($q) use ($range) {
+    $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
+      ->orWhere(function ($q2) use ($range) {
+          $q2->whereNull('jo.published_at')
+             ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
+      });
+})
+      ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
         ->when(!empty($careers), function ($query) use ($careers) {
 
             $query->whereExists(function ($q) use ($careers) {

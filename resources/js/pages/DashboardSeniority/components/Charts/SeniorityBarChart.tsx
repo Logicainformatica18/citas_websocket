@@ -49,7 +49,7 @@ export function SeniorityBarChart({ data }: Props) {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-            Seniority por Carrera
+           Distribución de Nivel Profesional
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Distribución de niveles de experiencia por área profesional
@@ -134,7 +134,13 @@ export function SeniorityBarChart({ data }: Props) {
       <div className="mt-8 grid grid-cols-3 gap-4">
         <SummaryCard label="Total Junior" value={totals.junior} color={COLORS.junior} />
         <SummaryCard label="Total Mid" value={totals.mid} color={COLORS.mid} />
-        <SummaryCard label="Total Senior" value={totals.senior} color={COLORS.senior} />
+  <SummaryCard
+  label="Total Senior"
+  value={totals.senior}
+  color={COLORS.senior}
+  tooltip="Puede incluir duplicaciones porque una oferta puede pertenecer a múltiples carreras"
+/>
+        
       </div>
     </div>
   );
@@ -160,23 +166,37 @@ function SummaryCard({
   label,
   value,
   color,
+  tooltip,
 }: {
   label: string;
   value: number;
   color: string;
+  tooltip?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 text-center">
+    <div
+      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4 text-center relative group"
+    >
       <p className="text-3xl font-bold text-slate-900 dark:text-white">
         {value}
       </p>
+
       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
         {label}
       </p>
+
       <div
         className="mx-auto mt-2 h-1 w-12 rounded-full"
         style={{ backgroundColor: color }}
       />
+
+      {/* TOOLTIP */}
+      {tooltip && (
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block
+                        bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+          {tooltip}
+        </div>
+      )}
     </div>
   );
 }

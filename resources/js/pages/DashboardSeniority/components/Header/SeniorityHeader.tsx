@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 export function SeniorityHeader({ meta }: HeaderProps) {
-    const { filters, jobMarketStatus } = usePage().props as any;
+    const { filters, jobMarketStatus, jobMarketData } = usePage().props as any;
 
     const [updating, setUpdating] = useState(false);
     const hasCareerFilter = filters?.career && filters.career.length > 0;
@@ -84,7 +84,7 @@ export function SeniorityHeader({ meta }: HeaderProps) {
         <JobMarketStatusModal
             open={openMarketModal}
             onOpenChange={setOpenMarketModal}
-            data={jobMarketStatus}
+           data={jobMarketData} // ✅ CORRECTO
         />
 
         {/* ===== BACKGROUND ===== */}

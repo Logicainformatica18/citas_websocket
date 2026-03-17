@@ -9,9 +9,9 @@ use Inertia\Inertia;
 use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
- 
+
 use Illuminate\Support\Facades\Artisan;
- 
+
 use Illuminate\Support\Facades\Log;
 
 class RankingLenguajesController extends Controller
