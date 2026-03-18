@@ -65,7 +65,9 @@ use App\Http\Controllers\EntityTrendController;
 
 
 
-
+Route::get('/unauthorized', function () {
+    return 'Acceso no autorizado. Contacta con sistemas.';
+});
 // Route::get(
 //     '/dashboard/ranking-certificaciones/{certification}/jobs',
 //     [RankingCertificacionesController::class, 'jobsByCertification']
