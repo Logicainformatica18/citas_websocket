@@ -29,9 +29,10 @@ class RunAllJobs2 extends Command
 //tendencia mediante duck navegador search
 'searchtrend:discover-languages --limit=50 --sleep=5',
 'searchtrend:discover-methodologies --limit=50 --sleep=5',
-'searchtrend:discover-technologies --limit=1500 --sleep=5'
+'searchtrend:discover-technologies --limit=1500 --sleep=5',
 
-
+'market:clean-duplicates',
+'market:clean-technologies',
 
 
 ];
