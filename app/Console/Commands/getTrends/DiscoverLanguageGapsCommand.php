@@ -52,23 +52,32 @@ class DiscoverLanguageGapsCommand extends Command
             if (empty($lang['name']) || empty($lang['careers'])) {
                 continue;
             }
+$name = trim($lang['name']);
+$normalizedName = $this->normalizeName($name);
+$slug = Str::slug($normalizedName);
 
-            $name = trim($lang['name']);
-            $slug = Str::slug($name);
+// 1. Validación por nombre (normalizado)
+if ($this->languageExists($name)) {
+    $this->warn("⏭ Ya existe: {$name}");
+    continue;
+}
 
-            if ($this->languageExists($name, $slug)) {
-                $this->warn("⏭ Ya existe: {$name}");
-                continue;
-            }
+// 2. Validación por slug
+$existsSlug = DB::table('market_entities')
+    ->where('entity_type', 'language')
+    ->where('slug', $slug)
+    ->exists();
 
-            if ($dryRun) {
-                $this->line("🆕 {$name}");
-                continue;
-            }
+if ($existsSlug) {
+    $this->warn("⏭ Ya existe por slug: {$name}");
+    continue;
+}
 
-            DB::beginTransaction();
+// 3. Recién aquí
+DB::beginTransaction();
 
             try {
+
 
                 /* ======================================
                    1️⃣ INSERTAR LENGUAJE
@@ -133,20 +142,29 @@ class DiscoverLanguageGapsCommand extends Command
         $this->info('🏁 Finalizado');
         return Command::SUCCESS;
     }
-
+protected function normalizeName(string $name): string
+{
+    return Str::of($name)
+        ->lower()
+        ->replace(['(', ')'], '')
+      ->replaceMatches('/\b(programming|language)\b/', '')
+        ->replaceMatches('/\s+/', ' ')
+        ->trim()
+        ->toString();
+}
     /* ====================================================== */
 
-    protected function languageExists(string $name, string $slug): bool
-    {
-        return DB::table('market_entities')
-            ->where('entity_type', 'language')
-            ->where(function ($q) use ($name, $slug) {
-                $q->whereRaw('LOWER(name) = ?', [strtolower($name)])
-                  ->orWhere('slug', $slug)
-                  ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($name) . '%']);
-            })
-            ->exists();
-    }
+protected function languageExists(string $name): bool
+{
+    $normalized = $this->normalizeName($name);
+
+    return DB::table('market_entities')
+        ->where('entity_type', 'language')
+        ->get()
+        ->contains(function ($row) use ($normalized) {
+            return $this->normalizeName($row->name) === $normalized;
+        });
+}
 
     /* ====================================================== */
 

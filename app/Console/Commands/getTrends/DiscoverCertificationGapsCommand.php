@@ -17,6 +17,17 @@ class DiscoverCertificationGapsCommand extends Command
 
     protected $description = 'Descubre certificaciones faltantes y las asocia a carreras usando GPT';
 
+    protected function normalizeName(string $name): string
+    {
+        return Str::of($name)
+            ->lower()
+            ->replace(['(', ')'], '')
+            ->replace(['certification', 'certificate'], '')
+            ->replace(['  '], ' ')
+            ->trim()
+            ->toString();
+    }
+
     public function handle()
     {
         $limit  = (int) $this->option('limit');
@@ -47,14 +58,39 @@ class DiscoverCertificationGapsCommand extends Command
             }
 
             $slug = Str::slug($cert['name']);
+            $normalized = $this->normalizeName($cert['name']);
 
+            /* ===================================================
+               🔍 VALIDACIÓN DUPLICADOS (NORMALIZADO)
+            =================================================== */
             $exists = DB::table('market_entities')
                 ->where('entity_type', 'certification')
-                ->where('slug', $slug)
+                ->whereRaw("
+                    LOWER(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(name, 'certification', ''),
+                            'certificate', ''),
+                        '(', '')
+                    ) = ?
+                ", [$normalized])
                 ->exists();
 
             if ($exists) {
                 $this->warn("⏭ Ya existe: {$cert['name']}");
+                continue;
+            }
+
+            /* ===================================================
+               🔍 VALIDACIÓN POR SLUG (extra seguridad)
+            =================================================== */
+            $existsSlug = DB::table('market_entities')
+                ->where('entity_type', 'certification')
+                ->where('slug', $slug)
+                ->exists();
+
+            if ($existsSlug) {
+                $this->warn("⏭ Ya existe por slug: {$cert['name']}");
                 continue;
             }
 
@@ -87,18 +123,26 @@ class DiscoverCertificationGapsCommand extends Command
                 ]);
 
                 /* ===================================================
-                   2️⃣ INSERT EN CERTIFICATIONS (FK obligatoria)
+                   2️⃣ INSERT EN CERTIFICATIONS
                 =================================================== */
+$certExists = DB::table('certifications')
+    ->whereRaw('LOWER(name) = ?', [strtolower($cert['name'])])
+    ->exists();
 
-                // DB::table('certifications')->insert([
-                //     'name'             => $cert['name'],
-                //     'vendor'           => $cert['vendor'] ?? null,
-                //     'level'            => $cert['level'] ?? null,
-                //     'enabled'          => 1,
-                //     'market_entity_id' => $marketEntityId,
-                //     'created_at'       => now(),
-                //     'updated_at'       => now(),
-                // ]);
+if ($certExists) {
+    $this->warn("⏭ Certification ya existe: {$cert['name']}");
+    DB::rollBack();
+    continue;
+}
+                DB::table('certifications')->insert([
+                    'name'             => $cert['name'],
+                    'vendor'           => $cert['vendor'] ?? null,
+                    'level'            => $cert['level'] ?? null,
+                    'enabled'          => 1,
+                    'market_entity_id' => $marketEntityId,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
+                ]);
 
                 /* ===================================================
                    3️⃣ ASOCIAR A CARRERAS
@@ -126,27 +170,6 @@ class DiscoverCertificationGapsCommand extends Command
                     );
                 }
 
-                /* ===================================================
-                   4️⃣ CREAR TENDENCIA REAL
-                =================================================== */
-
-                // DB::table('entity_trends')->insert([
-                //     'market_entity_id' => $marketEntityId,
-                //     'year'             => now()->year,
-                //    'quarter' => ceil(now()->month / 3),
-                //     'trend_name'       => 'AI Detected Strategic Certification Growth',
-                //     'trend_score'      => rand(70, 90),
-                //     'source_title'     => 'AI Market Discovery',
-                //     'source_url'       => null,
-                //     'source_type'      => 'ai_generated',
-                //     'match_type'       => 'explicit',
-                //     'confidence_score' => 0.90,
-                //     'discovered_by'    => 'gpt-cert-gap',
-                //     'discovered_at'    => now(),
-                //     'created_at'       => now(),
-                 
-                // ]);
-
                 DB::commit();
 
                 $this->info("✅ Insertado: {$cert['name']}");
@@ -157,7 +180,8 @@ class DiscoverCertificationGapsCommand extends Command
                 DB::rollBack();
 
                 $this->error("❌ Error en {$cert['name']}");
-                    $this->error($e->getMessage()); // 👈 AÑADfffE ESTO
+                $this->error($e->getMessage());
+
                 Log::error('[CERT-GAP]', [
                     'certification' => $cert,
                     'error'         => $e->getMessage(),
@@ -168,8 +192,6 @@ class DiscoverCertificationGapsCommand extends Command
         $this->info('🏁 Finalizado');
         return Command::SUCCESS;
     }
-
-    /* ========================================================= */
 
     protected function getExistingCertifications(): array
     {
@@ -185,8 +207,6 @@ class DiscoverCertificationGapsCommand extends Command
             ->pluck('name')
             ->toArray();
     }
-
-    /* ========================================================= */
 
     protected function buildPrompt(array $existing, array $careers, int $limit): string
     {

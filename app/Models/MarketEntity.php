@@ -51,4 +51,8 @@ class MarketEntity extends Model
             'career_id'
         )->withTimestamps();
     }
+    public function certifications()
+{
+    return $this->hasMany(Certification::class, 'market_entity_id');
+}
 }

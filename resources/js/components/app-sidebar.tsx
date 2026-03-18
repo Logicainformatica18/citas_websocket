@@ -210,6 +210,7 @@ export function AppSidebar() {
                     <MenuItem href="/methodologies" icon={<Workflow className={colorAlign} />} label="Metodologías" />
                     <MenuItem href="/competencies" icon={<ListChecks className={colorAlign} />} label="Competencias" />
                     <MenuItem href="/tech-positions" icon={<ListChecks className={colorAlign} />} label="Roles Tech" />
+                    <MenuItem href="/market-entities" icon={<Languages className={colorAlign} />} label="Entidades" />
                 </CollapsibleSection>
 
                 {/* ================= EXTRACCIÓN ================= */}

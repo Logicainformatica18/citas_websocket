@@ -182,16 +182,25 @@ class MarketEntityController extends Controller
     /**
      * 🗑️ Eliminar entidad
      */
- public function destroy($id)
+public function destroy($id)
 {
-    $entity = MarketEntity::findOrFail($id);
+    return DB::transaction(function () use ($id) {
 
-    $entity->careers()->detach(); // solo si es pivot
-    $entity->delete();
+        $entity = MarketEntity::findOrFail($id);
 
-    return response()->json([
-        'message' => '🗑️ Entidad eliminada correctamente.'
-    ]);
+        // 1. Eliminar relaciones pivot
+        $entity->careers()->detach();
+
+        // 2. Eliminar certifications relacionadas
+        $entity->certifications()->delete(); // 👈 ESTA ES LA CLAVE
+
+        // 3. Eliminar entidad
+        $entity->delete();
+
+        return response()->json([
+            'message' => '🗑️ Entidad eliminada correctamente.'
+        ]);
+    });
 }
 
     /**

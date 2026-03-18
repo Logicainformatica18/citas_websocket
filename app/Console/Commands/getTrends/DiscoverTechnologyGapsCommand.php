@@ -53,20 +53,34 @@ class DiscoverTechnologyGapsCommand extends Command
                 continue;
             }
 
-            $name = trim($tech['name']);
-            $slug = Str::slug($name);
 
-            if ($this->technologyExists($name, $slug)) {
-                $this->warn("⏭ Ya existe: {$name}");
-                continue;
-            }
+          $name = trim($tech['name']);
+$normalizedName = $this->normalizeName($name);
+$slug = Str::slug($normalizedName);
 
-            if ($dryRun) {
-                $this->line("🆕 {$name}");
-                continue;
-            }
+if (empty($slug)) {
+    $slug = Str::slug($name);
+}
 
-            DB::beginTransaction();
+// 1. Validación por nombre normalizado
+if ($this->technologyExists($normalizedName)) {
+    $this->warn("⏭ Ya existe: {$name}");
+    continue;
+}
+
+// 2. Validación por slug
+$existsSlug = DB::table('market_entities')
+    ->where('entity_type', 'technology')
+    ->where('slug', $slug)
+    ->exists();
+
+if ($existsSlug) {
+    $this->warn("⏭ Ya existe por slug: {$name}");
+    continue;
+}
+
+// 3. recién aquí
+DB::beginTransaction();
 
             try {
 
@@ -134,20 +148,28 @@ class DiscoverTechnologyGapsCommand extends Command
         $this->info('🏁 Finalizado');
         return Command::SUCCESS;
     }
-
+protected function normalizeName(string $name): string
+{
+    return Str::of($name)
+        ->lower()
+        ->replace(['(', ')'], '')
+        ->replaceMatches('/\b(tool|framework|platform|system)\b/', '')
+        ->replaceMatches('/\s+/', ' ')
+        ->trim()
+        ->toString();
+}
     /* ====================================================== */
 
-    protected function technologyExists(string $name, string $slug): bool
-    {
-        return DB::table('market_entities')
-            ->where('entity_type', 'technology')
-            ->where(function ($q) use ($name, $slug) {
-                $q->whereRaw('LOWER(name) = ?', [strtolower($name)])
-                  ->orWhere('slug', $slug)
-                  ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($name) . '%']);
-            })
-            ->exists();
-    }
+protected function technologyExists(string $normalizedName): bool
+{
+    return DB::table('market_entities')
+        ->where('entity_type', 'technology')
+        ->select('name')
+        ->get()
+        ->contains(function ($row) use ($normalizedName) {
+            return $this->normalizeName($row->name) === $normalizedName;
+        });
+}
 
     /* ====================================================== */
 
