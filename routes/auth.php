@@ -11,6 +11,21 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
 
+
+Route::prefix('app')->group(function () {
+    
+
+    
+
+    Route::get('saml2/logout', function () {
+        return Socialite::driver('saml2')->logoutResponse();
+    });
+
+    Route::get('logout', function () {
+        return Socialite::driver('saml2')->logoutRequest();
+    });
+});
+
 /*
 |--------------------------------------------------------------------------
 | GUEST ROUTES

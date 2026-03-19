@@ -103,10 +103,12 @@ class AuthenticatedSessionController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+        return redirect('/app/logout');
+
             // 🔥 FORZAR CAMBIO DE CUENTA EN BANNER
-            return redirect()->away(
-                'https://banner9test.isil.pe:9443/samlsso?prompt=login'
-            );
+            // return redirect()->away(
+            //     'https://banner9test.isil.pe:9443/samlsso?prompt=login'
+            // );
         }
 
         // ============================
@@ -172,9 +174,7 @@ class AuthenticatedSessionController extends Controller
 
         // 🔥 logout Banner solo si vino por SAML
         if ($isSaml) {
-            return redirect()->away(
-                'https://banner9test.isil.pe:9443/samlsso/logout'
-            );
+                 return redirect('/app/logout');
         }
 
         return redirect('/');
