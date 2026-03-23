@@ -19,7 +19,7 @@ use App\Models\MarketEntityMetric;
 
 class ComputrabajoByLanguagesCommand extends Command
 {
-      use JobFilterTrait; // 👈 usa el trait aquí
+    use JobFilterTrait; // 👈 usa el trait aquí
     protected $signature = 'computrabajo:languages {--pages=3}';
     protected $description = '🌎 Scrapea Computrabajo por cada lenguaje (ej: programador-python) y guarda métricas con geolocalización.';
 
@@ -33,98 +33,141 @@ class ComputrabajoByLanguagesCommand extends Command
         'ec' => 'Ecuador',
         've' => 'Venezuela',
     ];
-protected $currencyMap = [
-    'pe' => 'PEN',
-    'bo' => 'BOB',
-    'ar' => 'ARS',
-    'uy' => 'UYU',
-    'mx' => 'MXN',
-    'co' => 'COP',
-    'ec' => 'USD',
-    've' => 'VES',
-];
+    protected $currencyMap = [
+        'pe' => 'PEN',
+        'bo' => 'BOB',
+        'ar' => 'ARS',
+        'uy' => 'UYU',
+        'mx' => 'MXN',
+        'co' => 'COP',
+        'ec' => 'USD',
+        've' => 'VES',
+    ];
 
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
 
-    protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
+    protected function scrapeJobDetail(string $url): array
 {
-    return Language::firstOrCreate(
-        ['market_entity_id' => $marketEntityId],
-        ['name' => $languageName]
+    try {
+        $response = Http::withHeaders([
+            'User-Agent' => 'Mozilla/5.0',
+        ])->timeout(20)->get($url);
+
+        if (!$response->ok()) {
+            return [];
+        }
+
+        $crawler = new Crawler($response->body());
+
+        $description = null;
+        $salaryText = null;
+
+        // 📄 Descripción
+       if ($crawler->filter('.description_offer .t_word_wrap')->count()) {
+    $description = trim(
+        $crawler->filter('.description_offer .t_word_wrap')->text()
     );
 }
-  public function handle()
+
+        // 💰 Buscar salario más preciso
+        $crawler->filter('span')->each(function ($node) use (&$salaryText) {
+            $text = strtolower($node->text());
+
+            if (
+                str_contains($text, 's/.') ||
+                str_contains($text, '$') ||
+                str_contains($text, 'usd')
+            ) {
+                if (str_contains($text, 'mensual') || str_contains($text, 'salario')) {
+                    $salaryText = trim($node->text());
+                }
+            }
+        });
+
+        return [
+            'description' => $description,
+            'salary_text' => $salaryText,
+        ];
+
+    } catch (\Throwable $e) {
+        Log::warning("⚠️ Error scraping detalle: " . $e->getMessage());
+        return [];
+    }
+}
+    protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
+    {
+        return Language::firstOrCreate(
+            ['market_entity_id' => $marketEntityId],
+            ['name' => $languageName]
+        );
+    }
+ public function handle()
 {
-    // 🧾 Iniciar tracking del scraper
     $run = ScraperRunService::start(
-        $this->signature, // computrabajo:languages (o el signature real)
+        $this->signature,
         'Computrabajo',
         'languages'
     );
 
-    $totalFoundAll   = 0;
+    $totalFoundAll = 0;
     $totalInsertedAll = 0;
-    $totalSkippedAll  = 0;
+    $totalSkippedAll = 0;
 
     try {
 
-   $lastLanguageId = MarketEntityMetric::where('source', 'Computrabajo')
-    ->orderByDesc('created_at')
-    ->value('market_entity_id');
+        $lastLanguageId = MarketEntityMetric::where('source', 'Computrabajo')
+            ->orderByDesc('created_at')
+            ->value('market_entity_id');
 
+        $baseQuery = MarketEntity::where('entity_type', 'language')
+            ->orderBy('id');
 
-     $baseQuery = MarketEntity::where('entity_type', 'language')
-    ->orderBy('id');
-$languagesQuery = clone $baseQuery;
+        $languagesQuery = clone $baseQuery;
 
-if ($lastLanguageId) {
-    $languagesQuery->where('id', '>', $lastLanguageId);
-}
+        if ($lastLanguageId) {
+            $languagesQuery->where('id', '>', $lastLanguageId);
+        }
 
-$languages = $languagesQuery->get();
+        $languages = $languagesQuery->get();
 
-if ($languages->isEmpty()) {
-    $languages = $baseQuery->get();
-}
-
+        if ($languages->isEmpty()) {
+            $languages = $baseQuery->get();
+        }
 
         $pages = (int) $this->option('pages');
 
         $this->info("🌐 Scrapeando Computrabajo para {$languages->count()} lenguajes ({$pages} páginas por país)...");
 
-   foreach ($languages as $marketEntity) {
+        foreach ($languages as $marketEntity) {
 
-    $marketEntityId = $marketEntity->id;
-    $langName = $marketEntity->name;
+            $marketEntityId = $marketEntity->id;
+            $langName = $marketEntity->name;
 
-    // 🔥 clave: crear o recuperar language
-    $language = $this->getLanguageFromMarketEntity(
-        $marketEntityId,
-        $langName
-    );
+            $language = $this->getLanguageFromMarketEntity($marketEntityId, $langName);
+            $langId = $language->id;
 
-    $langId = $language->id;
-           
-
-$this->warn("\n💡 Lenguaje actual: {$langName}");
+            $this->warn("\n💡 Lenguaje actual: {$langName}");
 
             $totalFound = 0;
-            $totalNew   = 0;
-            $countries  = [];
+            $totalNew = 0;
+            $countries = [];
             $modalities = [];
 
-$slugLang = $this->makeSearchSlug($langName, null);
+            $slugLang = $this->makeSearchSlug($langName, null);
 
             foreach ($this->countryMap as $code => $country) {
+
                 $this->line("🌍 País: {$country}");
 
                 for ($i = 1; $i <= $pages; $i++) {
+
                     $url = "https://{$code}.computrabajo.com/trabajo-de-programador-{$slugLang}?p={$i}";
                     $this->line("🔗 Página {$i}: {$url}");
 
                     try {
+
                         $response = Http::withHeaders([
                             'User-Agent' => 'Mozilla/5.0',
                             'Accept-Language' => 'es-ES,es;q=0.9',
@@ -136,46 +179,64 @@ $slugLang = $this->makeSearchSlug($langName, null);
                         }
 
                         $crawler = new Crawler($response->body());
-                        $offers  = $crawler->filter('article[class*="box_offer"]');
+                        $offers = $crawler->filter('article[class*="box_offer"]');
 
                         if ($offers->count() === 0) {
                             continue;
                         }
 
-                        $offers->each(function (Crawler $offer)
-                            use (
-                                &$totalFound,
-                                &$totalNew,
-                                &$countries,
-                                &$modalities,
-                                &$totalInsertedAll,
-                                &$totalSkippedAll,
-                                $country,
-                                $langName,
-                              $code,
-$langId,
-$marketEntityId
-                            ) {
+                        $offers->each(function (Crawler $offer) use (
+                            &$totalFound,
+                            &$totalNew,
+                            &$countries,
+                            &$modalities,
+                            &$totalInsertedAll,
+                            &$totalSkippedAll,
+                            $country,
+                            $langName,
+                            $code,
+                            $langId,
+                            $marketEntityId
+                        ) {
 
                             try {
+
+                                // ✅ Validación
+                                if (!$offer->filter('h2 a')->count()) {
+                                    return;
+                                }
+
                                 $title = trim($offer->filter('h2 a')->text());
 
+                                // 🚫 FILTRO
                                 if (!$this->isTechRelated($title)) {
                                     $totalSkippedAll++;
                                     return;
                                 }
 
+                                // 💰 salario listado
+                                $salaryText = null;
+
+                                $offer->filter('div.fs13.mt15 span.dIB')->each(function ($node) use (&$salaryText) {
+                                    if ($node->filter('.i_salary')->count()) {
+                                        $salaryText = trim($node->text());
+                                    }
+                                });
+
+                                // 🔗 URL
+                                $href = $offer->filter('h2 a')->attr('href');
+                                $urlJob = "https://{$code}.computrabajo.com{$href}";
+
+                                // 🏢 empresa
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
                                     : null;
 
-                                $href   = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com{$href}";
-
+                                // 📍 ubicación
                                 $city = $this->extractCityFromUrl($urlJob);
                                 [$lat, $lng] = $this->getCoords($city, $country);
 
-                                // 🧭 MODALIDAD (remote / hybrid / presencial / no_precisa)
+                                // 🧭 modalidad
                                 $text = strtolower($title . ' ' . $city);
 
                                 $modality = match (true) {
@@ -200,19 +261,25 @@ $marketEntityId
                                 $countries[$country] = ($countries[$country] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
+                                // 🔍 duplicados
                                 $existingOffer = JobOffer::where('source', 'Computrabajo')
                                     ->where('url', $urlJob)
                                     ->first();
 
                                 if ($existingOffer) {
-                                   $existingOffer->languages()->syncWithoutDetaching([
-    $langId => [
-        'market_entity_id' => $marketEntityId
-    ]
-]);
+                                    $existingOffer->languages()->syncWithoutDetaching([
+                                        $langId => [
+                                            'market_entity_id' => $marketEntityId
+                                        ]
+                                    ]);
                                     $totalSkippedAll++;
                                     return;
                                 }
+
+
+
+
+                              [$salaryMin, $salaryMax, $currency] = $this->parseSalary($salaryText, $code);
 
                                 $countryNorm = match (strtolower($country)) {
                                     'peru' => 'Perú',
@@ -220,29 +287,34 @@ $marketEntityId
                                     default => ucfirst($country),
                                 };
 
+                                // 💾 guardar
                                 $offerModel = JobOffer::create([
-                                    'title'        => $title,
-                                    'company'      => $company,
-                                    'country'      => $countryNorm,
-                                    'region'       => RegionHelper::fromCountry($countryNorm),
-                                    'state_code'   => strtoupper($code),
-                                    'city'         => $city,
-                                    'latitude'     => $lat,
-                                    'longitude'    => $lng,
-                                    'modality'     => $modality,
-                                    'source'       => 'Computrabajo',
+                                    'title' => $title,
+                                    'company' => $company,
+                                    'country' => $countryNorm,
+                                    'region' => RegionHelper::fromCountry($countryNorm),
+                                    'state_code' => strtoupper($code),
+                                    'city' => $city,
+                                    'latitude' => $lat,
+                                    'longitude' => $lng,
+                                    'modality' => $modality,
+                                    'source' => 'Computrabajo',
                                     'search_query' => $langName,
-                                    'url'          => $urlJob,
+                                    'url' => $urlJob,
+                                    'salary_min' => $salaryMin,
+                                    'salary_max' => $salaryMax,
+                                    'currency' => $currency,
+                                //    'description' => $detailData['description'] ?? null,
                                     'published_at' => now(),
-                                    'created_at'   => now(),
-                                    'updated_at'   => now(),
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
                                 ]);
 
-                        $offerModel->languages()->syncWithoutDetaching([
-    $langId => [
-        'market_entity_id' => $marketEntityId
-    ]
-]);
+                                $offerModel->languages()->syncWithoutDetaching([
+                                    $langId => [
+                                        'market_entity_id' => $marketEntityId
+                                    ]
+                                ]);
 
                                 $totalNew++;
                                 $totalInsertedAll++;
@@ -263,26 +335,25 @@ $marketEntityId
                 sleep(4);
             }
 
-           MarketEntityMetric::updateOrCreate(
-    [
-        'market_entity_id' => $marketEntityId,
-        'run_date' => Carbon::today(),
-        'source' => 'Computrabajo',
-    ],
-    [
-        'entity_name' => $langName,
-        'jobs_found_count' => $totalFound,
-        'jobs_new_count' => $totalNew,
-        'countries_breakdown' => $countries,
-        'modality_breakdown' => $modalities,
-    ]
-);
+            MarketEntityMetric::updateOrCreate(
+                [
+                    'market_entity_id' => $marketEntityId,
+                    'run_date' => Carbon::today(),
+                    'source' => 'Computrabajo',
+                ],
+                [
+                    'entity_name' => $langName,
+                    'jobs_found_count' => $totalFound,
+                    'jobs_new_count' => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown' => $modalities,
+                ]
+            );
 
             $totalFoundAll += $totalFound;
             $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
         }
 
-        // ✅ Final OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -299,24 +370,24 @@ $marketEntityId
 }
 
 
-protected function makeSearchSlug(string $langName, ?string $context = null): string
-{
-    $slug = strtolower(trim($langName));
+    protected function makeSearchSlug(string $langName, ?string $context = null): string
+    {
+        $slug = strtolower(trim($langName));
 
-    // 🧠 Casos especiales
-    $slug = str_replace(['c#', 'c++', '.net'], ['c-sharp', 'c-plus-plus', 'dotnet'], $slug);
+        // 🧠 Casos especiales
+        $slug = str_replace(['c#', 'c++', '.net'], ['c-sharp', 'c-plus-plus', 'dotnet'], $slug);
 
-    // Limpieza general
-    $slug = str_replace(['#', '+', '.', ' ', '/', '\\'], ['sharp', 'plus', '', '-', '-', '-'], $slug);
+        // Limpieza general
+        $slug = str_replace(['#', '+', '.', ' ', '/', '\\'], ['sharp', 'plus', '', '-', '-', '-'], $slug);
 
-    // Agregar contexto si existe
-    if ($context) {
-        $contextSlug = str_replace(' ', '-', strtolower($context));
-        return "{$contextSlug}-{$slug}";
+        // Agregar contexto si existe
+        if ($context) {
+            $contextSlug = str_replace(' ', '-', strtolower($context));
+            return "{$contextSlug}-{$slug}";
+        }
+
+        return $slug;
     }
-
-    return $slug;
-}
 
 
 
@@ -329,49 +400,49 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
     }
 
     protected function mapModality(string $text): string
-{
-    $t = strtolower($text);
+    {
+        $t = strtolower($text);
 
-    // 🟡 1. HÍBRIDO (combinaciones claras)
-    if (
-        (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
-        (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
-        str_contains($t, 'híbrido') ||
-        str_contains($t, 'hybrid') ||
-        str_contains($t, 'mixto') ||
-        str_contains($t, 'parcial')
-    ) {
-        return 'hybrid';
+        // 🟡 1. HÍBRIDO (combinaciones claras)
+        if (
+            (str_contains($t, 'presencial') && str_contains($t, 'remoto')) ||
+            (str_contains($t, 'presencial') && str_contains($t, 'teletrabajo')) ||
+            (str_contains($t, 'presencial') && str_contains($t, 'home office')) ||
+            str_contains($t, 'híbrido') ||
+            str_contains($t, 'hybrid') ||
+            str_contains($t, 'mixto') ||
+            str_contains($t, 'parcial')
+        ) {
+            return 'hybrid';
+        }
+
+        // 🔵 2. REMOTO PURO
+        if (
+            str_contains($t, 'remoto') ||
+            str_contains($t, 'remote') ||
+            str_contains($t, 'teletrabajo') ||
+            str_contains($t, 'home office') ||
+            str_contains($t, 'work from home') ||
+            str_contains($t, 'anywhere')
+        ) {
+            return 'remote';
+        }
+
+        // 🟢 3. PRESENCIAL EXPLÍCITO
+        if (
+            str_contains($t, 'presencial') ||
+            str_contains($t, 'oficina') ||
+            str_contains($t, 'onsite') ||
+            str_contains($t, 'on site') ||
+            str_contains($t, 'en sede') ||
+            str_contains($t, 'in situ')
+        ) {
+            return 'presencial';
+        }
+
+        // ⚪ 4. NO PRECISA (no hay señal clara)
+        return 'no_precisa';
     }
-
-    // 🔵 2. REMOTO PURO
-    if (
-        str_contains($t, 'remoto') ||
-        str_contains($t, 'remote') ||
-        str_contains($t, 'teletrabajo') ||
-        str_contains($t, 'home office') ||
-        str_contains($t, 'work from home') ||
-        str_contains($t, 'anywhere')
-    ) {
-        return 'remote';
-    }
-
-    // 🟢 3. PRESENCIAL EXPLÍCITO
-    if (
-        str_contains($t, 'presencial') ||
-        str_contains($t, 'oficina') ||
-        str_contains($t, 'onsite') ||
-        str_contains($t, 'on site') ||
-        str_contains($t, 'en sede') ||
-        str_contains($t, 'in situ')
-    ) {
-        return 'presencial';
-    }
-
-    // ⚪ 4. NO PRECISA (no hay señal clara)
-    return 'no_precisa';
-}
 
 
     protected function getCoords($city, $country)
@@ -384,10 +455,10 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
             $res = Http::withHeaders([
                 'User-Agent' => 'LaravelJobScraper/1.0'
             ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
-                'q' => "$city, $country",
-                'format' => 'json',
-                'limit' => 1,
-            ]);
+                        'q' => "$city, $country",
+                        'format' => 'json',
+                        'limit' => 1,
+                    ]);
 
             if ($res->ok() && count($res->json()) > 0) {
                 $data = $res->json()[0];
@@ -400,28 +471,30 @@ protected function makeSearchSlug(string $langName, ?string $context = null): st
         return [self::DEFAULT_LAT, self::DEFAULT_LNG];
     }
     protected function parseSalary(?string $text, ?string $countryCode): array
-{
-    if (!$text) return [null, null, $this->currencyMap[$countryCode] ?? null];
+    {
+        if (!$text)
+            return [null, null, $this->currencyMap[$countryCode] ?? null];
 
-    $currency = match (true) {
-        str_contains($text, 'US$') => 'USD',
-        str_contains($text, 'S/')  => 'PEN',
-        str_contains($text, '$')   => $this->currencyMap[$countryCode] ?? 'USD',
-        default                    => $this->currencyMap[$countryCode] ?? null,
-    };
+        $currency = match (true) {
+            str_contains($text, 'US$') => 'USD',
+            str_contains($text, 'S/') => 'PEN',
+            str_contains($text, '$') => $this->currencyMap[$countryCode] ?? 'USD',
+            default => $this->currencyMap[$countryCode] ?? null,
+        };
 
-    preg_match_all('/[\d.,]+/', $text, $matches);
-    if (empty($matches[0])) return [null, null, $currency];
+        preg_match_all('/[\d.,]+/', $text, $matches);
+        if (empty($matches[0]))
+            return [null, null, $currency];
 
-    $values = array_map(
-        fn($v) => floatval(str_replace(',', '', preg_replace('/[^\d,\.]/', '', $v))),
-        $matches[0]
-    );
+        $values = array_map(
+            fn($v) => floatval(str_replace(',', '', preg_replace('/[^\d,\.]/', '', $v))),
+            $matches[0]
+        );
 
-    $min = $values[0] ?? null;
-    $max = $values[1] ?? $min;
+        $min = $values[0] ?? null;
+        $max = $values[1] ?? $min;
 
-    return [$min, $max, $currency];
-}
+        return [$min, $max, $currency];
+    }
 
 }
