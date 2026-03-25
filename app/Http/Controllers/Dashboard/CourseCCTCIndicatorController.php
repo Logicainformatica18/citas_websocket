@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\CCTCService;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\AnalyzeCourseJob;
 class CourseCCTCIndicatorController extends Controller
 {
 
@@ -791,12 +792,10 @@ public function getCourseRecommendation(int $courseId)
 }
 public function analyzeWithAI(int $courseId)
 {
-    Artisan::call('curriculum:analyze-course', [
-        'course_id' => $courseId
-    ]);
+    AnalyzeCourseJob::dispatch($courseId);
 
     return response()->json([
-        'status' => 'ok'
+        'status' => 'queued'
     ]);
 }
 
