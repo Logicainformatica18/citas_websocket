@@ -181,26 +181,29 @@ public function getCourses(int $careerId, int $year): Collection
 
     $marketCourses = collect()
         ->merge(
-            DB::table('course_language as cl')
-                ->join('language_job as lj', 'lj.language_id', '=', 'cl.language_id')
-                ->join('job_offers as jo', 'jo.id', '=', 'lj.job_offer_id')
-                ->whereYear('jo.published_at', $year)
-                ->pluck('cl.course_id')
+          DB::table('course_language as cl')
+    ->join('language_job as lj', 'lj.language_id', '=', 'cl.language_id')
+    ->join('job_offers as jo', 'jo.id', '=', 'lj.job_offer_id')
+    ->whereIn('cl.course_id', $courseIds) // 🔥 ESTE ES EL FIX
+    ->whereYear('jo.published_at', $year)
+    ->pluck('cl.course_id')
         )
-        ->merge(
-            DB::table('course_technology as ct')
-                ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
-                ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
-                ->whereYear('jo.published_at', $year)
-                ->pluck('ct.course_id')
-        )
-        ->merge(
-            DB::table('course_methodology as cm')
-                ->join('methodology_job as mj', 'mj.methodology_id', '=', 'cm.methodology_id')
-                ->join('job_offers as jo', 'jo.id', '=', 'mj.job_offer_id')
-                ->whereYear('jo.published_at', $year)
-                ->pluck('cm.course_id')
-        )
+       ->merge(
+    DB::table('course_technology as ct')
+        ->join('technology_job as tj', 'tj.technology_id', '=', 'ct.technology_id')
+        ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
+        ->whereIn('ct.course_id', $courseIds) // 🔥 AGREGAR ESTA LÍNEA
+        ->whereYear('jo.published_at', $year)
+        ->pluck('ct.course_id')
+)
+      ->merge(
+    DB::table('course_methodology as cm')
+        ->join('methodology_job as mj', 'mj.methodology_id', '=', 'cm.methodology_id')
+        ->join('job_offers as jo', 'jo.id', '=', 'mj.job_offer_id')
+        ->whereIn('cm.course_id', $courseIds) // 🔥 AGREGAR ESTA LÍNEA
+        ->whereYear('jo.published_at', $year)
+        ->pluck('cm.course_id')
+)
         ->unique()
         ->flip();
 
@@ -211,22 +214,25 @@ public function getCourses(int $careerId, int $year): Collection
     $trendCourses = collect()
         ->merge(
             DB::table('course_language as cl')
-                ->join('languages as l', 'l.id', '=', 'cl.language_id')
-                ->join('entity_trends as et', 'et.market_entity_id', '=', 'l.market_entity_id')
+            ->join('languages as l', 'l.id', '=', 'cl.language_id')
+            ->join('entity_trends as et', 'et.market_entity_id', '=', 'l.market_entity_id')
+            ->whereIn('cl.course_id', $courseIds)
                 ->where('et.year', $year)
                 ->pluck('cl.course_id')
         )
         ->merge(
             DB::table('course_technology as ct')
-                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-                ->join('entity_trends as et', 'et.market_entity_id', '=', 't.market_entity_id')
+            ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+            ->join('entity_trends as et', 'et.market_entity_id', '=', 't.market_entity_id')
+            ->whereIn('ct.course_id', $courseIds)
                 ->where('et.year', $year)
                 ->pluck('ct.course_id')
         )
         ->merge(
             DB::table('course_methodology as cm')
-                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
-                ->join('entity_trends as et', 'et.market_entity_id', '=', 'm.market_entity_id')
+            ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+            ->join('entity_trends as et', 'et.market_entity_id', '=', 'm.market_entity_id')
+            ->whereIn('cm.course_id', $courseIds)
                 ->where('et.year', $year)
                 ->pluck('cm.course_id')
         )
@@ -243,57 +249,58 @@ $courseCompetencies = DB::table('competency_course as cc')
     ->select('cc.course_id', DB::raw('COUNT(*) as total'))
     ->groupBy('cc.course_id')
     ->pluck('total', 'course_id');
-    return $courses->map(function ($course) use (
-        $languageCourses,
-        $technologyCourses,
-        $methodologyCourses,
-        $marketCourses,
-        $trendCourses,
-         $courseCompetencies
-    ) {
+  return $courses->map(function ($course) use (
+    $languageCourses,
+    $technologyCourses,
+    $methodologyCourses,
+    $marketCourses,
+    $trendCourses,
+    $courseCompetencies
+) {
 
-        // 🔹 Dimensiones estructurales
-        $hasLanguage    = isset($languageCourses[$course->id]);
-        $hasTechnology  = isset($technologyCourses[$course->id]);
-        $hasMethodology = isset($methodologyCourses[$course->id]);
+    $course = (array) $course; // 🔥🔥🔥 ESTA ES LA CLAVE
 
-        $connectionCount =
-            ($hasLanguage ? 1 : 0) +
-            ($hasTechnology ? 1 : 0) +
-            ($hasMethodology ? 1 : 0);
+    $courseId = $course['id'];
 
-        $status = match ($connectionCount) {
-            0 => 'No alineado',
-            1 => 'Alineado',
-            2 => 'Altamente alineado',
-            3 => 'Estrategicamente alineado',
-        };
+    // 🔹 Dimensiones estructurales
+    $hasLanguage    = isset($languageCourses[$courseId]);
+    $hasTechnology  = isset($technologyCourses[$courseId]);
+    $hasMethodology = isset($methodologyCourses[$courseId]);
 
-        // 🔹 Señales de mercado
-        $hasMarket = isset($marketCourses[$course->id]);
-        $hasTrend  = isset($trendCourses[$course->id]);
+    $connectionCount =
+        ($hasLanguage ? 1 : 0) +
+        ($hasTechnology ? 1 : 0) +
+        ($hasMethodology ? 1 : 0);
 
-        return [
-            'id' => $course->id,
-            'name' => $course->name,
+    $status = match ($connectionCount) {
+        0 => 'No alineado',
+        1 => 'Alineado',
+        2 => 'Altamente alineado',
+        3 => 'Estrategicamente alineado',
+    };
 
-            // 🟦 Estructural
-            'estado' => $status,
-            'connections' => $connectionCount,
-            'language_match' => $hasLanguage,
-            'technology_match' => $hasTechnology,
-            'methodology_match' => $hasMethodology,
-     
+    // 🔹 Señales de mercado
+    $hasMarket = isset($marketCourses[$courseId]);
+    $hasTrend  = isset($trendCourses[$courseId]);
 
-            // 🟩 Mercado
-            'market_match' => $hasMarket,
-            'trend_match'  => $hasTrend,
-            'empleo' => $hasMarket ? 'Demanda activa' : 'Sin demanda',
-            'tendencias' => $hasTrend ? 'Detectado' : 'No detectado',
-                   'competencias' => $courseCompetencies[$course->id] ?? 0,
+    return [
+        'id' => $courseId,
+        'name' => $course['name'],
 
-        ];
-    });
+        'estado' => $status,
+        'connections' => $connectionCount,
+        'language_match' => $hasLanguage,
+        'technology_match' => $hasTechnology,
+        'methodology_match' => $hasMethodology,
+
+        'market_match' => $hasMarket,
+        'trend_match'  => $hasTrend,
+        'empleo' => $hasMarket ? 'Demanda activa' : 'Sin demanda',
+        'tendencias' => $hasTrend ? 'Detectado' : 'No detectado',
+
+        'competencias' => $courseCompetencies[$courseId] ?? 0,
+    ];
+});
 }
 
 

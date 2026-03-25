@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\CCTCService;
+use Illuminate\Support\Facades\Log;
 class CourseCCTCIndicatorController extends Controller
 {
 
@@ -20,6 +21,8 @@ public function __construct(CCTCService $cctc)
     /* =====================================================
        INDEX
     ===================================================== */
+
+
 public function index(Request $request)
 {
     [
@@ -30,11 +33,18 @@ public function index(Request $request)
         $range
     ] = $this->resolveParams($request);
 
+    Log::info('INICIO REQUEST', [
+        'careerId' => $careerId,
+        'year' => $year,
+        'period' => $period
+    ]);
+
     $mode = $request->get('view', 'courses');
 
     $availableCareers = $this->getAvailableCareers();
 
     if (!$careerId) {
+        Log::warning('SIN CAREER ID');
         return $this->renderEmpty(
             $availableCareers,
             [],
@@ -52,81 +62,129 @@ public function index(Request $request)
     );
 
     $data = $mode === 'competencies'
-    ? $this->cctc->getCompetencies($careerId, $year)
-    : $this->cctc->getCourses($careerId, $year);
+        ? $this->cctc->getCompetencies($careerId, $year)
+        : $this->cctc->getCourses($careerId, $year);
 
-$totalCourses = collect($data)->count();
+    Log::info('DATA CARGADA', [
+        'count' => count($data),
+        'first' => $data[0] ?? null
+    ]);
 
-/* ===============================
-   1️⃣ Cursos con señal de mercado
-=============================== */
+    $totalCourses = collect($data)->count();
 
-$marketAligned = collect($data)
-    ->whereIn('estado', [
-        'Estrategicamente alineado',
-        'Altamente alineado',
-        'Alineado'
-    ])
-    ->count();
+    $marketAligned = collect($data)
+        ->whereIn('estado', [
+            'Estrategicamente alineado',
+            'Altamente alineado',
+            'Alineado'
+        ])
+        ->count();
 
-/* ===============================
-   2️⃣ Cursos con tendencia
-   (usamos entity_trends por curso)
-=============================== */
+    /* ===============================
+       🔥 BLOQUE CRÍTICO CON LOGS
+    =============================== */
 
-$trendAligned = collect($data)
-    ->filter(function ($course) use ($careerId) {
+    $trendAligned = collect($data)
+        ->filter(function ($course) use ($careerId) {
 
-        $entityIds = DB::table('course_language as cl')
-            ->join('languages as l', 'l.id', '=', 'cl.language_id')
-            ->where('cl.course_id', $course['id'])
-            ->pluck('l.market_entity_id')
-            ->merge(
-                DB::table('course_technology as ct')
-                    ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-                    ->where('ct.course_id', $course['id'])
-                    ->pluck('t.market_entity_id')
-            )
-            ->merge(
-                DB::table('course_methodology as cm')
-                    ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
-                    ->where('cm.course_id', $course['id'])
-                    ->pluck('m.market_entity_id')
-            )
-            ->unique();
+            try {
 
-        return DB::table('entity_trends')
-            ->whereIn('market_entity_id', $entityIds)
-            ->exists();
-    })
-    ->count();
+                Log::info('COURSE ENTRANDO AL FILTER', [
+                    'course' => $course,
+                    'type' => gettype($course)
+                ]);
 
-/* ===============================
-   3️⃣ Cálculos porcentuales
-=============================== */
+                // 🔥 Detectar si es array u objeto
+                $courseId = is_array($course)
+                    ? ($course['id'] ?? null)
+                    : ($course->id ?? null);
 
-$marketRate = $totalCourses > 0
-    ? ($marketAligned / $totalCourses) * 100
-    : 0;
+                Log::info('COURSE ID DETECTADO', [
+                    'courseId' => $courseId
+                ]);
 
-$trendRate = $totalCourses > 0
-    ? ($trendAligned / $totalCourses) * 100
-    : 0;
+                if (!$courseId) {
+                    Log::error('COURSE SIN ID', [
+                        'course' => $course
+                    ]);
+                    return false;
+                }
 
-/* ===============================
-   4️⃣ KPI FINAL (sin pesos)
-=============================== */
+                $entityIds = DB::table('course_language as cl')
+                    ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                    ->where('cl.course_id', $courseId)
+                    ->pluck('l.market_entity_id')
+                    ->merge(
+                        DB::table('course_technology as ct')
+                            ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                            ->where('ct.course_id', $courseId)
+                            ->pluck('t.market_entity_id')
+                    )
+                    ->merge(
+                        DB::table('course_methodology as cm')
+                            ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                            ->where('cm.course_id', $courseId)
+                            ->pluck('m.market_entity_id')
+                    )
+                    ->unique();
 
-$finalIndex = $totalCourses > 0
-    ? (($marketRate + $trendRate) / 2)
-    : 0;
+                Log::info('ENTITY IDS', [
+                    'courseId' => $courseId,
+                    'ids' => $entityIds
+                ]);
 
-/* ===============================
-   5️⃣ GAP (sin ninguna señal)
-=============================== */
+                if ($entityIds->isEmpty()) {
+                    return false;
+                }
 
-$gapTotal = $totalCourses - $marketAligned;
+                $exists = DB::table('entity_trends')
+                    ->whereIn('market_entity_id', $entityIds)
+                    ->exists();
 
+                Log::info('TREND EXISTS', [
+                    'courseId' => $courseId,
+                    'exists' => $exists
+                ]);
+
+                return $exists;
+
+            } catch (\Throwable $e) {
+
+                Log::error('ERROR EN FILTER', [
+                    'message' => $e->getMessage(),
+                    'line' => $e->getLine(),
+                    'file' => $e->getFile(),
+                    'course' => $course
+                ]);
+
+                return false;
+            }
+        })
+        ->count();
+
+    /* ===============================
+       KPIs
+    =============================== */
+
+    $marketRate = $totalCourses > 0
+        ? ($marketAligned / $totalCourses) * 100
+        : 0;
+
+    $trendRate = $totalCourses > 0
+        ? ($trendAligned / $totalCourses) * 100
+        : 0;
+
+    $finalIndex = $totalCourses > 0
+        ? (($marketRate + $trendRate) / 2)
+        : 0;
+
+    $gapTotal = $totalCourses - $marketAligned;
+
+    Log::info('RESULTADOS KPI', [
+        'totalCourses' => $totalCourses,
+        'marketAligned' => $marketAligned,
+        'trendAligned' => $trendAligned
+    ]);
 
     return Inertia::render(
         'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
@@ -141,12 +199,11 @@ $gapTotal = $totalCourses - $marketAligned;
             'data' => $data,
             'meta' => $meta,
             'final_index' => round($finalIndex, 1),
-'market_rate' => round($marketRate, 1),
-'trend_rate'  => round($trendRate, 1),
-'gap_total'   => $gapTotal,
-'aligned_count' => $marketAligned,
-'total_courses' => $totalCourses,
-
+            'market_rate' => round($marketRate, 1),
+            'trend_rate'  => round($trendRate, 1),
+            'gap_total'   => $gapTotal,
+            'aligned_count' => $marketAligned,
+            'total_courses' => $totalCourses,
         ]
     );
 }
