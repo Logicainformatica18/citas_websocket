@@ -47,7 +47,17 @@ class ComputrabajoByLanguagesCommand extends Command
     const DEFAULT_LAT = -12.046374;
     const DEFAULT_LNG = -77.042793;
 
+protected function normalizeUrl(string $url): string
+{
+    // quitar hash (#)
+    $url = explode('#', $url)[0];
 
+    // quitar query params (por si acaso)
+    $url = explode('?', $url)[0];
+
+    // limpiar slash final
+    return rtrim($url, '/');
+}
     protected function scrapeJobDetail(string $url): array
 {
     try {
@@ -224,8 +234,9 @@ class ComputrabajoByLanguagesCommand extends Command
                                 });
 
                                 // 🔗 URL
-                                $href = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com{$href}";
+                             $href = $offer->filter('h2 a')->attr('href');
+$urlJob = "https://{$code}.computrabajo.com{$href}";
+$urlJob = $this->normalizeUrl($urlJob);
 
                                 // 🏢 empresa
                                 $company = $offer->filter('p.fc_base a')->count()

@@ -14,15 +14,24 @@ class CompanyIndicatorController extends Controller
 {
 public function companyJobs(Request $request, $company)
 {
+    $country = $request->get('country'); // 👈 importante
+
     $jobs = DB::table('job_offers')
         ->select(
             'id',
             'title',
             'country',
             'published_at',
-            'url'   // 🔹 agregar url
+            'url'
         )
-        ->where('company', 'LIKE', "%{$company}%")
+        ->where('company', 'LIKE', "%{$company}%");
+
+    // 👉 aplicar filtro si existe
+    if ($country) {
+        $jobs->where('country', $country);
+    }
+
+    $jobs = $jobs
         ->orderByDesc('published_at')
         ->paginate(5);
 
