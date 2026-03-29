@@ -14,28 +14,37 @@ class CompanyIndicatorController extends Controller
 {
 public function companyJobs(Request $request, $company)
 {
-    $country = $request->get('country'); // 👈 importante
+    $country = $request->get('country');
 
-    $jobs = DB::table('job_offers')
-        ->select(
-            'id',
-            'title',
-            'country',
-            'published_at',
-            'url'
-        )
-        ->where('company', 'LIKE', "%{$company}%");
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
 
-    // 👉 aplicar filtro si existe
+    $range = $period === 's1'
+        ? ['start' => "$year-01-01", 'end' => "$year-06-30"]
+        : ['start' => "$year-07-01", 'end' => "$year-12-31"];
+
+    $regionSql = $this->normalizedRegionSql();
+
+    $query = DB::table('job_offers')
+        ->select('id','title','country','published_at','url')
+        ->whereNotNull('company')
+        ->whereBetween('published_at', [$range['start'], $range['end']])
+        ->whereRaw("$regionSql <> 'Desconocido'")
+      ->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))]);
+
     if ($country) {
-        $jobs->where('country', $country);
+        $query->where('country', $country);
     }
-
-    $jobs = $jobs
+ 
+    $jobs = $query
         ->orderByDesc('published_at')
         ->paginate(5);
 
-    $jobs->withPath("/dashboard/indicators/companies/$company/jobs");
+    Log::info('MODAL FILTER', [
+        'company' => $company,
+        'country' => $country,
+        'range'   => $range
+    ]);
 
     return response()->json($jobs);
 }
@@ -124,8 +133,12 @@ $baseQuery = DB::table('job_offers')
            3️⃣ Ranking global (KPIs)
         ========================================= */
         $fullRanking = (clone $baseQuery)
-            ->selectRaw("company, COUNT(*) as total_vacancies")
-            ->groupBy('company')
+            ->selectRaw("
+    UPPER(TRIM(company)) as company_normalized,
+    MIN(company) as company,
+    COUNT(*) as total_vacancies
+")
+->groupBy('company_normalized')
             ->orderByDesc('total_vacancies')
             ->get();
 
@@ -141,12 +154,16 @@ $baseQuery = DB::table('job_offers')
         /* =========================================
            4️⃣ Ranking paginado
         ========================================= */
-        $companies = (clone $baseQuery)
-            ->selectRaw("company, COUNT(*) as total_vacancies")
-            ->groupBy('company')
-            ->orderByDesc('total_vacancies')
-            ->paginate($perPage)
-            ->withQueryString();
+      $companies = (clone $baseQuery)
+    ->selectRaw("
+        UPPER(TRIM(company)) as company_normalized,
+        MIN(company) as company,
+        COUNT(*) as total_vacancies
+    ")
+    ->groupBy('company_normalized')
+    ->orderByDesc('total_vacancies')
+    ->paginate($perPage)
+    ->withQueryString();
 
         /* =========================================
            5️⃣ Regiones NORMALIZADAS (para filtro)

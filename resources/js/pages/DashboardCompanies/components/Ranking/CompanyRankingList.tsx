@@ -3,9 +3,11 @@
 import { useState } from "react"
 import CompanyJobsModal from "./CompanyJobsModal"
 
-export default function CompanyRankingList({ ranking }: any) {
+export default function CompanyRankingList({ ranking, filters }: any) {
 
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
 
   return (
     <>
@@ -33,7 +35,14 @@ export default function CompanyRankingList({ ranking }: any) {
 
                 <td
                   className="p-3 font-medium text-blue-600 hover:underline cursor-pointer"
-                  onClick={() => setSelectedCompany(row.company)}
+                  onClick={() => {
+                    setSelectedCompany(row.company)
+
+                    // 🔥 CLAVE: usa el country del filtro activo
+                    setSelectedCountry(filters?.country || null)
+
+                    setOpen(true)
+                  }}
                 >
                   {row.company}
                 </td>
@@ -52,12 +61,13 @@ export default function CompanyRankingList({ ranking }: any) {
 
       </div>
 
+      {/* MODAL */}
       <CompanyJobsModal
         company={selectedCompany}
-        open={Boolean(selectedCompany)}
-        onClose={() => setSelectedCompany(null)}
+        country={selectedCountry}
+        open={open}
+        onClose={() => setOpen(false)}
       />
-
     </>
   )
 }

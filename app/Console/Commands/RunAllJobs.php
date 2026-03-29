@@ -231,7 +231,7 @@ class RunAllJobs extends Command
 'normalize:peru-regions',
 // //asigna el valor en market_entity_id sincronizando languaje, metodology, technology JOBS
 'market:fix-null-entities',
-
+'computrabajo:clean-all'
 ];
 
         $total = count($commands);

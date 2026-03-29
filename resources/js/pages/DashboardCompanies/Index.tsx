@@ -56,6 +56,10 @@ export default function CompanyIndicatorIndex() {
   const { ranking, meta, filters, regions } =
     usePage<PageProps>().props;
 
+    const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
+const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+const [open, setOpen] = useState(false)
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Indicador | Ranking de Empresas | Observatorio ISIL" />
@@ -95,10 +99,16 @@ export default function CompanyIndicatorIndex() {
               />
 
               {/* ================= RANKING ================= */}
-              <CompanyRankingList
-                ranking={ranking.data}
-                pagination={ranking}
-              />
+           <CompanyRankingList
+  ranking={ranking.data}
+  pagination={ranking}
+    filters={filters} // 🔥 ESTA LÍNEA FALTABA
+  onSelect={(company: string, country: string) => {
+    setSelectedCompany(company)
+    setSelectedCountry(country) // 🔥 ESTA ES LA CLAVE
+    setOpen(true)
+  }}
+/>
 
               {/* ================= PAGINACIÓN ================= */}
               <CompanyPagination paginator={ranking} />

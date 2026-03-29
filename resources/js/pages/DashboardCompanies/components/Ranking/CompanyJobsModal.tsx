@@ -22,22 +22,23 @@ type Job = {
 
 type Props = {
   company: string | null
+  country?: string | null
   open: boolean
   onClose: () => void
 }
 
-export default function CompanyJobsModal({ company, open, onClose }: Props) {
+export default function CompanyJobsModal({ company, country, open, onClose }) {
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (company && open) {
-      loadJobs(1)
-    }
-  }, [company, open])
+useEffect(() => {
+  if (company && open) {
+    loadJobs(1)
+  }
+}, [company, open, country])
 
   async function loadJobs(pageNumber: number) {
 
@@ -47,9 +48,15 @@ export default function CompanyJobsModal({ company, open, onClose }: Props) {
 
     try {
 
-      const res = await axios.get(
-        `/dashboard/indicators/companies/${encodeURIComponent(company)}/jobs?page=${pageNumber}`
-      )
+    const res = await axios.get(
+  `/dashboard/indicators/companies/${encodeURIComponent(company)}/jobs`,
+  {
+  params: {
+  page: pageNumber,
+  ...(country ? { country } : {})
+}
+  }
+)
 
       setJobs(res.data.data)
       setPagination(res.data)
