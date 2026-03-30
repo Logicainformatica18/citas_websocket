@@ -8,7 +8,7 @@ export default function CompanyRankingList({ ranking, filters }: any) {
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-
+console.log("FILTERS EN RANKING:", filters)
   return (
     <>
       <div className="rounded-xl border overflow-hidden">
@@ -65,6 +65,7 @@ export default function CompanyRankingList({ ranking, filters }: any) {
       <CompanyJobsModal
         company={selectedCompany}
         country={selectedCountry}
+          filters={filters} // 🔥 ESTA LÍNEA SOLUCIONA TODO
         open={open}
         onClose={() => setOpen(false)}
       />

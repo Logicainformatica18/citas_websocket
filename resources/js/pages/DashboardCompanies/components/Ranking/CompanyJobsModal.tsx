@@ -20,25 +20,37 @@ type Job = {
   url: string
 }
 
+type Filters = {
+  year: number
+  period: "s1" | "s2"
+}
+
 type Props = {
   company: string | null
   country?: string | null
+  filters: Filters // 🔥 NUEVO
   open: boolean
   onClose: () => void
 }
 
-export default function CompanyJobsModal({ company, country, open, onClose }) {
+export default function CompanyJobsModal({
+  company,
+  country,
+  filters,
+  open,
+  onClose
+}: Props) {
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
-useEffect(() => {
-  if (company && open) {
-    loadJobs(1)
-  }
-}, [company, open, country])
+  useEffect(() => {
+    if (company && open) {
+      loadJobs(1)
+    }
+  }, [company, open, country, filters]) // 🔥 IMPORTANTE
 
   async function loadJobs(pageNumber: number) {
 
@@ -48,15 +60,17 @@ useEffect(() => {
 
     try {
 
-    const res = await axios.get(
-  `/dashboard/indicators/companies/${encodeURIComponent(company)}/jobs`,
-  {
-  params: {
-  page: pageNumber,
-  ...(country ? { country } : {})
-}
-  }
-)
+      const res = await axios.get(
+        `/dashboard/indicators/companies/${encodeURIComponent(company)}/jobs`,
+        {
+          params: {
+            page: pageNumber,
+            period: filters.period, // 🔥 AQUÍ ESTÁ LA CLAVE
+            year: filters.year,     // 🔥 AQUÍ TAMBIÉN
+            ...(country ? { country } : {})
+          }
+        }
+      )
 
       setJobs(res.data.data)
       setPagination(res.data)
@@ -76,12 +90,10 @@ useEffect(() => {
   if (!open) return null
 
   return (
-
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
       onClick={onClose}
     >
-
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-[780px] max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl
@@ -91,7 +103,6 @@ useEffect(() => {
       >
 
         {/* HEADER */}
-
         <div className="flex justify-between items-center mb-6">
 
           <div className="flex items-center gap-3">
@@ -126,7 +137,6 @@ useEffect(() => {
         </div>
 
         {/* LOADING */}
-
         {loading ? (
 
           <div className="py-16 text-center text-slate-500 dark:text-slate-400">
@@ -138,7 +148,6 @@ useEffect(() => {
           <>
 
             {/* TABLA */}
-
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
 
               <table className="w-full text-sm">
@@ -147,21 +156,10 @@ useEffect(() => {
 
                   <tr className="text-slate-600 dark:text-slate-300">
 
-                    <th className="p-3 text-left">
-                      Puesto
-                    </th>
-
-                    <th className="p-3 text-left">
-                      País
-                    </th>
-
-                    <th className="p-3 text-left">
-                      Publicado
-                    </th>
-
-                    <th className="p-3 text-center">
-                      Oferta
-                    </th>
+                    <th className="p-3 text-left">Puesto</th>
+                    <th className="p-3 text-left">País</th>
+                    <th className="p-3 text-left">Publicado</th>
+                    <th className="p-3 text-center">Oferta</th>
 
                   </tr>
 
@@ -170,21 +168,16 @@ useEffect(() => {
                 <tbody>
 
                   {jobs.length === 0 && (
-
                     <tr>
-
                       <td colSpan={4} className="py-10 text-center text-slate-500 dark:text-slate-400">
                         No hay empleos registrados
                       </td>
-
                     </tr>
-
                   )}
 
                   {jobs.map((job) => (
 
-                    <tr
-                      key={job.id}
+                    <tr key={job.id}
                       className="border-b border-slate-200 dark:border-slate-700
                       hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                     >
@@ -194,49 +187,32 @@ useEffect(() => {
                       </td>
 
                       <td className="p-3">
-
                         <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                           <MapPin size={14} />
                           {job.country}
                         </div>
-
                       </td>
 
                       <td className="p-3">
-
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                           <Calendar size={14} />
                           {job.published_at}
                         </div>
-
                       </td>
 
-                      {/* ENLACE A LA OFERTA */}
-
                       <td className="p-3 text-center">
-
                         {job.url ? (
-
                           <a
                             href={job.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-600
-                            hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300
-                            font-medium"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                           >
-                            Ver
-                            <ExternalLink size={14} />
+                            Ver <ExternalLink size={14} />
                           </a>
-
                         ) : (
-
-                          <span className="text-slate-400 text-sm">
-                            —
-                          </span>
-
+                          <span className="text-slate-400 text-sm">—</span>
                         )}
-
                       </td>
 
                     </tr>
@@ -250,7 +226,6 @@ useEffect(() => {
             </div>
 
             {/* PAGINACIÓN */}
-
             {pagination && pagination.last_page > 1 && (
 
               <div className="flex items-center justify-center gap-4 mt-6">
@@ -279,8 +254,7 @@ useEffect(() => {
                   hover:bg-slate-100 dark:hover:bg-slate-800
                   disabled:opacity-40"
                 >
-                  Siguiente
-                  <ChevronRight size={16} />
+                  Siguiente <ChevronRight size={16} />
                 </button>
 
               </div>
@@ -294,6 +268,5 @@ useEffect(() => {
       </div>
 
     </div>
-
   )
 }

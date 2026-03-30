@@ -15,9 +15,8 @@ class CompanyIndicatorController extends Controller
 public function companyJobs(Request $request, $company)
 {
     $country = $request->get('country');
-
-    $year   = (int) $request->get('year', 2026);
-    $period = $request->get('period', 's1');
+    $year    = (int) $request->get('year', 2026);
+    $period  = $request->get('period', 's1');
 
     $range = $period === 's1'
         ? ['start' => "$year-01-01", 'end' => "$year-06-30"]
@@ -26,25 +25,24 @@ public function companyJobs(Request $request, $company)
     $regionSql = $this->normalizedRegionSql();
 
     $query = DB::table('job_offers')
-        ->select('id','title','country','published_at','url')
+        ->select('id', 'title', 'country', 'published_at', 'url')
         ->whereNotNull('company')
         ->whereBetween('published_at', [$range['start'], $range['end']])
         ->whereRaw("$regionSql <> 'Desconocido'")
-      ->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))]);
+        ->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))]);
 
     if ($country) {
         $query->where('country', $country);
     }
- 
+Log::info('MODAL PARAMS', [
+    'company' => $company,
+    'period'  => $request->get('period'),
+    'year'    => $request->get('year'),
+    'country' => $request->get('country'),
+]);
     $jobs = $query
         ->orderByDesc('published_at')
         ->paginate(5);
-
-    Log::info('MODAL FILTER', [
-        'company' => $company,
-        'country' => $country,
-        'range'   => $range
-    ]);
 
     return response()->json($jobs);
 }
