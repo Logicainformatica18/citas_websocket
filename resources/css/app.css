@@ -262,4 +262,49 @@
 /* 🔥 OVERRIDE REAL resize handle */
 /* ============================= */
 
- 
+ @media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Ocultar botón */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Contenedor principal */
+  .print-container {
+    padding: 24px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #000;
+  }
+
+  /* Tarjeta principal */
+  .print-card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    background: white !important;
+    page-break-inside: avoid;
+  }
+
+  /* Títulos */
+  .print-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  .print-subtitle {
+    font-size: 11px;
+    color: #666;
+  }
+
+  /* Chips */
+  .print-chip {
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    color: #000;
+  }
+}

@@ -61,7 +61,8 @@ class AnalyzeCourseMarketAlignment extends Command
         ->where('ct.course_id', $courseId)
         ->select('t.name', 't.market_entity_id')
         ->get();
-
+// 🔥 FILTRO AQUÍ
+ 
     $methodologies = DB::table('course_methodology as cm')
         ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
         ->where('cm.course_id', $courseId)
@@ -207,7 +208,6 @@ if ($syllabusText) {
 
     $context = [
         'course_name' => $course->name,
-        'syllabus' => $syllabusText,
         'course_competencies' => $competencies,
         'current_languages' => $languages->pluck('name'),
         'current_technologies' => $technologies->pluck('name'),
@@ -267,7 +267,7 @@ Genera JSON:
 
 {
   \"course_category\": \"\",
-  \"diagnosis\": \"Explicación detallada (mínimo 120 palabras)\",
+  \"diagnosis\": \"Análisis profundo y técnico (mínimo 250-350 palabras) que incluya: evaluación del contenido actual del curso, identificación de fortalezas claras, detección de brechas específicas (no genéricas), explicación de su relevancia en el mercado laboral, impacto en la empleabilidad del estudiante y recomendaciones concretas de mejora explicando la utilidad de cada tecnología o práctica sugerida. El diagnóstico debe tener un enfoque de consultoría académica, ser estructurado, claro y accionable.\",
   \"alignment_score\": 0,
   \"missing_technologies\": [],
   \"missing_methodologies\": [],
@@ -277,21 +277,62 @@ Genera JSON:
 
 REGLAS:
 
-- 'missing_technologies' debe contener tecnologías específicas del mercado (herramientas reales, frameworks o plataformas)
-- Ejemplo correcto: 'Docker', 'Kubernetes', 'Azure SQL', 'Power BI'
-- Ejemplo incorrecto: 'lenguajes modernos', 'herramientas de datos'
+- 'missing_technologies' debe contener tecnologías específicas del mercado,
+  PERO solo si son coherentes con el nivel y naturaleza del curso.
+
+- Ejemplo:
+  Curso básico de Linux → bash scripting, systemd, logs
+  Curso avanzado → Docker, Kubernetes  
+
+VALIDACIÓN FINAL:
+
+Antes de responder:
+- Verifica que todas las recomendaciones sean coherentes con:
+  1. Nivel del curso
+  2. Tipo de curso (fundamentos vs especializado)
+  3. Contenido real del sílabo
+
+Si no lo son, elimínalas.
 
 - El diagnóstico debe ser profundo, técnico y detallado (no superficial)
 - No usar términos genéricos
+REGLAS CRÍTICAS DE NIVEL:
 
+- Determina el nivel del curso: básico, intermedio o avanzado.
+- NO recomendar tecnologías que pertenezcan a un nivel superior al curso.
+- Para cursos básicos:
+  - Priorizar fundamentos, herramientas core y prácticas esenciales.
+  - NO incluir herramientas de DevOps, cloud o arquitecturas complejas.
+- Para cursos intermedios:
+  - Se permiten herramientas modernas pero no arquitecturas complejas.
+- Para cursos avanzados:
+  - Se pueden recomendar tecnologías de producción (cloud, DevOps, IA, etc.)
+- NO mencionar tecnologías avanzadas (como Docker, Kubernetes, etc.)
+  si no son apropiadas para el nivel del curso, ni siquiera como crítica.
+- Las recomendaciones deben ser evolutivas, no disruptivas.
+- Evitar recomendar tecnologías que correspondan a otro tipo de curso.
+
+CONTEXTO DE MERCADO:
+
+Las tecnologías del mercado pueden incluir herramientas de múltiples dominios 
+(frontend, backend, data, sistemas, etc.).
+
+- SOLO considerar relevantes aquellas tecnologías que pertenezcan al mismo dominio del curso.
+- Ignorar tecnologías que no estén relacionadas con el tipo de curso.
+
+Ejemplo:
+- Curso de Linux → considerar tecnologías de sistemas, administración, redes
+- Ignorar tecnologías de frontend (.NET, jQuery, Excel, etc.)
 Devuelve SOLO JSON válido.
 ";
 
  $prompt = $this->cleanUtf8($prompt);
- Log::info('AI REQUEST', [
-        'syllabus_length' => strlen($syllabusText ?? ''),
-        'has_syllabus' => !!$syllabusText
-    ]);
+Log::info('AI FULL INPUT', [
+    'system' => 'Responde solo JSON válido',
+    'prompt' => $prompt,
+    'prompt_length' => strlen($prompt),
+    'context_preview' => substr($prompt, 0, 1000) // opcional
+]);
 
     /* =====================================================
        LLAMADA IA

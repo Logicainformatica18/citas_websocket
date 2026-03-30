@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Bot, Target, Award, Layers } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 
 export default function CourseAITab({ course }: any) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  const pdfRef = useRef<HTMLDivElement>(null);
+
+const handleDownloadPDF = useReactToPrint({
+  contentRef: pdfRef,
+  documentTitle: `diagnostico-${course?.name || "curso"}`,
+});
 
   useEffect(() => {
     if (!course?.id) return;
@@ -35,65 +43,84 @@ export default function CourseAITab({ course }: any) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
 
-      {/* ================= DIAGNÓSTICO ================= */}
-      <div
-        className="
-          relative overflow-hidden rounded-2xl p-6
-          border border-sky-200 dark:border-sky-800
-          bg-white
-          dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900
-          shadow-sm dark:shadow-xl
-          transition
-        "
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/40">
-            <Bot size={18} className="text-sky-600 dark:text-sky-400" />
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-sm text-gray-800 dark:text-white">
-              Diagnóstico estratégico
-            </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Generado por VERA IA
-            </p>
-          </div>
-        </div>
-
-        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-          {data.diagnosis}
-        </p>
+      {/* BOTÓN PDF */}
+<div className="flex justify-end no-print">
+        <button
+          onClick={handleDownloadPDF}
+          className="
+            px-4 py-2 rounded-lg text-sm font-medium
+            bg-sky-600 text-white
+            hover:bg-sky-700
+            transition
+          "
+        >
+          Descargar PDF
+        </button>
       </div>
 
-      {/* ================= TECNOLOGÍAS ================= */}
-      {data.suggested_entities?.length > 0 && (
-        <Section
-          icon={<Target size={15} />}
-          title="Tecnologías sugeridas"
-          items={data.suggested_entities}
-        />
-      )}
+      {/* CONTENIDO EXPORTABLE */}
+<div ref={pdfRef} className="space-y-8 print-container">
 
-      {/* ================= CERTIFICACIONES ================= */}
-      {data.suggested_certifications?.length > 0 && (
-        <Section
-          icon={<Award size={15} />}
-          title="Certificaciones recomendadas"
-          items={data.suggested_certifications}
-        />
-      )}
+        {/* ================= DIAGNÓSTICO ================= */}
+        <div
+          className="
+            relative overflow-hidden rounded-2xl p-6
+            border border-sky-200 dark:border-sky-800
+            bg-white
+            dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900
+            shadow-sm dark:shadow-xl
+            transition
+          "
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/40">
+              <Bot size={18} className="text-sky-600 dark:text-sky-400" />
+            </div>
 
-      {/* ================= METODOLOGÍAS ================= */}
-      {data.suggested_methodologies?.length > 0 && (
-        <Section
-          icon={<Layers size={15} />}
-          title="Metodologías sugeridas"
-          items={data.suggested_methodologies}
-        />
-      )}
+            <div>
+              <h3 className="font-semibold text-sm text-gray-800 dark:text-white">
+                Diagnóstico estratégico
+              </h3>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Generado por VERA IA
+              </p>
+            </div>
+          </div>
+
+          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            {data.diagnosis}
+          </p>
+        </div>
+
+        {/* ================= TECNOLOGÍAS ================= */}
+        {data.suggested_entities?.length > 0 && (
+          <Section
+            icon={<Target size={15} />}
+            title="Tecnologías sugeridas"
+            items={data.suggested_entities}
+          />
+        )}
+
+        {/* ================= CERTIFICACIONES ================= */}
+        {data.suggested_certifications?.length > 0 && (
+          <Section
+            icon={<Award size={15} />}
+            title="Certificaciones recomendadas"
+            items={data.suggested_certifications}
+          />
+        )}
+
+        {/* ================= METODOLOGÍAS ================= */}
+        {data.suggested_methodologies?.length > 0 && (
+          <Section
+            icon={<Layers size={15} />}
+            title="Metodologías sugeridas"
+            items={data.suggested_methodologies}
+          />
+        )}
+      </div>
     </div>
   );
 }
