@@ -34,25 +34,13 @@ public function index(Request $request)
         $range
     ] = $this->resolveParams($request);
 
-    Log::info('INICIO REQUEST', [
-        'careerId' => $careerId,
-        'year' => $year,
-        'period' => $period
-    ]);
+   
 
     $mode = $request->get('view', 'courses');
 
     $availableCareers = $this->getAvailableCareers();
 
-    if (!$careerId) {
-        Log::warning('SIN CAREER ID');
-        return $this->renderEmpty(
-            $availableCareers,
-            [],
-            $year,
-            $period
-        );
-    }
+   
 
     $meta = $this->getGlobalMeta(
         $careerId,
@@ -66,10 +54,7 @@ public function index(Request $request)
         ? $this->cctc->getCompetencies($careerId, $year)
         : $this->cctc->getCourses($careerId, $year);
 
-    Log::info('DATA CARGADA', [
-        'count' => count($data),
-        'first' => $data[0] ?? null
-    ]);
+   
 
     $totalCourses = collect($data)->count();
 
@@ -90,26 +75,16 @@ public function index(Request $request)
 
             try {
 
-                Log::info('COURSE ENTRANDO AL FILTER', [
-                    'course' => $course,
-                    'type' => gettype($course)
-                ]);
+              
 
                 // 🔥 Detectar si es array u objeto
                 $courseId = is_array($course)
                     ? ($course['id'] ?? null)
                     : ($course->id ?? null);
 
-                Log::info('COURSE ID DETECTADO', [
-                    'courseId' => $courseId
-                ]);
+             
 
-                if (!$courseId) {
-                    Log::error('COURSE SIN ID', [
-                        'course' => $course
-                    ]);
-                    return false;
-                }
+               
 
                 $entityIds = DB::table('course_language as cl')
                     ->join('languages as l', 'l.id', '=', 'cl.language_id')
@@ -129,10 +104,7 @@ public function index(Request $request)
                     )
                     ->unique();
 
-                Log::info('ENTITY IDS', [
-                    'courseId' => $courseId,
-                    'ids' => $entityIds
-                ]);
+                
 
                 if ($entityIds->isEmpty()) {
                     return false;
@@ -142,21 +114,13 @@ public function index(Request $request)
                     ->whereIn('market_entity_id', $entityIds)
                     ->exists();
 
-                Log::info('TREND EXISTS', [
-                    'courseId' => $courseId,
-                    'exists' => $exists
-                ]);
+                
 
                 return $exists;
 
             } catch (\Throwable $e) {
 
-                Log::error('ERROR EN FILTER', [
-                    'message' => $e->getMessage(),
-                    'line' => $e->getLine(),
-                    'file' => $e->getFile(),
-                    'course' => $course
-                ]);
+                
 
                 return false;
             }
@@ -181,11 +145,7 @@ public function index(Request $request)
 
     $gapTotal = $totalCourses - $marketAligned;
 
-    Log::info('RESULTADOS KPI', [
-        'totalCourses' => $totalCourses,
-        'marketAligned' => $marketAligned,
-        'trendAligned' => $trendAligned
-    ]);
+   
 
     return Inertia::render(
         'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
