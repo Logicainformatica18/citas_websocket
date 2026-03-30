@@ -16,6 +16,20 @@ class AnalyzeCourseMarketAlignment extends Command
 
     protected $description = 'Analiza un curso contra señales reales de mercado y genera recomendación IA';
 
+  private function cleanUtf8($data) {
+    if (is_array($data)) {
+        foreach ($data as $key => $value) {
+            $data[$key] = $this->cleanUtf8($value);
+        }
+        return $data;
+    }
+
+    if (is_string($data)) {
+        return mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+    }
+
+    return $data;
+}
   public function handle()
 {
     $courseId = (int) $this->argument('course_id');
@@ -204,7 +218,7 @@ if ($syllabusText) {
         'top_market_technologies' => $topMarketTech
     ];
 
-
+$context = $this->cleanUtf8($context);
     /* =====================================================
        PROMPT
     ===================================================== */
@@ -226,7 +240,7 @@ SÍLABO DEL CURSO:
 =====================
 CONTEXTO ESTRUCTURADO:
 =====================
-" . json_encode($context, JSON_PRETTY_PRINT) . "
+" .json_encode($context, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE) . "
 
 =====================
 INSTRUCCIONES:
@@ -272,6 +286,8 @@ REGLAS:
 
 Devuelve SOLO JSON válido.
 ";
+
+ $prompt = $this->cleanUtf8($prompt);
  Log::info('AI REQUEST', [
         'syllabus_length' => strlen($syllabusText ?? ''),
         'has_syllabus' => !!$syllabusText
@@ -281,15 +297,15 @@ Devuelve SOLO JSON válido.
        LLAMADA IA
     ===================================================== */
 
-    $response = Http::withToken(env('OPENAI_API_KEY'))
-        ->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o-mini',
-            'messages' => [
-                ['role' => 'system', 'content' => 'Responde solo JSON válido'],
-                ['role' => 'user', 'content' => $prompt]
-            ],
-            'temperature' => 0.1
-        ]);
+  $response = Http::withToken(env('OPENAI_API_KEY'))
+    ->post('https://api.openai.com/v1/chat/completions', [
+        'model' => 'gpt-4o-mini',
+        'messages' => [
+            ['role' => 'system', 'content' => 'Responde solo JSON válido'],
+            ['role' => 'user', 'content' => $prompt]
+        ],
+        'temperature' => 0.1
+    ]);
 
     if (!$response->successful()) {
         $this->error("Error IA");
