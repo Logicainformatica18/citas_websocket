@@ -19,14 +19,44 @@ export default function SyllabusModal({ open, onClose, onUploaded }: Props) {
 
   if (!open) return null;
 
-  const handleFiles = useCallback((files: FileList | File[]) => {
-    const pdfs = Array.from(files).filter((f) => f.type === "application/pdf");
-    if (pdfs.length === 0) return alert("Solo se admiten archivos PDF");
-    setUploads((prev) => [
-      ...prev,
-      ...pdfs.map((file) => ({ file, progress: 0, status: "pending" })),
-    ]);
-  }, []);
+//   const handleFiles = useCallback((files: FileList | File[]) => {
+//     const pdfs = Array.from(files).filter((f) => f.type === "application/pdf");
+//     if (pdfs.length === 0) return alert("Solo se admiten archivos PDF");
+//     setUploads((prev) => [
+//       ...prev,
+//       ...pdfs.map((file) => ({ file, progress: 0, status: "pending" })),
+//     ]);
+//   }, []);
+const handleFiles = useCallback((files: FileList | File[]) => {
+  const validFiles: File[] = [];
+  const invalidFiles: string[] = [];
+
+  Array.from(files).forEach((file) => {
+    const isPdfMime = file.type === "application/pdf";
+    const isPdfExt = file.name.toLowerCase().endsWith(".pdf");
+
+    if (isPdfMime && isPdfExt) {
+      validFiles.push(file);
+    } else {
+      invalidFiles.push(file.name);
+    }
+  });
+
+  if (invalidFiles.length > 0) {
+    alert(`Estos archivos no son PDF:\n${invalidFiles.join("\n")}`);
+  }
+
+  if (validFiles.length === 0) return;
+
+  setUploads((prev) => [
+    ...prev,
+    ...validFiles.map((file) => ({
+      file,
+      progress: 0,
+      status: "pending",
+    })),
+  ]);
+}, []);
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

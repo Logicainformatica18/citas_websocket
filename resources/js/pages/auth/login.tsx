@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import ReCAPTCHA from "react-google-recaptcha"
 
 type LoginForm = {
 email: string
@@ -38,12 +39,27 @@ email: '',
 password: '',
 remember: false,
 })
+const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+
 
 const submit: FormEventHandler = (e) => {
-e.preventDefault()
-post(route('login'), {
-onFinish: () => reset('password'),
-})
+  e.preventDefault()
+
+  if (loginType === 'externo' && !captchaToken) {
+    alert('Por favor verifica el captcha')
+    return
+  }
+
+  post(route('login'), {
+    data: {
+      ...data,
+      captcha: captchaToken,
+    },
+    onFinish: () => {
+      reset('password')
+      setCaptchaToken(null)
+    },
+  })
 }
 
 return (
@@ -197,10 +213,15 @@ return (
                 </TextLink>
               )}
             </div>
-
+<div className="flex justify-center">
+ <ReCAPTCHA
+  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+  onChange={(token) => setCaptchaToken(token)}
+/>
+</div>
             <Button
               type="submit"
-              disabled={processing}
+              disabled={processing || (loginType === 'externo' && !captchaToken)}
               className="w-full mt-4 bg-[#0B2A3A] hover:bg-[#091F2A] text-white font-semibold py-3 h-12 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all"
             >
               {processing ? (
