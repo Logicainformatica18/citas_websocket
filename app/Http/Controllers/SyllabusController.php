@@ -178,7 +178,7 @@ class SyllabusController extends Controller
         'status'   => 'pending',
     ]);
 
-    
+
 
     ProcessSyllabusJob::dispatch($record->id);
 return response()->json([
@@ -190,18 +190,48 @@ return response()->json([
     // return response()->json($record);
 }
 
+    // public function destroy($id)
+    // {
+    //     $record = Syllabus::findOrFail($id);
+
+    //     if ($record->path && \Storage::disk('public')->exists($record->path)) {
+    //         \Storage::disk('public')->delete($record->path);
+    //     }
+
+    //     $record->delete();
+
+    //     return response()->json(['message' => 'Eliminado']);
+    // }
     public function destroy($id)
-    {
-        $record = Syllabus::findOrFail($id);
+{
 
-        if ($record->path && \Storage::disk('public')->exists($record->path)) {
-            \Storage::disk('public')->delete($record->path);
+
+    $record = Syllabus::findOrFail($id);
+
+
+
+    if ($record->path) {
+        if (Storage::disk('public')->exists($record->path)) {
+            Log::info("El archivo existe, procediendo a eliminar.");
+
+            $deleted = Storage::disk('public')->delete($record->path);
+
+            Log::info("Resultado de eliminación:", ['deleted' => $deleted]);
+        } else {
+            Log::warning("El archivo NO existe en storage.", [
+                'path' => $record->path
+            ]);
         }
-
-        $record->delete();
-
-        return response()->json(['message' => 'Eliminado']);
+    } else {
+        Log::warning("El registro no tiene path.");
     }
+
+    $record->delete();
+
+
+
+    return response()->json(['message' => 'Eliminado']);
+}
 
     public function bulkDelete(Request $request)
     {
