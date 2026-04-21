@@ -184,9 +184,9 @@ export function AppSidebar() {
                     icon={<GraduationCap className={colorAlign} />}
                 >
                     <MenuItem
-                        href="/syllabus"
+                        href="/silabos"
                         icon={<FileText className={colorAlign} />}
-                        label="Syllabus"
+                        label="Silabos"
                     />
                     <MenuItem
                         href="/careers"

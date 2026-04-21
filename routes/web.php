@@ -650,7 +650,7 @@ Route::prefix('dashboard/ranking/languages')->group(function () {
     Route::get('/courses/{id}', [CourseController::class, 'show'])->middleware('permission:administrar');
 
 
-    Route::get('/syllabus', [SyllabusController::class, 'index'])
+    Route::get('/silabos', [SyllabusController::class, 'index'])
         ->name('syllabus.index')->middleware('permission:administrar');
 
     Route::get('/syllabus/fetch', [SyllabusController::class, 'fetchPaginated'])
