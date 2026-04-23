@@ -134,12 +134,13 @@ public function index(Request $request)
     /* =====================================================
    3️⃣ Base query optimizada
 ===================================================== */
-
+// aqui filtramos los datos que n oqueremos mostrar en la tabla de ciudades indicador 
 $baseQuery = DB::table('job_offers as jo')
     ->join('job_offer_alignment as a', 'a.job_offer_id', '=', 'jo.id')
     ->whereBetween('jo.published_at', $range)
     ->whereNotNull('jo.city')
-    ->whereRaw("$regionSql <> 'Desconocido'");
+    ->whereRaw("$regionSql <> 'Desconocido'")
+     ->where('jo.city', '<>', 'Desconocido');
 if ($careerId) {
     $baseQuery->where('a.career_id', $careerId);
 }
