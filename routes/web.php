@@ -115,6 +115,44 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth'])->group(function () {
+
+Route::prefix('sources')->group(function () {
+
+    // 📄 Vista principal
+    Route::get('/', [\App\Http\Controllers\SourceStatusController::class, 'index'])
+        ->name('sources.index')->middleware('permission:administrar');
+
+    // 📄 Fetch (si luego quieres AJAX separado)
+    Route::get('/fetch', [\App\Http\Controllers\SourceStatusController::class, 'index'])
+        ->name('sources.fetch')->middleware('permission:administrar');
+
+    // 🆕 Crear
+    Route::post('/', [\App\Http\Controllers\SourceStatusController::class, 'store'])
+        ->name('sources.store')->middleware('permission:administrar');
+
+    // 🔍 Ver detalle
+    Route::get('/{id}', [\App\Http\Controllers\SourceStatusController::class, 'show'])
+        ->name('sources.show')->middleware('permission:administrar');
+
+    // ✏️ Actualizar (API config)
+    Route::put('/{id}', [\App\Http\Controllers\SourceStatusController::class, 'update'])
+        ->name('sources.update')->middleware('permission:administrar');
+
+    // 🗑️ Eliminar
+    Route::delete('/{id}', [\App\Http\Controllers\SourceStatusController::class, 'destroy'])
+        ->name('sources.destroy')->middleware('permission:administrar');
+
+    // 🔥 Test de conexión (CLAVE)
+    Route::post('/{id}/test-connection', [\App\Http\Controllers\SourceStatusController::class, 'testConnection'])
+        ->name('sources.test-connection')->middleware('permission:administrar');
+
+    // 🚨 Solo fallidos (para dashboard)
+    Route::get('/failed', [\App\Http\Controllers\SourceStatusController::class, 'failed'])
+        ->name('sources.failed')->middleware('permission:administrar');
+
+});
+
+
 Route::post(
     '/dashboard/courses/{course}/analyze-ai',
     [CourseCCTCIndicatorController::class, 'analyzeWithAI']
