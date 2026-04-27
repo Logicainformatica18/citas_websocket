@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 type Source = {
     id?: number;
     name: string;
-    base_url: string;
+    base_url?: string;
     api_url?: string;
     api_key?: string;
 };
@@ -43,38 +44,124 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
         setTestResult(null);
     }, [source]);
 
+    // 🔥 VALIDACIÓN FLEXIBLE
+    const validateForm = () => {
+        if (!form.name || form.name.trim() === '') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo requerido',
+                text: 'El nombre (título) es obligatorio'
+            });
+            return false;
+        }
+        return true;
+    };
+
+    // 🔥 SUBMIT
     const handleSubmit = async (e: any) => {
         e.preventDefault();
 
+        if (!validateForm()) return;
+
+        const confirm = await Swal.fire({
+            title: form.id ? '¿Actualizar fuente?' : '¿Crear fuente?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!confirm.isConfirmed) return;
+
         try {
+            Swal.fire({
+                title: 'Guardando...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            // 🔥 MAPEAMOS A BACKEND
+            const payload = {
+                source: form.name,
+                base_url: form.base_url || null,
+                api_url: form.api_url || null,
+                api_key: form.api_key || null,
+            };
+
             if (form.id) {
-                await axios.put(`/sources/${form.id}`, form);
+                await axios.put(`/sources/${form.id}`, payload);
             } else {
-                await axios.post(`/sources`, form);
+                await axios.post(`/sources`, payload);
             }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Guardado correctamente',
+                timer: 1400,
+                showConfirmButton: false
+            });
 
             onSaved();
             onClose();
-        } catch (error) {
+
+        } catch (error: any) {
+
+            const message =
+                error.response?.data?.message ||
+                'Error al guardar';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: message
+            });
+
             console.error(error);
-            alert('Error al guardar');
         }
     };
 
-    // 🔥 TEST API
+    // 🔥 TEST API (solo si hay URL)
     const handleTest = async () => {
+        if (!form.api_url) {
+            Swal.fire({
+                icon: 'info',
+                title: 'Campo opcional vacío',
+                text: 'No hay API URL para probar'
+            });
+            return;
+        }
+
         setTesting(true);
         setTestResult(null);
 
         try {
+            Swal.fire({
+                title: 'Probando...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
             await axios.post('/sources/test-api', {
                 api_url: form.api_url,
                 api_key: form.api_key,
             });
 
+            Swal.fire({
+                icon: 'success',
+                title: 'Conexión OK'
+            });
+
             setTestResult('success');
-        } catch (e) {
+
+        } catch (e: any) {
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión'
+            });
+
             setTestResult('error');
+
         } finally {
             setTesting(false);
         }
@@ -92,135 +179,91 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                 className="w-full max-w-lg p-6 space-y-5 rounded-2xl shadow-xl
                 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100"
             >
-                {/* HEADER */}
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold">
                         {form.id ? 'Editar fuente' : 'Nueva fuente'}
                     </h2>
 
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                        ✕
-                    </button>
+                    <button onClick={onClose}>✕</button>
                 </div>
 
-                {/* FORM */}
                 <form onSubmit={handleSubmit} className="space-y-4">
 
-                    {/* NAME */}
+                    {/* 🔥 SOLO ESTE ES OBLIGATORIO */}
                     <div>
-                        <label className="text-sm">Nombre</label>
+                        <label className="text-sm">Nombre *</label>
                         <input
                             value={form.name}
                             onChange={(e) =>
                                 setForm({ ...form, name: e.target.value })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border
-                            bg-white dark:bg-gray-800
-                            border-gray-200 dark:border-gray-700
-                            focus:ring-2 focus:ring-blue-500 outline-none"
-                            required
+                            className="w-full mt-1 px-3 py-2 rounded-lg border"
                         />
                     </div>
 
-                    {/* BASE URL */}
+                    {/* OPCIONAL */}
                     <div>
-                        <label className="text-sm">Base URL</label>
+                        <label className="text-sm">Base URL (opcional)</label>
                         <input
                             value={form.base_url}
                             onChange={(e) =>
                                 setForm({ ...form, base_url: e.target.value })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border
-                            bg-white dark:bg-gray-800
-                            border-gray-200 dark:border-gray-700
-                            focus:ring-2 focus:ring-blue-500 outline-none"
-                            required
+                            className="w-full mt-1 px-3 py-2 rounded-lg border"
                         />
                     </div>
 
-                    {/* API URL */}
+                    {/* OPCIONAL */}
                     <div>
-                        <label className="text-sm">API URL</label>
+                        <label className="text-sm">API URL (opcional)</label>
                         <input
                             value={form.api_url}
                             onChange={(e) =>
                                 setForm({ ...form, api_url: e.target.value })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border
-                            bg-white dark:bg-gray-800
-                            border-gray-200 dark:border-gray-700
-                            focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full mt-1 px-3 py-2 rounded-lg border"
                         />
                     </div>
 
-                    {/* API KEY */}
+                    {/* OPCIONAL */}
                     <div>
-                        <label className="text-sm">API Key</label>
+                        <label className="text-sm">API Key (opcional)</label>
                         <input
                             value={form.api_key}
                             onChange={(e) =>
                                 setForm({ ...form, api_key: e.target.value })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border
-                            bg-white dark:bg-gray-800
-                            border-gray-200 dark:border-gray-700
-                            focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full mt-1 px-3 py-2 rounded-lg border"
                         />
                     </div>
 
-                    {/* 🔥 TEST BUTTON */}
+                    {/* TEST */}
                     <div className="flex items-center justify-between pt-2">
                         <button
                             type="button"
                             onClick={handleTest}
                             disabled={testing}
-                            className="px-4 py-2 rounded-lg text-sm font-medium
-                            bg-gray-100 dark:bg-gray-800
-                            hover:bg-gray-200 dark:hover:bg-gray-700
-                            transition flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg bg-gray-200 flex items-center gap-2"
                         >
                             {testing && <Loader2 className="w-4 h-4 animate-spin" />}
                             Test API
                         </button>
 
-                        {/* RESULT */}
                         {testResult === 'success' && (
-                            <div className="flex items-center gap-2 text-green-500 text-sm">
-                                <CheckCircle className="w-4 h-4" />
-                                Conexión exitosa
-                            </div>
+                            <CheckCircle className="text-green-500 w-5 h-5" />
                         )}
 
                         {testResult === 'error' && (
-                            <div className="flex items-center gap-2 text-red-500 text-sm">
-                                <XCircle className="w-4 h-4" />
-                                Error de conexión
-                            </div>
+                            <XCircle className="text-red-500 w-5 h-5" />
                         )}
                     </div>
 
-                    {/* ACTIONS */}
                     <div className="flex justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 rounded-lg
-                            bg-gray-100 dark:bg-gray-800
-                            text-gray-700 dark:text-gray-200
-                            hover:bg-gray-200 dark:hover:bg-gray-700"
-                        >
+                        <button type="button" onClick={onClose}>
                             Cancelar
                         </button>
 
-                        <button
-                            type="submit"
-                            className="px-5 py-2 rounded-lg text-white font-medium
-                            bg-gradient-to-r from-blue-600 to-blue-500
-                            shadow-md hover:opacity-90 transition"
-                        >
+                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
                             Guardar
                         </button>
                     </div>

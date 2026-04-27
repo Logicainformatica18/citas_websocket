@@ -29,11 +29,14 @@ class SourceStatus extends Model
         'fail_count',
         'success_count',
 
-        // config API
+        // 🔥 CONFIG API
         'api_url',
-        'api_key',
+        'api_key',   // 👉 se usa como app_key
 
-        // estado conexión
+        // 🔥 NUEVO CAMPO
+        'app_id',
+
+        // 🔥 ESTADO CONEXIÓN
         'connection_status',
         'last_connection_check',
         'connection_error',
@@ -48,7 +51,7 @@ class SourceStatus extends Model
     ];
 
     /**
-     * Relación con scraper_runs
+     * 🔗 Relación con scraper_runs
      */
     public function lastRun()
     {
@@ -56,7 +59,7 @@ class SourceStatus extends Model
     }
 
     /**
-     * Helper: estado visual
+     * 🎨 Color estado scraping
      */
     public function getStatusColorAttribute()
     {
@@ -69,7 +72,7 @@ class SourceStatus extends Model
     }
 
     /**
-     * Helper: icono estado
+     * 🔘 Icono estado scraping
      */
     public function getStatusIconAttribute()
     {
@@ -82,7 +85,7 @@ class SourceStatus extends Model
     }
 
     /**
-     * Helper: estado conexión
+     * 🔌 Icono conexión API
      */
     public function getConnectionIconAttribute()
     {
@@ -94,7 +97,7 @@ class SourceStatus extends Model
     }
 
     /**
-     * Scope: fuentes con error
+     * 🔎 Scope: fallidos
      */
     public function scopeFailed($query)
     {
@@ -102,10 +105,45 @@ class SourceStatus extends Model
     }
 
     /**
-     * Scope: fuentes activas recientemente
+     * ⏱ Scope: recientes
      */
     public function scopeRecent($query, $hours = 24)
     {
         return $query->where('last_finished_at', '>=', now()->subHours($hours));
+    }
+
+    /**
+     * 🔥 Tiene credenciales tipo Adzuna
+     */
+    public function hasAdzunaCredentials(): bool
+    {
+        return !empty($this->app_id) && !empty($this->api_key);
+    }
+
+    /**
+     * 🔥 Tipo de API configurada
+     */
+    public function getApiTypeAttribute()
+    {
+        if ($this->app_id && $this->api_key) {
+            return 'adzuna'; // app_id + api_key
+        }
+
+        if ($this->api_key) {
+            return 'api_key';
+        }
+
+        return 'none';
+    }
+
+    /**
+     * 🔥 Helper: obtener credenciales listas
+     */
+    public function getCredentials()
+    {
+        return [
+            'app_id' => $this->app_id,
+            'app_key' => $this->api_key, // 👈 reutilizado
+        ];
     }
 }

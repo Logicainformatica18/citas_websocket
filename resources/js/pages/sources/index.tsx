@@ -10,10 +10,11 @@ const breadcrumbs = [{ title: 'Fuentes', href: '/sources' }];
 type Source = {
     id: number;
     name: string;
-    base_url: string;
+    api_url?: string;
     last_run_at?: string;
     last_status?: string;
     api_status?: string;
+    registros?: number; // 🔥 FIX
 };
 
 type Pagination<T> = {
@@ -38,7 +39,7 @@ export default function Sources() {
         setPagination(res.data.sources);
     };
 
-    // 🔥 BADGES
+    // 🔥 BADGES (igual que tu diseño)
     const statusBadge = (status?: string) => {
         if (status === 'success')
             return (
@@ -95,7 +96,7 @@ export default function Sources() {
                     </button>
                 </div>
 
-                {/* CARDS (datos falsos por ahora) */}
+                {/* CARDS (puedes luego hacerlas dinámicas) */}
                 <div className="grid grid-cols-4 gap-5">
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Total fuentes</p>
@@ -163,23 +164,16 @@ export default function Sources() {
                                     key={s.id}
                                     className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                                 >
-                                    {/* ACCIONES */}
                                     <td className="px-4 py-3 flex gap-3 items-center">
 
-                                        {/* RUN */}
                                         <Play
                                             className="w-4 text-green-500 cursor-pointer hover:scale-110 transition"
                                             onClick={async () => {
-                                                try {
-                                                    await axios.post(`/sources/${s.id}/run`);
-                                                    alert('Ejecutado');
-                                                } catch {
-                                                    alert('Error');
-                                                }
+                                                await axios.post(`/sources/${s.id}/run`);
+                                                fetchPage(`/sources/fetch?page=${pagination.current_page}`);
                                             }}
                                         />
 
-                                        {/* EDIT */}
                                         <Pencil
                                             className="w-4 text-blue-500 cursor-pointer hover:scale-110 transition"
                                             onClick={() => {
@@ -188,18 +182,13 @@ export default function Sources() {
                                             }}
                                         />
 
-                                        {/* DELETE */}
                                         <Trash2
                                             className="w-4 text-red-500 cursor-pointer hover:scale-110 transition"
                                             onClick={async () => {
                                                 if (!confirm(`¿Eliminar ${s.name}?`)) return;
 
-                                                try {
-                                                    await axios.delete(`/sources/${s.id}`);
-                                                    setSources(prev => prev.filter(x => x.id !== s.id));
-                                                } catch {
-                                                    alert('Error');
-                                                }
+                                                await axios.delete(`/sources/${s.id}`);
+                                                fetchPage(`/sources/fetch?page=${pagination.current_page}`);
                                             }}
                                         />
                                     </td>
@@ -209,7 +198,7 @@ export default function Sources() {
                                     </td>
 
                                     <td className="px-4 py-3 text-blue-600 dark:text-blue-400">
-                                        {s.base_url}
+                                        {s.api_url || '—'}
                                     </td>
 
                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
@@ -225,7 +214,7 @@ export default function Sources() {
                                     </td>
 
                                     <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">
-                                        {Math.floor(Math.random() * 15000)}
+                                        {s.registros ?? 0}
                                     </td>
                                 </tr>
                             ))}
@@ -253,7 +242,6 @@ export default function Sources() {
                     </div>
                 </div>
 
-                {/* MODAL */}
                 {showModal && (
                     <SourceModal
                         open={showModal}
