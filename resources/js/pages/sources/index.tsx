@@ -121,18 +121,18 @@ export default function Sources() {
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Total fuentes</p>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white"> {metrics.total_fuentes}</h2>
-                       
+
                     </div>
 
-                  
+
 
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Registros totales</p>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">31,655</h2>
-                       
+
                     </div>
 
-                  
+
                 </div>
 
                 {/* TABLA */}
@@ -165,8 +165,8 @@ export default function Sources() {
                                 <th className="px-4 py-3">Nombre</th>
                                 <th className="px-4 py-3">URL</th>
                                 <th className="px-4 py-3">Última ejecución</th>
-                               
-                         
+
+
                                 <th className="px-4 py-3">Registros</th>
                             </tr>
                         </thead>
@@ -179,13 +179,13 @@ export default function Sources() {
                                 >
                                     <td className="px-4 py-3 flex gap-3 items-center">
 
-                                        <Play
+                                        {/* <Play
                                             className="w-4 text-green-500 cursor-pointer hover:scale-110 transition"
                                             onClick={async () => {
                                                 await axios.post(`/sources/${s.id}/run`);
                                                 fetchPage(`/sources/fetch?page=${pagination.current_page}`);
                                             }}
-                                        />
+                                        /> */}
 
                                         <Pencil
                                             className="w-4 text-blue-500 cursor-pointer hover:scale-110 transition"
@@ -220,7 +220,7 @@ export default function Sources() {
     : 'Nunca'}
                                     </td>
 
-                                  
+
 
                                     <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">
                                         {s.registros ?? 0}

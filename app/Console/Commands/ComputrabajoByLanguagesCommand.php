@@ -5,10 +5,10 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
+
 use App\Models\Language;
 use App\Models\JobOffer;
-use App\Models\LanguageMetric;
+
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
@@ -16,6 +16,7 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
+use App\Services\SourceStatusService;
 
 class ComputrabajoByLanguagesCommand extends Command
 {
@@ -120,11 +121,19 @@ protected function normalizeUrl(string $url): string
         'Computrabajo',
         'languages'
     );
+$source = 'computrabajo_languages';
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://computrabajo.com'
+);
     $totalFoundAll = 0;
     $totalInsertedAll = 0;
     $totalSkippedAll = 0;
-
+$connectionOk = false;
+$startedAt = now();
     try {
 
         $lastLanguageId = MarketEntityMetric::where('source', 'Computrabajo')
@@ -183,11 +192,12 @@ protected function normalizeUrl(string $url): string
                             'Accept-Language' => 'es-ES,es;q=0.9',
                         ])->timeout(25)->get($url);
 
-                        if ($response->failed()) {
-                            $this->warn("❌ Falló la página {$i} en {$country}");
-                            continue;
-                        }
-
+                      if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, "Error {$country} page {$i}");
+    $totalSkippedAll++;
+    continue;
+}
+$connectionOk = true;
                         $crawler = new Crawler($response->body());
                         $offers = $crawler->filter('article[class*="box_offer"]');
 
@@ -343,7 +353,7 @@ $urlJob = $this->normalizeUrl($urlJob);
                     }
                 }
 
-                sleep(4);
+                sleep(2);
             }
 
             MarketEntityMetric::updateOrCreate(
@@ -361,8 +371,14 @@ $urlJob = $this->normalizeUrl($urlJob);
                 ]
             );
 
-            $totalFoundAll += $totalFound;
+           $totalFoundAll += $totalFound;
             $this->info("📊 {$langName}: {$totalNew} nuevas / {$totalFound} totales");
+            SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
         }
 
         ScraperRunService::success(
@@ -371,12 +387,31 @@ $urlJob = $this->normalizeUrl($urlJob);
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
         $this->info("\n🎯 Scraping + métricas completado exitosamente.");
 
     } catch (\Throwable $e) {
-        ScraperRunService::failed($run, $e);
-        throw $e;
+       ScraperRunService::failed($run, $e);
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
     }
 }
 

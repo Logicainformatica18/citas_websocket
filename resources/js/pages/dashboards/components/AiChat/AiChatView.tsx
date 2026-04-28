@@ -513,7 +513,7 @@ export default function AiChatView({ embedded = false }: AiChatViewProps) {
           flex gap-2
           px-3 py-2
           rounded-xl
-        bg-white dark:bg-[#2a2b31] 
+        bg-white dark:bg-[#2a2b31]
 border border-[#A7E5F6] dark:border-[#3f4144]
           shadow-lg
           animate-slide-up
@@ -557,11 +557,11 @@ border border-[#A7E5F6] dark:border-[#3f4144]
                             </button>
 
                             {/* 📎 Adjuntar */}
-                            <label
+                            {/* <label
                                 className="
             w-10 h-10 rounded-full
             flex items-center justify-center
-           bg-white dark:bg-[#2a2b31] 
+           bg-white dark:bg-[#2a2b31]
 border border-[#A7E5F6] dark:border-[#3f4144]
             cursor-pointer
           "
@@ -576,7 +576,7 @@ border border-[#A7E5F6] dark:border-[#3f4144]
                                         logic.handleFileUpload(e.target.files[0])
                                     }
                                 />
-                            </label>
+                            </label> */}
                         </div>
                     )}
 

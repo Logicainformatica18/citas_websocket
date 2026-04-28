@@ -627,7 +627,7 @@ public function analyzeFile(Request $request)
 
         return response()->json([
             'analysis' => $output,
-            'file_url' => $url,
+           // 'file_url' => $url,
         ]);
     } catch (\Throwable $e) {
         Log::error('💥 Error al analizar archivo', ['error' => $e->getMessage()]);

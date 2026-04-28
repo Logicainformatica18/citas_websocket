@@ -13,7 +13,7 @@ use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
-
+use App\Services\SourceStatusService;
 
 class ComputrabajoByMethodologiesCommand extends Command
 {
@@ -43,7 +43,17 @@ class ComputrabajoByMethodologiesCommand extends Command
         'Computrabajo',
         'methodologies'
     );
+$source = 'computrabajo_methodologies';
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://computrabajo.com'
+);
+
+$connectionOk = false;
+$startedAt = now();
     $pages = (int) $this->option('pages');
 
     // 🔢 Acumuladores GLOBALes del run
@@ -76,7 +86,7 @@ if ($methodologies->isEmpty()) {
 }
 
 
-    
+
 
     $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
 
@@ -114,10 +124,13 @@ if ($methodologies->isEmpty()) {
                             'Accept-Language' => 'es-ES,es;q=0.9,en;q=0.8',
                         ])->timeout(25)->get($url);
 
-                        if ($response->failed()) {
-                            $this->warn("❌ Falló la página {$i} en {$country}");
-                            continue;
-                        }
+                      if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, "Error {$country} page {$i}");
+    $totalSkippedAll++;
+    continue;
+}
+
+$connectionOk = true;
 
                         $crawler = new Crawler($response->body());
                         $offers  = $crawler->filter('article[class*="box_offer"]');
@@ -245,7 +258,12 @@ if ($methodologies->isEmpty()) {
             );
 
             $this->info("📊 {$methodName}: {$totalNew} nuevas / {$totalFound} totales");
-
+SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
             // 🔢 acumular en el run global
             $totalFoundAll    += $totalFound;
             $totalInsertedAll += $totalNew;
