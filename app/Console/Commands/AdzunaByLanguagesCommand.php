@@ -13,6 +13,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
 
 class AdzunaByLanguagesCommand extends Command
 {
@@ -58,16 +59,28 @@ class AdzunaByLanguagesCommand extends Command
 
     public function handle()
 {
-    $run = ScraperRunService::start(
-        $this->signature,
-        'Adzuna',
-        'languages'
-    );
 
+$baseUrl = config('services.adzuna.base_url','https://api.adzuna.com/v1/api/jobs');
+
+$run = ScraperRunService::start(
+    $this->signature,
+    'Adzuna',
+    'languages'
+);
+
+$source = 'adzuna_languages';
+
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: $baseUrl
+);
     $totalFoundAll = 0;
     $totalInsertedAll = 0;
     $totalSkippedAll = 0;
-
+$connectionOk = false;
+$startedAt = now();
     try {
 
         $country = strtolower($this->option('country'));
@@ -76,9 +89,9 @@ class AdzunaByLanguagesCommand extends Command
         // 🔹 ahora usamos market_entities
         $baseQuery = MarketEntity::where('entity_type','language')->orderBy('id');
 
-        $lastLanguageId = LanguageMetric::where('source','Adzuna')
-            ->orderByDesc('created_at')
-            ->value('language_id');
+    $lastLanguageId = MarketEntityMetric::where('source','Adzuna')
+    ->orderByDesc('created_at')
+    ->value('market_entity_id');
 
         $languagesQuery = clone $baseQuery;
 
@@ -94,7 +107,7 @@ class AdzunaByLanguagesCommand extends Command
 
         $appId = config('services.adzuna.app_id');
         $appKey = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url','https://api.adzuna.com/v1/api/jobs');
+
 
         $this->info("🌍 Iniciando importación para {$languages->count()} lenguajes...");
 
@@ -123,12 +136,14 @@ $query = "{$languageName} developer";
                     . "&results_per_page=100"
                     . "&what=" . urlencode($query);
 
-                $response = Http::timeout(25)->get($url);
+               $response = Http::timeout(25)->get($url);
 
-                if ($response->failed()) {
-                    $this->error("❌ Error API ({$languageName}, página {$page})");
-                    continue;
-                }
+if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, 'Error API Adzuna');
+    continue;
+}
+
+$connectionOk = true; // ✅ clave
 
                 $results = $response->json('results') ?? [];
                 $totalFound += count($results);
@@ -216,7 +231,12 @@ $query = "{$languageName} developer";
             $totalFoundAll += $totalFound;
             $totalInsertedAll += $totalNew;
             $totalSkippedAll += $totalDuplicates;
-
+SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
           MarketEntityMetric::updateOrCreate(
 [
     'market_entity_id'=>$marketEntityId,
@@ -241,10 +261,27 @@ $query = "{$languageName} developer";
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
     } catch (\Throwable $e) {
 
         ScraperRunService::failed($run,$e);
+        SourceStatusService::failed(
+    source: $source,
+    runId: $run->id,
+    e: $e,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
         throw $e;
 
     }
@@ -393,8 +430,8 @@ $query = "{$languageName} developer";
 protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
 {
     return Language::firstOrCreate(
-        ['market_entity_id' => $marketEntityId],
-        ['name' => $languageName]
+          ['name' => $languageName], // 🔥 clave única real
+        ['market_entity_id' => $marketEntityId]
     );
 }
 }

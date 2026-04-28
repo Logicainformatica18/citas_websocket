@@ -12,6 +12,7 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+use App\Services\SourceStatusService;
 
 class ArbeitnowByTechnologiesCommand extends Command
 {
@@ -44,7 +45,14 @@ class ArbeitnowByTechnologiesCommand extends Command
             'Arbeitnow',
             'technologies'
         );
+$source = 'arbeitnow_technologies';
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://www.arbeitnow.com/api/job-board-api'
+);
         // 📊 Contadores globales
         $totalFoundAll = 0;
         $totalInsertedAll = 0;
@@ -78,9 +86,12 @@ class ArbeitnowByTechnologiesCommand extends Command
 
 
         $this->info("🌐 Iniciando scraping de Arbeitnow por tecnología ({$technologies->count()} tecnologías)...");
-
+$connectionOk = false;
+$startedAt = now();
         try {
-            foreach ($technologies as $techId => $techName) {
+            foreach ($technologies as $technology) {
+    $techId = $technology->id;
+    $techName = $technology->name;
                 $this->warn("\n💡 Procesando tecnología: {$techName}");
 
                 $totalFound = 0;
@@ -93,10 +104,12 @@ class ArbeitnowByTechnologiesCommand extends Command
                     ['search' => $techName]
                 );
 
-                if ($response->failed()) {
-                    $this->error("❌ Falló la API para {$techName}");
-                    continue;
-                }
+               if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, 'Error API Arbeitnow');
+    $totalSkippedAll++;
+    continue;
+}
+$connectionOk = true;
 
                 $jobs = $response->json()['data'] ?? [];
                 $totalFound = count($jobs);
@@ -199,6 +212,12 @@ class ArbeitnowByTechnologiesCommand extends Command
 
 
                 $this->info("✅ {$techName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+                SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
                 sleep(1.5);
             }
 
@@ -209,13 +228,32 @@ class ArbeitnowByTechnologiesCommand extends Command
                 $totalInsertedAll,
                 $totalSkippedAll
             );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
             $this->info("\n🎯 Proceso completado correctamente.");
 
         } catch (\Throwable $e) {
             // ❌ Fallo global del comando
-            ScraperRunService::failed($run, $e);
-            throw $e;
+           ScraperRunService::failed($run, $e);
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
         }
     }
 

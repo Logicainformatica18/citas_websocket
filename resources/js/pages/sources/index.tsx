@@ -4,7 +4,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import SourceModal from './modal';
 import { Pencil, Trash2, Play } from 'lucide-react';
-
+import dayjs from 'dayjs';
 const breadcrumbs = [{ title: 'Fuentes', href: '/sources' }];
 
 type Source = {
@@ -24,20 +24,40 @@ type Pagination<T> = {
 };
 
 export default function Sources() {
-    const { sources: initialPagination } = usePage<{
-        sources: Pagination<Source>;
-    }>().props;
+  const { sources: initialPagination, metrics } = usePage<{
+    sources: Pagination<Source>;
+    metrics: {
+        total_fuentes: number;
+        activas: number;
+        registros_totales: number;
+        con_errores: number;
+        uptime: number;
+    };
+}>().props;
 
     const [sources, setSources] = useState<Source[]>(initialPagination?.data || []);
     const [pagination, setPagination] = useState(initialPagination);
     const [showModal, setShowModal] = useState(false);
     const [editSource, setEditSource] = useState<Source | null>(null);
 
-    const fetchPage = async (url: string) => {
+  const fetchPage = async (url: string) => {
+    try {
         const res = await axios.get(url);
-        setSources(res.data.sources.data);
+
+        console.log('RESPONSE:', res.data); // 🔥 DEBUG
+
+        if (!res.data || !res.data.sources) {
+            console.error('Respuesta inválida', res);
+            return;
+        }
+
+        setSources(res.data.sources.data || []);
         setPagination(res.data.sources);
-    };
+
+    } catch (error) {
+        console.error('Error fetchPage', error);
+    }
+};
 
     // 🔥 BADGES (igual que tu diseño)
     const statusBadge = (status?: string) => {
@@ -97,29 +117,22 @@ export default function Sources() {
                 </div>
 
                 {/* CARDS (puedes luego hacerlas dinámicas) */}
-                <div className="grid grid-cols-4 gap-5">
+                <div className="grid grid-cols-2 gap-5">
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Total fuentes</p>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">6</h2>
-                        <span className="text-green-500 text-xs">+2 este mes</span>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white"> {metrics.total_fuentes}</h2>
+                       
                     </div>
 
-                    <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Activas</p>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">4</h2>
-                        <span className="text-green-500 text-xs">98% uptime</span>
-                    </div>
+                  
 
                     <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <p className="text-sm text-gray-500 dark:text-gray-400">Registros totales</p>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">31,655</h2>
-                        <span className="text-green-500 text-xs">+1,204 hoy</span>
+                       
                     </div>
 
-                    <div className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Con errores</p>
-                        <h2 className="text-2xl font-bold text-red-500">1</h2>
-                    </div>
+                  
                 </div>
 
                 {/* TABLA */}
@@ -152,8 +165,8 @@ export default function Sources() {
                                 <th className="px-4 py-3">Nombre</th>
                                 <th className="px-4 py-3">URL</th>
                                 <th className="px-4 py-3">Última ejecución</th>
-                                <th className="px-4 py-3">Scraping</th>
-                                <th className="px-4 py-3">API</th>
+                               
+                         
                                 <th className="px-4 py-3">Registros</th>
                             </tr>
                         </thead>
@@ -202,16 +215,12 @@ export default function Sources() {
                                     </td>
 
                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                                        {s.last_run_at || '—'}
+                                       {s.last_run_at
+    ? dayjs(s.last_run_at).format('DD/MM/YYYY HH:mm')
+    : 'Nunca'}
                                     </td>
 
-                                    <td className="px-4 py-3">
-                                        {statusBadge(s.last_status)}
-                                    </td>
-
-                                    <td className="px-4 py-3">
-                                        {statusBadge(s.api_status)}
-                                    </td>
+                                  
 
                                     <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200">
                                         {s.registros ?? 0}

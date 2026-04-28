@@ -60,6 +60,7 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 use App\Http\Controllers\Dashboard\CourseCCTCIndicatorController;
 use App\Http\Controllers\MarketEntityController;
 use App\Http\Controllers\EntityTrendController;
+use App\Http\Controllers\SourceStatusController;
 
 
 
@@ -123,9 +124,12 @@ Route::prefix('sources')->group(function () {
         ->name('sources.index')->middleware('permission:administrar');
 
     // 📄 Fetch (si luego quieres AJAX separado)
-    Route::get('/fetch', [\App\Http\Controllers\SourceStatusController::class, 'index'])
+   Route::get('/fetch', [\App\Http\Controllers\SourceStatusController::class, 'fetch'])
         ->name('sources.fetch')->middleware('permission:administrar');
 
+Route::post('/test-data', [SourceStatusController::class, 'testApiData'])
+    ->name('sources.test-data')
+    ->middleware('permission:administrar');
     // 🆕 Crear
     Route::post('/', [\App\Http\Controllers\SourceStatusController::class, 'store'])
         ->name('sources.store')->middleware('permission:administrar');

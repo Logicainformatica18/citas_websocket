@@ -6,9 +6,9 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 type Source = {
     id?: number;
     name: string;
-    base_url?: string;
     api_url?: string;
     api_key?: string;
+    app_id?: string; // 🔥 agregar
 };
 
 type Props = {
@@ -21,29 +21,38 @@ type Props = {
 export default function SourceModal({ open, onClose, onSaved, source }: Props) {
     const [form, setForm] = useState<Source>({
         name: '',
-        base_url: '',
+     
         api_url: '',
         api_key: '',
+        app_id: '', // 🔥 agregar
     });
 
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
 
     useEffect(() => {
-        if (source) {
-            setForm(source);
-        } else {
+       if (source) {
+    setForm({
+        id: source.id,
+        name: source.name || '',
+         
+        api_url: source.api_url || '',
+        api_key: source.api_key || '',
+        app_id: source.app_id || '',
+    });
+} else {
             setForm({
                 name: '',
-                base_url: '',
+                
                 api_url: '',
                 api_key: '',
+                app_id: '', // 🔥 agregar
             });
         }
 
         setTestResult(null);
     }, [source]);
-
+const [jobs, setJobs] = useState<any[]>([]);
     // 🔥 VALIDACIÓN FLEXIBLE
     const validateForm = () => {
         if (!form.name || form.name.trim() === '') {
@@ -83,9 +92,10 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
             // 🔥 MAPEAMOS A BACKEND
             const payload = {
                 source: form.name,
-                base_url: form.base_url || null,
+                
                 api_url: form.api_url || null,
                 api_key: form.api_key || null,
+                    app_id: form.app_id || null, // 🔥 FALTABA ESTO
             };
 
             if (form.id) {
@@ -121,51 +131,52 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
     };
 
     // 🔥 TEST API (solo si hay URL)
-    const handleTest = async () => {
-        if (!form.api_url) {
-            Swal.fire({
-                icon: 'info',
-                title: 'Campo opcional vacío',
-                text: 'No hay API URL para probar'
-            });
-            return;
-        }
+   const handleTest = async () => {
+    if (!form.api_url) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Campo opcional vacío',
+            text: 'No hay API URL para probar'
+        });
+        return;
+    }
 
-        setTesting(true);
-        setTestResult(null);
+    setTesting(true);
+    setTestResult(null);
 
-        try {
-            Swal.fire({
-                title: 'Probando...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
+    try {
+        Swal.fire({
+            title: 'Probando API...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
 
-            await axios.post('/sources/test-api', {
-                api_url: form.api_url,
-                api_key: form.api_key,
-            });
+        const res = await axios.post('/sources/test-data', {
+            api_url: form.api_url,
+            api_key: form.api_key,
+            app_id: form.app_id,
+        });
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Conexión OK'
-            });
+        setJobs(res.data.jobs || []);
 
-            setTestResult('success');
+        Swal.close();
 
-        } catch (e: any) {
+        setTestResult('success');
 
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de conexión'
-            });
+    } catch (e: any) {
 
-            setTestResult('error');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al obtener datos'
+        });
 
-        } finally {
-            setTesting(false);
-        }
-    };
+        setJobs([]);
+        setTestResult('error');
+
+    } finally {
+        setTesting(false);
+    }
+};
 
     if (!open) return null;
 
@@ -193,7 +204,7 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                     <div>
                         <label className="text-sm">Nombre *</label>
                         <input
-                            value={form.name}
+                           value={form.name || ''}
                             onChange={(e) =>
                                 setForm({ ...form, name: e.target.value })
                             }
@@ -202,7 +213,7 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                     </div>
 
                     {/* OPCIONAL */}
-                    <div>
+                    {/* <div>
                         <label className="text-sm">Base URL (opcional)</label>
                         <input
                             value={form.base_url}
@@ -211,13 +222,25 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                             }
                             className="w-full mt-1 px-3 py-2 rounded-lg border"
                         />
+                    </div> */}
+                    <div>
+                        <label className="text-sm">App ID (opcional)</label>
+                        <input
+                          value={form.app_id || ''}
+                            onChange={(e) =>
+                                setForm({ ...form, app_id: e.target.value })
+                            }
+                            className="w-full mt-1 px-3 py-2 rounded-lg border
+        bg-white dark:bg-gray-800
+        border-gray-200 dark:border-gray-700
+        focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
                     </div>
-
                     {/* OPCIONAL */}
                     <div>
                         <label className="text-sm">API URL (opcional)</label>
                         <input
-                            value={form.api_url}
+                            value={form.api_url || ''}
                             onChange={(e) =>
                                 setForm({ ...form, api_url: e.target.value })
                             }
@@ -229,7 +252,7 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                     <div>
                         <label className="text-sm">API Key (opcional)</label>
                         <input
-                            value={form.api_key}
+                           value={form.api_key || ''}
                             onChange={(e) =>
                                 setForm({ ...form, api_key: e.target.value })
                             }
@@ -239,7 +262,7 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
 
                     {/* TEST */}
                     <div className="flex items-center justify-between pt-2">
-                        <button
+                        {/* <button
                             type="button"
                             onClick={handleTest}
                             disabled={testing}
@@ -247,7 +270,7 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                         >
                             {testing && <Loader2 className="w-4 h-4 animate-spin" />}
                             Test API
-                        </button>
+                        </button> */}
 
                         {testResult === 'success' && (
                             <CheckCircle className="text-green-500 w-5 h-5" />
@@ -256,6 +279,28 @@ export default function SourceModal({ open, onClose, onSaved, source }: Props) {
                         {testResult === 'error' && (
                             <XCircle className="text-red-500 w-5 h-5" />
                         )}
+                        {jobs.length > 0 && (
+    <div className="mt-4 border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+            <thead className="bg-gray-100 dark:bg-gray-800">
+                <tr>
+                    <th className="p-2 text-left">Título</th>
+                    <th className="p-2 text-left">Empresa</th>
+                    <th className="p-2 text-left">Ubicación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {jobs.map((job, i) => (
+                    <tr key={i} className="border-t">
+                        <td className="p-2">{job.title}</td>
+                        <td className="p-2">{job.company}</td>
+                        <td className="p-2">{job.location}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+)}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4">

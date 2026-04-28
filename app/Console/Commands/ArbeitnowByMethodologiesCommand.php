@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Models\LanguageMetric;
+use App\Services\SourceStatusService;
 
 class ArbeitnowByMethodologiesCommand extends Command
 {
@@ -48,11 +49,19 @@ public function handle()
         'Arbeitnow',
         'methodologies'
     );
+$source = 'arbeitnow_methodologies';
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://www.arbeitnow.com/api/job-board-api'
+);
     $totalFoundAll   = 0;
     $totalInsertedAll = 0;
     $totalSkippedAll  = 0;
-
+$connectionOk = false;
+$startedAt = now();
     try {
 
 $lastMethodologyId = MethodologyMetric::where('source', 'Arbeitnow')
@@ -102,11 +111,12 @@ if ($methodologies->isEmpty()) {
                 ['search' => $methodologyName]
             );
 
-            if ($response->failed()) {
-                $this->error("❌ Falló la API para {$methodologyName}");
-                continue;
-            }
-
+          if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, 'Error API Arbeitnow');
+    $totalSkippedAll++; // 🔥 importante
+    continue;
+}
+$connectionOk = true;
             $jobs = $response->json()['data'] ?? [];
             $totalFound = count($jobs);
 
@@ -137,10 +147,11 @@ if ($methodologies->isEmpty()) {
                 }
             }
 
-            if ($totalFound === 0) {
-                $this->warn("⚠️ Sin resultados para {$methodologyName}");
-                continue;
-            }
+           if ($totalFound === 0) {
+    $this->warn("⚠️ Sin resultados para {$methodologyName}");
+    $totalSkippedAll++; // 🔥 faltaba esto
+    continue;
+}
 
             /* ============================
                🧩 PROCESAR OFERTAS
@@ -248,6 +259,12 @@ if ($methodologies->isEmpty()) {
             $totalFoundAll += $totalFound;
 
             $this->info("✅ {$methodologyName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+            SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
             sleep(1.5);
         }
 
@@ -260,11 +277,30 @@ if ($methodologies->isEmpty()) {
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
         $this->info("\n🎯 Proceso completado correctamente.");
     } catch (\Throwable $e) {
         ScraperRunService::failed($run, $e);
-        throw $e;
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
     }
 }
 

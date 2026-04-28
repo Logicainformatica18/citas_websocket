@@ -12,17 +12,26 @@ class SourceStatus extends Model
         'source',
         'last_run_id',
 
+        // 🔹 Estado ejecución
         'last_status',
         'last_started_at',
         'last_finished_at',
         'last_duration_seconds',
 
+        // 🔹 Último run
         'last_records_found',
         'last_records_inserted',
         'last_records_skipped',
 
+        // 🔥 NUEVO → acumulado histórico
+        'total_records_found',
+        'total_records_inserted',
+        'total_records_skipped',
+
+        // 🔹 errores
         'last_error',
 
+        // 🔹 métricas tiempo
         'last_success_at',
         'last_failed_at',
 
@@ -31,12 +40,10 @@ class SourceStatus extends Model
 
         // 🔥 CONFIG API
         'api_url',
-        'api_key',   // 👉 se usa como app_key
-
-        // 🔥 NUEVO CAMPO
+        'api_key',
         'app_id',
 
-        // 🔥 ESTADO CONEXIÓN
+        // 🔥 CONEXIÓN API
         'connection_status',
         'last_connection_check',
         'connection_error',
@@ -126,7 +133,7 @@ class SourceStatus extends Model
     public function getApiTypeAttribute()
     {
         if ($this->app_id && $this->api_key) {
-            return 'adzuna'; // app_id + api_key
+            return 'adzuna';
         }
 
         if ($this->api_key) {
@@ -143,7 +150,45 @@ class SourceStatus extends Model
     {
         return [
             'app_id' => $this->app_id,
-            'app_key' => $this->api_key, // 👈 reutilizado
+            'app_key' => $this->api_key,
         ];
+    }
+
+    /**
+     * 🧠 NUEVO → Total registros (fallback inteligente)
+     */
+    public function getTotalRegistrosAttribute()
+    {
+        return $this->total_records_inserted ?? 0;
+    }
+
+    /**
+     * 🧠 NUEVO → Último run registros
+     */
+    public function getLastRegistrosAttribute()
+    {
+        return $this->last_records_inserted ?? 0;
+    }
+
+    /**
+     * 🧠 NUEVO → Uptime individual
+     */
+    public function getUptimeAttribute()
+    {
+        $total = $this->success_count + $this->fail_count;
+
+        if ($total === 0) return 0;
+
+        return round(($this->success_count / $total) * 100, 2);
+    }
+
+    /**
+     * 🚨 NUEVO → detectar fuente muerta
+     */
+    public function getIsStaleAttribute()
+    {
+        if (!$this->last_success_at) return true;
+
+        return now()->diffInHours($this->last_success_at) > 6;
     }
 }

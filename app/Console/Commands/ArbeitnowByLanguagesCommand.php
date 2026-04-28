@@ -14,7 +14,7 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
- 
+ use App\Services\SourceStatusService;
 
 class ArbeitnowByLanguagesCommand extends Command
 {
@@ -68,12 +68,19 @@ class ArbeitnowByLanguagesCommand extends Command
             'Arbeitnow',
             'languages'
         );
+$source = 'arbeitnow_languages';
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [], // este comando no tiene params, puedes dejar vacío
+    apiUrl: 'https://www.arbeitnow.com/api/job-board-api'
+);
         // 🔢 contadores GLOBALES del run
         $foundAll = 0;
         $insertedAll = 0;
         $skippedAll = 0;
-
+$startedAt = now();
         try {
 
            $baseQuery = MarketEntity::where('entity_type','language')
@@ -102,11 +109,10 @@ if ($languages->isEmpty()) {
 
 
             $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
-
+$connectionOk = false;
            foreach ($languages as $marketEntityId => $languageName) {
-
-$this->warn("\n💡 Procesando lenguaje: {$languageName}");
-
+ 
+ 
 $language = $this->getLanguageFromMarketEntity(
     $marketEntityId,
     $languageName
@@ -117,7 +123,7 @@ $language = $this->getLanguageFromMarketEntity(
                 $totalFound = 0;
                 $totalNew = 0;
                 $countries = [];
-                $modalities = [];
+                $modalities = []; 
 
                 /* ================= API PRINCIPAL ================= */
                 $response = Http::timeout(25)->get(
@@ -125,19 +131,29 @@ $language = $this->getLanguageFromMarketEntity(
                     ['search' => $languageName]
                 );
 
-                if ($response->failed()) {
-                    continue;
-                }
+
+if ($response->failed()) {
+
+    SourceStatusService::connectionFailed($source, 'Error API Arbeitnow');
+    continue;
+}
+$connectionOk = true; // ✅ AQUÍ sí
+ 
+                
 
                 $jobs = $response->json()['data'] ?? [];
                 $totalFound = count($jobs);
 
                 /* ================= FALLBACK ================= */
                 if ($totalFound === 0) {
+                $this->stats['fallback']++;
                     $backup = Http::timeout(25)->get(
                         'https://www.arbeitnow.com/api/job-board-api'
                     );
-
+if ($backup->failed()) {
+    SourceStatusService::connectionFailed($source, 'Fallback API error');
+    continue;
+}
                     if ($backup->ok()) {
                         $jobs = collect($backup->json()['data'] ?? [])
                             ->filter(function ($job) use ($languageName) {
@@ -261,8 +277,16 @@ $language = $this->getLanguageFromMarketEntity(
 
 
                 $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+                SourceStatusService::progress(
+    $source,
+    $foundAll,
+    $insertedAll,
+    $skippedAll
+);
             }
-
+         if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+} 
             /* =========================================
                2️⃣ SUCCESS
             ========================================= */
@@ -273,22 +297,37 @@ $language = $this->getLanguageFromMarketEntity(
                 $skippedAll
             );
 
+  
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $foundAll,
+    inserted: $insertedAll,
+    skipped: $skippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
             $this->info("🎯 Proceso Arbeitnow finalizado correctamente");
         } catch (\Throwable $e) {
             /* =========================================
                3️⃣ FAILED
             ========================================= */
             ScraperRunService::failed($run, $e);
+            SourceStatusService::failed(
+    source: $source,
+    runId: $run->id,
+    e: $e,
+durationSeconds: now()->diffInSeconds($startedAt)
+);
             throw $e;
         }
     }
 
 protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
 {
-    return Language::firstOrCreate(
-        ['market_entity_id' => $marketEntityId],
-        ['name' => $languageName]
-    );
+   return Language::firstOrCreate(
+    ['name' => $languageName],
+    ['market_entity_id' => $marketEntityId]
+);
 }
     protected function extractCity(?string $location): ?string
     {

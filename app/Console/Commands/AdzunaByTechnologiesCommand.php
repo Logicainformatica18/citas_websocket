@@ -12,6 +12,9 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+use App\Services\SourceStatusService;
+
+
 class AdzunaByTechnologiesCommand extends Command
 {
     protected $signature = 'adzuna:technologies {--country=us} {--pages=1}';
@@ -58,16 +61,26 @@ class AdzunaByTechnologiesCommand extends Command
 
 public function handle()
 {
+    $source = 'adzuna_technologies';
     $run = ScraperRunService::start(
         $this->signature,
         'Adzuna',
         'technologies'
     );
 
+      $baseUrl = config('services.adzuna.base_url','https://api.adzuna.com/v1/api/jobs');
+
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: $baseUrl
+);
     $foundAll = 0;
     $insertedAll = 0;
     $skippedAll = 0;
-
+$connectionOk = false;
+$startedAt = now();
     try {
 
         $country = strtolower($this->option('country'));
@@ -75,7 +88,7 @@ public function handle()
 
         $appId   = config('services.adzuna.app_id');
         $appKey  = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url','https://api.adzuna.com/v1/api/jobs');
+      
 
         /* =========================================
            TECNOLOGÍAS DESDE market_entities
@@ -134,9 +147,13 @@ public function handle()
 
                 $response = Http::timeout(25)->get($url);
 
-                if ($response->failed()) {
-                    continue;
-                }
+             if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, 'Error API Adzuna');
+    $skippedAll++; // 🔥 FALTA ESTO
+    continue;
+}
+
+$connectionOk = true;
 
                 $results = $response->json('results') ?? [];
 $this->info("Resultados encontrados: ".count($results));
@@ -204,7 +221,7 @@ $this->info("Resultados encontrados: ".count($results));
 
                     $totalNew++;
                     $insertedAll++;
-
+ 
                     $countries[$countryCode] =
                         ($countries[$countryCode] ?? 0) + 1;
 
@@ -216,7 +233,13 @@ $this->info("Resultados encontrados: ".count($results));
             }
 
             $this->info("✅ {$techName}: {$totalNew} nuevas | {$totalFound} encontradas");
-
+// ✅ AQUÍ VA (UNA VEZ POR TECNOLOGÍA)
+SourceStatusService::progress(
+    $source,
+    $foundAll,
+    $insertedAll,
+    $skippedAll
+);
             TechnologyMetric::updateOrCreate(
                 [
                     'technology_id'=>$techId,
@@ -239,11 +262,30 @@ $this->info("Resultados encontrados: ".count($results));
             $insertedAll,
             $skippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $foundAll,
+    inserted: $insertedAll,
+    skipped: $skippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
     } catch (\Throwable $e) {
 
         ScraperRunService::failed($run,$e);
-        throw $e;
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
 
     }
 }

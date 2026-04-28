@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
    use App\Models\MarketEntity;
+    use App\Services\SourceStatusService;
 class AdzunaByMethodologiesCommand extends Command
 {
     protected $signature = 'adzuna:methodologies {--country=us} {--pages=1}';
@@ -59,6 +60,7 @@ class AdzunaByMethodologiesCommand extends Command
 
 public function handle()
 {
+$source = 'adzuna_methodologies';
     /* =====================================================
        0. REGISTRAR EJECUCIÓN DEL SCRAPER
     ===================================================== */
@@ -67,7 +69,17 @@ public function handle()
         'Adzuna',
         'methodologies'
     );
+     $baseUrl = config(
+        'services.adzuna.base_url',
+        'https://api.adzuna.com/v1/api/jobs'
+    );
 
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: $baseUrl
+);
     $totalFoundAll = 0;
     $totalInsertedAll = 0;
     $totalSkippedAll = 0;
@@ -82,11 +94,7 @@ public function handle()
     $appId  = config('services.adzuna.app_id');
     $appKey = config('services.adzuna.app_key');
 
-    $baseUrl = config(
-        'services.adzuna.base_url',
-        'https://api.adzuna.com/v1/api/jobs'
-    );
-
+   
     /* =====================================================
        2. METODOLOGÍAS DESDE market_entities
     ===================================================== */
@@ -289,7 +297,12 @@ if(!$methodology){
                 Log::error("⚠️ {$mName}: {$e->getMessage()}");
 
                 ScraperRunService::failed($run,$e);
-
+SourceStatusService::failed(
+    source: $source,
+    runId: $run->id,
+    e: $e,
+    durationSeconds: now()->diffInSeconds($run->created_at)
+);
               continue;
             }
         }
@@ -311,6 +324,12 @@ if(!$methodology){
         );
 
         $this->info("✅ {$mName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
+        SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
     }
 
     ScraperRunService::success(
@@ -319,7 +338,14 @@ if(!$methodology){
         $totalInsertedAll,
         $totalSkippedAll
     );
-
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($run->created_at)
+);
     $this->info("🎯 Proceso completado correctamente");
 
     return Command::SUCCESS;
