@@ -11,6 +11,8 @@ use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper; // ✅ importante: asegúrate de importar el helper
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
+
 class GetOnBoardByMethodologiesCommand extends Command
 {
     protected $signature = 'getonboard:methodologies {--pages=1}';
@@ -39,220 +41,289 @@ protected function normalizeGetOnBoardModality(?string $raw): string
     };
 }
 
- public function handle()
+public function handle()
 {
-    $pages = (int) $this->option('pages');
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'GetOnBoard',
+        'methodologies'
+    );
 
-    $lastMethodologyId = MethodologyMetric::where('source', 'GetOnBoard')
-    ->orderByDesc('created_at')
-    ->value('methodology_id');
+    $source = 'getonboard_methodologies';
 
-    $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
-        $q->select('course_methodology.methodology_id')
-          ->from('course_methodology')
-          ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-    })
-    ->orderBy('methodologies.id');
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://www.getonbrd.com/api'
+    );
 
-$methodologiesQuery = clone $baseQuery;
+    $connectionOk = false;
+    $startedAt = now();
 
-if ($lastMethodologyId) {
-    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
-}
+    // progreso inicial
+    SourceStatusService::progress($source, 0, 0, 0);
 
-$methodologies = $methodologiesQuery->get();
+    try {
 
-if ($methodologies->isEmpty()) {
-    // 🔁 ciclo completo → volver al inicio
-    $methodologies = $baseQuery->get();
-}
+        $pages = (int) $this->option('pages');
 
+        // 🔢 Contadores GLOBALES del run
+        $totalFoundAll = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll = 0;
 
-    $this->info("🔎 Iniciando scraping de GetOnBoard por metodología ({$methodologies->count()} metodologías)...");
+        $lastMethodologyId = MethodologyMetric::where('source', 'GetOnBoard')
+            ->orderByDesc('created_at')
+            ->value('methodology_id');
 
-   foreach ($methodologies as $methodology) {
+        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+            $q->select('course_methodology.methodology_id')
+                ->from('course_methodology')
+                ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+        })
+        ->orderBy('methodologies.id');
 
-    $methodologyId   = $methodology->id;
-    $methodologyName = $methodology->name;
+        $methodologiesQuery = clone $baseQuery;
 
-
-        $this->warn("\n💡 Procesando metodología: {$methodologyName}");
-
-        $totalFound = 0;
-        $totalNew = 0;
-        $totalUnmapped = 0;
-        $countries = [];
-        $modalities = [];
-
-        for ($page = 1; $page <= $pages; $page++) {
-
-            $url = "https://www.getonbrd.com/api/v0/search/jobs?query="
-                . urlencode($methodologyName)
-                . "&page={$page}&per_page=100";
-
-            try {
-                $response = Http::timeout(25)->get($url);
-                if ($response->failed()) {
-                    continue;
-                }
-
-                $data = $response->json('data') ?? [];
-                $totalFound += count($data);
-
-                foreach ($data as $job) {
-
-                    $attr = $job['attributes'] ?? [];
-
-                    $title       = $attr['title'] ?? 'N/A';
-                    $company     = $attr['company']['data']['attributes']['name'] ?? null;
-                    $country     = $attr['countries'][0] ?? 'Desconocido';
-                    $city        = $attr['city'] ?? null;
-                    $rawModality = $attr['remote_modality'] ?? null;
-                    $modality    = $this->normalizeGetOnBoardModality($rawModality);
-                    $urlJob      = $job['links']['public_url'] ?? null;
-                    $externalId  = $job['id'] ?? null;
-
-                    // 📊 Métricas
-                    $countries[$country] = ($countries[$country] ?? 0) + 1;
-                    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-
-                    // 🧭 Coordenadas
-                    [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $country);
-                    if (!$lat || !$lng) {
-                        $totalUnmapped++;
-                        continue;
-                    }
-
-                    // 🚫 Evitar duplicados
-                    $exists = JobOffer::where('source', 'GetOnBoard')
-                        ->where(function ($q) use (
-                            $externalId,
-                            $title,
-                            $company,
-                            $city,
-                            $country,
-                            $methodologyName,
-                            $urlJob
-                        ) {
-                            $q->where('external_id', $externalId)
-                              ->orWhere(function ($q2) use (
-                                  $title,
-                                  $company,
-                                  $city,
-                                  $country,
-                                  $methodologyName,
-                                  $urlJob
-                              ) {
-                                  $q2->whereRaw('LOWER(title) = ?', [strtolower($title)])
-                                     ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
-                                     ->where('city', $city)
-                                     ->where('country', $country)
-                                     ->where('search_query', $methodologyName)
-                                     ->where('url', $urlJob);
-                              });
-                        })
-                        ->exists();
-
-                    if ($exists) {
-                        continue;
-                    }
-
-                    // 📄 Textos
-                    $desc         = strip_tags($attr['description'] ?? '');
-                    $benefitsText = strip_tags($attr['benefits'] ?? '');
-
-                    // 📊 Campos adicionales
-                    $seniority = $attr['seniority']['data']['id'] ?? null;
-                    $category  = $attr['category_name'] ?? null;
-                    $minSalary = $attr['min_salary'] ?? null;
-                    $maxSalary = $attr['max_salary'] ?? null;
-                    $compType  = $attr['compensation_type'] ?? null;
-                    $currency  = null;
-
-                    if (preg_match('/(USD|MXN|CLP|PEN|COP|ARS|BOB|VEF)/i', $benefitsText, $m)) {
-                        $currency = strtoupper($m[1]);
-                    }
-
-                    // 💼 Experiencia / certificaciones
-                    $experienceYears = null;
-                    $certifications  = [];
-
-                    if (preg_match('/(\d+)[–\-+]?\s*(years?|años?)/i', $desc, $m)) {
-                        $experienceYears = (int) $m[1];
-                    }
-
-                    if (preg_match_all('/(AWS|Azure|Scrum|PMP|Certification|Certified)/i', $desc, $matches)) {
-                        $certifications = array_unique($matches[0]);
-                    }
-
-                    // 💾 Guardar oferta
-                    $offer = JobOffer::create([
-                        'title'             => $title,
-                        'company'           => $company,
-                        'country'           => $country,
-                        'region'            => RegionHelper::fromCountry($country),
-                        'city'              => $city,
-                        'latitude'          => $lat,
-                        'longitude'         => $lng,
-                        'modality'          => $modality,
-                        'experience_level'  => $seniority,
-                        'certifications'    => !empty($certifications)
-                                                ? implode(', ', $certifications)
-                                                : null,
-                        'description'       => $desc,
-                        'benefits'          => $benefitsText,
-                        'salary_min'        => $minSalary,
-                        'salary_max'        => $maxSalary,
-                        'currency'          => $currency,
-                        'compensation_type' => $compType,
-                        'source'            => 'GetOnBoard',
-                        'search_query'      => $methodologyName,
-                        'external_id'       => $externalId,
-                        'url'               => $urlJob,
-                        'published_at'      => isset($attr['published_at'])
-                                                ? Carbon::createFromTimestamp($attr['published_at'])
-                                                : now(),
-                        'created_at'        => now(),
-                        'updated_at'        => now(),
-                    ]);
-
-                    // 🔗 Relación metodología ↔ oferta
-                    $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
-
-                    $totalNew++;
-                    $this->line("✅ {$title} ({$country} - {$city}) 💰{$minSalary}-{$maxSalary} {$currency}");
-                }
-
-                usleep(random_int(600000, 1200000));
-
-            } catch (\Throwable $th) {
-                Log::error("⚠️ Error en {$methodologyName} (página {$page}): {$th->getMessage()}");
-            }
+        if ($lastMethodologyId) {
+            $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
         }
 
-        // 📈 Registrar métricas
-        MethodologyMetric::updateOrCreate(
-            [
-                'methodology_id' => $methodologyId,
-                'run_date'       => Carbon::today(),
-                'source'         => 'GetOnBoard',
-            ],
-            [
-                'methodology_name'    => $methodologyName,
-                'jobs_found_count'    => $totalFound,
-                'jobs_new_count'      => $totalNew,
-                'countries_breakdown' => $countries,
-                'modality_breakdown'  => $modalities,
-                'updated_at'          => now(),
-            ]
+        $methodologies = $methodologiesQuery->get();
+
+        if ($methodologies->isEmpty()) {
+            $methodologies = $baseQuery->get();
+        }
+
+        $this->info("🔎 Iniciando scraping de GetOnBoard por metodología ({$methodologies->count()} metodologías)...");
+
+        foreach ($methodologies as $methodology) {
+
+            $methodologyId   = $methodology->id;
+            $methodologyName = $methodology->name;
+
+            $this->warn("\n💡 Procesando metodología: {$methodologyName}");
+
+            $totalFound = 0;
+            $totalNew = 0;
+            $totalUnmapped = 0;
+            $countries = [];
+            $modalities = [];
+
+            for ($page = 1; $page <= $pages; $page++) {
+
+                $url = "https://www.getonbrd.com/api/v0/search/jobs?query="
+                    . urlencode($methodologyName)
+                    . "&page={$page}&per_page=100";
+
+                try {
+                    $response = Http::timeout(25)->get($url);
+
+                    if ($response->failed()) {
+                        SourceStatusService::connectionFailed($source, "Error {$methodologyName} page {$page}");
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $connectionOk = true;
+
+                    $data = $response->json('data') ?? [];
+                    $totalFound += count($data);
+
+                    foreach ($data as $job) {
+
+                        $attr = $job['attributes'] ?? [];
+
+                        $title       = $attr['title'] ?? 'N/A';
+                        $company     = $attr['company']['data']['attributes']['name'] ?? null;
+                        $country     = $attr['countries'][0] ?? 'Desconocido';
+                        $city        = $attr['city'] ?? null;
+                        $rawModality = $attr['remote_modality'] ?? null;
+                        $modality    = $this->normalizeGetOnBoardModality($rawModality);
+                        $urlJob      = $job['links']['public_url'] ?? null;
+                        $externalId  = $job['id'] ?? null;
+
+                        $countries[$country] = ($countries[$country] ?? 0) + 1;
+                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+
+                        [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $country);
+                        if (!$lat || !$lng) {
+                            $totalUnmapped++;
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $exists = JobOffer::where('source', 'GetOnBoard')
+                            ->where(function ($q) use (
+                                $externalId,
+                                $title,
+                                $company,
+                                $city,
+                                $country,
+                                $methodologyName,
+                                $urlJob
+                            ) {
+                                $q->where('external_id', $externalId)
+                                  ->orWhere(function ($q2) use (
+                                      $title,
+                                      $company,
+                                      $city,
+                                      $country,
+                                      $methodologyName,
+                                      $urlJob
+                                  ) {
+                                      $q2->whereRaw('LOWER(title) = ?', [strtolower($title)])
+                                         ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
+                                         ->where('city', $city)
+                                         ->where('country', $country)
+                                         ->where('search_query', $methodologyName)
+                                         ->where('url', $urlJob);
+                                  });
+                            })
+                            ->exists();
+
+                        if ($exists) {
+                            $totalSkippedAll++;
+                            continue;
+                        }
+
+                        $desc         = strip_tags($attr['description'] ?? '');
+                        $benefitsText = strip_tags($attr['benefits'] ?? '');
+
+                        $seniority = $attr['seniority']['data']['id'] ?? null;
+                        $category  = $attr['category_name'] ?? null;
+                        $minSalary = $attr['min_salary'] ?? null;
+                        $maxSalary = $attr['max_salary'] ?? null;
+                        $compType  = $attr['compensation_type'] ?? null;
+                        $currency  = null;
+
+                        if (preg_match('/(USD|MXN|CLP|PEN|COP|ARS|BOB|VEF)/i', $benefitsText, $m)) {
+                            $currency = strtoupper($m[1]);
+                        }
+
+                        $experienceYears = null;
+                        $certifications  = [];
+
+                        if (preg_match('/(\d+)[–\-+]?\s*(years?|años?)/i', $desc, $m)) {
+                            $experienceYears = (int) $m[1];
+                        }
+
+                        if (preg_match_all('/(AWS|Azure|Scrum|PMP|Certification|Certified)/i', $desc, $matches)) {
+                            $certifications = array_unique($matches[0]);
+                        }
+
+                        $offer = JobOffer::create([
+                            'title'             => $title,
+                            'company'           => $company,
+                            'country'           => $country,
+                            'region'            => RegionHelper::fromCountry($country),
+                            'city'              => $city,
+                            'latitude'          => $lat,
+                            'longitude'         => $lng,
+                            'modality'          => $modality,
+                            'experience_level'  => $seniority,
+                            'certifications'    => !empty($certifications)
+                                                    ? implode(', ', $certifications)
+                                                    : null,
+                            'description'       => $desc,
+                            'benefits'          => $benefitsText,
+                            'salary_min'        => $minSalary,
+                            'salary_max'        => $maxSalary,
+                            'currency'          => $currency,
+                            'compensation_type' => $compType,
+                            'source'            => 'GetOnBoard',
+                            'search_query'      => $methodologyName,
+                            'external_id'       => $externalId,
+                            'url'               => $urlJob,
+                            'published_at'      => isset($attr['published_at'])
+                                                    ? Carbon::createFromTimestamp($attr['published_at'])
+                                                    : now(),
+                            'created_at'        => now(),
+                            'updated_at'        => now(),
+                        ]);
+
+                        $offer->methodologies()->syncWithoutDetaching([$methodologyId]);
+
+                        $totalNew++;
+                        $totalInsertedAll++;
+
+                        $this->line("✅ {$title} ({$country} - {$city}) 💰{$minSalary}-{$maxSalary} {$currency}");
+                    }
+
+                    usleep(random_int(600000, 1200000));
+
+                } catch (\Throwable $th) {
+                    Log::error("⚠️ Error en {$methodologyName} (página {$page}): {$th->getMessage()}");
+                    $totalSkippedAll++;
+                }
+            }
+
+            MethodologyMetric::updateOrCreate(
+                [
+                    'methodology_id' => $methodologyId,
+                    'run_date'       => Carbon::today(),
+                    'source'         => 'GetOnBoard',
+                ],
+                [
+                    'methodology_name'    => $methodologyName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
+                    'updated_at'          => now(),
+                ]
+            );
+
+            $totalFoundAll += $totalFound;
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            $this->info("📊 {$methodologyName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} totales");
+        }
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
         );
 
-        $this->info("📊 {$methodologyName}: {$totalNew} nuevas | 🌎 {$totalUnmapped} sin coords | 📦 {$totalFound} totales");
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("\n🎯 Proceso completado exitosamente (GetOnBoard).");
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
     }
-
-    $this->info("\n🎯 Proceso completado exitosamente (GetOnBoard).");
 }
-
 
     // 🌍 Helpers de geolocalización
     protected function getCoordsFromCountry(?string $city, ?string $country)

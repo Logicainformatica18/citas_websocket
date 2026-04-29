@@ -11,6 +11,7 @@ use App\Models\LanguageMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
 
 class GetOnBoardByLanguagesCommand extends Command
 {
@@ -37,6 +38,20 @@ class GetOnBoardByLanguagesCommand extends Command
         'GetOnBoard',
         'languages'
     );
+$source = 'getonboard_languages';
+
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://www.getonbrd.com/api'
+);
+
+$connectionOk = false;
+$startedAt = now();
+
+// (opcional pero recomendado)
+SourceStatusService::progress($source, 0, 0, 0);
 
     try {
 
@@ -97,11 +112,13 @@ if ($languages->isEmpty()) {
                 try {
                     $response = Http::timeout(25)->get($url);
 
-                    if ($response->failed()) {
-                        $this->warn("❌ Falló la API en {$languageName} (página {$page})");
-                        $totalSkippedAll++;
-                        continue;
-                    }
+                   if ($response->failed()) {
+    SourceStatusService::connectionFailed($source, "Error {$languageName} page {$page}");
+    $totalSkippedAll++;
+    continue;
+}
+
+$connectionOk = true;
 
                     $data = $response->json('data') ?? [];
                     $totalFound += count($data);
@@ -122,6 +139,19 @@ if ($languages->isEmpty()) {
                         $externalId = $job['id'] ?? null;
 
                         // 📊 Métricas
+
+ $country = match (strtolower($country)) {
+                            'peru' => 'Perú',
+                            'mexico' => 'México',
+                            'colombia' => 'Colombia',
+                            'argentina' => 'Argentina',
+                            'uruguay' => 'Uruguay',
+                            'ecuador' => 'Ecuador',
+                            'venezuela' => 'Venezuela',
+                            'bolivia' => 'Bolivia',
+                            'chile' => 'Chile',
+                            default => ucfirst($country),
+                        };
                         $countries[$country]  = ($countries[$country] ?? 0) + 1;
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
@@ -147,18 +177,7 @@ if ($languages->isEmpty()) {
                         }
 
                         // 🌍 Normaliza país
-                        $country = match (strtolower($country)) {
-                            'peru' => 'Perú',
-                            'mexico' => 'México',
-                            'colombia' => 'Colombia',
-                            'argentina' => 'Argentina',
-                            'uruguay' => 'Uruguay',
-                            'ecuador' => 'Ecuador',
-                            'venezuela' => 'Venezuela',
-                            'bolivia' => 'Bolivia',
-                            'chile' => 'Chile',
-                            default => ucfirst($country),
-                        };
+                       
 
                         // 📄 Textos
                         $desc         = strip_tags($attr['description'] ?? '');
@@ -236,6 +255,12 @@ if ($languages->isEmpty()) {
 
             $totalFoundAll    += $totalFound;
             $totalInsertedAll += $totalNew;
+            SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
         }
 
         ScraperRunService::success(
@@ -244,12 +269,33 @@ if ($languages->isEmpty()) {
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
+
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
+
 
         $this->info("\n🎯 Scraping + métricas completado exitosamente (GetOnBoard).");
 
     } catch (\Throwable $e) {
         ScraperRunService::failed($run, $e);
-        throw $e;
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
     }
 }
 

@@ -14,6 +14,9 @@ use App\Helpers\RegionHelper;
 use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
+
+
 
 class JoobleByLanguagesCommand extends Command
 {
@@ -26,64 +29,52 @@ class JoobleByLanguagesCommand extends Command
         'skipped'   => 0,
     ];
 
-   public function handle()
+public function handle()
 {
-    // ▶️ Iniciar RUN del scraper
+    // ▶️ INICIAR RUN
     $run = ScraperRunService::start(
         $this->signature,
         'Jooble',
         'languages'
     );
 
+    $source = 'jooble_languages';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jooble.org/api'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
         $apiKey = config('services.jooble.key');
 
         if (!$apiKey) {
-            $this->error("❌ No existe JOOBLE_API_KEY en .env");
-            ScraperRunService::failed($run, new \Exception('Missing Jooble API Key'));
-            return;
+            throw new \Exception('Missing Jooble API Key');
         }
 
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
         $pages = (int) $this->option('pages');
 
-        // 🔢 Contadores GLOBALES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-       $lastLanguageId = LanguageMetric::where('source', 'Jooble')
-    ->orderByDesc('created_at')
-    ->value('language_id');
-$baseQuery = Language::whereIn('languages.id', function ($q) {
-        $q->select('course_language.language_id')
-          ->from('course_language')
-          ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-    })
-    ->orderBy('languages.id');
-$languagesQuery = clone $baseQuery;
+        // 🔁 MISMA lógica (NO optimizada)
+        $languages = Language::pluck('name', 'id');
 
-if ($lastLanguageId) {
-    $languagesQuery->where('languages.id', '>', $lastLanguageId);
-}
+        $this->info("🌎 Jooble ({$joobleCountry})...");
 
-$languages = $languagesQuery->get();
-if ($languages->isEmpty()) {
-    // 🔁 Se terminó el ciclo → reiniciar
-    $languages = $baseQuery->get();
-}
+        foreach ($languages as $languageId => $languageName) {
 
-
-        $this->info("🌎 Importando desde Jooble ({$joobleCountry})…");
-
-       foreach ($languages as $language) {
-    $languageId   = $language->id;
-    $languageName = $language->name;
- 
-
-
-            $this->warn("🔎 Procesando lenguaje: {$languageName}");
+            $this->warn("🔎 {$languageName}");
 
             $totalFound = 0;
             $totalNew   = 0;
@@ -97,43 +88,39 @@ if ($languages->isEmpty()) {
                 ];
 
                 try {
-                    $response = Http::timeout(25)->post(
-                        "https://jooble.org/api/{$apiKey}",
-                        $payload
-                    );
+
+                    $response = Http::timeout(25)
+                        ->post("https://jooble.org/api/{$apiKey}", $payload);
 
                     if ($response->failed()) {
-                        $this->error("❌ Error página {$page}: {$response->body()}");
+                        SourceStatusService::connectionFailed($source, "{$languageName} page {$page}");
                         $totalSkippedAll++;
                         continue;
                     }
+
+                    $connectionOk = true;
 
                     $jobs = $response->json()['jobs'] ?? [];
                     $totalFound += count($jobs);
 
                     foreach ($jobs as $job) {
 
-                        $title      = $job['title'] ?? 'N/A';
-                        $company    = $job['company'] ?? null;
-                        $location   = $job['location'] ?? $joobleCountry;
-                        $desc       = strtolower($job['snippet'] ?? '');
-                        $urlJob     = $job['link'] ?? null;
-                        $externalId = $job['id'];
+                        $externalId = $job['id'] ?? null;
 
-                        // -----------------------
-                        // MODALIDAD
-                        // -----------------------
-                        $modality = $this->detectModality($location, $desc);
-                        $isRemote = in_array($modality, ['remote', 'fully_remote'], true);
-
-                        // -----------------------
-                        // LOCALIZACIÓN
-                        // -----------------------
-                        [$rawCity, $rawCountry] = $this->splitLocation($location);
-
-                        if (strlen($rawCountry) === 2 && ctype_alpha($rawCountry)) {
-                            $rawCountry = 'United States';
+                        if ($externalId && JobOffer::where('external_id', $externalId)->exists()) {
+                            $totalSkippedAll++;
+                            continue;
                         }
+
+                        $title    = $job['title'] ?? 'N/A';
+                        $company  = $job['company'] ?? null;
+                        $location = $job['location'] ?? $joobleCountry;
+                        $desc     = strtolower($job['snippet'] ?? '');
+                        $urlJob   = $job['link'] ?? null;
+
+                        $modality = $this->detectModality($location, $desc);
+
+                        [$rawCity, $rawCountry] = $this->splitLocation($location);
 
                         if (!$rawCountry || $rawCountry === 'Unknown') {
                             $rawCountry = $joobleCountry;
@@ -142,59 +129,29 @@ if ($languages->isEmpty()) {
                         $countryFull = CountryNormalizer::normalize($rawCountry);
                         $countryCode = $this->countryCodeIso($rawCountry);
 
-                        // -----------------------
-                        // GEOLOCALIZACIÓN
-                        // -----------------------
-                        if ($isRemote) {
-                            $finalCity = 'Remote';
-                            $lat = null;
-                            $lng = null;
-                        } else {
-                            [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $countryCode);
+                        [$city, $lat, $lng] = $this->tryGeocode($rawCity, $countryCode);
 
-                            if (!$lat || !$lng) {
-                                $totalSkippedAll++;
-                                continue;
-                            }
-                        }
-
-                        // -----------------------
-                        // DUPLICADOS
-                        // -----------------------
-                        $existing = JobOffer::where('external_id', $externalId)->first();
-                        if ($existing) {
-                            $existing->languages()->syncWithoutDetaching([$languageId]);
+                        if (!$lat || !$lng) {
                             $totalSkippedAll++;
                             continue;
                         }
 
-                        $region = RegionHelper::fromCountry($countryFull);
-
-                        // -----------------------
-                        // CREAR OFERTA
-                        // -----------------------
                         $offer = JobOffer::create([
-                            'title'             => $title,
-                            'company'           => $company,
-                            'country'           => $countryFull,
-                            'city'              => $finalCity,
-                            'latitude'          => $lat,
-                            'longitude'         => $lng,
-                            'modality'          => $modality,
-                            'salary_min'        => $this->extractMinSalary($job['salary'] ?? ''),
-                            'salary_max'        => $this->extractMaxSalary($job['salary'] ?? ''),
-                            'source'            => 'Jooble',
-                            'compensation_type' => $job['type'] ?? null,
-                            'experience_level'  => $this->extractExperience($desc),
-                            'education_level'   => $this->extractEducation($desc),
-                            'certifications'    => $this->extractCertifications($desc),
-                            'skills'            => $this->extractSkills($desc),
-                            'requirements'      => strip_tags($desc),
-                            'external_id'       => $externalId,
-                            'url'               => $urlJob,
-                            'search_query'      => $languageName,
-                            'published_at'      => Carbon::parse($job['updated'] ?? now()),
-                            'region'            => $region,
+                            'title'        => $title,
+                            'company'      => $company,
+                            'country'      => $countryFull,
+                            'city'         => $city,
+                            'latitude'     => $lat,
+                            'longitude'    => $lng,
+                            'modality'     => $modality,
+                            'salary_min'   => $this->extractMinSalary($job['salary'] ?? ''),
+                            'salary_max'   => $this->extractMaxSalary($job['salary'] ?? ''),
+                            'source'       => 'Jooble',
+                            'external_id'  => $externalId,
+                            'url'          => $urlJob,
+                            'search_query' => $languageName,
+                            'published_at' => Carbon::parse($job['updated'] ?? now()),
+                            'region'       => RegionHelper::fromCountry($countryFull),
                         ]);
 
                         $offer->languages()->syncWithoutDetaching([$languageId]);
@@ -203,15 +160,21 @@ if ($languages->isEmpty()) {
                         $totalInsertedAll++;
                     }
 
+                    SourceStatusService::progress(
+                        $source,
+                        $totalFoundAll + $totalFound,
+                        $totalInsertedAll,
+                        $totalSkippedAll
+                    );
+
                     sleep(1);
 
                 } catch (\Throwable $e) {
-                    Log::error("❌ Error en {$languageName}: {$e->getMessage()}");
+                    Log::error("Jooble {$languageName}: {$e->getMessage()}");
                     $totalSkippedAll++;
                 }
             }
 
-            // 📊 Métrica diaria
             LanguageMetric::updateOrCreate(
                 [
                     'language_id' => $languageId,
@@ -226,12 +189,11 @@ if ($languages->isEmpty()) {
                 ]
             );
 
-            $this->info("✅ {$languageName}: {$totalNew} nuevas / {$totalFound} encontradas");
+            $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
 
             $totalFoundAll += $totalFound;
         }
 
-        // ✅ Finalizar RUN exitoso
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -239,15 +201,35 @@ if ($languages->isEmpty()) {
             $totalSkippedAll
         );
 
-        $this->info("🎯 Proceso Jooble completado correctamente");
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("🎯 Jooble finalizado correctamente");
 
     } catch (\Throwable $e) {
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }
-
-
     // --------------------------------------
     // HELPERS
     // --------------------------------------

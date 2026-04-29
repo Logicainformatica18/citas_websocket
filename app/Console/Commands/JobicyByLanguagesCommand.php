@@ -13,7 +13,9 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
 
+ 
 class JobicyByLanguagesCommand extends Command
 {
     protected $signature = 'jobicy:languages';
@@ -40,223 +42,252 @@ class JobicyByLanguagesCommand extends Command
     ];
 
     public function handle()
-    {
-        // ▶️ Iniciar RUN del scraper
-        $run = ScraperRunService::start(
-            $this->signature,
-            'Jobicy',
-            'languages'
-        );
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Jobicy',
+        'languages'
+    );
 
-        try {
+    $source = 'jobicy_languages';
 
-            // 🔢 Contadores GLOBALES del run
-            $totalFoundAll = 0;
-            $totalInsertedAll = 0;
-            $totalSkippedAll = 0;
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jobicy.com/api/v2/remote-jobs'
+    );
 
-            $lastLanguageId = LanguageMetric::where('source', 'Jobicy')
-                ->orderByDesc('created_at')
-                ->value('language_id');
+    $connectionOk = false;
+    $startedAt = now();
 
-            $baseQuery = Language::whereIn('languages.id', function ($q) {
-                $q->select('course_language.language_id')
-                    ->from('course_language')
-                    ->join(
-                        'career_course',
-                        'career_course.course_id',
-                        '=',
-                        'course_language.course_id'
-                    );
-            })
-                ->orderBy('languages.id');
+    SourceStatusService::progress($source, 0, 0, 0);
 
-            $languagesQuery = clone $baseQuery;
+    try {
 
-            if ($lastLanguageId) {
-                $languagesQuery->where('languages.id', '>', $lastLanguageId);
-            }
+        // 🔢 Contadores GLOBALES del run
+        $totalFoundAll = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll = 0;
 
-            $languages = $languagesQuery->pluck('name', 'id');
+        $lastLanguageId = LanguageMetric::where('source', 'Jobicy')
+            ->orderByDesc('created_at')
+            ->value('language_id');
 
-            if ($languages->isEmpty()) {
-                // 🔁 ciclo completo → volver al inicio
-                $languages = $baseQuery->pluck('name', 'id');
-            }
+        $baseQuery = Language::whereIn('languages.id', function ($q) {
+            $q->select('course_language.language_id')
+                ->from('course_language')
+                ->join(
+                    'career_course',
+                    'career_course.course_id',
+                    '=',
+                    'course_language.course_id'
+                );
+        })
+            ->orderBy('languages.id');
 
+        $languagesQuery = clone $baseQuery;
 
+        if ($lastLanguageId) {
+            $languagesQuery->where('languages.id', '>', $lastLanguageId);
+        }
 
+        $languages = $languagesQuery->pluck('name', 'id');
 
-            $this->info("🌍 Iniciando importación desde Jobicy para {$languages->count()} lenguajes...");
+        if ($languages->isEmpty()) {
+            $languages = $baseQuery->pluck('name', 'id');
+        }
 
-            foreach ($languages as $languageId => $languageName) {
+        $this->info("🌍 Iniciando importación desde Jobicy para {$languages->count()} lenguajes...");
 
-                $this->warn("\n💡 Procesando lenguaje: {$languageName}");
+        foreach ($languages as $languageId => $languageName) {
 
-                try {
-                    // 🌐 Consulta global Jobicy
-                    $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
+            $this->warn("\n💡 Procesando lenguaje: {$languageName}");
 
-                    if ($response->failed()) {
-                        $this->error("❌ Error al consultar Jobicy API para {$languageName}");
+            try {
+
+                $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
+
+                if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "Error lenguaje {$languageName}");
+                    $this->error("❌ Error al consultar Jobicy API para {$languageName}");
+                    $totalSkippedAll++;
+                    continue;
+                }
+
+                $connectionOk = true;
+
+                $jobs = collect($response->json('jobs') ?? [])
+                    ->filter(fn($job) => str_contains(
+                        strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
+                        strtolower($languageName)
+                    ))
+                    ->values();
+
+                $totalFound = $jobs->count();
+                $totalNew = 0;
+                $countries = [];
+                $modalities = [];
+
+                foreach ($jobs as $job) {
+
+                    $externalId = $job['id'] ?? null;
+
+                    if ($externalId && JobOffer::where('external_id', $externalId)->exists()) {
                         $totalSkippedAll++;
                         continue;
                     }
 
-                    $jobs = collect($response->json('jobs') ?? [])
-                        ->filter(fn($job) => str_contains(
-                            strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
-                            strtolower($languageName)
-                        ))
-                        ->values();
+                    $countryRaw = $job['jobGeo'] ?? null;
+                    $country = CountryNormalizer::normalize($countryRaw);
 
-                    $totalFound = $jobs->count();
-                    $totalNew = 0;
-                    $countries = [];
-                    $modalities = [];
-
-                    foreach ($jobs as $job) {
-
-                        $externalId = $job['id'] ?? null;
-
-                        if ($externalId && JobOffer::where('external_id', $externalId)->exists()) {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        // 🌍 Normalización de país
-                        $countryRaw = $job['jobGeo'] ?? null;
-                        $country = CountryNormalizer::normalize($countryRaw);
-
-                        if ($country === 'Desconocido') {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        // 🧭 Geolocalización
-                        $code = strtolower(substr($countryRaw ?? '', 0, 2));
-                        $city = $this->capitalMap[$code]['city'] ?? 'Remote';
-                        [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
-
-                        if (!$lat || !$lng) {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        // 💼 Datos principales
-                        $title = $job['jobTitle'] ?? 'N/A';
-                        $company = $job['companyName'] ?? null;
-                        $urlJob = $job['url'] ?? null;
-                        $desc = strip_tags($job['jobDescription'] ?? '');
-
-                        // 🧠 Modalidad (estándar ISIL)
-                        $modality = $this->detectModality(
-                            $desc,
-                            is_array($job['jobType'])
-                            ? implode(' ', $job['jobType'])
-                            : ($job['jobType'] ?? '')
-                        );
-
-                        // 💰 Salarios
-                        $salaryMin = $job['annualSalaryMin'] ?? null;
-                        $salaryMax = $job['annualSalaryMax'] ?? null;
-                        $currency = $job['salaryCurrency'] ?? 'USD';
-
-                        // 📊 Experiencia y certificaciones
-                        $experienceYears = null;
-                        $certifications = [];
-
-                        if (preg_match('/(\d+)\+?\s*(years?|años?)\s+of\s+experience/i', $desc, $m)) {
-                            $experienceYears = (int) $m[1];
-                        }
-
-                        if (preg_match_all('/(AWS|Azure|Scrum|PMP|Certification|Certified)/i', $desc, $matches)) {
-                            $certifications = array_unique($matches[0]);
-                        }
-
-                        // 💾 Crear oferta
-                        $offer = JobOffer::create([
-                            'title' => $title,
-                            'company' => $company,
-                            'country' => $country,
-                            'region' => RegionHelper::fromCountry($country),
-                            'city' => $city,
-                            'latitude' => $lat,
-                            'longitude' => $lng,
-                            'modality' => $modality,
-                            'experience_level' => $experienceYears,
-                            'certifications' => !empty($certifications) ? implode(', ', $certifications) : null,
-                            'description' => $desc,
-                            'salary_min' => $salaryMin,
-                            'salary_max' => $salaryMax,
-                            'currency' => $currency,
-                            'source' => 'Jobicy',
-                            'external_id' => $externalId,
-                            'url' => $urlJob,
-                            'search_query' => $languageName,
-                            'published_at' => isset($job['pubDate'])
-                                ? Carbon::parse($job['pubDate'])
-                                : now(),
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-
-                        // 🔗 Lenguaje ↔ oferta
-                        $offer->languages()->syncWithoutDetaching([$languageId]);
-
-                        // 📊 Contadores
-                        $totalNew++;
-                        $countries[$country] = ($countries[$country] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                    if ($country === 'Desconocido') {
+                        $totalSkippedAll++;
+                        continue;
                     }
 
-                    // 📈 Métrica diaria por lenguaje
-                    LanguageMetric::updateOrCreate(
-                        [
-                            'language_id' => $languageId,
-                            'run_date' => Carbon::today(),
-                            'source' => 'Jobicy',
-                        ],
-                        [
-                            'language_name' => $languageName,
-                            'jobs_found_count' => $totalFound,
-                            'jobs_new_count' => $totalNew,
-                            'countries_breakdown' => $countries,
-                            'modality_breakdown' => $modalities,
-                            'updated_at' => now(),
-                        ]
+                    $code = strtolower(substr($countryRaw ?? '', 0, 2));
+                    $city = $this->capitalMap[$code]['city'] ?? 'Remote';
+                    [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
+
+                    if (!$lat || !$lng) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $title = $job['jobTitle'] ?? 'N/A';
+                    $company = $job['companyName'] ?? null;
+                    $urlJob = $job['url'] ?? null;
+                    $desc = strip_tags($job['jobDescription'] ?? '');
+
+                    $modality = $this->detectModality(
+                        $desc,
+                        is_array($job['jobType'])
+                            ? implode(' ', $job['jobType'])
+                            : ($job['jobType'] ?? '')
                     );
 
-                    $this->info("📊 {$languageName}: {$totalNew} nuevas | {$totalFound} totales");
+                    $salaryMin = $job['annualSalaryMin'] ?? null;
+                    $salaryMax = $job['annualSalaryMax'] ?? null;
+                    $currency = $job['salaryCurrency'] ?? 'USD';
 
-                    // 🔢 Acumular al run global
-                    $totalFoundAll += $totalFound;
-                    $totalInsertedAll += $totalNew;
+                    $experienceYears = null;
+                    $certifications = [];
 
-                } catch (\Throwable $e) {
-                    Log::error("⚠️ Error en {$languageName}: {$e->getMessage()}");
-                    $totalSkippedAll++;
+                    if (preg_match('/(\d+)\+?\s*(years?|años?)\s+of\s+experience/i', $desc, $m)) {
+                        $experienceYears = (int) $m[1];
+                    }
+
+                    if (preg_match_all('/(AWS|Azure|Scrum|PMP|Certification|Certified)/i', $desc, $matches)) {
+                        $certifications = array_unique($matches[0]);
+                    }
+
+                    $offer = JobOffer::create([
+                        'title' => $title,
+                        'company' => $company,
+                        'country' => $country,
+                        'region' => RegionHelper::fromCountry($country),
+                        'city' => $city,
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'modality' => $modality,
+                        'experience_level' => $experienceYears,
+                        'certifications' => !empty($certifications) ? implode(', ', $certifications) : null,
+                        'description' => $desc,
+                        'salary_min' => $salaryMin,
+                        'salary_max' => $salaryMax,
+                        'currency' => $currency,
+                        'source' => 'Jobicy',
+                        'external_id' => $externalId,
+                        'url' => $urlJob,
+                        'search_query' => $languageName,
+                        'published_at' => isset($job['pubDate'])
+                            ? Carbon::parse($job['pubDate'])
+                            : now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                    $offer->languages()->syncWithoutDetaching([$languageId]);
+
+                    $totalNew++;
+                    $countries[$country] = ($countries[$country] ?? 0) + 1;
+                    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                 }
 
-                usleep(random_int(600000, 1200000)); // anti-baneo
+                LanguageMetric::updateOrCreate(
+                    [
+                        'language_id' => $languageId,
+                        'run_date' => Carbon::today(),
+                        'source' => 'Jobicy',
+                    ],
+                    [
+                        'language_name' => $languageName,
+                        'jobs_found_count' => $totalFound,
+                        'jobs_new_count' => $totalNew,
+                        'countries_breakdown' => $countries,
+                        'modality_breakdown' => $modalities,
+                        'updated_at' => now(),
+                    ]
+                );
+
+                $this->info("📊 {$languageName}: {$totalNew} nuevas | {$totalFound} totales");
+
+                $totalFoundAll += $totalFound;
+                $totalInsertedAll += $totalNew;
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
+            } catch (\Throwable $e) {
+                Log::error("⚠️ Error en {$languageName}: {$e->getMessage()}");
+                $totalSkippedAll++;
             }
 
-            // ✅ Finalizar RUN exitoso
-            ScraperRunService::success(
-                $run,
-                $totalFoundAll,
-                $totalInsertedAll,
-                $totalSkippedAll
-            );
-
-            $this->info("\n🎯 Proceso Jobicy finalizado correctamente.");
-
-        } catch (\Throwable $e) {
-            // ❌ Fallo crítico
-            ScraperRunService::failed($run, $e);
-            throw $e;
+            usleep(random_int(600000, 1200000));
         }
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("\n🎯 Proceso Jobicy finalizado correctamente.");
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
     }
+}
 
 
     // 🧠 Detección de modalidad

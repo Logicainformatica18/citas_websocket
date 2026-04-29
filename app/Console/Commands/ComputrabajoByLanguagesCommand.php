@@ -110,8 +110,8 @@ protected function normalizeUrl(string $url): string
     protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
     {
         return Language::firstOrCreate(
-            ['market_entity_id' => $marketEntityId],
-            ['name' => $languageName]
+                   ['name' => $languageName],
+        ['market_entity_id' => $marketEntityId]
         );
     }
  public function handle()

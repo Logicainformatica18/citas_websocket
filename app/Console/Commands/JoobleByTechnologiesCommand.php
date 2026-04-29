@@ -14,7 +14,7 @@ use App\Helpers\RegionHelper;
 use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
 class JoobleByTechnologiesCommand extends Command
 {
     protected $signature = 'jooble:technologies {--country=United States} {--pages=5}';
@@ -26,7 +26,7 @@ class JoobleByTechnologiesCommand extends Command
         'skipped'   => 0,
     ];
 
-  public function handle()
+public function handle()
 {
     // ▶️ INICIAR RUN
     $run = ScraperRunService::start(
@@ -34,6 +34,20 @@ class JoobleByTechnologiesCommand extends Command
         'Jooble',
         'technologies'
     );
+
+    $source = 'jooble_technologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jooble.org/api'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
 
     try {
 
@@ -45,40 +59,40 @@ class JoobleByTechnologiesCommand extends Command
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
         $pages = (int) $this->option('pages');
 
-      $lastTechnologyId = TechnologyMetric::where('source', 'Jooble')
-    ->orderByDesc('created_at')
-    ->value('technology_id');
-$baseQuery = Technology::whereIn('technologies.id', function ($q) {
-        $q->select('course_technology.technology_id')
-          ->from('course_technology')
-          ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-    })
-    ->orderBy('technologies.id');
-$technologiesQuery = clone $baseQuery;
+        $lastTechnologyId = TechnologyMetric::where('source', 'Jooble')
+            ->orderByDesc('created_at')
+            ->value('technology_id');
 
-if ($lastTechnologyId) {
-    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
-}
+        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+                $q->select('course_technology.technology_id')
+                  ->from('course_technology')
+                  ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+            })
+            ->orderBy('technologies.id');
 
-$technologies = $technologiesQuery->get();
-if ($technologies->isEmpty()) {
-    $technologies = $baseQuery->get();
-}
+        $technologiesQuery = clone $baseQuery;
 
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+        }
 
+        $technologies = $technologiesQuery->get();
 
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->get();
+        }
 
         $this->info("💻 Jooble ({$joobleCountry}) → {$technologies->count()} tecnologías");
 
-        // 🔢 CONTADORES GLOBALES
+        // 🔢 CONTADORES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-       foreach ($technologies as $technology) {
-    $technologyId   = $technology->id;
-    $technologyName = $technology->name;
+        foreach ($technologies as $technology) {
 
+            $technologyId   = $technology->id;
+            $technologyName = $technology->name;
 
             $this->warn("🧩 {$technologyName}");
 
@@ -87,20 +101,23 @@ if ($technologies->isEmpty()) {
 
             for ($page = 1; $page <= $pages; $page++) {
 
-               $payload = [
-    'keywords' => $technologyName,
-    'location' => $joobleCountry,
-];
-
+                $payload = [
+                    'keywords' => $technologyName,
+                    'location' => $joobleCountry,
+                ];
 
                 try {
+
                     $response = Http::timeout(25)
                         ->post("https://jooble.org/api/{$apiKey}", $payload);
 
                     if ($response->failed()) {
+                        SourceStatusService::connectionFailed($source, "{$technologyName} page {$page}");
                         $totalSkippedAll++;
                         continue;
                     }
+
+                    $connectionOk = true;
 
                     $jobs = $response->json('jobs') ?? [];
                     $totalFound += count($jobs);
@@ -109,7 +126,6 @@ if ($technologies->isEmpty()) {
 
                         $externalId = $job['id'];
 
-                        // 🔁 DUPLICADO
                         $existing = JobOffer::where('external_id', $externalId)
                             ->where('source', 'Jooble')
                             ->first();
@@ -127,11 +143,9 @@ if ($technologies->isEmpty()) {
                         $desc     = strtolower($job['snippet'] ?? '');
                         $urlJob   = $job['link'] ?? null;
 
-                        // 🧭 MODALIDAD
                         $modality = $this->detectModality($location, $desc);
                         $isRemote = in_array($modality, ['remote', 'fully_remote']);
 
-                        // 🌍 LOCATION
                         [$rawCity, $rawCountry] = $this->splitLocation($location);
 
                         if (strlen($rawCountry) === 2 && ctype_alpha($rawCountry)) {
@@ -145,7 +159,6 @@ if ($technologies->isEmpty()) {
                         $countryFull = CountryNormalizer::normalize($rawCountry);
                         $countryCode = $this->countryCodeIso($rawCountry);
 
-                        // 📍 GEOLOCALIZACIÓN
                         if ($isRemote) {
                             $finalCity = 'Remote';
                             $lat = null;
@@ -161,8 +174,7 @@ if ($technologies->isEmpty()) {
 
                         $region = RegionHelper::fromCountry($countryFull);
 
-                        // 💾 CREAR OFERTA
-                        $offer = JobOffer::create([
+                        JobOffer::create([
                             'title'             => $title,
                             'company'           => $company,
                             'country'           => $countryFull,
@@ -186,11 +198,16 @@ if ($technologies->isEmpty()) {
                             'region'            => $region,
                         ]);
 
-                        $offer->technologies()
-                            ->syncWithoutDetaching([$technologyId]);
-
                         $totalNew++;
+                        $totalInsertedAll++;
                     }
+
+                    SourceStatusService::progress(
+                        $source,
+                        $totalFoundAll + $totalFound,
+                        $totalInsertedAll,
+                        $totalSkippedAll
+                    );
 
                     sleep(1);
 
@@ -200,7 +217,6 @@ if ($technologies->isEmpty()) {
                 }
             }
 
-            // 📊 MÉTRICAS
             TechnologyMetric::updateOrCreate(
                 [
                     'technology_id' => $technologyId,
@@ -220,7 +236,6 @@ if ($technologies->isEmpty()) {
             $this->info("✔ {$technologyName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        // ✅ RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -228,12 +243,32 @@ if ($technologies->isEmpty()) {
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("🎯 Jooble tecnologías finalizado correctamente");
 
     } catch (\Throwable $e) {
 
-        // ❌ RUN FAILED
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

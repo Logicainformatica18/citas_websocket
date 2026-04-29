@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
 class RemoteOkByLanguagesCommand extends Command
 {
     protected $signature = 'remoteok:languages';
@@ -24,23 +24,35 @@ class RemoteOkByLanguagesCommand extends Command
         'skipped'=> 0,
     ];
 
-    public function handle()
+   public function handle()
 {
     // ▶️ INICIAR RUN
-    $run = \App\Services\ScraperRunService::start(
+    $run = ScraperRunService::start(
         $this->signature,
         'RemoteOK',
         'languages'
     );
 
+    $source = 'remoteok_languages';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://remoteok.com/api'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
-        // 🔹 Último lenguaje procesado (cursor)
         $lastLanguageId = LanguageMetric::where('source', 'RemoteOK')
             ->orderByDesc('created_at')
             ->value('language_id');
 
-        // 🔹 Query base (solo lenguajes ISIL)
         $baseQuery = Language::whereIn('languages.id', function ($q) {
                 $q->select('course_language.language_id')
                   ->from('course_language')
@@ -56,27 +68,28 @@ class RemoteOkByLanguagesCommand extends Command
 
         $languages = $languagesQuery->get();
 
-        // 🔁 Reinicio automático
         if ($languages->isEmpty()) {
             $languages = $baseQuery->get();
         }
 
         $this->info("🚀 RemoteOK → procesando {$languages->count()} lenguajes");
 
-        // 🔢 CONTADORES GLOBALES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        // 📡 RemoteOK API (una sola llamada)
+        // 📡 RemoteOK API
         $response = Http::timeout(25)->get('https://remoteok.com/api');
 
         if ($response->failed()) {
+            SourceStatusService::connectionFailed($source, 'API failed');
             throw new \Exception('RemoteOK API no respondió');
         }
 
+        $connectionOk = true;
+
         $jobs = collect($response->json())
-            ->skip(1) // aviso legal
+            ->skip(1)
             ->filter(fn ($j) => isset($j['position']));
 
         foreach ($languages as $language) {
@@ -91,11 +104,10 @@ class RemoteOkByLanguagesCommand extends Command
 
             foreach ($jobs as $job) {
 
-                $title       = $job['position'] ?? '';
-                $tags        = $job['tags'] ?? [];
-                $text        = strtolower($title . ' ' . implode(' ', $tags));
+                $title = $job['position'] ?? '';
+                $tags  = $job['tags'] ?? [];
+                $text  = strtolower($title . ' ' . implode(' ', $tags));
 
-                // 🧠 Match por lenguaje
                 if (!str_contains($text, strtolower($languageName))) {
                     continue;
                 }
@@ -105,7 +117,6 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $externalId = $job['id'] ?? null;
 
-                // 🔁 DEDUPE
                 if ($externalId && JobOffer::where('source', 'RemoteOK')
                     ->where('external_id', $externalId)
                     ->exists()) {
@@ -114,10 +125,8 @@ class RemoteOkByLanguagesCommand extends Command
                     continue;
                 }
 
-                // 🧭 MODALIDAD (RemoteOK = remote)
                 $modality = 'remote';
 
-                // 🌍 COUNTRY / REGION (limpieza simple)
                 $locationRaw = strtolower(trim($job['location'] ?? ''));
                 $country = 'Remote';
 
@@ -127,7 +136,6 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
 
-                // 💾 CREAR OFERTA
                 JobOffer::create([
                     'title'        => $title ?: 'N/A',
                     'company'      => $job['company'] ?? null,
@@ -150,7 +158,6 @@ class RemoteOkByLanguagesCommand extends Command
                 $totalInsertedAll++;
             }
 
-            // 📊 MÉTRICA DIARIA (UNA POR LENGUAJE)
             LanguageMetric::updateOrCreate(
                 [
                     'language_id' => $languageId,
@@ -166,22 +173,48 @@ class RemoteOkByLanguagesCommand extends Command
             );
 
             $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
         }
 
-        // ✅ RUN OK
-        \App\Services\ScraperRunService::success(
+        ScraperRunService::success(
             $run,
             $totalFoundAll,
             $totalInsertedAll,
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🟢 RemoteOK finalizado correctamente");
 
     } catch (\Throwable $e) {
 
-        // ❌ RUN FAILED
-        \App\Services\ScraperRunService::failed($run, $e);
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

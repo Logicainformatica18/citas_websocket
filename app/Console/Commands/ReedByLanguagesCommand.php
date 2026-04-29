@@ -13,7 +13,7 @@ use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
 class ReedByLanguagesCommand extends Command
 {
     protected $signature = 'reed:languages {--pages=1}';
@@ -34,13 +34,26 @@ public function handle()
         'languages'
     );
 
+    $source = 'reed_languages';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://www.reed.co.uk/api/1.0/search'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
-        // 🔹 Último lenguaje procesado (cursor)
+
         $lastLanguageId = LanguageMetric::where('source', 'reed')
             ->orderByDesc('created_at')
             ->value('language_id');
 
-        // 🔹 Query base (solo lenguajes ISIL)
         $baseQuery = Language::whereIn('languages.id', function ($q) {
                 $q->select('course_language.language_id')
                   ->from('course_language')
@@ -56,14 +69,12 @@ public function handle()
 
         $languages = $languagesQuery->get();
 
-        // 🔁 reinicio automático
         if ($languages->isEmpty()) {
             $languages = $baseQuery->get();
         }
 
         $this->info("🇬🇧 Importando desde Reed para {$languages->count()} lenguajes…");
 
-        // 🔢 CONTADORES GLOBALES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
@@ -90,10 +101,13 @@ public function handle()
                 $this->stats['api_hits']++;
 
                 if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "{$languageName} page {$page}");
                     $this->error("❌ Error API para {$languageName}, page {$page}");
                     $totalSkippedAll++;
                     continue;
                 }
+
+                $connectionOk = true;
 
                 $jobs = $response->json()['results'] ?? [];
 
@@ -117,7 +131,6 @@ public function handle()
                         continue;
                     }
 
-                    // 🇬🇧 UK
                     $countryIso = 'GB';
                     $country    = CountryNormalizer::normalize('GB');
 
@@ -169,9 +182,15 @@ public function handle()
                     $totalInsertedAll++;
                     $this->stats['mapped']++;
                 }
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
             }
 
-            // 📊 MÉTRICA DIARIA
             LanguageMetric::updateOrCreate(
                 [
                     'language_id' => $languageId,
@@ -187,7 +206,6 @@ public function handle()
             );
         }
 
-        // ✅ RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -195,12 +213,32 @@ public function handle()
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🟢 REED COMPLETADO");
 
     } catch (\Throwable $e) {
 
-        // ❌ RUN FAILED
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

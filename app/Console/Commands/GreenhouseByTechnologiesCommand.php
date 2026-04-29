@@ -14,7 +14,7 @@ use App\Helpers\CountryNormalizer;
 use App\Models\Technology;
 use App\Services\ScraperRunService;
 use App\Models\TechnologyMetric;
-
+ use App\Services\SourceStatusService;
 
 
 class GreenhouseByTechnologiesCommand extends Command
@@ -27,15 +27,28 @@ class GreenhouseByTechnologiesCommand extends Command
         'skipped'  => 0,
     ];
 
-  public function handle()
+ public function handle()
 {
     // ▶️ Iniciar RUN del scraper
- $run = ScraperRunService::start(
-    $this->signature,
-    'Greenhouse',
-    'technologies'
-);
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Greenhouse',
+        'technologies'
+    );
 
+    $source = 'greenhouse_technologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://boards-api.greenhouse.io'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
 
     try {
 
@@ -53,30 +66,28 @@ class GreenhouseByTechnologiesCommand extends Command
 
 
         $lastTechnologyId = TechnologyMetric::where('source', 'Greenhouse')
-    ->orderByDesc('created_at')
-    ->value('technology_id');
+            ->orderByDesc('created_at')
+            ->value('technology_id');
 
-$baseQuery = Technology::where('enabled', 1)
-    ->whereIn('technologies.id', function ($q) {
-        $q->select('course_technology.technology_id')
-            ->from('course_technology')
-            ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-    })
-    ->orderBy('technologies.id');
+        $baseQuery = Technology::where('enabled', 1)
+            ->whereIn('technologies.id', function ($q) {
+                $q->select('course_technology.technology_id')
+                    ->from('course_technology')
+                    ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+            })
+            ->orderBy('technologies.id');
 
-$technologiesQuery = clone $baseQuery;
+        $technologiesQuery = clone $baseQuery;
 
-if ($lastTechnologyId) {
-    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
-}
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+        }
 
-$technologies = $technologiesQuery->get();
+        $technologies = $technologiesQuery->get();
 
-if ($technologies->isEmpty()) {
-    // 🔁 ciclo completo → volver al inicio
-    $technologies = $baseQuery->get();
-}
-
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->get();
+        }
 
         $this->info("🌱 Importando desde Greenhouse para {$technologies->count()} tecnologías…");
 
@@ -89,10 +100,13 @@ if ($technologies->isEmpty()) {
             $response = Http::timeout(20)->get($url);
 
             if ($response->failed()) {
+                SourceStatusService::connectionFailed($source, "Error empresa {$companySlug}");
                 $this->error("❌ No se pudo obtener datos de: {$companySlug}");
                 $totalSkippedAll++;
                 continue;
             }
+
+            $connectionOk = true;
 
             $jobs = $response->json('jobs') ?? [];
             $contentAvailable = $this->companyHasContent($jobs);
@@ -107,7 +121,6 @@ if ($technologies->isEmpty()) {
                 $escaped = preg_quote($pattern, '/');
                 $regex   = "/{$escaped}/i";
 
-                // 🔍 Filtrar vacantes por tecnología
                 $resultsForTech = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
 
                     $title   = $job['title'] ?? '';
@@ -130,10 +143,8 @@ if ($technologies->isEmpty()) {
                     $companyName = $job['company_name'] ?? ucfirst($companySlug);
                     $urlJob      = $job['absolute_url'] ?? null;
 
-                    // Ubicación
                     $loc = strtolower($job['location']['name'] ?? '');
 
-                    // País
                     $countryCode = $this->extractCountryCodeOrNull($loc);
                     if (!$countryCode) {
                         $totalSkippedAll++;
@@ -142,7 +153,6 @@ if ($technologies->isEmpty()) {
 
                     $countryFull = CountryNormalizer::normalize($countryCode);
 
-                    // Ciudad + coords
                     $cityRaw = $this->extractCity($loc);
                     [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
 
@@ -151,12 +161,10 @@ if ($technologies->isEmpty()) {
                         continue;
                     }
 
-                    // Modalidad
                     $modality = $this->detectModality($loc, $content);
 
                     $externalId = $job['id'];
 
-                    // Duplicado
                     $existing = JobOffer::where('external_id', $externalId)
                         ->where('source', 'Greenhouse')
                         ->first();
@@ -169,7 +177,6 @@ if ($technologies->isEmpty()) {
 
                     $region = RegionHelper::fromCountry($countryFull);
 
-                    // 💾 Crear oferta
                     $offer = JobOffer::create([
                         'title'             => $title,
                         'company'           => $companyName,
@@ -197,7 +204,6 @@ if ($technologies->isEmpty()) {
                     $totalInsertedAll++;
                 }
 
-                // 📊 Métrica diaria por tecnología
                 TechnologyMetric::updateOrCreate(
                     [
                         'technology_id' => $tech->id,
@@ -214,11 +220,17 @@ if ($technologies->isEmpty()) {
                     ]
                 );
 
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
                 $this->info("✔ {$tech->name}: {$newForTech} nuevas");
             }
         }
 
-        // ✅ Finalizar RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -226,11 +238,32 @@ if ($technologies->isEmpty()) {
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🎯 Greenhouse → Tecnologías finalizado correctamente.");
 
     } catch (\Throwable $e) {
-        // ❌ Fallo crítico
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

@@ -89,7 +89,7 @@ if ($methodologies->isEmpty()) {
 
 
     $this->info("🌐 Scrapeando Computrabajo para {$methodologies->count()} metodologías ({$pages} páginas por país)...");
-
+SourceStatusService::progress($source, 0, 0, 0);
     try {
 
        foreach ($methodologies as $methodology) {
@@ -104,7 +104,7 @@ if ($methodologies->isEmpty()) {
             $countries  = [];
             $modalities = [];
 
-            $context = Methodology::find($methodId)->search_context;
+           $context = $methodology->search_context;
             $slugMethod = $this->makeSearchSlug(
                 $context ? "{$context} {$methodName}" : $methodName
             );
@@ -257,16 +257,18 @@ $connectionOk = true;
                 ]
             );
 
+
+            // 🔢 acumular en el run global
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
             $this->info("📊 {$methodName}: {$totalNew} nuevas / {$totalFound} totales");
-SourceStatusService::progress(
+
+            SourceStatusService::progress(
     $source,
     $totalFoundAll,
     $totalInsertedAll,
     $totalSkippedAll
 );
-            // 🔢 acumular en el run global
-            $totalFoundAll    += $totalFound;
-            $totalInsertedAll += $totalNew;
         }
 
         // ✅ Final exitoso del run
@@ -276,13 +278,31 @@ SourceStatusService::progress(
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
 
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
         $this->info("\n🎯 Scraping + métricas completado exitosamente (metodologías).");
 
     } catch (\Throwable $e) {
-        // ❌ Fallo crítico
-        ScraperRunService::failed($run, $e);
-        throw $e;
+       ScraperRunService::failed($run, $e);
+
+    SourceStatusService::failed(
+        source: $source,
+        runId: $run->id,
+        e: $e,
+        durationSeconds: now()->diffInSeconds($startedAt)
+    );
+
+    throw $e;
     }
 }
 

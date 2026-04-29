@@ -13,7 +13,8 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
+ 
 class JobicyByTechnologiesCommand extends Command
 {
     protected $signature = 'jobicy:technologies';
@@ -48,6 +49,20 @@ class JobicyByTechnologiesCommand extends Command
         'technologies'
     );
 
+    $source = 'jobicy_technologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jobicy.com/api/v2/remote-jobs'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
         // 🔢 Contadores GLOBALES del run
@@ -56,33 +71,32 @@ class JobicyByTechnologiesCommand extends Command
         $totalSkippedAll  = 0;
 
         $lastTechnologyId = TechnologyMetric::where('source', 'Jobicy')
-    ->orderByDesc('created_at')
-    ->value('technology_id');
-$baseQuery = Technology::whereIn('technologies.id', function ($q) {
-        $q->select('course_technology.technology_id')
-          ->from('course_technology')
-          ->join(
-              'career_course',
-              'career_course.course_id',
-              '=',
-              'course_technology.course_id'
-          );
-    })
-    ->orderBy('technologies.id');
+            ->orderByDesc('created_at')
+            ->value('technology_id');
 
-$technologiesQuery = clone $baseQuery;
+        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+            $q->select('course_technology.technology_id')
+              ->from('course_technology')
+              ->join(
+                  'career_course',
+                  'career_course.course_id',
+                  '=',
+                  'course_technology.course_id'
+              );
+        })
+        ->orderBy('technologies.id');
 
-if ($lastTechnologyId) {
-    $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
-}
+        $technologiesQuery = clone $baseQuery;
 
-$technologies = $technologiesQuery->pluck('name', 'id');
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+        }
 
-if ($technologies->isEmpty()) {
-    // 🔁 ciclo completo → volver al inicio
-    $technologies = $baseQuery->pluck('name', 'id');
-}
+        $technologies = $technologiesQuery->pluck('name', 'id');
 
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->pluck('name', 'id');
+        }
 
         $this->info("🌍 Iniciando importación desde Jobicy para {$technologies->count()} tecnologías...");
 
@@ -91,16 +105,18 @@ if ($technologies->isEmpty()) {
             $this->warn("\n💡 Procesando tecnología: {$techName}");
 
             try {
-                // 🌐 Consulta global Jobicy
+
                 $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
 
                 if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "Error {$techName}");
                     $this->error("❌ Error al consultar Jobicy API para {$techName}");
                     $totalSkippedAll++;
                     continue;
                 }
 
-                // 🔍 Filtrar coincidencias por nombre de tecnología
+                $connectionOk = true;
+
                 $results = collect($response->json('jobs') ?? [])
                     ->filter(fn ($job) => str_contains(
                         strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
@@ -122,7 +138,6 @@ if ($technologies->isEmpty()) {
                         continue;
                     }
 
-                    // 🌍 Normalización de país
                     $countryRaw = $job['jobGeo'] ?? null;
                     $country = CountryNormalizer::normalize($countryRaw);
 
@@ -131,7 +146,6 @@ if ($technologies->isEmpty()) {
                         continue;
                     }
 
-                    // 🧭 Geolocalización
                     $code = strtolower(substr($countryRaw ?? '', 0, 2));
                     $city = $this->capitalMap[$code]['city'] ?? 'Remote';
                     [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
@@ -141,7 +155,6 @@ if ($technologies->isEmpty()) {
                         continue;
                     }
 
-                    // 💼 Datos principales
                     $title   = $job['jobTitle'] ?? 'N/A';
                     $company = $job['companyName'] ?? null;
                     $urlJob  = $job['url'] ?? null;
@@ -154,12 +167,10 @@ if ($technologies->isEmpty()) {
                             : ($job['jobType'] ?? '')
                     );
 
-                    // 💰 Salarios
                     $salaryMin = $job['annualSalaryMin'] ?? null;
                     $salaryMax = $job['annualSalaryMax'] ?? null;
                     $currency  = $job['salaryCurrency'] ?? 'USD';
 
-                    // 💾 Crear oferta
                     $offer = JobOffer::create([
                         'title'        => $title,
                         'company'      => $company,
@@ -183,16 +194,13 @@ if ($technologies->isEmpty()) {
                         'updated_at'   => now(),
                     ]);
 
-                    // 🔗 Tecnología ↔ oferta
                     $offer->technologies()->syncWithoutDetaching([$techId]);
 
-                    // 📊 Contadores
                     $totalNew++;
                     $countries[$country]   = ($countries[$country] ?? 0) + 1;
                     $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                 }
 
-                // 📈 Métrica diaria
                 TechnologyMetric::updateOrCreate(
                     [
                         'technology_id' => $techId,
@@ -211,19 +219,24 @@ if ($technologies->isEmpty()) {
 
                 $this->info("📊 {$techName}: {$totalNew} nuevas | {$totalFound} totales");
 
-                // 🔢 acumular al run global
                 $totalFoundAll    += $totalFound;
                 $totalInsertedAll += $totalNew;
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
 
             } catch (\Throwable $e) {
                 Log::error("⚠️ Error en {$techName}: {$e->getMessage()}");
                 $totalSkippedAll++;
             }
 
-            usleep(random_int(600000, 1200000)); // anti-baneo
+            usleep(random_int(600000, 1200000));
         }
 
-        // ✅ Finalizar RUN exitoso
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -231,11 +244,32 @@ if ($technologies->isEmpty()) {
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🎯 Proceso Jobicy (technologies) finalizado correctamente.");
 
     } catch (\Throwable $e) {
-        // ❌ Fallo crítico
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

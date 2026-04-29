@@ -14,7 +14,7 @@ use App\Models\City;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
-
+use App\Services\SourceStatusService;
 
 class ComputrabajoByTechnologiesCommand extends Command
 {
@@ -45,6 +45,18 @@ class ComputrabajoByTechnologiesCommand extends Command
         'Computrabajo',
         'technologies'
     );
+$source = 'computrabajo_technologies';
+
+SourceStatusService::start(
+    source: $source,
+    runId: $run->id,
+    config: [],
+    apiUrl: 'https://computrabajo.com'
+);
+
+$connectionOk = false;
+$startedAt = now();
+
 
     try {
 
@@ -67,7 +79,7 @@ class ComputrabajoByTechnologiesCommand extends Command
             return;
         }
 
-        
+
         // 🔹 Tecnologías reales (vinculadas a carreras)
         $technologies = Technology::whereIn('technologies.id', function ($q) {
             $q->select('course_technology.technology_id')
@@ -108,10 +120,11 @@ class ComputrabajoByTechnologiesCommand extends Command
                         ])->timeout(12)->retry(2, 1500)->get($url);
 
                         if ($response->failed()) {
-                            $this->warn("❌ Falló la página {$i} en {$country}");
-                            continue;
+                               SourceStatusService::connectionFailed($source, "Error {$country} page {$i}");
+    $totalSkippedAll++;
+    continue;
                         }
-
+$connectionOk = true;
                         $crawler = new Crawler($response->body());
                         $offers  = $crawler->filter('article[class*="box_offer"]');
 
@@ -147,12 +160,26 @@ class ComputrabajoByTechnologiesCommand extends Command
                                 $urlJob = "https://{$code}.computrabajo.com{$href}";
 
                                 $city = $this->extractCityFromUrl($urlJob);
-                                [$city, $lat, $lng, $countryName] = $this->getCoords($city, $country);
+                               [$city, $lat, $lng, $countryName] = $this->getCoords($city, $country);
 
-                                $modality = $this->mapModality($title . ' ' . $city);
+// 🌎 Normaliza país (ANTES de usarlo)
+$countryName = match (strtolower($countryName)) {
+    'peru' => 'Perú',
+    'mexico' => 'México',
+    'colombia' => 'Colombia',
+    'argentina' => 'Argentina',
+    'uruguay' => 'Uruguay',
+    'ecuador' => 'Ecuador',
+    'venezuela' => 'Venezuela',
+    'bolivia' => 'Bolivia',
+    'chile' => 'Chile',
+    default => ucfirst($countryName),
+};
 
-                                $totalFound++;
-                                $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
+$modality = $this->mapModality($title . ' ' . $city);
+
+$totalFound++;
+$countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                                 // 🔍 Duplicado
@@ -171,19 +198,7 @@ class ComputrabajoByTechnologiesCommand extends Command
                                 }
 
                                 // 🌎 Normaliza país
-                                $countryName = match (strtolower($countryName)) {
-                                    'peru' => 'Perú',
-                                    'mexico' => 'México',
-                                    'colombia' => 'Colombia',
-                                    'argentina' => 'Argentina',
-                                    'uruguay' => 'Uruguay',
-                                    'ecuador' => 'Ecuador',
-                                    'venezuela' => 'Venezuela',
-                                    'bolivia' => 'Bolivia',
-                                    'chile' => 'Chile',
-                                    default => ucfirst($countryName),
-                                };
-
+                                
                                 // 💾 Crear oferta
                                 $offerModel = JobOffer::create([
                                     'title'        => $title,
@@ -248,6 +263,13 @@ class ComputrabajoByTechnologiesCommand extends Command
             // 🔢 acumular al run global
             $totalFoundAll    += $totalFound;
             $totalInsertedAll += $totalNew;
+SourceStatusService::progress(
+    $source,
+    $totalFoundAll,
+    $totalInsertedAll,
+    $totalSkippedAll
+);
+
         }
 
         // ✅ Final exitoso
@@ -257,12 +279,30 @@ class ComputrabajoByTechnologiesCommand extends Command
             $totalInsertedAll,
             $totalSkippedAll
         );
+if ($connectionOk) {
+    SourceStatusService::connectionOk($source);
+}
+
+SourceStatusService::success(
+    source: $source,
+    runId: $run->id,
+    found: $totalFoundAll,
+    inserted: $totalInsertedAll,
+    skipped: $totalSkippedAll,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
 
         $this->info("\n🎯 Scraping completado exitosamente y métricas guardadas.");
 
     } catch (\Throwable $e) {
         // ❌ Fallo crítico
         ScraperRunService::failed($run, $e);
+        SourceStatusService::failed(
+    source: $source,
+    runId: $run->id,
+    e: $e,
+    durationSeconds: now()->diffInSeconds($startedAt)
+);
         throw $e;
     }
 }

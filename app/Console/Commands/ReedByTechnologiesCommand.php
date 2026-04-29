@@ -12,7 +12,8 @@ use App\Models\City;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
+ 
 class ReedByTechnologiesCommand extends Command
 {
     protected $signature = 'reed:technologies {--pages=1}';
@@ -52,7 +53,7 @@ class ReedByTechnologiesCommand extends Command
         default => 'no_precisa',
     };
 }
-  public function handle()
+ public function handle()
 {
     // ▶️ INICIAR RUN
     $run = ScraperRunService::start(
@@ -61,14 +62,26 @@ class ReedByTechnologiesCommand extends Command
         'technologies'
     );
 
+    $source = 'reed_technologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://www.reed.co.uk/api/1.0/search'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
-        // 🔹 Última tecnología procesada (cursor)
         $lastTechnologyId = TechnologyMetric::where('source', 'reed')
             ->orderByDesc('created_at')
             ->value('technology_id');
 
-        // 🔹 Query base (solo tecnologías ISIL)
         $baseQuery = Technology::whereIn('technologies.id', function ($q) {
                 $q->select('course_technology.technology_id')
                   ->from('course_technology')
@@ -84,14 +97,12 @@ class ReedByTechnologiesCommand extends Command
 
         $technologies = $technologiesQuery->get();
 
-        // 🔁 Reinicio automático
         if ($technologies->isEmpty()) {
             $technologies = $baseQuery->get();
         }
 
         $this->info("🇬🇧 Importando desde Reed para {$technologies->count()} tecnologías…");
 
-        // 🔢 CONTADORES GLOBALES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
@@ -108,7 +119,6 @@ class ReedByTechnologiesCommand extends Command
 
             for ($page = 0; $page < (int) $this->option('pages'); $page++) {
 
-                // 🌐 API REED
                 $response = Http::withBasicAuth(env('REED_API_KEY'), '')
                     ->get('https://www.reed.co.uk/api/1.0/search', [
                         'keywords'      => $technologyName,
@@ -119,10 +129,13 @@ class ReedByTechnologiesCommand extends Command
                 $this->stats['api_hits']++;
 
                 if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "{$technologyName} page {$page}");
                     $this->error("❌ Error API {$technologyName}, page {$page}");
                     $totalSkippedAll++;
                     continue;
                 }
+
+                $connectionOk = true;
 
                 $jobs = $response->json()['results'] ?? [];
 
@@ -137,7 +150,6 @@ class ReedByTechnologiesCommand extends Command
 
                     $externalId = 'reed-' . $job['jobId'];
 
-                    // 🔁 DEDUPE
                     $existing = JobOffer::where('external_id', $externalId)
                         ->where('source', 'reed')
                         ->first();
@@ -150,11 +162,9 @@ class ReedByTechnologiesCommand extends Command
                         continue;
                     }
 
-                    // 🇬🇧 UK
                     $countryIso = 'GB';
                     $country    = CountryNormalizer::normalize('GB');
 
-                    // 🏙️ UBICACIÓN
                     $locationRaw = $job['locationName'] ?? null;
 
                     $cityMatch = City::where('city_ascii', $locationRaw)
@@ -174,17 +184,14 @@ class ReedByTechnologiesCommand extends Command
                         $country  = $fallback['country'];
                     }
 
-                    // 🧭 MODALIDAD
                     $modality = $this->detectModality(
                         $locationRaw ?? '',
                         $job['jobDescription'] ?? '',
                         $job['jobTitle'] ?? ''
                     );
 
-                    // 📅 FECHA
                     $publishedAt = $this->parseReedDate($job['date'] ?? null);
 
-                    // 💾 CREAR OFERTA
                     $offer = JobOffer::create([
                         'title'        => $job['jobTitle'] ?? '',
                         'company'      => $job['employerName'] ?? '',
@@ -202,7 +209,6 @@ class ReedByTechnologiesCommand extends Command
                         'published_at' => $publishedAt,
                     ]);
 
-                    // 🔗 PIVOT
                     $offer->technologies()
                         ->syncWithoutDetaching([$technologyId]);
 
@@ -210,9 +216,15 @@ class ReedByTechnologiesCommand extends Command
                     $totalInsertedAll++;
                     $this->stats['mapped']++;
                 }
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
             }
 
-            // 📊 MÉTRICA DIARIA (UNA POR TECNOLOGÍA)
             TechnologyMetric::updateOrCreate(
                 [
                     'technology_id' => $technologyId,
@@ -228,7 +240,6 @@ class ReedByTechnologiesCommand extends Command
             );
         }
 
-        // ✅ RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -236,16 +247,35 @@ class ReedByTechnologiesCommand extends Command
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🟢 REED (TECNOLOGÍAS) COMPLETADO");
 
     } catch (\Throwable $e) {
 
-        // ❌ RUN FAILED
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }
-
 
 
 

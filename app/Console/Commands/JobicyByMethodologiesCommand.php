@@ -13,7 +13,8 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
+ 
 class JobicyByMethodologiesCommand extends Command
 {
     protected $signature = 'jobicy:methodologies';
@@ -39,7 +40,7 @@ class JobicyByMethodologiesCommand extends Command
         'fr' => ['city' => 'París', 'lat' => 48.8566, 'lng' => 2.3522],
     ];
 
-   public function handle()
+  public function handle()
 {
     // ▶️ Iniciar RUN del scraper
     $run = ScraperRunService::start(
@@ -47,6 +48,20 @@ class JobicyByMethodologiesCommand extends Command
         'Jobicy',
         'methodologies'
     );
+
+    $source = 'jobicy_methodologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jobicy.com/api/v2/remote-jobs'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
 
     try {
 
@@ -56,33 +71,32 @@ class JobicyByMethodologiesCommand extends Command
         $totalSkippedAll  = 0;
 
         $lastMethodologyId = MethodologyMetric::where('source', 'Jobicy')
-    ->orderByDesc('created_at')
-    ->value('methodology_id');
-$baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
-        $q->select('course_methodology.methodology_id')
-          ->from('course_methodology')
-          ->join(
-              'career_course',
-              'career_course.course_id',
-              '=',
-              'course_methodology.course_id'
-          );
-    })
-    ->orderBy('methodologies.id');
+            ->orderByDesc('created_at')
+            ->value('methodology_id');
 
-$methodsQuery = clone $baseQuery;
+        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+            $q->select('course_methodology.methodology_id')
+              ->from('course_methodology')
+              ->join(
+                  'career_course',
+                  'career_course.course_id',
+                  '=',
+                  'course_methodology.course_id'
+              );
+        })
+        ->orderBy('methodologies.id');
 
-if ($lastMethodologyId) {
-    $methodsQuery->where('methodologies.id', '>', $lastMethodologyId);
-}
+        $methodsQuery = clone $baseQuery;
 
-$methodologies = $methodsQuery->pluck('name', 'id');
+        if ($lastMethodologyId) {
+            $methodsQuery->where('methodologies.id', '>', $lastMethodologyId);
+        }
 
-if ($methodologies->isEmpty()) {
-    // 🔁 ciclo completo → volver al inicio
-    $methodologies = $baseQuery->pluck('name', 'id');
-}
+        $methodologies = $methodsQuery->pluck('name', 'id');
 
+        if ($methodologies->isEmpty()) {
+            $methodologies = $baseQuery->pluck('name', 'id');
+        }
 
         $this->info("🌍 Iniciando importación desde Jobicy para {$methodologies->count()} metodologías...");
 
@@ -91,16 +105,18 @@ if ($methodologies->isEmpty()) {
             $this->warn("\n💡 Procesando metodología: {$methName}");
 
             try {
-                // 🌐 Consulta Jobicy global
+
                 $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
 
                 if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "Error {$methName}");
                     $this->error("❌ Error al consultar Jobicy API para {$methName}");
                     $totalSkippedAll++;
                     continue;
                 }
 
-                // 🔍 Filtrar por coincidencia con la metodología
+                $connectionOk = true;
+
                 $results = collect($response->json('jobs') ?? [])
                     ->filter(fn ($job) => str_contains(
                         strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
@@ -122,7 +138,6 @@ if ($methodologies->isEmpty()) {
                         continue;
                     }
 
-                    // 🌍 Normalización de país
                     $countryRaw = $job['jobGeo'] ?? null;
                     $country = CountryNormalizer::normalize($countryRaw);
 
@@ -131,7 +146,6 @@ if ($methodologies->isEmpty()) {
                         continue;
                     }
 
-                    // 🧭 Geolocalización
                     $code = strtolower(substr($countryRaw ?? '', 0, 2));
                     $city = $this->capitalMap[$code]['city'] ?? 'Remote';
                     [$city, $lat, $lng] = $this->getCoordsFromCountry($city, $code);
@@ -141,7 +155,6 @@ if ($methodologies->isEmpty()) {
                         continue;
                     }
 
-                    // 💼 Datos principales
                     $title    = $job['jobTitle'] ?? 'N/A';
                     $company  = $job['companyName'] ?? null;
                     $urlJob   = $job['url'] ?? null;
@@ -154,12 +167,10 @@ if ($methodologies->isEmpty()) {
                             : ($job['jobType'] ?? '')
                     );
 
-                    // 💰 Salarios
                     $salaryMin = $job['annualSalaryMin'] ?? null;
                     $salaryMax = $job['annualSalaryMax'] ?? null;
                     $currency  = $job['salaryCurrency'] ?? 'USD';
 
-                    // 💾 Crear oferta
                     $offer = JobOffer::create([
                         'title'        => $title,
                         'company'      => $company,
@@ -183,16 +194,13 @@ if ($methodologies->isEmpty()) {
                         'updated_at'   => now(),
                     ]);
 
-                    // 🔗 Metodología ↔ oferta
                     $offer->methodologies()->syncWithoutDetaching([$methId]);
 
-                    // 📊 Contadores
                     $totalNew++;
                     $countries[$country]   = ($countries[$country] ?? 0) + 1;
                     $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                 }
 
-                // 📈 Métrica diaria
                 MethodologyMetric::updateOrCreate(
                     [
                         'methodology_id' => $methId,
@@ -211,19 +219,24 @@ if ($methodologies->isEmpty()) {
 
                 $this->info("📊 {$methName}: {$totalNew} nuevas | {$totalFound} totales");
 
-                // 🔢 acumular al run global
                 $totalFoundAll    += $totalFound;
                 $totalInsertedAll += $totalNew;
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
 
             } catch (\Throwable $e) {
                 Log::error("⚠️ Error en {$methName}: {$e->getMessage()}");
                 $totalSkippedAll++;
             }
 
-            usleep(random_int(600000, 1200000)); // anti-baneo
+            usleep(random_int(600000, 1200000));
         }
 
-        // ✅ Finalizar RUN exitoso
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -231,15 +244,35 @@ if ($methodologies->isEmpty()) {
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("\n🎯 Proceso Jobicy (methodologies) finalizado correctamente.");
 
     } catch (\Throwable $e) {
-        // ❌ Fallo crítico
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }
-
 
     // 🧠 Detección de modalidad
    protected function detectModality(string $desc, string $type): string

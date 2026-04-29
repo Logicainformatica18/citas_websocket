@@ -14,228 +14,266 @@ use App\Models\LanguageMetric;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
+ 
 class GreenhouseByLanguagesCommand extends Command
 {
     protected $signature = 'greenhouse:languages {--company=*}';
     protected $description = '🌱 Importa ofertas desde Greenhouse con búsqueda por lenguaje + contexto semántico.';
 
     public function handle()
-    {
-        // ▶️ Iniciar RUN del scraper
-        $run = ScraperRunService::start(
-            $this->signature,
-            'Greenhouse',
-            'languages'
-        );
+{
+    // ▶️ Iniciar RUN del scraper
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Greenhouse',
+        'languages'
+    );
 
-        try {
+    $source = 'greenhouse_languages';
 
-            $companies = $this->option('company');
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://boards-api.greenhouse.io'
+    );
 
-            if (empty($companies)) {
-                $this->error("❌ Debes pasar empresas, ejemplo: --company=stripe --company=cloudflare");
-                return;
+    $connectionOk = false;
+    $startedAt = now();
+
+    // progreso inicial
+    SourceStatusService::progress($source, 0, 0, 0);
+
+    try {
+
+        $companies = $this->option('company');
+
+        if (empty($companies)) {
+            $this->error("❌ Debes pasar empresas, ejemplo: --company=stripe --company=cloudflare");
+            return;
+        }
+
+        // 🔢 Contadores globales
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔁 CURSOR CÍCLICO POR LENGUAJE
+        |--------------------------------------------------------------------------
+        */
+        $lastLanguageId = LanguageMetric::where('source', 'Greenhouse')
+            ->orderByDesc('created_at')
+            ->value('language_id');
+
+        $baseQuery = Language::whereIn('languages.id', function ($q) {
+                $q->select('course_language.language_id')
+                    ->from('course_language')
+                    ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
+            })
+            ->orderBy('languages.id');
+
+        $languagesQuery = clone $baseQuery;
+
+        if ($lastLanguageId) {
+            $languagesQuery->where('languages.id', '>', $lastLanguageId);
+        }
+
+        $languages = $languagesQuery->get();
+
+        if ($languages->isEmpty()) {
+            $languages = $baseQuery->get();
+        }
+
+        $this->info("🌱 Importando desde Greenhouse para {$languages->count()} lenguajes…");
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🏢 EMPRESAS
+        |--------------------------------------------------------------------------
+        */
+        foreach ($companies as $companySlug) {
+
+            $this->warn("\n🏢 Empresa: {$companySlug}");
+
+            $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
+
+            $response = Http::timeout(20)->get($url);
+
+            if ($response->failed()) {
+                SourceStatusService::connectionFailed($source, "Error empresa {$companySlug}");
+                $this->error("❌ No se pudo obtener datos de: {$companySlug}");
+                $totalSkippedAll++;
+                continue;
             }
 
-            // 🔢 Contadores globales
-            $totalFoundAll    = 0;
-            $totalInsertedAll = 0;
-            $totalSkippedAll  = 0;
+            $connectionOk = true;
 
-            /*
-            |--------------------------------------------------------------------------
-            | 🔁 CURSOR CÍCLICO POR LENGUAJE
-            |--------------------------------------------------------------------------
-            */
-            $lastLanguageId = LanguageMetric::where('source', 'Greenhouse')
-                ->orderByDesc('created_at')
-                ->value('language_id');
+            $jobs = $response->json('jobs') ?? [];
+            $contentAvailable = $this->companyHasContent($jobs);
 
-            $baseQuery = Language::whereIn('languages.id', function ($q) {
-                    $q->select('course_language.language_id')
-                        ->from('course_language')
-                        ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');
-                })
-                ->orderBy('languages.id');
-
-            $languagesQuery = clone $baseQuery;
-
-            if ($lastLanguageId) {
-                $languagesQuery->where('languages.id', '>', $lastLanguageId);
-            }
-
-            $languages = $languagesQuery->get();
-
-            if ($languages->isEmpty()) {
-                // 🔁 volver al inicio
-                $languages = $baseQuery->get();
-            }
-
-            $this->info("🌱 Importando desde Greenhouse para {$languages->count()} lenguajes…");
-
-            /*
-            |--------------------------------------------------------------------------
-            | 🏢 EMPRESAS
-            |--------------------------------------------------------------------------
-            */
-            foreach ($companies as $companySlug) {
-
-                $this->warn("\n🏢 Empresa: {$companySlug}");
-
-                $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
-
-                $response = Http::timeout(20)->get($url);
-
-                if ($response->failed()) {
-                    $this->error("❌ No se pudo obtener datos de: {$companySlug}");
-                    $totalSkippedAll++;
-                    continue;
-                }
-
-                $jobs = $response->json('jobs') ?? [];
-                $contentAvailable = $this->companyHasContent($jobs);
-
-                $this->line(
-                    $contentAvailable
-                        ? "✔ Esta empresa SÍ expone descripción"
-                        : "⚠ Solo título (sin descripción)"
-                );
-
-                /*
-                |--------------------------------------------------------------------------
-                | 🧠 LOOP POR LENGUAJE
-                |--------------------------------------------------------------------------
-                */
-                foreach ($languages as $language) {
-
-                    $pattern = $language->name;
-                    $escaped = preg_quote($pattern, '/');
-                    $regex   = "/{$escaped}/i";
-
-                    $resultsForLang = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
-
-                        $title   = $job['title'] ?? '';
-                        $content = $contentAvailable ? ($job['content'] ?? '') : '';
-
-                        return preg_match($regex, $title)
-                            || ($contentAvailable && preg_match($regex, $content));
-                    });
-
-                    $this->line("\n🔎 {$language->name} → " . count($resultsForLang));
-
-                    $totalFoundAll += count($resultsForLang);
-                    $newForLang = 0;
-
-                    foreach ($resultsForLang as $job) {
-
-                        $content     = $contentAvailable ? ($job['content'] ?? '') : '';
-                        $title       = $job['title'] ?? 'N/A';
-                        $companyName = $job['company_name'] ?? ucfirst($companySlug);
-                        $urlJob      = $job['absolute_url'] ?? null;
-
-                        // 📍 Ubicación
-                        $loc = strtolower($job['location']['name'] ?? '');
-
-                        // 🌍 País
-                        $countryCode = $this->extractCountryCodeOrNull($loc);
-                        if (!$countryCode) {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        $countryFull = CountryNormalizer::normalize($countryCode);
-
-                        // 🏙 Ciudad + coords
-                        $cityRaw = $this->extractCity($loc);
-                        [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
-
-                        if (!$lat || !$lng) {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        // 🧭 Modalidad
-                        $modality = $this->detectModality($loc, $content);
-
-                        $externalId = $job['id'];
-
-                        // 🔁 Duplicado
-                        $existing = JobOffer::where('external_id', $externalId)
-                            ->where('source', 'Greenhouse')
-                            ->first();
-
-                        if ($existing) {
-                            $existing->languages()->syncWithoutDetaching([$language->id]);
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        // 💾 Crear oferta
-                        $offer = JobOffer::create([
-                            'title'            => $title,
-                            'company'          => $companyName,
-                            'country'          => $countryFull,
-                            'city'             => $cityClean,
-                            'latitude'         => $lat,
-                            'longitude'        => $lng,
-                            'modality'         => $modality,
-                            'experience_level' => $this->extractExperience($content),
-                            'education_level'  => $this->extractEducation($content),
-                            'skills'           => $this->extractSkills($content),
-                            'certifications'   => $this->extractCertifications($content),
-                            'requirements'     => strip_tags($content),
-                            'source'           => 'Greenhouse',
-                            'external_id'      => $externalId,
-                            'url'              => $urlJob,
-                            'search_query'     => $language->name,
-                            'published_at'     => $job['updated_at'] ?? now(),
-                            'region'           => RegionHelper::fromCountry($countryFull),
-                        ]);
-
-                        $offer->languages()->syncWithoutDetaching([$language->id]);
-
-                        $newForLang++;
-                        $totalInsertedAll++;
-                    }
-
-                    // 📊 Métrica diaria por lenguaje
-                    LanguageMetric::updateOrCreate(
-                        [
-                            'language_id' => $language->id,
-                            'run_date'    => now()->toDateString(),
-                            'source'      => 'Greenhouse',
-                        ],
-                        [
-                            'language_name'      => $language->name,
-                            'jobs_found_count'   => count($resultsForLang),
-                            'jobs_new_count'     => $newForLang,
-                            'countries_breakdown'=> [],
-                            'modality_breakdown' => [],
-                            'updated_at'         => now(),
-                        ]
-                    );
-
-                    $this->info("✔ {$language->name}: {$newForLang} nuevas");
-                }
-            }
-
-            // ✅ RUN OK
-            ScraperRunService::success(
-                $run,
-                $totalFoundAll,
-                $totalInsertedAll,
-                $totalSkippedAll
+            $this->line(
+                $contentAvailable
+                    ? "✔ Esta empresa SÍ expone descripción"
+                    : "⚠ Solo título (sin descripción)"
             );
 
-            $this->info("\n🎯 Greenhouse → Lenguajes finalizado correctamente.");
+            /*
+            |--------------------------------------------------------------------------
+            | 🧠 LOOP POR LENGUAJE
+            |--------------------------------------------------------------------------
+            */
+            foreach ($languages as $language) {
 
-        } catch (\Throwable $e) {
-            ScraperRunService::failed($run, $e);
-            throw $e;
+                $pattern = $language->name;
+                $escaped = preg_quote($pattern, '/');
+                $regex   = "/{$escaped}/i";
+
+                $resultsForLang = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
+
+                    $title   = $job['title'] ?? '';
+                    $content = $contentAvailable ? ($job['content'] ?? '') : '';
+
+                    return preg_match($regex, $title)
+                        || ($contentAvailable && preg_match($regex, $content));
+                });
+
+                $this->line("\n🔎 {$language->name} → " . count($resultsForLang));
+
+                $totalFoundAll += count($resultsForLang);
+                $newForLang = 0;
+
+                foreach ($resultsForLang as $job) {
+
+                    $content     = $contentAvailable ? ($job['content'] ?? '') : '';
+                    $title       = $job['title'] ?? 'N/A';
+                    $companyName = $job['company_name'] ?? ucfirst($companySlug);
+                    $urlJob      = $job['absolute_url'] ?? null;
+
+                    $loc = strtolower($job['location']['name'] ?? '');
+
+                    $countryCode = $this->extractCountryCodeOrNull($loc);
+                    if (!$countryCode) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $countryFull = CountryNormalizer::normalize($countryCode);
+
+                    $cityRaw = $this->extractCity($loc);
+                    [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
+
+                    if (!$lat || !$lng) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $modality = $this->detectModality($loc, $content);
+
+                    $externalId = $job['id'];
+
+                    $existing = JobOffer::where('external_id', $externalId)
+                        ->where('source', 'Greenhouse')
+                        ->first();
+
+                    if ($existing) {
+                        $existing->languages()->syncWithoutDetaching([$language->id]);
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $offer = JobOffer::create([
+                        'title'            => $title,
+                        'company'          => $companyName,
+                        'country'          => $countryFull,
+                        'city'             => $cityClean,
+                        'latitude'         => $lat,
+                        'longitude'        => $lng,
+                        'modality'         => $modality,
+                        'experience_level' => $this->extractExperience($content),
+                        'education_level'  => $this->extractEducation($content),
+                        'skills'           => $this->extractSkills($content),
+                        'certifications'   => $this->extractCertifications($content),
+                        'requirements'     => strip_tags($content),
+                        'source'           => 'Greenhouse',
+                        'external_id'      => $externalId,
+                        'url'              => $urlJob,
+                        'search_query'     => $language->name,
+                        'published_at'     => $job['updated_at'] ?? now(),
+                        'region'           => RegionHelper::fromCountry($countryFull),
+                    ]);
+
+                    $offer->languages()->syncWithoutDetaching([$language->id]);
+
+                    $newForLang++;
+                    $totalInsertedAll++;
+                }
+
+                LanguageMetric::updateOrCreate(
+                    [
+                        'language_id' => $language->id,
+                        'run_date'    => now()->toDateString(),
+                        'source'      => 'Greenhouse',
+                    ],
+                    [
+                        'language_name'      => $language->name,
+                        'jobs_found_count'   => count($resultsForLang),
+                        'jobs_new_count'     => $newForLang,
+                        'countries_breakdown'=> [],
+                        'modality_breakdown' => [],
+                        'updated_at'         => now(),
+                    ]
+                );
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
+                $this->info("✔ {$language->name}: {$newForLang} nuevas");
+            }
         }
-    }
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("\n🎯 Greenhouse → Lenguajes finalizado correctamente.");
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
+    }
+}
     /* =======================================================
      * HELPERS (idénticos, reutilizados)
      * ======================================================= */

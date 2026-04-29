@@ -14,7 +14,8 @@ use App\Helpers\RegionHelper;
 use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
+ 
 class JoobleByMethodologiesCommand extends Command
 {
     protected $signature = 'jooble:methodologies {--country=United States} {--pages=5}';
@@ -26,7 +27,7 @@ class JoobleByMethodologiesCommand extends Command
         'skipped'   => 0,
     ];
 
-   public function handle()
+ public function handle()
 {
     // ▶️ INICIAR RUN
     $run = ScraperRunService::start(
@@ -35,50 +36,72 @@ class JoobleByMethodologiesCommand extends Command
         'methodologies'
     );
 
+    $source = 'jooble_methodologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://jooble.org/api'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
         $apiKey = config('services.jooble.key');
         if (!$apiKey) {
-            throw new \Exception("No existe JOOBLE_API_KEY en .env");
+
+            ScraperRunService::failed($run, new \Exception("No existe JOOBLE_API_KEY"));
+
+            SourceStatusService::failed(
+                source: $source,
+                runId: $run->id,
+                e: new \Exception("No existe JOOBLE_API_KEY"),
+                durationSeconds: now()->diffInSeconds($startedAt)
+            );
+
+            return;
         }
 
         $joobleCountry = JoobleLocation::normalize($this->option('country'));
         $pages = (int) $this->option('pages');
 
-        // 🔹 Metodologías vinculadas a carreras
- $lastMethodologyId = MethodologyMetric::where('source', 'Jooble')
-    ->orderByDesc('created_at')
-    ->value('methodology_id');
-
-$baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
-        $q->select('course_methodology.methodology_id')
-          ->from('course_methodology')
-          ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
-    })
-    ->orderBy('methodologies.id');
-$methodologiesQuery = clone $baseQuery;
-
-if ($lastMethodologyId) {
-    $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
-}
-
-$methodologies = $methodologiesQuery->get();
-if ($methodologies->isEmpty()) {
-    $methodologies = $baseQuery->get();
-}
-
-
-        $this->info("🧭 Jooble ({$joobleCountry}) → {$methodologies->count()} metodologías");
-
-        // 🔢 CONTADORES GLOBALES
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        foreach ($methodologies as $methodology) {
-    $methodologyId   = $methodology->id;
-    $methodologyName = $methodology->name;
+        $lastMethodologyId = MethodologyMetric::where('source', 'Jooble')
+            ->orderByDesc('created_at')
+            ->value('methodology_id');
 
+        $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
+            $q->select('course_methodology.methodology_id')
+              ->from('course_methodology')
+              ->join('career_course', 'career_course.course_id', '=', 'course_methodology.course_id');
+        })->orderBy('methodologies.id');
+
+        $methodologiesQuery = clone $baseQuery;
+
+        if ($lastMethodologyId) {
+            $methodologiesQuery->where('methodologies.id', '>', $lastMethodologyId);
+        }
+
+        $methodologies = $methodologiesQuery->get();
+
+        if ($methodologies->isEmpty()) {
+            $methodologies = $baseQuery->get();
+        }
+
+        $this->info("🧭 Jooble ({$joobleCountry}) → {$methodologies->count()} metodologías");
+
+        foreach ($methodologies as $methodology) {
+
+            $methodologyId   = $methodology->id;
+            $methodologyName = $methodology->name;
 
             $this->warn("🔎 {$methodologyName}");
 
@@ -87,22 +110,22 @@ if ($methodologies->isEmpty()) {
 
             for ($page = 1; $page <= $pages; $page++) {
 
-             // Jooble NO pagina por page
-$payload = [
-    'keywords' => $methodologyName,
-    'location' => $joobleCountry,
-];
-
+                $payload = [
+                    'keywords' => $methodologyName,
+                    'location' => $joobleCountry,
+                ];
 
                 try {
                     $response = Http::timeout(25)
                         ->post("https://jooble.org/api/{$apiKey}", $payload);
 
-
                     if ($response->failed()) {
+                        SourceStatusService::connectionFailed($source, "Error {$methodologyName} page {$page}");
                         $totalSkippedAll++;
                         continue;
                     }
+
+                    $connectionOk = true;
 
                     $jobs = $response->json('jobs') ?? [];
                     $totalFound += count($jobs);
@@ -111,7 +134,6 @@ $payload = [
 
                         $externalId = $job['id'];
 
-                        // 🔁 DUPLICADO
                         $existing = JobOffer::where('external_id', $externalId)
                             ->where('source', 'Jooble')
                             ->first();
@@ -129,11 +151,9 @@ $payload = [
                         $desc     = strtolower($job['snippet'] ?? '');
                         $urlJob   = $job['link'] ?? null;
 
-                        // 🧭 MODALIDAD
                         $modality = $this->detectModality($location, $desc);
                         $isRemote = in_array($modality, ['remote', 'fully_remote']);
 
-                        // 🌍 LOCATION
                         [$rawCity, $rawCountry] = $this->splitLocation($location);
 
                         if (strlen($rawCountry) === 2 && ctype_alpha($rawCountry)) {
@@ -147,7 +167,6 @@ $payload = [
                         $countryFull = CountryNormalizer::normalize($rawCountry);
                         $countryCode = $this->countryCodeIso($rawCountry);
 
-                        // 📍 GEO
                         if ($isRemote) {
                             $finalCity = 'Remote';
                             $lat = null;
@@ -163,7 +182,6 @@ $payload = [
 
                         $region = RegionHelper::fromCountry($countryFull);
 
-                        // 💾 CREAR
                         $offer = JobOffer::create([
                             'title'             => $title,
                             'company'           => $company,
@@ -192,7 +210,15 @@ $payload = [
                             ->syncWithoutDetaching([$methodologyId]);
 
                         $totalNew++;
+                        $totalInsertedAll++;
                     }
+
+                    SourceStatusService::progress(
+                        $source,
+                        $totalFoundAll + $totalFound,
+                        $totalInsertedAll,
+                        $totalSkippedAll
+                    );
 
                     sleep(1);
 
@@ -202,7 +228,6 @@ $payload = [
                 }
             }
 
-            // 📊 MÉTRICAS
             MethodologyMetric::updateOrCreate(
                 [
                     'methodology_id' => $methodologyId,
@@ -216,13 +241,11 @@ $payload = [
                 ]
             );
 
-            $totalFoundAll    += $totalFound;
-            $totalInsertedAll += $totalNew;
+            $totalFoundAll += $totalFound;
 
             $this->info("✔ {$methodologyName}: {$totalNew} nuevas / {$totalFound}");
         }
 
-        // ✅ RUN OK
         ScraperRunService::success(
             $run,
             $totalFoundAll,
@@ -230,12 +253,32 @@ $payload = [
             $totalSkippedAll
         );
 
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         $this->info("🎯 Jooble finalizado correctamente");
 
     } catch (\Throwable $e) {
 
-        // ❌ RUN FAILED
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

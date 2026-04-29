@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
-
+ use App\Services\SourceStatusService;
 class RemoteOkByTechnologiesCommand extends Command
 {
     protected $signature = 'remoteok:technologies';
@@ -24,166 +24,198 @@ class RemoteOkByTechnologiesCommand extends Command
         'skipped' => 0,
     ];
 
-    public function handle()
-    {
-        // ▶️ INICIAR RUN
-        $run = ScraperRunService::start(
-            $this->signature,
-            'RemoteOK',
-            'technologies'
-        );
+ public function handle()
+{
+    // ▶️ INICIAR RUN
+    $run = ScraperRunService::start(
+        $this->signature,
+        'RemoteOK',
+        'technologies'
+    );
 
-        try {
+    $source = 'remoteok_technologies';
 
-            // 🔹 Última tecnología procesada (cursor)
-            $lastTechnologyId = TechnologyMetric::where('source', 'RemoteOK')
-                ->orderByDesc('created_at')
-                ->value('technology_id');
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://remoteok.com/api'
+    );
 
-            // 🔹 Query base (solo tecnologías ISIL)
-            $baseQuery = Technology::whereIn('technologies.id', function ($q) {
-                    $q->select('course_technology.technology_id')
-                      ->from('course_technology')
-                      ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-                })
-                ->orderBy('technologies.id');
+    $connectionOk = false;
+    $startedAt = now();
 
-            $technologiesQuery = clone $baseQuery;
+    SourceStatusService::progress($source, 0, 0, 0);
 
-            if ($lastTechnologyId) {
-                $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
-            }
+    try {
 
-            $technologies = $technologiesQuery->get();
+        $lastTechnologyId = TechnologyMetric::where('source', 'RemoteOK')
+            ->orderByDesc('created_at')
+            ->value('technology_id');
 
-            // 🔁 Reinicio automático
-            if ($technologies->isEmpty()) {
-                $technologies = $baseQuery->get();
-            }
+        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+                $q->select('course_technology.technology_id')
+                  ->from('course_technology')
+                  ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
+            })
+            ->orderBy('technologies.id');
 
-            $this->info("🚀 RemoteOK → procesando {$technologies->count()} tecnologías");
+        $technologiesQuery = clone $baseQuery;
 
-            // 🔢 CONTADORES GLOBALES
-            $totalFoundAll    = 0;
-            $totalInsertedAll = 0;
-            $totalSkippedAll  = 0;
+        if ($lastTechnologyId) {
+            $technologiesQuery->where('technologies.id', '>', $lastTechnologyId);
+        }
 
-            // 📡 RemoteOK API (una sola llamada)
-            $response = Http::timeout(25)->get('https://remoteok.com/api');
+        $technologies = $technologiesQuery->get();
 
-            if ($response->failed()) {
-                throw new \Exception('RemoteOK API no respondió');
-            }
+        if ($technologies->isEmpty()) {
+            $technologies = $baseQuery->get();
+        }
 
-            $jobs = collect($response->json())
-                ->skip(1) // aviso legal
-                ->filter(fn ($j) => isset($j['position']));
+        $this->info("🚀 RemoteOK → procesando {$technologies->count()} tecnologías");
 
-            foreach ($technologies as $technology) {
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
 
-                $technologyId   = $technology->id;
-                $technologyName = $technology->name;
+        $response = Http::timeout(25)->get('https://remoteok.com/api');
 
-                $this->warn("\n🔎 {$technologyName}");
+        if ($response->failed()) {
+            SourceStatusService::connectionFailed($source, 'API failed');
+            throw new \Exception('RemoteOK API no respondió');
+        }
 
-                $totalFound = 0;
-                $totalNew   = 0;
+        $connectionOk = true;
 
-                foreach ($jobs as $job) {
+        $jobs = collect($response->json())
+            ->skip(1)
+            ->filter(fn ($j) => isset($j['position']));
 
-                    $title = $job['position'] ?? '';
-                    $tags  = $job['tags'] ?? [];
+        foreach ($technologies as $technology) {
 
-                    $text = strtolower($title . ' ' . implode(' ', $tags));
+            $technologyId   = $technology->id;
+            $technologyName = $technology->name;
 
-                    // 🧠 Match por tecnología
-                    if (!str_contains($text, strtolower($technologyName))) {
-                        continue;
-                    }
+            $this->warn("\n🔎 {$technologyName}");
 
-                    $totalFound++;
-                    $totalFoundAll++;
+            $totalFound = 0;
+            $totalNew   = 0;
 
-                    $externalId = $job['id'] ?? null;
+            foreach ($jobs as $job) {
 
-                    // 🔁 DEDUPE
-                    if ($externalId && JobOffer::where('source', 'RemoteOK')
-                        ->where('external_id', $externalId)
-                        ->exists()) {
+                $title = $job['position'] ?? '';
+                $tags  = $job['tags'] ?? [];
 
-                        $totalSkippedAll++;
-                        continue;
-                    }
+                $text = strtolower($title . ' ' . implode(' ', $tags));
 
-                    // 🧭 MODALIDAD
-                    $modality = 'remote';
-
-                    // 🌍 COUNTRY / REGION
-                    $locationRaw = strtolower(trim($job['location'] ?? ''));
-                    $country = 'Remote';
-
-                    if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $locationRaw, $m)) {
-                        $country = CountryNormalizer::normalize(trim($m[1]));
-                    }
-
-                    $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
-
-                    // 💾 CREAR OFERTA
-                    JobOffer::create([
-                        'title'        => $title ?: 'N/A',
-                        'company'      => $job['company'] ?? null,
-                        'country'      => $country,
-                        'region'       => $region,
-                        'city'         => null,
-                        'latitude'     => null,
-                        'longitude'    => null,
-                        'modality'     => $modality,
-                        'source'       => 'RemoteOK',
-                        'search_query' => $technologyName,
-                        'external_id'  => $externalId,
-                        'url'          => $job['url'] ?? null,
-                        'published_at' => isset($job['date'])
-                            ? Carbon::parse($job['date'])
-                            : now(),
-                    ]);
-
-                    $totalNew++;
-                    $totalInsertedAll++;
+                if (!str_contains($text, strtolower($technologyName))) {
+                    continue;
                 }
 
-                // 📊 MÉTRICA DIARIA (UNA POR TECNOLOGÍA)
-                TechnologyMetric::updateOrCreate(
-                    [
-                        'technology_id' => $technologyId,
-                        'run_date'      => now()->toDateString(),
-                        'source'        => 'RemoteOK',
-                    ],
-                    [
-                        'technology_name' => $technologyName,
-                        'jobs_found_count'=> $totalFound,
-                        'jobs_new_count'  => $totalNew,
-                        'updated_at'      => now(),
-                    ]
-                );
+                $totalFound++;
+                $totalFoundAll++;
 
-                $this->info("✔ {$technologyName}: {$totalNew} nuevas / {$totalFound}");
+                $externalId = $job['id'] ?? null;
+
+                if ($externalId && JobOffer::where('source', 'RemoteOK')
+                    ->where('external_id', $externalId)
+                    ->exists()) {
+
+                    $totalSkippedAll++;
+                    continue;
+                }
+
+                $modality = 'remote';
+
+                $locationRaw = strtolower(trim($job['location'] ?? ''));
+                $country = 'Remote';
+
+                if (preg_match('/remote\s*[-,\/]?\s*(.+)$/i', $locationRaw, $m)) {
+                    $country = CountryNormalizer::normalize(trim($m[1]));
+                }
+
+                $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
+
+                JobOffer::create([
+                    'title'        => $title ?: 'N/A',
+                    'company'      => $job['company'] ?? null,
+                    'country'      => $country,
+                    'region'       => $region,
+                    'city'         => null,
+                    'latitude'     => null,
+                    'longitude'    => null,
+                    'modality'     => $modality,
+                    'source'       => 'RemoteOK',
+                    'search_query' => $technologyName,
+                    'external_id'  => $externalId,
+                    'url'          => $job['url'] ?? null,
+                    'published_at' => isset($job['date'])
+                        ? Carbon::parse($job['date'])
+                        : now(),
+                ]);
+
+                $totalNew++;
+                $totalInsertedAll++;
             }
 
-            // ✅ RUN OK
-            ScraperRunService::success(
-                $run,
+            TechnologyMetric::updateOrCreate(
+                [
+                    'technology_id' => $technologyId,
+                    'run_date'      => now()->toDateString(),
+                    'source'        => 'RemoteOK',
+                ],
+                [
+                    'technology_name' => $technologyName,
+                    'jobs_found_count'=> $totalFound,
+                    'jobs_new_count'  => $totalNew,
+                    'updated_at'      => now(),
+                ]
+            );
+
+            $this->info("✔ {$technologyName}: {$totalNew} nuevas / {$totalFound}");
+
+            SourceStatusService::progress(
+                $source,
                 $totalFoundAll,
                 $totalInsertedAll,
                 $totalSkippedAll
             );
-
-            $this->info("\n🟢 RemoteOK (technologies) finalizado correctamente");
-
-        } catch (\Throwable $e) {
-
-            // ❌ RUN FAILED
-            ScraperRunService::failed($run, $e);
-            throw $e;
         }
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("\n🟢 RemoteOK (technologies) finalizado correctamente");
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
     }
+}
 }
