@@ -6,11 +6,13 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\Language;
+use App\Models\LanguageMetric;
 use App\Models\JobOffer;
 use App\Models\City;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
+use App\Services\SourceStatusService;
 
 class USAJOBSByLanguagesCommand extends Command
 {
@@ -24,187 +26,191 @@ class USAJOBSByLanguagesCommand extends Command
         'skipped'  => 0,
     ];
 
-    public function handle()
-    {
-        /* ===========================
-           ▶️ INICIAR RUN
-        ============================ */
-        $run = ScraperRunService::start(
-            $this->signature,
-            'USAJOBS',
-            'languages'
-        );
+public function handle()
+{
+    $run = ScraperRunService::start(
+        $this->signature,
+        'USAJOBS',
+        'languages'
+    );
 
-        try {
+    $source = 'usajobs_languages';
 
-            /* ===========================
-               1️⃣ LENGUAJES DEL PE ISIL
-            ============================ */
-            $languages = Language::whereIn('languages.id', function ($q) {
-                    $q->select('cl.language_id')
-                      ->from('course_language as cl')
-                      ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id');
-                })
-                ->orderBy('languages.id')
-                ->get();
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://data.usajobs.gov/api/search'
+    );
 
-            $this->info("🇺🇸 USAJOBS → {$languages->count()} lenguajes PE ISIL");
+    $connectionOk = false;
+    $startedAt = now();
 
-            /* ===========================
-               CONTADORES GLOBALES
-            ============================ */
-            $totalFoundAll    = 0;
-            $totalInsertedAll = 0;
-            $totalSkippedAll  = 0;
+    SourceStatusService::progress($source, 0, 0, 0);
 
-            foreach ($languages as $language) {
+    try {
 
-                $languageName = $language->name;
+        $languages = Language::whereIn('languages.id', function ($q) {
+                $q->select('cl.language_id')
+                  ->from('course_language as cl')
+                  ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id');
+            })
+            ->orderBy('languages.id')
+            ->get();
 
-                $this->warn("\n🔎 {$languageName}");
+        $this->info("🇺🇸 USAJOBS → {$languages->count()} lenguajes PE ISIL");
 
-                $totalFound = 0;
-                $totalNew   = 0;
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
 
-                for ($page = 1; $page <= (int) $this->option('pages'); $page++) {
+        foreach ($languages as $language) {
 
-                    /* ===========================
-                       🔵 REQUEST USAJOBS
-                    ============================ */
-                    $response = Http::timeout(40)
-                        ->withHeaders([
-                            'Host'              => 'data.usajobs.gov',
-                            'User-Agent'        => 'Isil Scraper (contacto@isil.pe)',
-                            'Authorization-Key' => config('services.usajobs.key'),
-                        ])
-                        ->get('https://data.usajobs.gov/api/Search', [
-                            'Keyword'        => $languageName,
-                            'ResultsPerPage' => 100,
-                            'Page'           => $page,
-                        ]);
+            $languageId   = $language->id;
+            $languageName = $language->name;
 
-                    $this->stats['api_hits']++;
+            $this->warn("\n🔎 {$languageName}");
 
-                    if ($response->failed()) {
-                        Log::error('USAJOBS API ERROR', [
-                            'status' => $response->status(),
-                            'body'   => $response->body(),
-                        ]);
-                        break;
-                    }
+            $totalFound = 0;
+            $totalNew   = 0;
 
-                    $items = $response->json('SearchResult.SearchResultItems', []);
+            for ($page = 1; $page <= (int) $this->option('pages'); $page++) {
 
-                    if (empty($items)) {
-                        break;
-                    }
+                $response = Http::timeout(40)
+                    ->withHeaders([
+                        'Host'              => 'data.usajobs.gov',
+                        'User-Agent'        => 'Isil Scraper (contacto@isil.pe)',
+                        'Authorization-Key' => config('services.usajobs.key'),
+                    ])
+                    ->get('https://data.usajobs.gov/api/Search', [
+                        'Keyword'        => $languageName,
+                        'ResultsPerPage' => 100,
+                        'Page'           => $page,
+                    ]);
 
-                    foreach ($items as $item) {
+                $this->stats['api_hits']++;
 
-                        $job = $item['MatchedObjectDescriptor'] ?? [];
-                        $totalFound++;
-                        $totalFoundAll++;
-
-                        $externalId = 'usajobs-' . ($job['PositionID'] ?? uniqid());
-
-                        if (
-                            JobOffer::where('source', 'usajobs')
-                                ->where('external_id', $externalId)
-                                ->exists()
-                        ) {
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        /* ===========================
-                           UBICACIÓN
-                        ============================ */
-                        $locationRaw = $job['PositionLocation'][0]['LocationName'] ?? null;
-
-                        $cityMatch = $locationRaw
-                            ? City::whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])
-                                ->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)])
-                                ->first()
-                            : null;
-
-                        if ($cityMatch) {
-                            $city    = $cityMatch->city;
-                            $lat     = $cityMatch->lat;
-                            $lng     = $cityMatch->lng;
-                            $country = CountryNormalizer::normalize($cityMatch->country);
-                        } else {
-                            $city    = 'Washington D.C.';
-                            $lat     = 38.8951;
-                            $lng     = -77.0364;
-                            $country = 'Estados Unidos';
-                        }
-
-                        /* ===========================
-                           FECHA + SALARIO
-                        ============================ */
-                        $publishedAt = isset($job['PublicationStartDate'])
-                            ? Carbon::parse($job['PublicationStartDate'])
-                            : now();
-
-                        $salaryMin = $this->cleanSalary(
-                            $job['PositionRemuneration'][0]['MinimumRange'] ?? null
-                        );
-
-                        $salaryMax = $this->cleanSalary(
-                            $job['PositionRemuneration'][0]['MaximumRange'] ?? null
-                        );
-
-                        $compType = $this->normalizeCompType(
-                            $job['PositionRemuneration'][0]['RateIntervalCode'] ?? null
-                        );
-
-                        /* ===========================
-                           CREAR OFERTA
-                        ============================ */
-                        JobOffer::create([
-                            'title'             => $job['PositionTitle'] ?? '',
-                            'company'           => $job['OrganizationName'] ?? '',
-                            'country'           => $country,
-                            'city'              => $city,
-                            'latitude'          => $lat,
-                            'longitude'         => $lng,
-                            'modality'          => 'presencial',
-                            'salary_min'        => $salaryMin,
-                            'salary_max'        => $salaryMax,
-                            'currency'          => 'USD',
-                            'compensation_type' => $compType,
-                            'source'            => 'usajobs',
-                            'external_id'       => $externalId,
-                            'url'               => $job['PositionURI'] ?? null,
-                            'search_query'      => $languageName,
-                            'published_at'      => $publishedAt,
-                        ]);
-
-                        $totalNew++;
-                        $totalInsertedAll++;
-                        $this->stats['mapped']++;
-                    }
-
-                    sleep(1); // ⏱️ rate limit real USAJOBS
+                if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, $languageName);
+                    break;
                 }
 
-                $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
+                $connectionOk = true;
+
+                $items = $response->json('SearchResult.SearchResultItems', []);
+
+                if (empty($items)) break;
+
+                foreach ($items as $item) {
+
+                    $job = $item['MatchedObjectDescriptor'] ?? [];
+
+                    $totalFound++;
+                    $totalFoundAll++;
+
+                    $externalId = 'usajobs-' . ($job['PositionID'] ?? uniqid());
+
+                    if (
+                        JobOffer::where('source', 'usajobs')
+                            ->where('external_id', $externalId)
+                            ->exists()
+                    ) {
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $locationRaw = $job['PositionLocation'][0]['LocationName'] ?? null;
+
+                    $cityMatch = $locationRaw
+                        ? City::whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])
+                            ->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)])
+                            ->first()
+                        : null;
+
+                    if ($cityMatch) {
+                        $city    = $cityMatch->city;
+                        $lat     = $cityMatch->lat;
+                        $lng     = $cityMatch->lng;
+                        $country = CountryNormalizer::normalize($cityMatch->country);
+                    } else {
+                        $city    = 'Washington D.C.';
+                        $lat     = 38.8951;
+                        $lng     = -77.0364;
+                        $country = 'Estados Unidos';
+                    }
+
+                    $publishedAt = isset($job['PublicationStartDate'])
+                        ? Carbon::parse($job['PublicationStartDate'])
+                        : now();
+
+                    $offer = JobOffer::create([
+                        'title'        => $job['PositionTitle'] ?? '',
+                        'company'      => $job['OrganizationName'] ?? '',
+                        'country'      => $country,
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => 'presencial',
+                        'source'       => 'usajobs',
+                        'external_id'  => $externalId,
+                        'url'          => $job['PositionURI'] ?? null,
+                        'search_query' => $languageName,
+                        'published_at' => $publishedAt,
+                    ]);
+
+                    $offer->languages()->syncWithoutDetaching([$languageId]);
+
+                    $totalNew++;
+                    $totalInsertedAll++;
+                }
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
+                sleep(1);
             }
 
-            ScraperRunService::success(
-                $run,
-                $totalFoundAll,
-                $totalInsertedAll,
-                $totalSkippedAll
-            );
-
-            $this->info("\n🟢 USAJOBS OK");
-
-        } catch (\Throwable $e) {
-            ScraperRunService::failed($run, $e);
-            throw $e;
+            $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
         }
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
     }
+}
 
     /* ===========================
        HELPERS

@@ -150,6 +150,7 @@ class RunAllJobs extends Command
 'usajobs:methodologies',
 'usajobs:technologies',
 
+'selecta:languages',
 
 'computrabajo:technologies --country=pe --pages=1',
 'computrabajo:technologies --country=bo --pages=1',
@@ -231,7 +232,7 @@ class RunAllJobs extends Command
 'normalize:peru-regions',
 // //asigna el valor en market_entity_id sincronizando languaje, metodology, technology JOBS
 'market:fix-null-entities',
-'computrabajo:clean-all'
+'computrabajo:clean-all',
 ];
 
         $total = count($commands);

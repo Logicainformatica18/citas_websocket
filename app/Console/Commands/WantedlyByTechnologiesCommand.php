@@ -35,31 +35,34 @@ class WantedlyByTechnologiesCommand extends Command
         'SG' => ['city' => 'Singapur',  'lat' => 1.3521,  'lng' => 103.8198],
     ];
 
-   public function handle()
+ public function handle()
 {
-    /* ===============================
-       INIT RUN
-    =============================== */
     $run = \App\Services\ScraperRunService::start(
         $this->signature,
         'Wantedly',
         'technologies'
     );
 
+    $source = 'wantedly_technologies';
+
+    \App\Services\SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://www.wantedly.com/api/v1/projects'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    \App\Services\SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
-        $targetLang = strtolower($this->option('lang', 'es'));
-
-        /* ===============================
-           CURSOR
-        =============================== */
         $lastTechnologyId = TechnologyMetric::where('source', 'wantedly')
             ->orderByDesc('created_at')
             ->value('technology_id');
 
-        /* ===============================
-           BASE QUERY (INMUTABLE)
-        =============================== */
         $baseQuery = Technology::whereIn('technologies.id', function ($q) {
                 $q->select('ct.technology_id')
                   ->from('course_technology as ct')
@@ -75,27 +78,23 @@ class WantedlyByTechnologiesCommand extends Command
 
         $technologies = $query->get();
 
-        // 🔁 reinicio automático
         if ($technologies->isEmpty()) {
             $this->warn('🔁 Cursor agotado, reiniciando tecnologías');
             $technologies = $baseQuery->get();
         }
 
-        $this->info("🌏 Wantedly → {$technologies->count()} tecnologías | traducción: {$targetLang}");
+        $this->info("🌏 Wantedly → {$technologies->count()} tecnologías (SIN traducción)");
 
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        /* ===============================
-           LOOP POR TECNOLOGÍA
-        =============================== */
         foreach ($technologies as $technology) {
 
             $techId   = $technology->id;
             $techName = $technology->name;
 
-            $this->warn("\n💡 Tecnología: {$techName}");
+            $this->warn("\n🔎 {$techName}");
 
             $page = 1;
             $emptyPages = 0;
@@ -106,7 +105,8 @@ class WantedlyByTechnologiesCommand extends Command
             $countries  = [];
             $modalities = [];
 
-            while ($page <= 20) { // límite de seguridad
+            // 🔥 menos páginas
+            while ($page <= 5) {
 
                 $url = "https://www.wantedly.com/api/v1/projects?keyword="
                     . urlencode($techName)
@@ -117,7 +117,12 @@ class WantedlyByTechnologiesCommand extends Command
                     $response = Http::timeout(25)->get($url);
                     $this->stats['api_hits']++;
 
-                    if ($response->failed()) break;
+                    if ($response->failed()) {
+                        \App\Services\SourceStatusService::connectionFailed($source, $techName);
+                        break;
+                    }
+
+                    $connectionOk = true;
 
                     $results = $response->json('data') ?? [];
                     if (empty($results)) break;
@@ -142,7 +147,6 @@ class WantedlyByTechnologiesCommand extends Command
                             continue;
                         }
 
-                        /* ================= BASE ================= */
                         $title     = $job['title'] ?? 'N/A';
                         $company   = $job['company']['name'] ?? null;
                         $desc      = strip_tags($job['description'] ?? '');
@@ -152,70 +156,50 @@ class WantedlyByTechnologiesCommand extends Command
                             ? Carbon::parse($job['published_at'])
                             : now();
 
-                        /* ================= GEO ================= */
                         $countryIso = $this->detectCountryFromCity($cityRaw);
                         $country    = CountryNormalizer::normalize($countryIso);
                         $region     = RegionHelper::fromCountry($country);
                         $modality   = $this->detectModality($title, $desc, $cityRaw);
 
-                        [$city, $latitude, $longitude] =
+                        [$city, $lat, $lng] =
                             $this->getCoordsFromCountry($cityRaw, $countryIso);
 
-                        if ((!$latitude || !$longitude) && isset($this->capitalMap[$countryIso])) {
+                        if ((!$lat || !$lng) && isset($this->capitalMap[$countryIso])) {
                             $c = $this->capitalMap[$countryIso];
-                            $city      = $c['city'];
-                            $latitude  = $c['lat'];
-                            $longitude = $c['lng'];
+                            $city = $c['city'];
+                            $lat  = $c['lat'];
+                            $lng  = $c['lng'];
                             $this->stats['fallback']++;
                         }
 
                         if ($modality === 'remote') {
-                            $latitude = $longitude = null;
+                            $lat = $lng = null;
                         }
 
-                        /* ================= TRADUCCIÓN ================= */
-                        $titleTranslated = $this->translateText($title, 'auto', $targetLang);
-                        $descTranslated  = $this->translateText($desc,  'auto', $targetLang);
-
-                        /* ================= EXTRACCIÓN ================= */
                         $experience     = $this->extractExperience($desc);
                         $education      = $this->extractEducation($desc);
                         $certifications = $this->extractCertifications($desc);
                         $skills         = $this->extractSkills($desc);
 
-                        /* ================= CREATE ================= */
                         $offer = JobOffer::create([
                             'title'            => $title,
-                            'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
-                            'title_en'         => $targetLang === 'en' ? $titleTranslated : null,
-
                             'company'          => $company,
                             'country'          => $country,
                             'region'           => $region,
                             'city'             => $city,
-                            'latitude'         => $latitude,
-                            'longitude'        => $longitude,
+                            'latitude'         => $lat,
+                            'longitude'        => $lng,
                             'modality'         => $modality,
-
-                            'salary_min'       => null,
-                            'salary_max'       => null,
-                            'currency'         => null,
-
                             'experience_level' => $experience,
                             'education_level'  => $education,
                             'certifications'   => $certifications,
                             'skills'           => $skills,
                             'requirements'     => $desc,
-
                             'source'           => 'wantedly',
                             'external_id'      => $externalId,
                             'url'              => $urlJob,
                             'search_query'     => $techName,
-
                             'description'      => $desc,
-                            'description_es'   => $targetLang === 'es' ? $descTranslated : null,
-                            'description_en'   => $targetLang === 'en' ? $descTranslated : null,
-
                             'published_at'     => $published,
                         ]);
 
@@ -230,6 +214,14 @@ class WantedlyByTechnologiesCommand extends Command
                         $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                     }
 
+                    // 🔥 progreso en vivo
+                    \App\Services\SourceStatusService::progress(
+                        $source,
+                        $totalFoundAll,
+                        $totalInsertedAll,
+                        $totalSkippedAll
+                    );
+
                     if ($newInPage === 0) {
                         $emptyPages++;
                         if ($emptyPages >= $maxEmptyPages) break;
@@ -238,15 +230,14 @@ class WantedlyByTechnologiesCommand extends Command
                     }
 
                     $page++;
-                    sleep(1);
+                    usleep(300000); // más rápido que sleep(1)
 
                 } catch (\Throwable $e) {
-                    Log::error("❌ Wantedly tech {$techName} p{$page}: ".$e->getMessage());
+                    Log::error("❌ Wantedly tech {$techName}: ".$e->getMessage());
                     break;
                 }
             }
 
-            /* ================= METRIC ================= */
             TechnologyMetric::updateOrCreate(
                 [
                     'technology_id' => $techId,
@@ -273,10 +264,30 @@ class WantedlyByTechnologiesCommand extends Command
             $totalSkippedAll
         );
 
-        $this->info("\n🟢 WANTEDLY TECNOLOGÍAS COMPLETADO");
+        if ($connectionOk) {
+            \App\Services\SourceStatusService::connectionOk($source);
+        }
+
+        \App\Services\SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
 
     } catch (\Throwable $e) {
+
         \App\Services\ScraperRunService::failed($run, $e);
+
+        \App\Services\SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }

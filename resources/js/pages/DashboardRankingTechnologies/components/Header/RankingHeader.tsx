@@ -19,6 +19,7 @@ interface HeaderProps {
         vacantes_analizadas: number;
         reportes_analizados: number;
     };
+    onOpenWeekly: () => void;
     weights: WeightConfig;
     onEditWeights: () => void;
 }
@@ -26,7 +27,9 @@ interface HeaderProps {
 export function Header({
     meta,
     weights,
+    onOpenWeekly,
     onEditWeights,
+
 }: HeaderProps) {
     const { filters, jobMarketStatus, scrapingStatus } = usePage().props as any;
 
@@ -150,7 +153,12 @@ px-4 sm:px-6 lg:px-8
                 <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
                   Año de análisis
                 </span>
-
+<button
+  onClick={onOpenWeekly}
+  className="mt-4 px-4 py-2 bg-teal-500 text-white rounded"
+>
+  Ver evolución semanal
+</button>
                 <div className="relative rounded-xl border bg-white shadow-sm">
 
                   <select

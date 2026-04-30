@@ -13,7 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
-
+use App\Services\SourceStatusService;
 class WantedlyByLanguagesCommand extends Command
 {
     protected $signature = 'wantedly:languages {--lang=es}';
@@ -35,233 +35,251 @@ class WantedlyByLanguagesCommand extends Command
         'SG' => ['city' => 'Singapur', 'lat' => 1.3521,  'lng' => 103.8198],
     ];
 
-    public function handle()
-    {
-        /* ===============================
-           INIT RUN
-        =============================== */
-        $run = ScraperRunService::start(
-            $this->signature,
-            'Wantedly',
-            'languages'
-        );
+public function handle()
+{
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Wantedly',
+        'languages'
+    );
 
-        try {
+    $source = 'wantedly_languages';
 
-            $targetLang = strtolower($this->option('lang', 'es'));
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: ['lang' => $this->option('lang')],
+        apiUrl: 'https://www.wantedly.com/api/v1/projects'
+    );
 
-            /* ===============================
-               CURSOR
-            =============================== */
-            $lastLanguageId = LanguageMetric::where('source', 'wantedly')
-                ->orderByDesc('created_at')
-                ->value('language_id');
+    $connectionOk = false;
+    $startedAt = now();
 
-            /* ===============================
-               BASE QUERY (INMUTABLE)
-            =============================== */
-            $baseQuery = Language::whereIn('languages.id', function ($q) {
-                    $q->select('cl.language_id')
-                        ->from('course_language as cl')
-                        ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id');
-                })
-                ->orderBy('languages.id');
+    SourceStatusService::progress($source, 0, 0, 0);
 
-            /* ===============================
-               QUERY CON CURSOR (CLONADA)
-            =============================== */
-            $query = clone $baseQuery;
+    try {
 
-            if ($lastLanguageId) {
-                $query->where('languages.id', '>', $lastLanguageId);
-            }
+        $lastLanguageId = LanguageMetric::where('source', 'wantedly')
+            ->orderByDesc('created_at')
+            ->value('language_id');
 
-            $languages = $query->get();
+        $baseQuery = Language::whereIn('languages.id', function ($q) {
+                $q->select('cl.language_id')
+                  ->from('course_language as cl')
+                  ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id');
+            })
+            ->orderBy('languages.id');
 
-            // 🔁 reinicio real
-            if ($languages->isEmpty()) {
-                $this->warn('🔁 Cursor llegó al final, reiniciando lenguajes');
-                $languages = $baseQuery->get();
-            }
+        $query = clone $baseQuery;
 
-            $this->info("🌏 Wantedly → {$languages->count()} lenguajes | traducción: {$targetLang}");
+        if ($lastLanguageId) {
+            $query->where('languages.id', '>', $lastLanguageId);
+        }
 
-            if ($languages->isEmpty()) {
-                $this->error('❌ No se encontraron lenguajes PE ISIL');
-                return Command::FAILURE;
-            }
+        $languages = $query->get();
 
-            $totalFoundAll    = 0;
-            $totalInsertedAll = 0;
-            $totalSkippedAll  = 0;
+        if ($languages->isEmpty()) {
+            $this->warn('🔁 Cursor llegó al final, reiniciando lenguajes');
+            $languages = $baseQuery->get();
+        }
 
-            /* ===============================
-               LOOP POR LENGUAJE
-            =============================== */
-            foreach ($languages as $language) {
+        $this->info("🌏 Wantedly → {$languages->count()} lenguajes (SIN traducción)");
 
-                $languageId   = $language->id;
-                $languageName = $language->name;
+        if ($languages->isEmpty()) {
+            throw new \Exception('No languages found');
+        }
 
-                $this->warn("\n💡 Lenguaje: {$languageName}");
+        $totalFoundAll    = 0;
+        $totalInsertedAll = 0;
+        $totalSkippedAll  = 0;
 
-                $page = 1;
-                $emptyPages = 0;
-                $maxEmptyPages = 2;
+        foreach ($languages as $language) {
 
-                $totalFound = 0;
-                $totalNew   = 0;
-                $countries  = [];
-                $modalities = [];
+            $languageId   = $language->id;
+            $languageName = $language->name;
 
-                while ($page <= 20) {
+            $this->warn("\n💡 Lenguaje: {$languageName}");
 
-                    $url = "https://www.wantedly.com/api/v1/projects?keyword="
-                        . urlencode($languageName)
-                        . "&page={$page}";
+            $page = 1;
+            $emptyPages = 0;
+            $maxEmptyPages = 2;
 
-                    $response = Http::timeout(25)->get($url);
-                    $this->stats['api_hits']++;
+            $totalFound = 0;
+            $totalNew   = 0;
+            $countries  = [];
+            $modalities = [];
 
-                    if ($response->failed()) break;
+            // 🔥 BAJAMOS páginas (performance)
+            while ($page <= 5) {
 
-                    $results = $response->json('data') ?? [];
-                    if (empty($results)) break;
+                $url = "https://www.wantedly.com/api/v1/projects?keyword="
+                    . urlencode($languageName)
+                    . "&page={$page}";
 
-                    $newInPage = 0;
-                    $totalFound     += count($results);
-                    $totalFoundAll += count($results);
+                $response = Http::timeout(25)->get($url);
+                $this->stats['api_hits']++;
 
-                    foreach ($results as $job) {
-
-                        $externalId = $job['id'] ?? null;
-                        if (!$externalId) continue;
-
-                        $existing = JobOffer::where('source', 'wantedly')
-                            ->where('external_id', $externalId)
-                            ->first();
-
-                        if ($existing) {
-                            $existing->languages()
-                                ->syncWithoutDetaching([$languageId]);
-                            $totalSkippedAll++;
-                            continue;
-                        }
-
-                        /* ========= BASE ========= */
-                        $title     = $job['title'] ?? 'N/A';
-                        $company   = $job['company']['name'] ?? null;
-                        $desc      = strip_tags($job['description'] ?? '');
-                        $cityRaw   = $job['location'] ?? 'Tokyo';
-                        $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
-                        $published = isset($job['published_at'])
-                            ? Carbon::parse($job['published_at'])
-                            : now();
-
-                        /* ========= GEO ========= */
-                        $countryIso = $this->detectCountryFromCity($cityRaw);
-                        $country    = CountryNormalizer::normalize($countryIso);
-                        $region     = RegionHelper::fromCountry($country);
-                        $modality   = $this->detectModality($title, $desc, $cityRaw);
-
-                        [$city, $lat, $lng] = $this->getCoordsFromCountry($cityRaw, $countryIso);
-
-                        if ((!$lat || !$lng) && isset($this->capitalMap[$countryIso])) {
-                            $cap  = $this->capitalMap[$countryIso];
-                            $city = $cap['city'];
-                            $lat  = $cap['lat'];
-                            $lng  = $cap['lng'];
-                            $this->stats['fallback']++;
-                        }
-
-                        if ($modality === 'remote') {
-                            $lat = $lng = null;
-                        }
-
-                        /* ========= TRADUCCIÓN ========= */
-                        $titleTranslated = $this->translateCached($title, $targetLang);
-                        $descTranslated  = $this->translateCached($desc,  $targetLang);
-
-                        /* ========= CREAR ========= */
-                        $offer = JobOffer::create([
-                            'title'          => $title,
-                            'title_es'       => $targetLang === 'es' ? $titleTranslated : null,
-                            'title_en'       => $targetLang === 'en' ? $titleTranslated : null,
-                            'company'        => $company,
-                            'country'        => $country,
-                            'region'         => $region,
-                            'city'           => $city,
-                            'latitude'       => $lat,
-                            'longitude'      => $lng,
-                            'modality'       => $modality,
-                            'requirements'   => $desc,
-                            'source'         => 'wantedly',
-                            'external_id'    => $externalId,
-                            'url'            => $urlJob,
-                            'search_query'   => $languageName,
-                            'description'    => $desc,
-                            'description_es' => $targetLang === 'es' ? $descTranslated : null,
-                            'description_en' => $targetLang === 'en' ? $descTranslated : null,
-                            'published_at'   => $published,
-                        ]);
-
-                        $offer->languages()
-                            ->syncWithoutDetaching([$languageId]);
-
-                        $newInPage++;
-                        $totalNew++;
-                        $totalInsertedAll++;
-
-                        $countries[$country]   = ($countries[$country] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
-                    }
-
-                    if ($newInPage === 0) {
-                        $emptyPages++;
-                        if ($emptyPages >= $maxEmptyPages) break;
-                    } else {
-                        $emptyPages = 0;
-                    }
-
-                    $page++;
-                    sleep(1);
+                if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, $languageName);
+                    break;
                 }
 
-                /* ========= MÉTRICA ========= */
-                LanguageMetric::updateOrCreate(
-                    [
-                        'language_id' => $languageId,
-                        'run_date'    => Carbon::today(),
-                        'source'      => 'wantedly',
-                    ],
-                    [
-                        'language_name'       => $languageName,
-                        'jobs_found_count'    => $totalFound,
-                        'jobs_new_count'      => $totalNew,
-                        'countries_breakdown' => $countries,
-                        'modality_breakdown'  => $modalities,
-                        'updated_at'          => now(),
-                    ]
+                $connectionOk = true;
+
+                $results = $response->json('data') ?? [];
+                if (empty($results)) break;
+
+                $newInPage = 0;
+                $totalFound     += count($results);
+                $totalFoundAll += count($results);
+
+                foreach ($results as $job) {
+
+                    $externalId = $job['id'] ?? null;
+                    if (!$externalId) continue;
+
+                    $existing = JobOffer::where('source', 'wantedly')
+                        ->where('external_id', $externalId)
+                        ->first();
+
+                    if ($existing) {
+                        $existing->languages()
+                            ->syncWithoutDetaching([$languageId]);
+                        $totalSkippedAll++;
+                        continue;
+                    }
+
+                    $title     = $job['title'] ?? 'N/A';
+                    $company   = $job['company']['name'] ?? null;
+                    $desc      = strip_tags($job['description'] ?? '');
+                    $cityRaw   = $job['location'] ?? 'Tokyo';
+                    $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
+                    $published = isset($job['published_at'])
+                        ? Carbon::parse($job['published_at'])
+                        : now();
+
+                    $countryIso = $this->detectCountryFromCity($cityRaw);
+                    $country    = CountryNormalizer::normalize($countryIso);
+                    $region     = RegionHelper::fromCountry($country);
+                    $modality   = $this->detectModality($title, $desc, $cityRaw);
+
+                    [$city, $lat, $lng] = $this->getCoordsFromCountry($cityRaw, $countryIso);
+
+                    if ((!$lat || !$lng) && isset($this->capitalMap[$countryIso])) {
+                        $cap  = $this->capitalMap[$countryIso];
+                        $city = $cap['city'];
+                        $lat  = $cap['lat'];
+                        $lng  = $cap['lng'];
+                        $this->stats['fallback']++;
+                    }
+
+                    if ($modality === 'remote') {
+                        $lat = $lng = null;
+                    }
+
+                    // 🚀 SIN TRADUCCIÓN
+                    $offer = JobOffer::create([
+                        'title'        => $title,
+                        'company'      => $company,
+                        'country'      => $country,
+                        'region'       => $region,
+                        'city'         => $city,
+                        'latitude'     => $lat,
+                        'longitude'    => $lng,
+                        'modality'     => $modality,
+                        'requirements' => $desc,
+                        'source'       => 'wantedly',
+                        'external_id'  => $externalId,
+                        'url'          => $urlJob,
+                        'search_query' => $languageName,
+                        'description'  => $desc,
+                        'published_at' => $published,
+                    ]);
+
+                    $offer->languages()
+                        ->syncWithoutDetaching([$languageId]);
+
+                    $newInPage++;
+                    $totalNew++;
+                    $totalInsertedAll++;
+
+                    $countries[$country]   = ($countries[$country] ?? 0) + 1;
+                    $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                }
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
                 );
 
-                $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
+                if ($newInPage === 0) {
+                    $emptyPages++;
+                    if ($emptyPages >= $maxEmptyPages) break;
+                } else {
+                    $emptyPages = 0;
+                }
+
+                $page++;
+
+                // 🔥 más rápido que sleep(1)
+                usleep(300000);
             }
 
-            ScraperRunService::success(
-                $run,
-                $totalFoundAll,
-                $totalInsertedAll,
-                $totalSkippedAll
+            LanguageMetric::updateOrCreate(
+                [
+                    'language_id' => $languageId,
+                    'run_date'    => Carbon::today(),
+                    'source'      => 'wantedly',
+                ],
+                [
+                    'language_name'       => $languageName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
+                    'updated_at'          => now(),
+                ]
             );
 
-            $this->info("\n🟢 WANTEDLY LENGUAJES COMPLETADO");
-
-        } catch (\Throwable $e) {
-            ScraperRunService::failed($run, $e);
-            throw $e;
+            $this->info("✔ {$languageName}: {$totalNew} nuevas / {$totalFound}");
         }
-    }
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
+    }
+}
     /* ===============================
        HELPERS
     =============================== */

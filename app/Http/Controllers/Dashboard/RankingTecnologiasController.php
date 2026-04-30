@@ -571,5 +571,78 @@ public function jobsByLanguage(Request $request, int $languageId)
         ];
     }
 
+public function weeklyScores(Request $request, $technologyId = null)
+{
+    $year = (int) $request->get('year', 2026);
+    $perPage = min((int) $request->get('per_page', 6), 20);
+    $page = (int) $request->get('page', 1);
 
+    $query = DB::table('technology_job as tj')
+        ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
+        ->join('market_entities as me', 'me.id', '=', 'tj.market_entity_id')
+        ->whereYear('j.published_at', $year);
+
+    if ($technologyId) {
+        $query->where('tj.market_entity_id', $technologyId);
+    }
+
+    $rows = $query
+        ->groupBy(
+            DB::raw('YEARWEEK(j.published_at, 1)'),
+            'me.id',
+            'me.name'
+        )
+        ->select(
+            DB::raw('YEARWEEK(j.published_at, 1) as week'),
+            DB::raw('MIN(DATE(j.published_at)) as start_date'),
+            DB::raw('MAX(DATE(j.published_at)) as end_date'),
+            'me.id',
+            'me.name',
+            DB::raw('COUNT(DISTINCT tj.job_offer_id) as total')
+        )
+        ->get();
+
+    $weeks = $rows
+        ->groupBy('week')
+        ->map(function ($items, $week) {
+
+            $first = $items->first();
+
+            return [
+                'week' => $week,
+                'start_date' => $first->start_date,
+                'end_date' => $first->end_date,
+
+                // 🔥 TOTAL SEMANAL
+                'total_week' => $items->sum('total'),
+
+                'top' => $items
+                    ->sortByDesc('total')
+                    ->take(5)
+                    ->values()
+                    ->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'name' => $item->name,
+                            'total' => $item->total,
+                        ];
+                    }),
+            ];
+        })
+        ->sortKeysDesc()
+        ->values();
+
+    $total = $weeks->count();
+    $paged = $weeks->forPage($page, $perPage)->values();
+
+    return response()->json([
+        'data' => $paged,
+        'pagination' => [
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'total' => $total,
+            'last_page' => ceil($total / $perPage),
+        ],
+    ]);
+}
 }

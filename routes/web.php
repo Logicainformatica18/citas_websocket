@@ -494,7 +494,10 @@ Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->na
 
    Route::prefix('dashboard/ranking/technologies')->group(function () {
 
-
+Route::get(
+    '/weekly/{technology?}',
+    [RankingTecnologiasController::class, 'weeklyScores']
+)->name('dashboard.ranking.technologies.weekly');
 
         Route::get(
             '/',

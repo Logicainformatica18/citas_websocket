@@ -7,7 +7,7 @@ import axios from "axios";
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import TrendDetailModal from "./components/Ranking/TrendDetailModal";
-
+import { WeeklyEvolutionModal } from "./components/Header/WeeklyEvolutionModal";
 import { Header as RankingHeader } from "./components/Header/RankingHeader";
 import TrendJobsModal from "./components/Ranking/TrendJobsModal";
 import {
@@ -69,7 +69,7 @@ export default function RankingTecnologiasPage() {
   technologyName: null,
   reports: [],
 });
-
+const [openWeeklyModal, setOpenWeeklyModal] = useState(false);
 
 const openTrendModal = (payload: {
   technologyName: string;
@@ -185,6 +185,7 @@ const openTrendModal = (payload: {
                 weights={weights}
                 onEditWeights={() => setIsWeightModalOpen(true)}
                 meta={meta}
+                onOpenWeekly={() => setOpenWeeklyModal(true)} // 👈 CLAVE
               />
 
               {/* ================= KPIs ================= */}
@@ -300,7 +301,10 @@ const openTrendModal = (payload: {
     onClose={closeTrendModal}
   />
 )}
-
+<WeeklyEvolutionModal
+  open={openWeeklyModal}
+  onClose={() => setOpenWeeklyModal(false)}
+/>
   </>
 );
 }

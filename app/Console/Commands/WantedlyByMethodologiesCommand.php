@@ -13,7 +13,7 @@ use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
-
+use App\Services\SourceStatusService;
 class WantedlyByMethodologiesCommand extends Command
 {
     protected $signature = 'wantedly:methodologies {--pages=1} {--lang=es}';
@@ -34,31 +34,34 @@ class WantedlyByMethodologiesCommand extends Command
         'SG' => ['city' => 'Singapur', 'lat' => 1.3521,  'lng' => 103.8198],
     ];
 
-   public function handle()
+public function handle()
 {
-    /* ===============================
-       INIT RUN
-    =============================== */
     $run = ScraperRunService::start(
         $this->signature,
         'Wantedly',
         'methodologies'
     );
 
+    $source = 'wantedly_methodologies';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: 'https://www.wantedly.com/api/v1/projects'
+    );
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    SourceStatusService::progress($source, 0, 0, 0);
+
     try {
 
-        $targetLang = strtolower($this->option('lang', 'es'));
-
-        /* ===============================
-           CURSOR
-        =============================== */
         $lastMethodologyId = MethodologyMetric::where('source', 'wantedly')
             ->orderByDesc('created_at')
             ->value('methodology_id');
 
-        /* ===============================
-           BASE QUERY (INMUTABLE)
-        =============================== */
         $baseQuery = Methodology::whereIn('methodologies.id', function ($q) {
                 $q->select('cm.methodology_id')
                   ->from('course_methodology as cm')
@@ -79,21 +82,18 @@ class WantedlyByMethodologiesCommand extends Command
             $methodologies = $baseQuery->get();
         }
 
-        $this->info("🌏 Wantedly → {$methodologies->count()} metodologías | traducción: {$targetLang}");
+        $this->info("🌏 Wantedly → {$methodologies->count()} metodologías (SIN traducción)");
 
         $totalFoundAll    = 0;
         $totalInsertedAll = 0;
         $totalSkippedAll  = 0;
 
-        /* ===============================
-           LOOP POR METODOLOGÍA
-        =============================== */
         foreach ($methodologies as $methodology) {
 
             $methId   = $methodology->id;
             $methName = $methodology->name;
 
-            $this->warn("\n🔎 Metodología: {$methName}");
+            $this->warn("\n🔎 {$methName}");
 
             $page = 1;
             $emptyPages = 0;
@@ -104,7 +104,8 @@ class WantedlyByMethodologiesCommand extends Command
             $countries  = [];
             $modalities = [];
 
-            while ($page <= 20) { // safety limit
+            // 🔥 menos páginas
+            while ($page <= 5) {
 
                 $url = "https://www.wantedly.com/api/v1/projects?keyword="
                     . urlencode($methName)
@@ -113,7 +114,12 @@ class WantedlyByMethodologiesCommand extends Command
                 $response = Http::timeout(25)->get($url);
                 $this->stats['api_hits']++;
 
-                if ($response->failed()) break;
+                if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, $methName);
+                    break;
+                }
+
+                $connectionOk = true;
 
                 $results = $response->json('data') ?? [];
                 if (empty($results)) break;
@@ -138,7 +144,6 @@ class WantedlyByMethodologiesCommand extends Command
                         continue;
                     }
 
-                    /* ================= BASE ================= */
                     $title     = $job['title'] ?? 'N/A';
                     $company   = $job['company']['name'] ?? null;
                     $desc      = strip_tags($job['description'] ?? '');
@@ -148,7 +153,6 @@ class WantedlyByMethodologiesCommand extends Command
                         ? Carbon::parse($job['published_at'])
                         : now();
 
-                    /* ================= GEO ================= */
                     $countryIso = $this->detectCountryFromCity($cityRaw);
                     $country    = CountryNormalizer::normalize($countryIso);
                     $region     = RegionHelper::fromCountry($country);
@@ -169,21 +173,13 @@ class WantedlyByMethodologiesCommand extends Command
                         $lat = $lng = null;
                     }
 
-                    /* ================= TRADUCCIÓN ================= */
-                    $titleTranslated = $this->translateCached($title, $targetLang);
-                    $descTranslated  = $this->translateCached($desc,  $targetLang);
-
-                    /* ================= EXTRACCIÓN ================= */
                     $experience     = $this->extractExperience($desc);
                     $education      = $this->extractEducation($desc);
                     $certifications = $this->extractCertifications($desc);
                     $skills         = $this->extractSkills($desc);
 
-                    /* ================= CREATE ================= */
                     $offer = JobOffer::create([
                         'title'            => $title,
-                        'title_es'         => $targetLang === 'es' ? $titleTranslated : null,
-                        'title_en'         => $targetLang === 'en' ? $titleTranslated : null,
                         'company'          => $company,
                         'country'          => $country,
                         'region'           => $region,
@@ -201,8 +197,6 @@ class WantedlyByMethodologiesCommand extends Command
                         'url'              => $urlJob,
                         'search_query'     => $methName,
                         'description'      => $desc,
-                        'description_es'   => $targetLang === 'es' ? $descTranslated : null,
-                        'description_en'   => $targetLang === 'en' ? $descTranslated : null,
                         'published_at'     => $published,
                     ]);
 
@@ -217,6 +211,14 @@ class WantedlyByMethodologiesCommand extends Command
                     $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
                 }
 
+                // 🔥 progreso en tiempo real
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
                 if ($newInPage === 0) {
                     $emptyPages++;
                     if ($emptyPages >= $maxEmptyPages) break;
@@ -225,10 +227,9 @@ class WantedlyByMethodologiesCommand extends Command
                 }
 
                 $page++;
-                sleep(1);
+                usleep(300000);
             }
 
-            /* ================= METRIC ================= */
             MethodologyMetric::updateOrCreate(
                 [
                     'methodology_id' => $methId,
@@ -255,10 +256,30 @@ class WantedlyByMethodologiesCommand extends Command
             $totalSkippedAll
         );
 
-        $this->info("\n🟢 WANTEDLY METODOLOGÍAS COMPLETADO");
+        if ($connectionOk) {
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
 
     } catch (\Throwable $e) {
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }
