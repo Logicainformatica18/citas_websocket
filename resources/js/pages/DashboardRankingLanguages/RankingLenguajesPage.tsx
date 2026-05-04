@@ -3,7 +3,7 @@ import AppLayout from "@/layouts/app-layout";
 import { Head, usePage, router } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
 import axios from "axios";
-
+import { WeeklyEvolutionLanguagesModal } from "./components/Header/WeeklyEvolutionLanguagesModal";
 import { DashboardProvider } from "@/pages/dashboards/DashboardContext";
 
 import LanguageJobsModal from "./components/Ranking/LanguageJobsModal";
@@ -112,7 +112,7 @@ export default function RankingLenguajesPage() {
       page: 1,
     });
   };
-
+const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
   /* =========================================================
      MODAL PONDERACIONES
   ========================================================= */
@@ -166,6 +166,7 @@ export default function RankingLenguajesPage() {
                 weights={weights}
                 onEditWeights={() => setIsWeightModalOpen(true)}
                 meta={meta}
+                  onOpenWeekly={() => setOpenEvolutionModal(true)} // 🔥 CLAVE
               />
 
               <KpiGrid items={kpis} />
@@ -222,7 +223,11 @@ export default function RankingLenguajesPage() {
               }
             />
           )}
-
+{/* ================= MODAL EVOLUCIÓN ================= */}
+<WeeklyEvolutionLanguagesModal
+  open={openEvolutionModal}
+  onClose={setOpenEvolutionModal}
+/>
           {/* ================= MODAL PONDERACIONES ================= */}
           <WeightConfigModal
             open={isWeightModalOpen}
@@ -230,8 +235,11 @@ export default function RankingLenguajesPage() {
             weights={weights}
             onSave={handleSaveWeights}
           />
+          
         </DashboardProvider>
+        
       </AppLayout>
+      
     </>
   );
 }

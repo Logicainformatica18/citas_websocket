@@ -538,7 +538,10 @@ Route::get(    '/trend/{trendId}/jobs',
 
 
 Route::prefix('dashboard/ranking/languages')->group(function () {
-
+Route::get(
+    '/weekly',
+    [RankingLenguajesController::class, 'weeklyScores']
+);
     Route::get(
         '/',
         [RankingLenguajesController::class, 'index']
