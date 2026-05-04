@@ -1,6 +1,7 @@
 import AppLayout from "@/layouts/app-layout";
-import { Head, usePage } from "@inertiajs/react";
+import { Head, usePage  } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
+import {useState} from "react"
 
 import { SeniorityHeader } from "./components/Header/SeniorityHeader";
 import { SeniorityKpiGrid } from "./components/KPIs/SeniorityKpiGrid";
@@ -10,7 +11,7 @@ import { SeniorityModalityPieChart } from "./components/Charts/SeniorityModality
 import { useSeniorityData } from "./components/hooks/useSeniorityData";
 import { useSeniorityModalityData } from "./components/hooks/useSeniorityModalityData";
 import { SeniorityFilters } from "./components/Filters/SeniorityFilters";
-
+import { SeniorityEvolutionModal } from "./components/Header/SeniorityEvolutionModal";
 /* =====================================================
    Breadcrumbs
 ===================================================== */
@@ -44,6 +45,7 @@ export default function SeniorityIndicatorPage() {
 
   const { data, loading } = useSeniorityData();
   const { data: modalityData } = useSeniorityModalityData();
+const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -52,8 +54,9 @@ export default function SeniorityIndicatorPage() {
       <div className="flex flex-col gap-6">
         {/* ================= HEADER ================= */}
         <SeniorityHeader
-          meta={meta}
-          jobMarketStatus={jobMarketStatus} // ✅ PASADO AL HEADER
+        meta={meta}
+  jobMarketStatus={jobMarketStatus}
+  onOpenEvolution={() => setOpenEvolutionModal(true)}
         />
 
         {/* ================= FILTERS ================= */}
@@ -79,6 +82,10 @@ export default function SeniorityIndicatorPage() {
           </>
         )}
       </div>
+      <SeniorityEvolutionModal
+  open={openEvolutionModal}
+  onClose={() => setOpenEvolutionModal(false)}
+/>
     </AppLayout>
   );
 }

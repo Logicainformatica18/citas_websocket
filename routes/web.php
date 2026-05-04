@@ -352,7 +352,10 @@ Route::get(
     [CompanyIndicatorController::class, 'searchCountries']
 );
 
-
+Route::get(
+  '/indicators/seniority/evolution',
+  [SeniorityIndicatorController::class, 'evolution']
+);
  Route::get(
     '/indicators/seniority/modality',
     [SeniorityIndicatorController::class, 'modalityDistribution']

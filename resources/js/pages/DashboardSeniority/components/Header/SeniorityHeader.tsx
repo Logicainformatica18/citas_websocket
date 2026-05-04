@@ -20,9 +20,10 @@ interface HeaderProps {
         periodo_label: string;
         vacantes_analizadas: number;
     };
+    onOpenEvolution: () => void;
 }
 
-export function SeniorityHeader({ meta }: HeaderProps) {
+export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){ 
     const { filters, jobMarketStatus, jobMarketData } = usePage().props as any;
 
     const [updating, setUpdating] = useState(false);
@@ -125,114 +126,119 @@ export function SeniorityHeader({ meta }: HeaderProps) {
                     </p>
 
                     {/* ===== CONTROLES ===== */}
-                    <div className="flex flex-wrap items-end gap-8">
+                   <div className="mt-4 rounded-2xl border bg-white/80 backdrop-blur p-4 shadow-sm">
 
-                        {/* Año */}
-                        <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
-                                Año de análisis
-                            </span>
+  {/* 🔥 TOP: FILTROS + BOTÓN */}
+  <div className="flex flex-wrap items-center justify-between gap-4">
 
-                            <div className="relative group rounded-xl border bg-white shadow-sm transition-all hover:border-teal-400 hover:shadow-md">
-                                <select
-                                    value={meta.year}
-                                    onChange={(e) => onChange({ year: Number(e.target.value) })}
-                                    className="w-[120px] appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
-                                >
-                                    {[2025, 2026].map((y) => (
-                                        <option key={y} value={y}>
-                                            {y}
-                                        </option>
-                                    ))}
-                                </select>
+    {/* LEFT: FILTROS */}
+    <div className="flex flex-wrap items-center gap-6">
 
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-teal-400 opacity-70 group-hover:opacity-100 transition">
-                                    ⌄
-                                </span>
-                            </div>
-                        </div>
+      {/* AÑO */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-teal-600">
+          Año
+        </span>
 
-                        {/* Semestre */}
-                        <div className="relative flex flex-col gap-2">
-                            <span className="text-xs font-semibold text-teal-600 dark:text-slate-300">
-                                Semestre
-                            </span>
+        <div className="relative rounded-xl border bg-white shadow-sm">
+          <select
+            value={meta.year}
+            onChange={(e) => onChange({ year: Number(e.target.value) })}
+            className="w-[100px] appearance-none bg-transparent px-3 py-2 text-sm font-semibold text-[#0A2540] cursor-pointer focus:outline-none"
+          >
+            {[2025, 2026].map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
 
-                            <div className="flex rounded-xl border bg-white shadow-sm overflow-hidden dark:bg-[#0F2A3A] transition-all hover:border-teal-400 hover:shadow-md">
-                                {[
-                                    { value: "s1", label: "Ene – Jun" },
-                                    { value: "s2", label: "Jul – Dic" },
-                                ].map((s) => {
-                                    const active = meta.period === s.value;
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-teal-400 opacity-70">
+            ⌄
+          </span>
+        </div>
+      </div>
 
-                                    return (
-                                        <button
-                                            key={s.value}
-                                            onClick={() => onChange({ period: s.value as "s1" | "s2" })}
-                                            className={`px-6 py-2 text-sm font-semibold transition-all ${
-                                                active
-                                                    ? "bg-teal-400 text-white shadow-inner"
-                                                    : "text-teal-600 hover:bg-teal-50 dark:text-slate-300 dark:hover:bg-[#123A52]"
-                                            }`}
-                                        >
-                                            {s.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+      {/* SEMESTRE */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-teal-600">
+          Semestre
+        </span>
 
-                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[11px] text-teal-600/70 dark:text-slate-400 whitespace-nowrap">
-                                Haz clic para cambiar el Periodo
-                            </span>
-                        </div>
+        <div className="flex rounded-xl overflow-hidden border bg-white shadow-sm">
+          {[
+            { value: "s1", label: "Ene – Jun" },
+            { value: "s2", label: "Jul – Dic" },
+          ].map((s) => (
+            <button
+              key={s.value}
+              onClick={() => onChange({ period: s.value as "s1" | "s2" })}
+              className={`px-5 py-2 text-sm font-semibold transition-all ${
+                meta.period === s.value
+                  ? "bg-teal-400 text-white"
+                  : "text-teal-600 hover:bg-teal-50"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-                        {/* Badges */}
-                        <div className="flex flex-wrap items-center gap-3">
+    </div>
 
-                            <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-                                <Database className="h-3 w-3 text-teal-400" />
-                                {meta.vacantes_analizadas.toLocaleString()}{" "}
-                                {hasCareerFilter ? "vacantes alineadas a carrera" : "vacantes del mercado"}
-                            </Badge>
+    {/* RIGHT: BOTÓN EVOLUCIÓN */}
+    <button
+      onClick={onOpenEvolution}
+      className="
+        px-5 py-2.5
+        bg-teal-400
+        text-white
+        rounded-xl
+        font-semibold
+        shadow-md
+        hover:bg-teal-500
+        transition
+        flex items-center gap-2
+      "
+    >
+      Ver evolución
+      <span>›</span>
+    </button>
 
-                            <Badge className="gap-1.5 bg-white text-[#0A2540] shadow hover:shadow-md transition">
-                                <Briefcase className="h-3 w-3 text-teal-400" />
-                                Distribución por nivel
-                            </Badge>
+  </div>
 
-                            <button
-                                onClick={() => setOpenMarketModal(true)}
-                                className="
-    group
-    flex
-    items-center
-    gap-2
-    rounded-xl
-    border
-    bg-white
-    px-3
-    py-2
-    shadow-md
-    transition-all
-    hover:-translate-y-[1px]
-    hover:shadow-xl
-    hover:border-teal-400
-    dark:bg-[#102C3C]
-  "
-                            >
-                                <Database className="h-4 w-4 text-teal-400" />
+  {/* DIVIDER */}
+  <div className="my-4 border-t" />
 
-                                <span className="text-sm font-semibold text-[#0A2540] dark:text-slate-200">
-                                    Datos Generales
-                                </span>
+  {/* 🔥 BADGES */}
+  <div className="flex flex-wrap items-center gap-3">
 
-                                <span className="text-xs text-slate-500 group-hover:underline">
-                                    ver detalle
-                                </span>
-                            </button>
+    <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
+      <Database className="h-3 w-3 text-teal-400" />
+      {meta.vacantes_analizadas.toLocaleString()}{" "}
+      {hasCareerFilter ? "vacantes alineadas" : "vacantes del mercado"}
+    </Badge>
 
-                        </div>
-                    </div>
+    <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
+      <Briefcase className="h-3 w-3 text-teal-400" />
+      Distribución por nivel
+    </Badge>
+
+    <button
+      onClick={() => setOpenMarketModal(true)}
+      className="
+        flex items-center gap-2 rounded-xl border bg-white
+        px-3 py-2 shadow-md hover:border-teal-400
+      "
+    >
+      <Database className="h-4 w-4 text-teal-400" />
+      <span className="text-sm font-semibold text-[#0A2540]">
+        Datos Generales
+      </span>
+    </button>
+
+  </div>
+
+</div>
 
                     {/* Active period */}
                     <p className="pt-4 text-sm text-[#0A2540]/70 dark:text-gray-400">

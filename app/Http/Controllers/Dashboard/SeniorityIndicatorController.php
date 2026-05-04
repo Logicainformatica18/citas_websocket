@@ -330,4 +330,181 @@ private function baseCareerQuery(array $range, array $careers = [])
             ? ['start' => "$year-01-01", 'end' => "$year-06-30"]
             : ['start' => "$year-07-01", 'end' => "$year-12-31"];
     }
+    public function modalityDistribution(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+
+    $range = $this->getPeriodRange($period, $year);
+
+    $data = DB::table('job_offers as jo')
+        ->whereBetween('jo.created_at', [
+            $range['start'],
+            $range['end'],
+        ])
+        ->select(
+            'jo.modality',
+            DB::raw('COUNT(*) as total')
+        )
+        ->groupBy('jo.modality')
+        ->get();
+
+    $total = $data->sum('total');
+
+    $result = $data->map(function ($item) use ($total) {
+        return [
+            'modality' => $item->modality ?? 'No especificado',
+            'total' => $item->total,
+            'percentage' => $total > 0
+                ? round(($item->total / $total) * 100, 1)
+                : 0,
+        ];
+    });
+
+    return response()->json([
+        'data' => $result,
+    ]);
+}
+
+public function evolution(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+    $filter = $request->get('filter', 'weekly');
+
+    $perPage = min((int) $request->get('per_page', 6), 20);
+
+    $range = $this->getPeriodRange($period, $year);
+
+    /* =========================
+       AGRUPADOR
+    ========================= */
+    switch ($filter) {
+        case 'monthly':
+            $group = "DATE_FORMAT(jo.created_at, '%Y-%m')";
+            break;
+
+        case 'biweekly':
+            $group = "
+                CONCAT(
+                    YEAR(jo.created_at), '-',
+                    LPAD(MONTH(jo.created_at),2,'0'), '-',
+                    IF(DAY(jo.created_at) <= 15, 1, 2)
+                )
+            ";
+            break;
+
+        default:
+            $group = "YEARWEEK(jo.created_at,1)";
+            break;
+    }
+
+    $rows = DB::table('job_offers as jo')
+        ->where(function ($q) use ($range) {
+            $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
+              ->orWhere(function ($q2) use ($range) {
+                  $q2->whereNull('jo.published_at')
+                     ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
+              });
+        })
+        ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
+        ->select(
+            DB::raw("$group as period"),
+            DB::raw("MIN(jo.created_at) as start_date"),
+            DB::raw("MAX(jo.created_at) as end_date"),
+            'jo.seniority',
+            DB::raw('COUNT(*) as total')
+        )
+        ->groupBy(DB::raw($group), 'jo.seniority')
+        ->get();
+
+    /* =========================
+       TRANSFORMACIÓN
+    ========================= */
+    $collection = $rows
+        ->groupBy('period')
+        ->map(function ($items, $period) use ($filter) {
+
+            $total = $items->sum('total');
+            $start = $items->min('start_date');
+            $end   = $items->max('end_date');
+
+            /* ===== LABEL ===== */
+            switch ($filter) {
+                case 'monthly':
+                    $label = \Carbon\Carbon::parse($start)
+                        ->locale('es')
+                        ->translatedFormat('F Y');
+                    break;
+
+                case 'biweekly':
+                    $label = \Carbon\Carbon::parse($start)->format('d M')
+                        . " – " .
+                        \Carbon\Carbon::parse($end)->format('d M');
+                    break;
+
+                default:
+                    $week = \Carbon\Carbon::parse($start)->weekOfYear;
+                    $label = "Semana {$week} (" .
+                        \Carbon\Carbon::parse($start)->format('d M') .
+                        " – " .
+                        \Carbon\Carbon::parse($end)->format('d M') .
+                        ")";
+                    break;
+            }
+
+            $levels = collect(['junior','mid','senior'])
+                ->map(function ($level) use ($items, $total) {
+
+                    $row = $items->firstWhere('seniority', $level);
+                    $jobs = $row ? $row->total : 0;
+
+                    return [
+                        'level' => strtoupper($level),
+                        'jobs' => $jobs,
+                        'percentage' => $total > 0
+                            ? round(($jobs / $total) * 100, 1)
+                            : 0,
+                    ];
+                })
+                ->values();
+
+            return [
+                'period' => $period,
+                'label' => $label,
+                'start_date' => $start,
+                'end_date' => $end,
+                'total_jobs' => $total,
+                'distribution' => $levels,
+            ];
+        })
+        ->sortByDesc('start_date')
+        ->values();
+
+    /* =========================
+       PAGINACIÓN MANUAL 🔥
+    ========================= */
+    $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+
+    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $collection->slice(($page - 1) * $perPage, $perPage)->values(),
+        $collection->count(),
+        $perPage,
+        $page,
+        [
+            'path' => request()->url(),
+            'query' => request()->query(),
+        ]
+    );
+
+    return response()->json([
+        'data' => $paginated->items(),
+        'pagination' => [
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'per_page' => $paginated->perPage(),
+            'total' => $paginated->total(),
+        ],
+    ]);
+}
 }
