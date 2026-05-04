@@ -249,4 +249,145 @@ $jobMarketStatus = JobMarketStatusBuilder::build([
             ->limit(10)
             ->pluck('country');
     }
+    public function evolutionCompanies(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+    $filter = $request->get('filter', 'weekly');
+
+    $perPage = min((int) $request->get('per_page', 5), 20);
+
+    $range = $period === 's1'
+        ? ['start' => "$year-01-01", 'end' => "$year-06-30"]
+        : ['start' => "$year-07-01", 'end' => "$year-12-31"];
+
+    /* =========================
+       AGRUPADOR
+    ========================= */
+    switch ($filter) {
+        case 'monthly':
+            $group = "DATE_FORMAT(published_at, '%Y-%m')";
+            break;
+
+        case 'biweekly':
+            $group = "
+                CONCAT(
+                    YEAR(published_at), '-',
+                    LPAD(MONTH(published_at),2,'0'), '-',
+                    IF(DAY(published_at) <= 15, 1, 2)
+                )
+            ";
+            break;
+
+        default:
+            $group = "YEARWEEK(published_at,1)";
+            break;
+    }
+
+    /* =========================
+       BASE QUERY
+    ========================= */
+    $base = DB::table('job_offers')
+        ->whereNotNull('company')
+        ->whereBetween('published_at', [$range['start'], $range['end']]);
+
+    /* =========================
+       FUNCION REUTILIZABLE
+    ========================= */
+    $build = function ($query) use ($group, $filter, $perPage) {
+
+        $rows = $query
+            ->select(
+                DB::raw("$group as period"),
+                DB::raw("MIN(published_at) as start_date"),
+                DB::raw("MAX(published_at) as end_date"),
+                DB::raw("UPPER(TRIM(company)) as company"),
+                DB::raw("COUNT(*) as total")
+            )
+            ->groupBy(DB::raw($group), DB::raw("UPPER(TRIM(company))"))
+            ->get();
+
+        $collection = $rows
+            ->groupBy('period')
+            ->map(function ($items, $period) use ($filter) {
+
+                $total = $items->sum('total');
+                $start = $items->min('start_date');
+                $end   = $items->max('end_date');
+
+                switch ($filter) {
+                    case 'monthly':
+                        $label = \Carbon\Carbon::parse($start)
+                            ->locale('es')
+                            ->translatedFormat('F Y');
+                        break;
+
+                    case 'biweekly':
+                        $label = \Carbon\Carbon::parse($start)->format('d M')
+                            . " – " .
+                            \Carbon\Carbon::parse($end)->format('d M');
+                        break;
+
+                    default:
+                        $week = \Carbon\Carbon::parse($start)->weekOfYear;
+                        $label = "Semana {$week} (" .
+                            \Carbon\Carbon::parse($start)->format('d M') .
+                            " – " .
+                            \Carbon\Carbon::parse($end)->format('d M') .
+                            ")";
+                        break;
+                }
+
+                $topCompanies = $items
+                    ->sortByDesc('total')
+                    ->take(5)
+                    ->values()
+                    ->map(function ($c) use ($total) {
+                        return [
+                            'company' => $c->company,
+                            'jobs' => $c->total,
+                            'percentage' => $total > 0
+                                ? round(($c->total / $total) * 100, 1)
+                                : 0,
+                        ];
+                    });
+
+                return [
+                    'label' => $label,
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'total_jobs' => $total,
+                    'companies' => $topCompanies,
+                ];
+            })
+            ->sortByDesc('start_date')
+            ->values();
+
+        /* ===== PAGINACIÓN ===== */
+        $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $collection->slice(($page - 1) * $perPage, $perPage)->values(),
+            $collection->count(),
+            $perPage,
+            $page
+        );
+
+        return [
+            'data' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+            ],
+        ];
+    };
+
+    /* =========================
+       RESULTADO FINAL
+    ========================= */
+    return response()->json([
+        'national' => $build((clone $base)->where('country', 'Peru')),
+        'international' => $build((clone $base)->where('country', '!=', 'Peru')),
+    ]);
+}
 }

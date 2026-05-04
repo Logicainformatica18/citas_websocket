@@ -317,7 +317,10 @@ Route::get(
     [MacroTrendsIndicatorController::class, 'getJobs']
 )->name('macro-trends.jobs');
 
-
+   Route::get(
+        '/indicators/companies/evolution',
+        [CompanyIndicatorController::class, 'evolutionCompanies']
+    );
 Route::get(
     '/indicators/companies/{company}/jobs',
     [CompanyIndicatorController::class, 'companyJobs']
@@ -351,11 +354,13 @@ Route::get(
     '/indicators/companies/countries',
     [CompanyIndicatorController::class, 'searchCountries']
 );
-
+Route::get('/indicators/seniority/evolution/export', [SeniorityIndicatorController::class, 'exportEvolution']);
 Route::get(
   '/indicators/seniority/evolution',
   [SeniorityIndicatorController::class, 'evolution']
 );
+Route::get('/indicators/seniority/evolution-careers', [SeniorityIndicatorController::class, 'evolutionByCareer']);
+Route::get('/indicators/seniority/evolution-careers/export', [SeniorityIndicatorController::class, 'exportEvolutionByCareer']);
  Route::get(
     '/indicators/seniority/modality',
     [SeniorityIndicatorController::class, 'modalityDistribution']

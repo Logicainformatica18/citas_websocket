@@ -129,13 +129,13 @@ export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){
                    <div className="mt-4 rounded-2xl border bg-white/80 backdrop-blur p-4 shadow-sm">
 
   {/* 🔥 TOP: FILTROS + BOTÓN */}
-  <div className="flex flex-wrap items-center justify-between gap-4">
+<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
     {/* LEFT: FILTROS */}
     <div className="flex flex-wrap items-center gap-6">
 
       {/* AÑO */}
-      <div className="flex items-center gap-2">
+  <div className="flex items-center gap-2 flex-wrap justify-end">
         <span className="text-sm font-semibold text-teal-600">
           Año
         </span>
@@ -186,23 +186,92 @@ export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){
     </div>
 
     {/* RIGHT: BOTÓN EVOLUCIÓN */}
+   {/* RIGHT: ACCIONES */}
+<div className="flex items-center gap-2">
+
+  {/* VER EVOLUCIÓN */}
+  <button
+    onClick={onOpenEvolution}
+    className="
+      px-5 py-2.5
+      bg-teal-400
+      text-white
+      rounded-xl
+      font-semibold
+      shadow-md
+      hover:bg-teal-500
+      transition
+      flex items-center gap-2
+    "
+  >
+    Ver evolución
+    <span>›</span>
+  </button>
+
+  {/* EXPORT GLOBAL */}
+  <button
+    onClick={() => {
+      const params = new URLSearchParams({
+        year: meta.year.toString(),
+        period: meta.period,
+        filter: "weekly", // puedes hacerlo dinámico luego
+      });
+
+      window.open(
+        `/dashboard/indicators/seniority/evolution/export?${params.toString()}`,
+        "_blank"
+      );
+    }}
+    className="
+      px-4 py-2.5
+      bg-white
+      border
+      rounded-xl
+      font-semibold
+      text-[#0A2540]
+      shadow-sm
+      hover:bg-slate-50
+      transition
+      flex items-center gap-2
+    "
+  >
+    📥 Excel
+  </button>
+
+  {/* EXPORT POR CARRERA */}
+  {hasCareerFilter && (
     <button
-      onClick={onOpenEvolution}
+      onClick={() => {
+        const params = new URLSearchParams({
+          year: meta.year.toString(),
+          period: meta.period,
+          filter: "weekly",
+          career: filters.career, // 🔥 importante
+        });
+
+        window.open(
+          `/dashboard/indicators/seniority/evolution-careers/export?${params.toString()}`,
+          "_blank"
+        );
+      }}
       className="
-        px-5 py-2.5
-        bg-teal-400
-        text-white
+        px-4 py-2.5
+        bg-white
+        border
         rounded-xl
         font-semibold
-        shadow-md
-        hover:bg-teal-500
+        text-[#0A2540]
+        shadow-sm
+        hover:bg-slate-50
         transition
         flex items-center gap-2
       "
     >
-      Ver evolución
-      <span>›</span>
+      📊 Por carrera
     </button>
+  )}
+
+</div>
 
   </div>
 

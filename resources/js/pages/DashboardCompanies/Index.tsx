@@ -10,7 +10,7 @@ import CompanyKpiGrid from "./components/KPIs/CompanyKpiGrid";
 import CompanyFilters from "./components/Filters/CompanyFilters";
 import CompanyRankingList from "./components/Ranking/CompanyRankingList";
 import CompanyPagination from "./components/Pagination/CompanyPagination";
-
+import { CompanyEvolutionModal } from "./components/Header/CompanyEvolutionModal";
 
 /* =========================================================
    Breadcrumbs
@@ -60,6 +60,8 @@ export default function CompanyIndicatorIndex() {
 const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
 const [open, setOpen] = useState(false)
 const [selectedFilters, setSelectedFilters] = useState(filters)
+const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Indicador | Ranking de Empresas | Observatorio ISIL" />
@@ -74,6 +76,7 @@ const [selectedFilters, setSelectedFilters] = useState(filters)
                 meta={meta}
                 filters={filters}
                 regions={regions}
+                  onOpenEvolution={() => setOpenEvolutionModal(true)} // 🔥 NUEVO
               />
 
               {/* ================= KPIs ================= */}
@@ -124,6 +127,10 @@ const [selectedFilters, setSelectedFilters] = useState(filters)
           </div>
         </div>
       </DashboardProvider>
+      <CompanyEvolutionModal
+  open={openEvolutionModal}
+  onClose={setOpenEvolutionModal}
+/>
     </AppLayout>
   );
 }
