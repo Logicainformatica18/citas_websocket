@@ -571,11 +571,163 @@ public function jobsByLanguage(Request $request, int $languageId)
         ];
     }
 
+// public function weeklyScores(Request $request, $technologyId = null)
+// {
+//     $year = (int) $request->get('year', 2026);
+//     $perPage = min((int) $request->get('per_page', 6), 20);
+//     $page = (int) $request->get('page', 1);
+
+//     $query = DB::table('technology_job as tj')
+//         ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
+//         ->join('market_entities as me', 'me.id', '=', 'tj.market_entity_id')
+//         ->whereYear('j.published_at', $year);
+
+//     if ($technologyId) {
+//         $query->where('tj.market_entity_id', $technologyId);
+//     }
+
+//     $rows = $query
+//         ->groupBy(
+//             DB::raw('YEARWEEK(j.published_at, 1)'),
+//             'me.id',
+//             'me.name'
+//         )
+//         ->select(
+//             DB::raw('YEARWEEK(j.published_at, 1) as week'),
+//             DB::raw('MIN(DATE(j.published_at)) as start_date'),
+//             DB::raw('MAX(DATE(j.published_at)) as end_date'),
+//             'me.id',
+//             'me.name',
+//             DB::raw('COUNT(DISTINCT tj.job_offer_id) as total')
+//         )
+//         ->get();
+
+//     $weeks = $rows
+//         ->groupBy('week')
+//         ->map(function ($items, $week) {
+
+//             $first = $items->first();
+
+//             return [
+//                 'week' => $week,
+//                 'start_date' => $first->start_date,
+//                 'end_date' => $first->end_date,
+
+//                 // 🔥 TOTAL SEMANAL
+//                 'total_week' => $items->sum('total'),
+
+//                 'top' => $items
+//                     ->sortByDesc('total')
+//                     ->take(5)
+//                     ->values()
+//                     ->map(function ($item) {
+//                         return [
+//                             'id' => $item->id,
+//                             'name' => $item->name,
+//                             'total' => $item->total,
+//                         ];
+//                     }),
+//             ];
+//         })
+//         ->sortKeysDesc()
+//         ->values();
+
+//     $total = $weeks->count();
+//     $paged = $weeks->forPage($page, $perPage)->values();
+
+//     return response()->json([
+//         'data' => $paged,
+//         'pagination' => [
+//             'current_page' => $page,
+//             'per_page' => $perPage,
+//             'total' => $total,
+//             'last_page' => ceil($total / $perPage),
+//         ],
+//     ]);
+// }
 public function weeklyScores(Request $request, $technologyId = null)
 {
     $year = (int) $request->get('year', 2026);
     $perPage = min((int) $request->get('per_page', 6), 20);
     $page = (int) $request->get('page', 1);
+
+    $filter = $request->get('filter', 'weekly');
+
+    if (!in_array($filter, ['weekly', 'biweekly', 'monthly'])) {
+        $filter = 'weekly';
+    }
+
+    /*
+    ==================================================
+    🔥 AGRUPACIÓN + FECHAS (COMPATIBLE CON MARIADB)
+    ==================================================
+    */
+
+    switch ($filter) {
+
+        // 📅 SEMANAL (lunes → domingo)
+        case 'weekly':
+            $groupFormat = "YEARWEEK(j.published_at, 1)";
+
+            $startDate = "
+                DATE_SUB(
+                    MIN(DATE(j.published_at)),
+                    INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
+                )
+            ";
+
+            $endDate = "
+                DATE_ADD(
+                    DATE_SUB(
+                        MIN(DATE(j.published_at)),
+                        INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
+                    ),
+                    INTERVAL 6 DAY
+                )
+            ";
+            break;
+
+        // 📆 QUINCENAL REAL (01–15 / 16–fin)
+        case 'biweekly':
+            $groupFormat = "
+                CONCAT(
+                    YEAR(j.published_at), '-',
+                    LPAD(MONTH(j.published_at),2,'0'), '-',
+                    IF(DAY(j.published_at) <= 15, 1, 2)
+                )
+            ";
+
+            $startDate = "
+                CASE 
+                    WHEN DAY(MIN(j.published_at)) <= 15 
+                    THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')
+                    ELSE DATE_FORMAT(MIN(j.published_at), '%Y-%m-16')
+                END
+            ";
+
+            $endDate = "
+                CASE 
+                    WHEN DAY(MIN(j.published_at)) <= 15 
+                    THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-15')
+                    ELSE LAST_DAY(MIN(j.published_at))
+                END
+            ";
+            break;
+
+        // 🗓 MENSUAL
+        case 'monthly':
+            $groupFormat = "DATE_FORMAT(j.published_at, '%Y-%m')";
+
+            $startDate = "DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')";
+            $endDate   = "LAST_DAY(MIN(j.published_at))";
+            break;
+    }
+
+    /*
+    ==================================================
+    🔍 QUERY BASE
+    ==================================================
+    */
 
     $query = DB::table('technology_job as tj')
         ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
@@ -586,35 +738,46 @@ public function weeklyScores(Request $request, $technologyId = null)
         $query->where('tj.market_entity_id', $technologyId);
     }
 
+    /*
+    ==================================================
+    📊 AGRUPACIÓN
+    ==================================================
+    */
+
     $rows = $query
         ->groupBy(
-            DB::raw('YEARWEEK(j.published_at, 1)'),
+            DB::raw($groupFormat),
             'me.id',
             'me.name'
         )
         ->select(
-            DB::raw('YEARWEEK(j.published_at, 1) as week'),
-            DB::raw('MIN(DATE(j.published_at)) as start_date'),
-            DB::raw('MAX(DATE(j.published_at)) as end_date'),
+            DB::raw("$groupFormat as period"),
+            DB::raw("$startDate as start_date"),
+            DB::raw("$endDate as end_date"),
             'me.id',
             'me.name',
             DB::raw('COUNT(DISTINCT tj.job_offer_id) as total')
         )
         ->get();
 
-    $weeks = $rows
-        ->groupBy('week')
-        ->map(function ($items, $week) {
+    /*
+    ==================================================
+    🔥 FORMATO FINAL
+    ==================================================
+    */
+
+    $periods = $rows
+        ->groupBy('period')
+        ->map(function ($items, $period) {
 
             $first = $items->first();
 
             return [
-                'week' => $week,
+                'period' => $period,
                 'start_date' => $first->start_date,
                 'end_date' => $first->end_date,
 
-                // 🔥 TOTAL SEMANAL
-                'total_week' => $items->sum('total'),
+                'total_period' => $items->sum('total'),
 
                 'top' => $items
                     ->sortByDesc('total')
@@ -629,13 +792,20 @@ public function weeklyScores(Request $request, $technologyId = null)
                     }),
             ];
         })
-        ->sortKeysDesc()
+        ->sortByDesc('start_date') // 🔥 orden correcto
         ->values();
 
-    $total = $weeks->count();
-    $paged = $weeks->forPage($page, $perPage)->values();
+    /*
+    ==================================================
+    📦 PAGINACIÓN
+    ==================================================
+    */
+
+    $total = $periods->count();
+    $paged = $periods->forPage($page, $perPage)->values();
 
     return response()->json([
+        'filter' => $filter,
         'data' => $paged,
         'pagination' => [
             'current_page' => $page,
