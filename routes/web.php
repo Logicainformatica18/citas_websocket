@@ -451,7 +451,10 @@ Route::prefix('trends')->group(function () {
 });
 
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
-
+Route::get(
+    '/weekly',
+    [RankingCertificacionesController::class, 'weeklyScores']
+);
  Route::post(
         '/discover-gaps',
         [RankingCertificacionesController::class, 'run']

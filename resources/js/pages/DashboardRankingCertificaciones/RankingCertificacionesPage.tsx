@@ -19,7 +19,7 @@ import RankingList from "./components/Ranking/RankingList";
 import CertificationJobsModal from "./components/Ranking/CertificationJobsModal";
 import CertificationTrendModal from "./components/Ranking/CertificationTrendModal";
 import TrendDetailModal from "./components/Ranking/TrendDetailModal";
-
+import { WeeklyEvolutionCertificationsModal } from "./components/Header/WeeklyEvolutionCertificationsModal";
 import Swal from "sweetalert2";
 
 /* =========================================================
@@ -86,7 +86,7 @@ export default function RankingCertificacionesPage() {
      MODAL: Ponderaciones
   ========================================================= */
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
-
+const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
   /* =========================================================
      Handlers
   ========================================================= */
@@ -181,6 +181,7 @@ export default function RankingCertificacionesPage() {
                 weights={weights}
                 meta={meta}
                 onEditWeights={() => setIsWeightModalOpen(true)}
+                onOpenWeekly={() => setOpenEvolutionModal(true)} // 🔥 ESTA LÍNEA ES LA CLAVE
               />
 
               {/* ================= KPIs ================= */}
@@ -282,6 +283,11 @@ export default function RankingCertificacionesPage() {
           weights={weights}
           onSave={handleSaveWeights}
         />
+        {/* ================= MODAL EVOLUCIÓN ================= */}
+<WeeklyEvolutionCertificationsModal
+  open={openEvolutionModal}
+  onClose={() => setOpenEvolutionModal(false)} // 🔥 más seguro
+/>
       </DashboardProvider>
     </AppLayout>
   );
