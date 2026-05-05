@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { usePage } from "@inertiajs/react";
 
 import {
   Dialog,
@@ -9,37 +10,64 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 
-import { Trophy, Calendar } from "lucide-react";
+import { Trophy, Calendar, Download } from "lucide-react";
 
 export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
+  const { meta } = usePage().props as any;
+
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
   const [filter, setFilter] = useState("weekly");
+  const [loading, setLoading] = useState(false);
 
-  /* ==================================================
+  /* =========================
      FETCH DATA
-  ================================================== */
+  ========================= */
   useEffect(() => {
     if (!open) return;
 
+    setLoading(true);
+
     axios
       .get("/dashboard/ranking/languages/weekly", {
-        params: { page, per_page: 6, filter },
+        params: {
+          page,
+          per_page: 6,
+          filter,
+          year: meta.year,
+        },
       })
       .then((res) => {
         setData(res.data.data);
         setPagination(res.data.pagination);
-      });
+      })
+      .finally(() => setLoading(false));
   }, [open, page, filter]);
 
+  /* RESET PAGE */
   useEffect(() => {
     setPage(1);
   }, [filter]);
 
-  /* ==================================================
+  /* =========================
+     EXPORT EXCEL
+  ========================= */
+  const downloadExcel = () => {
+    const params = new URLSearchParams({
+      year: meta.year.toString(),
+      filter,
+    });
+
+    window.open(
+      `/dashboard/ranking/languages/evolution/export?${params}`,
+      "_blank"
+    );
+  };
+
+  /* =========================
      HELPERS
-  ================================================== */
+  ========================= */
   const formatDate = (date) =>
     new Date(date).toLocaleDateString("es-PE", {
       day: "2-digit",
@@ -60,9 +88,7 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
 
     if (filter === "biweekly") {
       const parts = item.period.toString().split("-");
-      const q = parts[2];
-
-      return q === "1"
+      return parts[2] === "1"
         ? "Primera quincena"
         : "Segunda quincena";
     }
@@ -78,14 +104,14 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
     return item.period;
   };
 
-  /* ==================================================
+  /* =========================
      RENDER
-  ================================================== */
+  ========================= */
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!max-w-[1000px] w-full p-0">
 
-        {/* 🔥 FIX RADIX */}
+        {/* ACCESSIBILITY */}
         <DialogHeader>
           <DialogTitle className="sr-only">
             {getTitle()}
@@ -97,9 +123,10 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
 
         <div className="flex flex-col max-h-[75vh]">
 
-          {/* HEADER */}
+          {/* ================= HEADER ================= */}
           <div className="p-5 border-b flex items-start justify-between">
 
+            {/* LEFT */}
             <div>
               <h2 className="text-xl font-bold">{getTitle()}</h2>
               <p className="text-sm text-slate-500">
@@ -107,8 +134,10 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
               </p>
             </div>
 
-            {/* FILTRO */}
-            <div className="pr-10">
+            {/* RIGHT */}
+            <div className="flex items-center gap-3 pr-10">
+
+              {/* FILTER */}
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -118,13 +147,41 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
                 <option value="biweekly">Quincenal</option>
                 <option value="monthly">Mensual</option>
               </select>
+
+              {/* EXPORT */}
+              <button
+                onClick={downloadExcel}
+                className="
+                  flex items-center gap-2
+                  px-3 py-2
+                  border rounded-lg
+                  text-sm font-semibold
+                  bg-white
+                  hover:bg-slate-50
+                  transition
+                "
+              >
+                <Download className="w-4 h-4" />
+                Excel
+              </button>
+
             </div>
           </div>
 
-          {/* SCROLL */}
+          {/* ================= CONTENT ================= */}
           <div className="overflow-y-auto px-5 py-4 space-y-5">
 
-            {data.map((item) => (
+            {loading && (
+              <p className="text-sm text-slate-500">Cargando...</p>
+            )}
+
+            {!loading && data.length === 0 && (
+              <p className="text-sm text-slate-400">
+                No hay datos disponibles
+              </p>
+            )}
+
+            {!loading && data.map((item) => (
               <div
                 key={item.period}
                 className="border rounded-xl p-4 bg-white"
@@ -192,7 +249,7 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
 
           </div>
 
-          {/* PAGINACIÓN */}
+          {/* ================= PAGINACIÓN ================= */}
           {pagination && (
             <div className="p-4 border-t flex justify-between items-center">
 

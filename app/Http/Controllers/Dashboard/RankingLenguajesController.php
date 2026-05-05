@@ -11,7 +11,8 @@ use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 
 use Illuminate\Support\Facades\Artisan;
-
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\LanguagesEvolutionExport;
 use Illuminate\Support\Facades\Log;
 
 class RankingLenguajesController extends Controller
@@ -815,5 +816,14 @@ public function weeklyScores(Request $request, $languageId = null)
         ],
     ]);
 }
+ public function exportEvolution(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $filter = $request->get('filter', 'weekly');
 
+    return Excel::download(
+        new LanguagesEvolutionExport($year, $filter),
+        "languages_evolution.xlsx"
+    );
+}
 }
