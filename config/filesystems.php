@@ -38,14 +38,30 @@ return [
             'report' => false,
         ],
 
-        'public' => [
-            'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
-            'visibility' => 'public',
-            'throw' => false,
-            'report' => false,
-        ],
+       'public' => [
+'driver' => 'local',
+'root' => storage_path('app/public'),
+'url' => env('APP_URL').'/storage',
+'visibility' => 'public',
+'throw' => false,
+'report' => false,
+
+ 
+// 👇 Agregado: permisos para archivos nuevos
+'permissions' => [
+    'file' => [
+        'public' => 0666,   // -rw-rw-rw-
+        'private' => 0600,
+    ],
+    'dir' => [
+        'public' => 0777,   // drwxrwxrwx
+        'private' => 0700,
+    ],
+],
+ 
+
+],
+
 'gcs' => [
     'driver'     => 'gcs',
     'project_id' => env('GCS_PROJECT_ID'),
