@@ -553,6 +553,13 @@ Route::get(    '/trend/{trendId}/jobs',
 
 
 Route::prefix('dashboard/ranking/languages')->group(function () {
+
+Route::get(
+    '/evolution/export',
+    [RankingLenguajesController::class, 'exportEvolution']
+)->name('languages.evolution.export');
+
+
 Route::get(
     '/weekly',
     [RankingLenguajesController::class, 'weeklyScores']

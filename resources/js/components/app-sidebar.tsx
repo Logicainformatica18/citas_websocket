@@ -157,7 +157,14 @@ export function AppSidebar() {
                         icon={<Brain className={colorTrends} />}
                         label="Tendencias Macro"
                     />
-
+ <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+                        Origen de Datos
+                    </div>
+                        <MenuItem
+                        href="/sources"
+                        icon={<Cpu className=" -ml-px" />}
+                        label="Comandos Fuentes"
+                    />
                     {/* ===== ALINEACIÓN ACADÉMICA ===== */}
                     <div className="pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
                         Alineación Académica
