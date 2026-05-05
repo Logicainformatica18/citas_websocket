@@ -10,6 +10,8 @@ use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 use Illuminate\Support\Facades\Artisan;
+use App\Exports\TechnologyEvolutionExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 use Illuminate\Support\Facades\Log;
 
@@ -814,5 +816,15 @@ public function weeklyScores(Request $request, $technologyId = null)
             'last_page' => ceil($total / $perPage),
         ],
     ]);
+}
+public function exportTechnologyEvolution(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $filter = $request->get('filter', 'weekly');
+
+    return Excel::download(
+        new TechnologyEvolutionExport($year, $filter),
+        "technology_evolution_{$filter}.xlsx"
+    );
 }
 }

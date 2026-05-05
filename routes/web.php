@@ -505,6 +505,10 @@ Route::put('/dashboard/{dashboard}', [DashboardController::class, 'update'])->na
 
    Route::prefix('dashboard/ranking/technologies')->group(function () {
 
+   Route::get(
+    '/evolution/export',
+    [RankingTecnologiasController::class, 'exportTechnologyEvolution']
+)->name('ranking.technologies.export');
 Route::get(
     '/weekly/{technology?}',
     [RankingTecnologiasController::class, 'weeklyScores']
