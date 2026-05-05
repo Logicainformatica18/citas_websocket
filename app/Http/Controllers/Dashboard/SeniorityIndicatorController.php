@@ -10,6 +10,7 @@ use App\Services\JobMarketStatusBuilder;
 use App\Services\ScrapingStatusService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Exports\SeniorityEvolutionExport;
+use App\Exports\SeniorityEvolutionCareerExport;
 use Maatwebsite\Excel\Facades\Excel;
 class SeniorityIndicatorController extends Controller
 {
@@ -521,7 +522,7 @@ public function exportEvolution(Request $request)
         "seniority_evolution.xlsx"
     );
 }
-public function evolutionByCareer(Request $request)
+public function evolutionCareers(Request $request)
 {
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
@@ -529,22 +530,13 @@ public function evolutionByCareer(Request $request)
 
     $range = $this->getPeriodRange($period, $year);
 
-    /* =========================
-       AGRUPADOR
-    ========================= */
     switch ($filter) {
         case 'monthly':
             $group = "DATE_FORMAT(jo.created_at, '%Y-%m')";
             break;
 
         case 'biweekly':
-            $group = "
-                CONCAT(
-                    YEAR(jo.created_at), '-',
-                    LPAD(MONTH(jo.created_at),2,'0'), '-',
-                    IF(DAY(jo.created_at) <= 15, 1, 2)
-                )
-            ";
+            $group = "CONCAT(YEAR(jo.created_at), '-', MONTH(jo.created_at), '-', IF(DAY(jo.created_at)<=15,1,2))";
             break;
 
         default:
@@ -557,95 +549,46 @@ public function evolutionByCareer(Request $request)
         ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
         ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
         ->join('careers as c', 'c.id', '=', 'cc.career_id')
-
         ->whereBetween('jo.created_at', [$range['start'], $range['end']])
-        ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
-
         ->select(
             DB::raw("$group as period"),
+            DB::raw("MIN(jo.created_at) as start_date"),
+            DB::raw("MAX(jo.created_at) as end_date"),
             'c.name as career',
-            'jo.seniority',
             DB::raw('COUNT(DISTINCT jo.id) as total')
         )
-        ->groupBy(DB::raw($group), 'c.name', 'jo.seniority')
+        ->groupBy('period', 'career')
         ->get();
 
-    $data = $rows
-        ->groupBy(['career', 'period'])
-        ->map(function ($careerPeriods, $career) use ($filter) {
+    $data = $rows->groupBy('period')->map(function ($items) {
 
-            return [
-                'career' => $career,
+        $total = $items->sum('total');
 
-                'periods' => $careerPeriods->map(function ($items, $period) {
+        return [
+            'label' => $items->first()->start_date,
+            'total_jobs' => $total,
+            'careers' => $items->map(function ($c) use ($total) {
+                return [
+                    'career_name' => $c->career,
+                    'jobs' => $c->total,
+                    'percentage' => $total > 0
+                        ? round(($c->total / $total) * 100, 1)
+                        : 0,
+                ];
+            })->values(),
+        ];
+    })->values();
 
-                    $total = $items->sum('total');
-
-                    return [
-                        'period' => $period,
-                        'total_jobs' => $total,
-                        'distribution' => collect(['junior','mid','senior'])
-                            ->map(function ($level) use ($items, $total) {
-
-                                $row = $items->firstWhere('seniority', $level);
-                                $jobs = $row ? $row->total : 0;
-
-                                return [
-                                    'level' => strtoupper($level),
-                                    'jobs' => $jobs,
-                                    'percentage' => $total > 0
-                                        ? round(($jobs / $total) * 100, 1)
-                                        : 0,
-                                ];
-                            })->values()
-                    ];
-
-                })->values()
-            ];
-        })->values();
-
-    return response()->json([
-        'data' => $data
-    ]);
+    return response()->json(['data' => $data]);
 }
-public function exportEvolutionByCareer(Request $request)
+public function exportEvolutionCareers(Request $request)
 {
-    $data = $this->evolutionByCareer($request)->getData()->data;
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
 
-    $response = new StreamedResponse(function () use ($data) {
-
-        $handle = fopen('php://output', 'w');
-
-        fputcsv($handle, [
-            'Carrera',
-            'Periodo',
-            'Total',
-            'Junior %',
-            'Mid %',
-            'Senior %'
-        ]);
-
-        foreach ($data as $career) {
-            foreach ($career->periods as $period) {
-
-                $junior = collect($period->distribution)->firstWhere('level','JUNIOR')['percentage'] ?? 0;
-                $mid    = collect($period->distribution)->firstWhere('level','MID')['percentage'] ?? 0;
-                $senior = collect($period->distribution)->firstWhere('level','SENIOR')['percentage'] ?? 0;
-
-                fputcsv($handle, [
-                    $career->career,
-                    $period->period,
-                    $period->total_jobs,
-                    $junior,
-                    $mid,
-                    $senior
-                ]);
-            }
-        }
-
-        fclose($handle);
-    });
-
-    return $response->headers->set('Content-Type', 'text/csv');
+    return Excel::download(
+        new SeniorityEvolutionCareerExport($year, $period),
+        "evolution_careers.xlsx"
+    );
 }
 }

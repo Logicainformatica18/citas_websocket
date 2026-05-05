@@ -20,16 +20,16 @@ interface HeaderProps {
         periodo_label: string;
         vacantes_analizadas: number;
     };
-    onOpenEvolution: () => void;
+   onOpenEvolution: (type: "general" | "career") => void;
 }
 
-export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){ 
+export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){
     const { filters, jobMarketStatus, jobMarketData } = usePage().props as any;
 
     const [updating, setUpdating] = useState(false);
     const hasCareerFilter = filters?.career && filters.career.length > 0;
     const [openMarketModal, setOpenMarketModal] = useState(false);
-
+const [openEvolutionMenu, setOpenEvolutionMenu] = useState(false);
     /* ===============================
        Cambio de filtros
     =============================== */
@@ -190,8 +190,11 @@ export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){
 <div className="flex items-center gap-2">
 
   {/* VER EVOLUCIÓN */}
+ <div className="relative">
+
+  {/* BOTÓN PRINCIPAL */}
   <button
-    onClick={onOpenEvolution}
+    onClick={() => setOpenEvolutionMenu((prev) => !prev)}
     className="
       px-5 py-2.5
       bg-teal-400
@@ -205,38 +208,46 @@ export function SeniorityHeader({ meta, onOpenEvolution }: HeaderProps){
     "
   >
     Ver evolución
-    <span>›</span>
+    <span className="text-xs">▼</span>
   </button>
+
+  {/* DROPDOWN */}
+  {openEvolutionMenu && (
+    <div className="
+      absolute right-0 mt-2 w-56
+      bg-white border rounded-xl shadow-xl
+      z-50 overflow-hidden
+    ">
+
+      {/* GENERAL */}
+      <button
+        onClick={() => {
+          setOpenEvolutionMenu(false);
+          onOpenEvolution("general"); // 👈 importante
+        }}
+        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50"
+      >
+        📊 Evolución general
+      </button>
+
+      {/* POR CARRERA */}
+      <button
+        onClick={() => {
+          setOpenEvolutionMenu(false);
+          onOpenEvolution("career"); // 👈 importante
+        }}
+        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-50"
+      >
+        🎓 Evolución por carrera
+      </button>
+
+    </div>
+  )}
+
+</div>
 
   {/* EXPORT GLOBAL */}
-  <button
-    onClick={() => {
-      const params = new URLSearchParams({
-        year: meta.year.toString(),
-        period: meta.period,
-        filter: "weekly", // puedes hacerlo dinámico luego
-      });
 
-      window.open(
-        `/dashboard/indicators/seniority/evolution/export?${params.toString()}`,
-        "_blank"
-      );
-    }}
-    className="
-      px-4 py-2.5
-      bg-white
-      border
-      rounded-xl
-      font-semibold
-      text-[#0A2540]
-      shadow-sm
-      hover:bg-slate-50
-      transition
-      flex items-center gap-2
-    "
-  >
-    📥 Excel
-  </button>
 
   {/* EXPORT POR CARRERA */}
   {hasCareerFilter && (

@@ -359,8 +359,8 @@ Route::get(
   '/indicators/seniority/evolution',
   [SeniorityIndicatorController::class, 'evolution']
 );
-Route::get('/indicators/seniority/evolution-careers', [SeniorityIndicatorController::class, 'evolutionByCareer']);
-Route::get('/indicators/seniority/evolution-careers/export', [SeniorityIndicatorController::class, 'exportEvolutionByCareer']);
+Route::get('/indicators/seniority/evolution-careers', [SeniorityIndicatorController::class, 'evolutionCareers']);
+Route::get('/indicators/seniority/evolution-careers/export', [SeniorityIndicatorController::class, 'exportEvolutionCareers']);
  Route::get(
     '/indicators/seniority/modality',
     [SeniorityIndicatorController::class, 'modalityDistribution']

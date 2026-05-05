@@ -12,6 +12,7 @@ import { useSeniorityData } from "./components/hooks/useSeniorityData";
 import { useSeniorityModalityData } from "./components/hooks/useSeniorityModalityData";
 import { SeniorityFilters } from "./components/Filters/SeniorityFilters";
 import { SeniorityEvolutionModal } from "./components/Header/SeniorityEvolutionModal";
+import { SeniorityEvolutionCareerModal } from "./components/Header/SeniorityEvolutionCareerModal";
 /* =====================================================
    Breadcrumbs
 ===================================================== */
@@ -46,7 +47,7 @@ export default function SeniorityIndicatorPage() {
   const { data, loading } = useSeniorityData();
   const { data: modalityData } = useSeniorityModalityData();
 const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
-
+const [evolutionType, setEvolutionType] = useState<"general" | "career" | null>(null);
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Demanda por Nivel Profesional" />
@@ -56,7 +57,7 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
         <SeniorityHeader
         meta={meta}
   jobMarketStatus={jobMarketStatus}
-  onOpenEvolution={() => setOpenEvolutionModal(true)}
+  onOpenEvolution={(type) => setEvolutionType(type)}
         />
 
         {/* ================= FILTERS ================= */}
@@ -82,9 +83,15 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
           </>
         )}
       </div>
-      <SeniorityEvolutionModal
-  open={openEvolutionModal}
-  onClose={() => setOpenEvolutionModal(false)}
+
+<SeniorityEvolutionModal
+  open={evolutionType === "general"}
+  onClose={() => setEvolutionType(null)}
+/>
+
+<SeniorityEvolutionCareerModal
+  open={evolutionType === "career"}
+  onClose={() => setEvolutionType(null)}
 />
     </AppLayout>
   );
