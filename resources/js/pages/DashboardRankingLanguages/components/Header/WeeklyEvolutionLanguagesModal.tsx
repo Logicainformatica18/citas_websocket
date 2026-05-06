@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/dialog";
 
 import { Trophy, Calendar, Download } from "lucide-react";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
 
+dayjs.locale("es");
 export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
   const { meta } = usePage().props as any;
 
@@ -68,11 +71,9 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
   /* =========================
      HELPERS
   ========================= */
-  const formatDate = (date) =>
-    new Date(date).toLocaleDateString("es-PE", {
-      day: "2-digit",
-      month: "short",
-    });
+const formatDate = (date) => {
+  return dayjs(date).format("DD-MMM");
+};
 
   const getTitle = () => {
     if (filter === "monthly") return "Evolución mensual";
@@ -80,29 +81,9 @@ export function WeeklyEvolutionLanguagesModal({ open, onClose }) {
     return "Evolución semanal";
   };
 
-  const getLabel = (item) => {
-    if (filter === "weekly") {
-      const week = item.period.toString().slice(-2);
-      return `Semana ${week}`;
-    }
-
-    if (filter === "biweekly") {
-      const parts = item.period.toString().split("-");
-      return parts[2] === "1"
-        ? "Primera quincena"
-        : "Segunda quincena";
-    }
-
-    if (filter === "monthly") {
-      const date = new Date(item.start_date);
-      return date.toLocaleDateString("es-PE", {
-        month: "long",
-        year: "numeric",
-      });
-    }
-
-    return item.period;
-  };
+const getLabel = (item) => {
+  return item.label || item.period;
+};
 
   /* =========================
      RENDER

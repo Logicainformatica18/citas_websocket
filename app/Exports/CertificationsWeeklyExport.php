@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -9,105 +10,382 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 class CertificationsWeeklyExport implements FromCollection, WithHeadings
 {
     protected $year;
+
     protected $filter;
 
-    public function __construct($year, $filter = 'weekly')
-    {
+    public function __construct(
+        $year,
+        $filter = 'weekly'
+    ) {
+
         $this->year = $year;
+
         $this->filter = $filter;
     }
 
     public function collection()
     {
-        /* =========================
-           MISMO AGRUPADOR QUE TU MÉTODO
-        ========================= */
-        switch ($this->filter) {
+        /*
+        ==============================================
+        🔍 BASE QUERY
+        ==============================================
+        */
 
-            case 'weekly':
-                $group = "YEARWEEK(j.published_at,1)";
-
-                $start = "
-                    DATE_SUB(
-                        MIN(DATE(j.published_at)),
-                        INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
-                    )
-                ";
-
-                $end = "
-                    DATE_ADD(
-                        DATE_SUB(
-                            MIN(DATE(j.published_at)),
-                            INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
-                        ),
-                        INTERVAL 6 DAY
-                    )
-                ";
-                break;
-
-            case 'biweekly':
-                $group = "
-                    CONCAT(
-                        YEAR(j.published_at), '-',
-                        LPAD(MONTH(j.published_at),2,'0'), '-',
-                        IF(DAY(j.published_at)<=15,1,2)
-                    )
-                ";
-
-                $start = "
-                    CASE
-                        WHEN DAY(MIN(j.published_at)) <= 15
-                        THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')
-                        ELSE DATE_FORMAT(MIN(j.published_at), '%Y-%m-16')
-                    END
-                ";
-
-                $end = "
-                    CASE
-                        WHEN DAY(MIN(j.published_at)) <= 15
-                        THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-15')
-                        ELSE LAST_DAY(MIN(j.published_at))
-                    END
-                ";
-                break;
-
-            default: // monthly
-                $group = "DATE_FORMAT(j.published_at,'%Y-%m')";
-                $start = "DATE_FORMAT(MIN(j.published_at),'%Y-%m-01')";
-                $end   = "LAST_DAY(MIN(j.published_at))";
-                break;
-        }
-
-        /* =========================
-           QUERY EXACTA DE TU weeklyScores
-        ========================= */
         $rows = DB::table('certification_job as cj')
-            ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
-            ->join('market_entities as me', 'me.id', '=', 'cj.market_entity_id')
-            ->whereYear('j.published_at', $this->year)
-            ->where('me.entity_type', 'certification')
-            ->groupBy(
-                DB::raw($group),
-                'me.name'
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'cj.job_offer_id'
             )
+
+            ->join(
+                'market_entities as me',
+                'me.id',
+                '=',
+                'cj.market_entity_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->where(
+                'me.entity_type',
+                'certification'
+            )
+
             ->select(
-                DB::raw("$start as fecha_inicio"),
-                DB::raw("$end as fecha_fin"),
+
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    DAY(j.published_at)
+                    as day_number
+                "),
+
                 'me.name as certificacion',
-                DB::raw('COUNT(DISTINCT cj.job_offer_id) as vacantes')
+
+                'cj.job_offer_id'
             )
-            ->orderBy('fecha_inicio')
+
             ->get();
 
-        return $rows;
+        /*
+        ==============================================
+        📅 WEEKLY
+        ==============================================
+        */
+
+        if ($this->filter === 'weekly') {
+
+            return $this->buildWeekly(
+                $rows
+            );
+        }
+
+        /*
+        ==============================================
+        📅 BIWEEKLY
+        ==============================================
+        */
+
+        if ($this->filter === 'biweekly') {
+
+            return $this->buildBiweekly(
+                $rows
+            );
+        }
+
+        /*
+        ==============================================
+        📅 MONTHLY
+        ==============================================
+        */
+
+        return $this->buildMonthly(
+            $rows
+        );
+    }
+
+    /*
+    ==================================================
+    📅 WEEKLY
+    ==================================================
+    */
+
+    private function buildWeekly($rows)
+    {
+        $grouped = $rows
+
+            ->groupBy(function ($row) {
+
+                $week =
+                    floor(
+                        ($row->day_number - 1) / 7
+                    ) + 1;
+
+                return
+                    $row->month_number .
+                    '-' .
+                    $week .
+                    '-' .
+                    $row->certificacion;
+            });
+
+        $export = collect();
+
+        foreach ($grouped as $group) {
+
+            $first = $group->first();
+
+            $month = $first->month_number;
+
+            $week =
+                floor(
+                    ($first->day_number - 1) / 7
+                ) + 1;
+
+            $startDay =
+                (($week - 1) * 7) + 1;
+
+            $daysInMonth = Carbon::create(
+                $this->year,
+                $month,
+                1
+            )->daysInMonth;
+
+            $endDay = min(
+                $startDay + 6,
+                $daysInMonth
+            );
+
+            $monthName = Carbon::create()
+                ->month($month)
+                ->translatedFormat('F');
+
+            $export->push([
+
+                'Periodo' =>
+                    'Semana ' .
+                    $week .
+                    ' de ' .
+                    ucfirst($monthName),
+
+                'Fecha Inicio' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        $startDay
+                    )->format('Y-m-d'),
+
+                'Fecha Fin' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        $endDay
+                    )->format('Y-m-d'),
+
+                'Certificación' =>
+                    $first->certificacion,
+
+                'Vacantes' =>
+                    $group
+                        ->pluck('job_offer_id')
+                        ->unique()
+                        ->count(),
+            ]);
+        }
+
+        return $export
+            ->sortBy('Fecha Inicio')
+            ->values();
+    }
+
+    /*
+    ==================================================
+    📅 BIWEEKLY
+    ==================================================
+    */
+
+    private function buildBiweekly($rows)
+    {
+        $grouped = $rows
+
+            ->groupBy(function ($row) {
+
+                $q =
+                    $row->day_number <= 15
+                        ? 1
+                        : 2;
+
+                return
+                    $row->month_number .
+                    '-' .
+                    $q .
+                    '-' .
+                    $row->certificacion;
+            });
+
+        $export = collect();
+
+        foreach ($grouped as $group) {
+
+            $first = $group->first();
+
+            $month = $first->month_number;
+
+            $q =
+                $first->day_number <= 15
+                    ? 1
+                    : 2;
+
+            $daysInMonth = Carbon::create(
+                $this->year,
+                $month,
+                1
+            )->daysInMonth;
+
+            $startDay =
+                $q == 1
+                    ? 1
+                    : 16;
+
+            $endDay =
+                $q == 1
+                    ? 15
+                    : $daysInMonth;
+
+            $monthName = Carbon::create()
+                ->month($month)
+                ->translatedFormat('F');
+
+            $export->push([
+
+                'Periodo' =>
+                    'Quincena ' .
+                    $q .
+                    ' de ' .
+                    ucfirst($monthName),
+
+                'Fecha Inicio' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        $startDay
+                    )->format('Y-m-d'),
+
+                'Fecha Fin' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        $endDay
+                    )->format('Y-m-d'),
+
+                'Certificación' =>
+                    $first->certificacion,
+
+                'Vacantes' =>
+                    $group
+                        ->pluck('job_offer_id')
+                        ->unique()
+                        ->count(),
+            ]);
+        }
+
+        return $export
+            ->sortBy('Fecha Inicio')
+            ->values();
+    }
+
+    /*
+    ==================================================
+    📅 MONTHLY
+    ==================================================
+    */
+
+    private function buildMonthly($rows)
+    {
+        $grouped = $rows
+
+            ->groupBy(function ($row) {
+
+                return
+                    $row->month_number .
+                    '-' .
+                    $row->certificacion;
+            });
+
+        $export = collect();
+
+        foreach ($grouped as $group) {
+
+            $first = $group->first();
+
+            $month = $first->month_number;
+
+            $daysInMonth = Carbon::create(
+                $this->year,
+                $month,
+                1
+            )->daysInMonth;
+
+            $monthName = Carbon::create()
+                ->month($month)
+                ->translatedFormat('F');
+
+            $export->push([
+
+                'Periodo' =>
+                    ucfirst($monthName),
+
+                'Fecha Inicio' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        1
+                    )->format('Y-m-d'),
+
+                'Fecha Fin' =>
+                    Carbon::create(
+                        $this->year,
+                        $month,
+                        $daysInMonth
+                    )->format('Y-m-d'),
+
+                'Certificación' =>
+                    $first->certificacion,
+
+                'Vacantes' =>
+                    $group
+                        ->pluck('job_offer_id')
+                        ->unique()
+                        ->count(),
+            ]);
+        }
+
+        return $export
+            ->sortBy('Fecha Inicio')
+            ->values();
     }
 
     public function headings(): array
     {
         return [
+
+            'Periodo',
+
             'Fecha Inicio',
+
             'Fecha Fin',
+
             'Certificación',
+
             'Vacantes',
         ];
     }

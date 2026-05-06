@@ -667,154 +667,612 @@ private function getBaseContext(Request $request): array
 
 public function weeklyScores(Request $request, $languageId = null)
 {
-    $year = (int) $request->get('year', 2026);
-    $perPage = min((int) $request->get('per_page', 6), 20);
-    $page = (int) $request->get('page', 1);
+\Carbon\Carbon::setLocale('es');
+setlocale(LC_TIME, 'es_ES.UTF-8');
+    try {
 
-    $filter = $request->get('filter', 'weekly');
+        /*
+        ==================================================
+        📅 PARAMS
+        ==================================================
+        */
 
-    if (!in_array($filter, ['weekly', 'biweekly', 'monthly'])) {
-        $filter = 'weekly';
-    }
+        $year = (int) $request->get('year');
 
-    /*
-    ==================================================
-    🔥 AGRUPACIÓN (MISMO QUE TECNOLOGÍAS)
-    ==================================================
-    */
-    switch ($filter) {
+        if (!$year) {
 
-        case 'weekly':
-            $groupFormat = "YEARWEEK(j.published_at, 1)";
+            return response()->json([
+                'success' => false,
+                'message' => 'Year es requerido',
+            ], 422);
+        }
 
-            $startDate = "
-                DATE_SUB(
-                    MIN(DATE(j.published_at)),
-                    INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
-                )
+        $perPage = min(
+            (int) $request->get('per_page', 6),
+            20
+        );
+
+        $page = (int) $request->get('page', 1);
+
+        $filter = $request->get(
+            'filter',
+            'weekly'
+        );
+
+        if (!in_array($filter, [
+            'weekly',
+            'biweekly',
+            'monthly',
+        ])) {
+
+            $filter = 'weekly';
+        }
+
+        /*
+        ==================================================
+        🔍 QUERY BASE
+        ==================================================
+        */
+
+        $query = DB::table('language_job as lj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'lj.job_offer_id'
+            )
+
+            ->join(
+                'market_entities as me',
+                'me.id',
+                '=',
+                'lj.market_entity_id'
+            )
+
+            ->whereRaw(
+                'YEAR(j.published_at) = ?',
+                [$year]
+            );
+
+        /*
+        ==================================================
+        🎯 FILTRO LENGUAJE
+        ==================================================
+        */
+
+        if ($languageId) {
+
+            $query->where(
+                'lj.market_entity_id',
+                $languageId
+            );
+        }
+
+        /*
+        ==================================================
+        📅 WEEKLY
+        ==================================================
+        */
+
+        if ($filter === 'weekly') {
+
+            $weekExpression = "
+                FLOOR((DAY(j.published_at)-1)/7)+1
             ";
 
-            $endDate = "
-                DATE_ADD(
-                    DATE_SUB(
-                        MIN(DATE(j.published_at)),
-                        INTERVAL WEEKDAY(MIN(DATE(j.published_at))) DAY
-                    ),
-                    INTERVAL 6 DAY
-                )
-            ";
-            break;
+            $rows = $query
 
-        case 'biweekly':
-            $groupFormat = "
-                CONCAT(
-                    YEAR(j.published_at), '-',
-                    LPAD(MONTH(j.published_at),2,'0'), '-',
-                    IF(DAY(j.published_at) <= 15, 1, 2)
-                )
-            ";
+                ->groupBy(
 
-            $startDate = "
-                CASE 
-                    WHEN DAY(MIN(j.published_at)) <= 15 
-                    THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')
-                    ELSE DATE_FORMAT(MIN(j.published_at), '%Y-%m-16')
+                    DB::raw("
+                        MONTH(j.published_at)
+                    "),
+
+                    DB::raw($weekExpression),
+
+                    'me.id',
+
+                    'me.name'
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    DB::raw("
+                        {$weekExpression}
+                        as week_number
+                    "),
+
+                    'me.id',
+
+                    'me.name',
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total
+                    ")
+                )
+
+                ->get();
+
+            $periods = $rows
+
+                ->groupBy(function ($item) {
+
+                    return
+                        $item->month_number .
+                        '-' .
+                        $item->week_number;
+                })
+
+                ->map(function ($items) use ($year) {
+
+                    $first = $items->first();
+
+                    $month = $first->month_number;
+
+                    $week = $first->week_number;
+
+                    /*
+                    ==========================================
+                    📅 START DAY
+                    ==========================================
+                    */
+
+                    $startDay =
+                        (($week - 1) * 7) + 1;
+
+                    /*
+                    ==========================================
+                    📅 END DAY
+                    ==========================================
+                    */
+
+                    $daysInMonth = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        1
+                    )->daysInMonth;
+
+                    $endDay = min(
+                        $startDay + 6,
+                        $daysInMonth
+                    );
+
+                    /*
+                    ==========================================
+                    📅 RANGE
+                    ==========================================
+                    */
+
+                    $startDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $startDay
+                    )->format('Y-m-d');
+
+                    $endDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $endDay
+                    )->format('Y-m-d');
+
+                    /*
+                    ==========================================
+                    📅 MONTH NAME
+                    ==========================================
+                    */
+
+                    $monthName = \Carbon\Carbon::create()
+                        ->month($month)
+                        ->translatedFormat('F');
+
+                    return [
+
+                        'period' =>
+                            'Semana ' . $week,
+
+                        'label' =>
+                            'Semana ' .
+                            $week .
+                            ' de ' .
+                            ucfirst($monthName),
+
+                        'month' => $month,
+
+                        'week' => $week,
+
+                        'start_date' =>
+                            $startDate,
+
+                        'end_date' =>
+                            $endDate,
+
+                        'total_period' =>
+                            $items->sum('total'),
+
+                        'top' => $items
+
+                            ->sortByDesc('total')
+
+                            ->take(5)
+
+                            ->values()
+
+                            ->map(function ($item) {
+
+                                return [
+
+                                    'id' =>
+                                        $item->id,
+
+                                    'name' =>
+                                        $item->name,
+
+                                    'total' =>
+                                        $item->total,
+                                ];
+                            }),
+                    ];
+                })
+
+                ->sortByDesc('start_date')
+
+                ->values();
+        }
+
+        /*
+        ==================================================
+        📅 BIWEEKLY
+        ==================================================
+        */
+
+        elseif ($filter === 'biweekly') {
+
+            $expression = "
+                CASE
+                    WHEN DAY(j.published_at) <= 15
+                    THEN 1
+                    ELSE 2
                 END
             ";
 
-            $endDate = "
-                CASE 
-                    WHEN DAY(MIN(j.published_at)) <= 15 
-                    THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-15')
-                    ELSE LAST_DAY(MIN(j.published_at))
-                END
-            ";
-            break;
+            $rows = $query
 
-        case 'monthly':
-            $groupFormat = "DATE_FORMAT(j.published_at, '%Y-%m')";
+                ->groupBy(
 
-            $startDate = "DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')";
-            $endDate   = "LAST_DAY(MIN(j.published_at))";
-            break;
+                    DB::raw("
+                        MONTH(j.published_at)
+                    "),
+
+                    DB::raw($expression),
+
+                    'me.id',
+
+                    'me.name'
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    DB::raw("
+                        {$expression}
+                        as quincena
+                    "),
+
+                    'me.id',
+
+                    'me.name',
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total
+                    ")
+                )
+
+                ->get();
+
+            $periods = $rows
+
+                ->groupBy(function ($item) {
+
+                    return
+                        $item->month_number .
+                        '-' .
+                        $item->quincena;
+                })
+
+                ->map(function ($items) use ($year) {
+
+                    $first = $items->first();
+
+                    $month = $first->month_number;
+
+                    $quincena = $first->quincena;
+
+                    $daysInMonth = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        1
+                    )->daysInMonth;
+
+                    if ($quincena == 1) {
+
+                        $startDay = 1;
+                        $endDay = 15;
+
+                    } else {
+
+                        $startDay = 16;
+                        $endDay = $daysInMonth;
+                    }
+
+                    $startDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $startDay
+                    )->format('Y-m-d');
+
+                    $endDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $endDay
+                    )->format('Y-m-d');
+
+                    $monthName = \Carbon\Carbon::create()
+                        ->month($month)
+                        ->translatedFormat('F');
+
+                    return [
+
+                        'period' =>
+                            'Quincena ' . $quincena,
+
+                        'label' =>
+                            'Quincena ' .
+                            $quincena .
+                            ' de ' .
+                            ucfirst($monthName),
+
+                        'month' => $month,
+
+                        'start_date' =>
+                            $startDate,
+
+                        'end_date' =>
+                            $endDate,
+
+                        'total_period' =>
+                            $items->sum('total'),
+
+                        'top' => $items
+
+                            ->sortByDesc('total')
+
+                            ->take(5)
+
+                            ->values()
+
+                            ->map(function ($item) {
+
+                                return [
+
+                                    'id' =>
+                                        $item->id,
+
+                                    'name' =>
+                                        $item->name,
+
+                                    'total' =>
+                                        $item->total,
+                                ];
+                            }),
+                    ];
+                })
+
+                ->sortByDesc('start_date')
+
+                ->values();
+        }
+
+        /*
+        ==================================================
+        📅 MONTHLY
+        ==================================================
+        */
+
+        else {
+
+            $rows = $query
+
+                ->groupBy(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                    "),
+
+                    'me.id',
+
+                    'me.name'
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    'me.id',
+
+                    'me.name',
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total
+                    ")
+                )
+
+                ->get();
+
+            $periods = $rows
+
+                ->groupBy('month_number')
+
+                ->map(function (
+                    $items,
+                    $month
+                ) use ($year) {
+
+                    $daysInMonth = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        1
+                    )->daysInMonth;
+
+                    $startDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        1
+                    )->format('Y-m-d');
+
+                    $endDate = \Carbon\Carbon::create(
+                        $year,
+                        $month,
+                        $daysInMonth
+                    )->format('Y-m-d');
+
+                    $monthName = \Carbon\Carbon::create()
+                        ->month($month)
+                        ->translatedFormat('F');
+
+                    return [
+
+                        'period' =>
+                            ucfirst($monthName),
+
+                        'label' =>
+                            ucfirst($monthName),
+
+                        'month' => $month,
+
+                        'start_date' =>
+                            $startDate,
+
+                        'end_date' =>
+                            $endDate,
+
+                        'total_period' =>
+                            $items->sum('total'),
+
+                        'top' => $items
+
+                            ->sortByDesc('total')
+
+                            ->take(5)
+
+                            ->values()
+
+                            ->map(function ($item) {
+
+                                return [
+
+                                    'id' =>
+                                        $item->id,
+
+                                    'name' =>
+                                        $item->name,
+
+                                    'total' =>
+                                        $item->total,
+                                ];
+                            }),
+                    ];
+                })
+
+                ->sortByDesc('month')
+
+                ->values();
+        }
+
+        /*
+        ==================================================
+        📦 PAGINATION
+        ==================================================
+        */
+
+        $total = $periods->count();
+
+        $paged = $periods
+
+            ->forPage(
+                $page,
+                $perPage
+            )
+
+            ->values();
+
+        /*
+        ==================================================
+        🚀 RESPONSE
+        ==================================================
+        */
+
+        return response()->json([
+
+            'success' => true,
+
+            'filter' => $filter,
+
+            'year' => $year,
+
+            'data' => $paged,
+
+            'pagination' => [
+
+                'current_page' => $page,
+
+                'per_page' => $perPage,
+
+                'total' => $total,
+
+                'last_page' => max(
+                    1,
+                    ceil($total / $perPage)
+                ),
+            ],
+        ]);
+
+    } catch (\Throwable $e) {
+
+        Log::error('[LANGUAGE_EVOLUTION_ERROR]', [
+
+            'message' => $e->getMessage(),
+
+            'line' => $e->getLine(),
+
+            'file' => $e->getFile(),
+
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+
+            'success' => false,
+
+            'message' => $e->getMessage(),
+
+        ], 500);
     }
-
-    /*
-    ==================================================
-    🔍 QUERY (CAMBIA SOLO language_job)
-    ==================================================
-    */
-    $query = DB::table('language_job as lj')
-        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
-        ->join('market_entities as me', 'me.id', '=', 'lj.market_entity_id')
-        ->whereYear('j.published_at', $year);
-
-    if ($languageId) {
-        $query->where('lj.market_entity_id', $languageId);
-    }
-
-    $rows = $query
-        ->groupBy(
-            DB::raw($groupFormat),
-            'me.id',
-            'me.name'
-        )
-        ->select(
-            DB::raw("$groupFormat as period"),
-            DB::raw("$startDate as start_date"),
-            DB::raw("$endDate as end_date"),
-            'me.id',
-            'me.name',
-            DB::raw('COUNT(DISTINCT lj.job_offer_id) as total')
-        )
-        ->get();
-
-    /*
-    ==================================================
-    🔥 FORMATO FINAL
-    ==================================================
-    */
-    $periods = $rows
-        ->groupBy('period')
-        ->map(function ($items, $period) {
-
-            $first = $items->first();
-
-            return [
-                'period' => $period,
-                'start_date' => $first->start_date,
-                'end_date' => $first->end_date,
-                'total_period' => $items->sum('total'),
-
-                'top' => $items
-                    ->sortByDesc('total')
-                    ->take(5)
-                    ->values()
-                    ->map(function ($item) {
-                        return [
-                            'id' => $item->id,
-                            'name' => $item->name,
-                            'total' => $item->total,
-                        ];
-                    }),
-            ];
-        })
-        ->sortByDesc('start_date')
-        ->values();
-
-    $total = $periods->count();
-    $paged = $periods->forPage($page, $perPage)->values();
-
-    return response()->json([
-        'filter' => $filter,
-        'data' => $paged,
-        'pagination' => [
-            'current_page' => $page,
-            'per_page' => $perPage,
-            'total' => $total,
-            'last_page' => ceil($total / $perPage),
-        ],
-    ]);
 }
  public function exportEvolution(Request $request)
 {
