@@ -3,8 +3,14 @@ import { usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import axios from 'axios';
 import SourceModal from './modal';
-import { Pencil, Trash2, Play } from 'lucide-react';
+import {
+    Pencil,
+    Trash2,
+    Play,
+    Eye
+} from 'lucide-react';
 import dayjs from 'dayjs';
+import SourceDetailsModal from './SourceDetailsModal';
 const breadcrumbs = [{ title: 'Fuentes', href: '/sources' }];
 
 type Source = {
@@ -39,7 +45,11 @@ export default function Sources() {
     const [pagination, setPagination] = useState(initialPagination);
     const [showModal, setShowModal] = useState(false);
     const [editSource, setEditSource] = useState<Source | null>(null);
+const [detailsOpen, setDetailsOpen] =
+    useState(false);
 
+const [selectedSource, setSelectedSource] =
+    useState<any>(null);
   const fetchPage = async (url: string) => {
     try {
         const res = await axios.get(url);
@@ -186,7 +196,38 @@ export default function Sources() {
                                                 fetchPage(`/sources/fetch?page=${pagination.current_page}`);
                                             }}
                                         /> */}
+<Eye
+    className="
+        w-4
+        text-gray-500
+        cursor-pointer
+        hover:scale-110
+        transition
+    "
+    onClick={async () => {
 
+        try {
+
+            const res = await axios.get(
+                `/sources/${s.id}/details`
+            );
+
+            setSelectedSource(
+                res.data.source
+            );
+
+            setDetailsOpen(true);
+
+        } catch (e) {
+
+            console.error(e);
+
+            alert(
+                'Error cargando detalles'
+            );
+        }
+    }}
+/>
                                         <Pencil
                                             className="w-4 text-blue-500 cursor-pointer hover:scale-110 transition"
                                             onClick={() => {
@@ -261,6 +302,15 @@ export default function Sources() {
                         source={editSource}
                     />
                 )}
+                {detailsOpen && (
+    <SourceDetailsModal
+        open={detailsOpen}
+        onClose={() =>
+            setDetailsOpen(false)
+        }
+        source={selectedSource}
+    />
+)}
             </div>
         </AppLayout>
     );

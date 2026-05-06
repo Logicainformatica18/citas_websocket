@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Services\JobMarketStatusBuilder;
-
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CompanyEvolutionExport;
 
 class CompanyIndicatorController extends Controller
 {
@@ -389,5 +390,17 @@ $jobMarketStatus = JobMarketStatusBuilder::build([
         'national' => $build((clone $base)->where('country', 'Peru')),
         'international' => $build((clone $base)->where('country', '!=', 'Peru')),
     ]);
+}
+public function exportEvolutionCompanies(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1');
+    $filter = $request->get('filter', 'weekly');
+    $type   = $request->get('type', 'national'); // 🔥 clave
+
+    return Excel::download(
+        new CompanyEvolutionExport($year, $period, $filter, $type),
+        "companies_{$type}_evolution.xlsx"
+    );
 }
 }

@@ -144,7 +144,7 @@ class SourceStatusController extends Controller
         ) as uptime
     ")->value('uptime') ?? 0;
 
-    $sources = SourceStatus::orderByDesc('last_finished_at')
+    $sources = SourceStatus::orderByDesc('created_at')
         ->paginate(13);
 
     $sources->getCollection()->transform(function ($item) use ($counts, $lastRuns) {
@@ -180,7 +180,7 @@ class SourceStatusController extends Controller
     ?? $item->total_records_inserted
     ?? 0,
 
-            // 🔥 MÉTRICAS INTERNAS
+            // 🔥 MÉTRICAS INTERNfAS
             'last_run_records' => $item->last_records_inserted ?? 0,
             'total_records' => $item->total_records_inserted ?? 0,
 
@@ -206,144 +206,266 @@ class SourceStatusController extends Controller
         'sources' => $sources
     ];
 }
-public function testApiData(Request $request)
+public function details($id)
 {
     try {
 
-        Log::info('🚀 Test API iniciado', [
-            'api_url' => $request->api_url,
-            'has_api_key' => !empty($request->api_key),
-            'has_app_id' => !empty($request->app_id),
+        $source = SourceStatus::findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+
+            'source' => [
+
+                'id' => $source->id,
+
+                'source' => $source->source,
+
+                'last_run_id' => $source->last_run_id,
+
+                'last_status' => $source->last_status,
+
+                'last_started_at' => $source->last_started_at,
+
+                'last_finished_at' => $source->last_finished_at,
+
+                'last_duration_seconds' =>
+                    $source->last_duration_seconds,
+
+                'last_records_found' =>
+                    $source->last_records_found,
+
+                'last_records_inserted' =>
+                    $source->last_records_inserted,
+
+                'last_records_skipped' =>
+                    $source->last_records_skipped,
+
+                'last_error' =>
+                    $source->last_error,
+
+                'last_success_at' =>
+                    $source->last_success_at,
+
+                'last_failed_at' =>
+                    $source->last_failed_at,
+
+                'fail_count' =>
+                    $source->fail_count,
+
+                'success_count' =>
+                    $source->success_count,
+
+                'api_url' =>
+                    $source->api_url,
+
+                'api_key' =>
+                    $source->api_key,
+
+                'app_id' =>
+                    $source->app_id,
+
+                'connection_status' =>
+                    $source->connection_status,
+
+                'last_connection_check' =>
+                    $source->last_connection_check,
+
+                'connection_error' =>
+                    $source->connection_error,
+
+                'created_at' =>
+                    $source->created_at,
+
+                'updated_at' =>
+                    $source->updated_at,
+
+                'total_records_found' =>
+                    $source->total_records_found,
+
+                'total_records_inserted' =>
+                    $source->total_records_inserted,
+
+                'total_records_skipped' =>
+                    $source->total_records_skipped,
+
+                // 🔥 UPTIME
+                'uptime' => (
+                    ($source->success_count + $source->fail_count) > 0
+                )
+                    ? round(
+                        (
+                            $source->success_count /
+                            (
+                                $source->success_count +
+                                $source->fail_count
+                            )
+                        ) * 100,
+                        2
+                    )
+                    : 0,
+            ]
         ]);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener detalles',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+public function testApi(Request $request)
+{
+    try {
 
         $apiUrl = $request->api_url;
         $apiKey = $request->api_key;
         $appId  = $request->app_id;
 
         if (!$apiUrl) {
-            Log::warning('⚠️ API URL faltante');
+
             return response()->json([
+                'success' => false,
                 'message' => 'API URL requerida'
             ], 400);
         }
 
-        $http = \Http::timeout(10);
+        $http = \Http::timeout(15)
+            ->acceptJson();
 
-        // 🔥 REQUEST
+        // 🔐 AUTH APP_ID + KEY
         if ($appId && $apiKey) {
-
-            Log::info('🔐 Usando auth tipo Adzuna', [
-                'app_id' => $appId
-            ]);
 
             $response = $http->get($apiUrl, [
                 'app_id' => $appId,
                 'app_key' => $apiKey,
-                'what' => 'developer',
-                'results_per_page' => 5
             ]);
 
-        } elseif ($apiKey) {
+        }
+        // 🔐 BEARER TOKEN
+        elseif ($apiKey) {
 
-            Log::info('🔐 Usando Bearer token');
+            $response = $http
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $apiKey
+                ])
+                ->get($apiUrl);
 
-            $response = $http->withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey
-            ])->get($apiUrl, [
-                'search' => 'developer'
-            ]);
+        }
+        // 🌐 PUBLIC API
+        else {
 
-        } else {
-
-            Log::info('🌐 Request sin autenticación');
-
-            $response = $http->get($apiUrl, [
-                'search' => 'developer'
-            ]);
+            $response = $http->get($apiUrl);
         }
 
-        Log::info('📡 Response recibida', [
-            'status' => $response->status(),
-            'ok' => $response->successful()
-        ]);
-
+        // ❌ ERROR RESPONSE
         if (!$response->successful()) {
 
-            Log::error('❌ Error en API', [
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
+            // 🔒 PRIVADA
+            if (in_array($response->status(), [401, 403])) {
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'API privada o requiere autenticación',
+                    'status' => $response->status()
+                ], 403);
+            }
 
             return response()->json([
-                'message' => 'Error API',
+                'success' => false,
+                'message' => 'La API respondió con error',
                 'status' => $response->status(),
                 'body' => $response->body()
             ], 500);
         }
 
-        $data = $response->json();
+        $json = $response->json();
 
-        Log::info('📦 Data recibida (primer nivel)', [
-            'keys' => array_keys($data ?? [])
-        ]);
-
+        // 🔥 NORMALIZAR DATOS
         $jobs = [];
 
-        // 🔥 Adzuna
-        if (isset($data['results'])) {
+        // Arbeitnow
+        if (isset($json['data'])) {
 
-            Log::info('📊 Detectado formato Adzuna', [
-                'count' => count($data['results'])
-            ]);
+            foreach (array_slice($json['data'], 0, 10) as $job) {
 
-            foreach ($data['results'] as $job) {
                 $jobs[] = [
                     'title' => $job['title'] ?? 'N/A',
-                    'company' => $job['company']['display_name'] ?? 'N/A',
-                    'location' => $job['location']['display_name'] ?? 'N/A',
+
+                    'company' =>
+                        $job['company_name']
+                        ?? 'N/A',
+
+                    'location' =>
+                        $job['location']
+                        ?? 'Remote',
                 ];
             }
-
         }
-        // 🔥 Remotive / otros
-        elseif (isset($data['jobs'])) {
 
-            Log::info('📊 Detectado formato Jobs', [
-                'count' => count($data['jobs'])
-            ]);
+        // Remotive
+        elseif (isset($json['jobs'])) {
 
-            foreach ($data['jobs'] as $job) {
+            foreach (array_slice($json['jobs'], 0, 10) as $job) {
+
                 $jobs[] = [
                     'title' => $job['title'] ?? 'N/A',
-                    'company' => $job['company_name'] ?? 'N/A',
-                    'location' => $job['candidate_required_location'] ?? 'Remote',
+
+                    'company' =>
+                        $job['company_name']
+                        ?? 'N/A',
+
+                    'location' =>
+                        $job['candidate_required_location']
+                        ?? 'Remote',
                 ];
             }
-
-        } else {
-
-            Log::warning('⚠️ Formato desconocido de API', [
-                'data_sample' => $data
-            ]);
         }
 
-        Log::info('✅ Jobs procesados', [
-            'total' => count($jobs)
-        ]);
+        // ARRAY DIRECTO
+        elseif (is_array($json)) {
+
+            foreach (array_slice($json, 0, 10) as $job) {
+
+                $jobs[] = [
+                    'title' =>
+                        $job['title']
+                        ?? $job['name']
+                        ?? 'N/A',
+
+                    'company' =>
+                        $job['company']
+                        ?? $job['company_name']
+                        ?? 'N/A',
+
+                    'location' =>
+                        $job['location']
+                        ?? 'Remote',
+                ];
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'jobs' => $jobs
+            'message' => 'API funcionando correctamente',
+            'status' => $response->status(),
+            'total' => count($jobs),
+            'data' => $jobs
         ]);
+
+    } catch (\Illuminate\Http\Client\ConnectionException $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No se pudo conectar a la API'
+        ], 500);
 
     } catch (\Exception $e) {
 
-        Log::error('💥 Error interno en testApiData', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-
         return response()->json([
+            'success' => false,
             'message' => 'Error interno',
             'error' => $e->getMessage()
         ], 500);

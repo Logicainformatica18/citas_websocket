@@ -118,7 +118,15 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
 
 Route::prefix('sources')->group(function () {
+Route::post(
+    '/test-api',
+    [SourceStatusController::class, 'testApi']
+);
 
+Route::get(
+    '/{id}/details',
+    [SourceStatusController::class, 'details']
+);
     // 📄 Vista principal
     Route::get('/', [\App\Http\Controllers\SourceStatusController::class, 'index'])
         ->name('sources.index')->middleware('permission:administrar');
@@ -317,6 +325,11 @@ Route::get(
     [MacroTrendsIndicatorController::class, 'getJobs']
 )->name('macro-trends.jobs');
 
+
+Route::get(
+    'companies/evolution/export',
+    [CompanyIndicatorController::class, 'exportEvolutionCompanies']
+)->name('companies.evolution.export');
    Route::get(
         '/indicators/companies/evolution',
         [CompanyIndicatorController::class, 'evolutionCompanies']

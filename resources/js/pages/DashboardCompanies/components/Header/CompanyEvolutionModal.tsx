@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { usePage } from "@inertiajs/react";
+
 import {
   Dialog,
   DialogContent,
@@ -8,7 +10,12 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 
+import { Download } from "lucide-react";
+
 export function CompanyEvolutionModal({ open, onClose }) {
+
+  const { meta } = usePage().props as any; // 🔥 FIX
+
   const [data, setData] = useState({
     national: { data: [], pagination: {} },
     international: { data: [], pagination: {} },
@@ -17,13 +24,15 @@ export function CompanyEvolutionModal({ open, onClose }) {
   const [activeTab, setActiveTab] = useState("national");
   const [filter, setFilter] = useState("weekly");
   const [page, setPage] = useState(1);
-
   const [loading, setLoading] = useState(false);
 
   /* =========================
      FETCH
   ========================= */
   const fetchData = (pageToLoad = 1) => {
+
+    if (!meta?.year) return; // 🔥 evita bug undefined
+
     setLoading(true);
 
     axios
@@ -31,6 +40,8 @@ export function CompanyEvolutionModal({ open, onClose }) {
         params: {
           filter,
           page: pageToLoad,
+          year: meta.year,
+          period: meta.period,
         },
       })
       .then((res) => {
@@ -48,12 +59,38 @@ export function CompanyEvolutionModal({ open, onClose }) {
     fetchData(1);
   }, [open, filter]);
 
+  /* =========================
+     DATA ACTIVA
+  ========================= */
   const dataset = data?.[activeTab]?.data ?? [];
   const pagination = data?.[activeTab]?.pagination ?? {};
 
+  /* =========================
+     EXPORT
+  ========================= */
+  const downloadExcel = () => {
+
+    if (!meta?.year) return;
+
+    const params = new URLSearchParams({
+      year: meta.year.toString(),
+      period: meta.period,
+      filter,
+      type: activeTab, // 🔥 nacional / internacional
+    });
+
+    window.open(
+      `/dashboard/companies/evolution/export?${params}`,
+      "_blank"
+    );
+  };
+
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <Dialog open={open} onOpenChange={onClose}>
-<DialogContent className="!w-[80vw] !max-w-[65vw]">
+      <DialogContent className="!w-[80vw] !max-w-[65vw]">
 
         {/* HEADER */}
         <DialogHeader>
@@ -74,7 +111,10 @@ export function CompanyEvolutionModal({ open, onClose }) {
               {["national", "international"].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setPage(1);
+                  }}
                   className={`px-4 py-2 rounded-lg text-sm font-semibold ${
                     activeTab === tab
                       ? "bg-teal-400 text-white"
@@ -99,8 +139,22 @@ export function CompanyEvolutionModal({ open, onClose }) {
           </div>
 
           {/* RIGHT */}
-          <div className="text-sm text-slate-500">
-            {dataset.length > 0 && `${dataset.length} periodos`}
+          <div className="flex items-center gap-3">
+
+            {/* INFO */}
+            <div className="text-sm text-slate-500">
+              {dataset.length > 0 && `${dataset.length} periodos`}
+            </div>
+
+            {/* EXPORT */}
+            <button
+              onClick={downloadExcel}
+              className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50"
+            >
+              <Download className="w-4 h-4" />
+              Exportar Excel
+            </button>
+
           </div>
 
         </div>

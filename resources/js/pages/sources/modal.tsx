@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+
+import {
+    CheckCircle,
+    XCircle,
+    Settings
+} from 'lucide-react';
 
 type Source = {
     id?: number;
     name: string;
     api_url?: string;
     api_key?: string;
-    app_id?: string; // 🔥 agregar
+    app_id?: string;
 };
 
 type Props = {
@@ -18,62 +23,90 @@ type Props = {
     source: Source | null;
 };
 
-export default function SourceModal({ open, onClose, onSaved, source }: Props) {
+export default function SourceModal({
+    open,
+    onClose,
+    onSaved,
+    source
+}: Props) {
+
+    const DEFAULT_API =
+        'https://www.arbeitnow.com/api/job-board-api';
+
     const [form, setForm] = useState<Source>({
         name: '',
-     
-        api_url: '',
+        api_url: DEFAULT_API,
         api_key: '',
-        app_id: '', // 🔥 agregar
+        app_id: '',
     });
 
     const [testing, setTesting] = useState(false);
-    const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+
+    const [testResult, setTestResult] = useState<
+        'success' | 'error' | null
+    >(null);
+
+    const [showAdvanced, setShowAdvanced] =
+        useState(false);
+
+    const [jobs, setJobs] = useState<any[]>([]);
 
     useEffect(() => {
-       if (source) {
-    setForm({
-        id: source.id,
-        name: source.name || '',
-         
-        api_url: source.api_url || '',
-        api_key: source.api_key || '',
-        app_id: source.app_id || '',
-    });
-} else {
+
+        if (source) {
+
+            setForm({
+                id: source.id,
+                name: source.name || '',
+                api_url:
+                    source.api_url || DEFAULT_API,
+                api_key: source.api_key || '',
+                app_id: source.app_id || '',
+            });
+
+        } else {
+
             setForm({
                 name: '',
-                
-                api_url: '',
+                api_url: DEFAULT_API,
                 api_key: '',
-                app_id: '', // 🔥 agregar
+                app_id: '',
             });
         }
 
+        setJobs([]);
         setTestResult(null);
+
     }, [source]);
-const [jobs, setJobs] = useState<any[]>([]);
-    // 🔥 VALIDACIÓN FLEXIBLE
+
+    // 🔥 VALIDACIÓN
     const validateForm = () => {
-        if (!form.name || form.name.trim() === '') {
+
+        if (!form.name?.trim()) {
+
             Swal.fire({
                 icon: 'warning',
                 title: 'Campo requerido',
-                text: 'El nombre (título) es obligatorio'
+                text: 'El nombre es obligatorio'
             });
+
             return false;
         }
+
         return true;
     };
 
-    // 🔥 SUBMIT
+    // 🔥 GUARDAR
     const handleSubmit = async (e: any) => {
+
         e.preventDefault();
 
         if (!validateForm()) return;
 
         const confirm = await Swal.fire({
-            title: form.id ? '¿Actualizar fuente?' : '¿Crear fuente?',
+            title: form.id
+                ? '¿Actualizar fuente?'
+                : '¿Crear fuente?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí',
@@ -83,25 +116,33 @@ const [jobs, setJobs] = useState<any[]>([]);
         if (!confirm.isConfirmed) return;
 
         try {
+
             Swal.fire({
                 title: 'Guardando...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
 
-            // 🔥 MAPEAMOS A BACKEND
             const payload = {
                 source: form.name,
-                
                 api_url: form.api_url || null,
                 api_key: form.api_key || null,
-                    app_id: form.app_id || null, // 🔥 FALTABA ESTO
+                app_id: form.app_id || null,
             };
 
             if (form.id) {
-                await axios.put(`/sources/${form.id}`, payload);
+
+                await axios.put(
+                    `/sources/${form.id}`,
+                    payload
+                );
+
             } else {
-                await axios.post(`/sources`, payload);
+
+                await axios.post(
+                    `/sources`,
+                    payload
+                );
             }
 
             Swal.fire({
@@ -130,190 +171,510 @@ const [jobs, setJobs] = useState<any[]>([]);
         }
     };
 
-    // 🔥 TEST API (solo si hay URL)
-   const handleTest = async () => {
-    if (!form.api_url) {
-        Swal.fire({
-            icon: 'info',
-            title: 'Campo opcional vacío',
-            text: 'No hay API URL para probar'
-        });
-        return;
-    }
+    // 🔥 TEST API
+    const handleTest = async () => {
 
-    setTesting(true);
-    setTestResult(null);
+        if (!form.api_url) {
 
-    try {
-        Swal.fire({
-            title: 'Probando API...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+            Swal.fire({
+                icon: 'warning',
+                title: 'API URL requerida'
+            });
 
-        const res = await axios.post('/sources/test-data', {
-            api_url: form.api_url,
-            api_key: form.api_key,
-            app_id: form.app_id,
-        });
+            return;
+        }
 
-        setJobs(res.data.jobs || []);
-
-        Swal.close();
-
-        setTestResult('success');
-
-    } catch (e: any) {
-
-        Swal.fire({
-            icon: 'error',
-            title: 'Error al obtener datos'
-        });
-
+        setTesting(true);
+        setTestResult(null);
         setJobs([]);
-        setTestResult('error');
 
-    } finally {
-        setTesting(false);
-    }
-};
+        try {
+
+            const res = await axios.post(
+                '/sources/test-api',
+                {
+                    api_url: form.api_url,
+                    api_key: form.api_key,
+                    app_id: form.app_id,
+                }
+            );
+
+            const data = res.data.data || [];
+
+            setJobs(data);
+
+            setTestResult('success');
+
+            Swal.fire({
+                icon: 'success',
+                title: 'API funcionando',
+                text: `Se encontraron ${data.length} registros`
+            });
+
+        } catch (e: any) {
+
+            setJobs([]);
+
+            setTestResult('error');
+
+            const message =
+                e.response?.data?.message ||
+                'Error al conectar';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Conexión fallida',
+                text: message
+            });
+
+        } finally {
+
+            setTesting(false);
+        }
+    };
 
     if (!open) return null;
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="
+                fixed inset-0 z-50
+                flex items-center justify-center
+                bg-black/40 backdrop-blur-sm
+            "
             onClick={onClose}
         >
+
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-lg p-6 space-y-5 rounded-2xl shadow-xl
-                bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100"
+                className="
+                    w-full max-w-3xl
+                    p-6
+                    rounded-2xl shadow-2xl
+                    bg-white dark:bg-gray-900
+                    text-gray-800 dark:text-gray-100
+                    max-h-[92vh]
+                    overflow-auto
+                "
             >
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">
-                        {form.id ? 'Editar fuente' : 'Nueva fuente'}
+
+                {/* HEADER */}
+                <div className="flex items-center justify-between mb-6">
+
+                    <h2 className="text-xl font-semibold">
+                        {form.id
+                            ? 'Editar fuente'
+                            : 'Nueva fuente'}
                     </h2>
 
-                    <button onClick={onClose}>✕</button>
+                    <button
+                        onClick={onClose}
+                        className="
+                            text-gray-500
+                            hover:text-red-500
+                        "
+                    >
+                        ✕
+                    </button>
+
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                {/* FORM */}
+                <form
+                    onSubmit={handleSubmit}
+                    className="space-y-5"
+                >
 
-                    {/* 🔥 SOLO ESTE ES OBLIGATORIO */}
+                    {/* NOMBRE */}
                     <div>
-                        <label className="text-sm">Nombre *</label>
+
+                        <label className="text-sm font-medium">
+                            Nombre *
+                        </label>
+
                         <input
-                           value={form.name || ''}
+                            value={form.name || ''}
                             onChange={(e) =>
-                                setForm({ ...form, name: e.target.value })
+                                setForm({
+                                    ...form,
+                                    name: e.target.value
+                                })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border"
+                            placeholder="LinkedIn Jobs"
+                            className="
+                                w-full mt-1
+                                px-3 py-2
+                                rounded-xl border
+                                bg-white dark:bg-gray-800
+                                border-gray-200 dark:border-gray-700
+                                outline-none
+                                focus:ring-2 focus:ring-blue-500
+                            "
                         />
+
                     </div>
 
-                    {/* OPCIONAL */}
-                    {/* <div>
-                        <label className="text-sm">Base URL (opcional)</label>
-                        <input
-                            value={form.base_url}
-                            onChange={(e) =>
-                                setForm({ ...form, base_url: e.target.value })
-                            }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border"
-                        />
-                    </div> */}
+                    {/* API URL */}
                     <div>
-                        <label className="text-sm">App ID (opcional)</label>
-                        <input
-                          value={form.app_id || ''}
-                            onChange={(e) =>
-                                setForm({ ...form, app_id: e.target.value })
-                            }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border
-        bg-white dark:bg-gray-800
-        border-gray-200 dark:border-gray-700
-        focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-                    {/* OPCIONAL */}
-                    <div>
-                        <label className="text-sm">API URL (opcional)</label>
+
+                        <label className="text-sm font-medium">
+                            API URL
+                        </label>
+
                         <input
                             value={form.api_url || ''}
                             onChange={(e) =>
-                                setForm({ ...form, api_url: e.target.value })
+                                setForm({
+                                    ...form,
+                                    api_url: e.target.value
+                                })
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border"
+                            className="
+                                w-full mt-1
+                                px-3 py-2
+                                rounded-xl border
+                                bg-white dark:bg-gray-800
+                                border-gray-200 dark:border-gray-700
+                                outline-none
+                                focus:ring-2 focus:ring-blue-500
+                            "
                         />
+
                     </div>
 
-                    {/* OPCIONAL */}
-                    <div>
-                        <label className="text-sm">API Key (opcional)</label>
-                        <input
-                           value={form.api_key || ''}
-                            onChange={(e) =>
-                                setForm({ ...form, api_key: e.target.value })
+                    {/* 🔥 CONFIG AVANZADA */}
+                    <div
+                        className="
+                            border rounded-2xl
+                            p-4
+                            bg-gray-50 dark:bg-gray-800/30
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowAdvanced(
+                                    !showAdvanced
+                                )
                             }
-                            className="w-full mt-1 px-3 py-2 rounded-lg border"
-                        />
+                            className="
+                                w-full
+                                flex items-center gap-2
+                                text-sm font-medium
+                            "
+                        >
+
+                            <Settings className="w-4 h-4" />
+
+                            Configuración avanzada
+
+                            <span className="ml-auto">
+                                {showAdvanced
+                                    ? '−'
+                                    : '+'}
+                            </span>
+
+                        </button>
+
+                        {showAdvanced && (
+
+                            <div className="mt-5 space-y-4">
+
+                                {/* APP ID */}
+                                <div>
+
+                                    <label className="text-sm">
+                                        App ID
+                                    </label>
+
+                                    <input
+                                        value={
+                                            form.app_id || ''
+                                        }
+                                        onChange={(e) =>
+                                            setForm({
+                                                ...form,
+                                                app_id:
+                                                    e.target
+                                                        .value
+                                            })
+                                        }
+                                        className="
+                                            w-full mt-1
+                                            px-3 py-2
+                                            rounded-xl border
+                                            bg-white dark:bg-gray-800
+                                            border-gray-200 dark:border-gray-700
+                                            outline-none
+                                            focus:ring-2 focus:ring-blue-500
+                                        "
+                                    />
+
+                                </div>
+
+                                {/* API KEY */}
+                                <div>
+
+                                    <label className="text-sm">
+                                        API Key
+                                    </label>
+
+                                    <input
+                                        value={
+                                            form.api_key || ''
+                                        }
+                                        onChange={(e) =>
+                                            setForm({
+                                                ...form,
+                                                api_key:
+                                                    e.target
+                                                        .value
+                                            })
+                                        }
+                                        className="
+                                            w-full mt-1
+                                            px-3 py-2
+                                            rounded-xl border
+                                            bg-white dark:bg-gray-800
+                                            border-gray-200 dark:border-gray-700
+                                            outline-none
+                                            focus:ring-2 focus:ring-blue-500
+                                        "
+                                    />
+
+                                </div>
+
+                            </div>
+                        )}
+
                     </div>
 
                     {/* TEST */}
-                    <div className="flex items-center justify-between pt-2">
-                        {/* <button
+                    <div
+                        className="
+                            flex items-center
+                            justify-between
+                            gap-4
+                        "
+                    >
+
+                        <button
                             type="button"
                             onClick={handleTest}
                             disabled={testing}
-                            className="px-4 py-2 rounded-lg bg-gray-200 flex items-center gap-2"
+                            className="
+                                px-5 py-2.5
+                                rounded-xl
+                                bg-gray-900
+                                text-white
+                                hover:bg-black
+                                disabled:opacity-50
+                                transition
+                            "
                         >
-                            {testing && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Test API
-                        </button> */}
 
-                        {testResult === 'success' && (
-                            <CheckCircle className="text-green-500 w-5 h-5" />
-                        )}
+                            {testing
+                                ? 'Probando...'
+                                : 'Test API'}
 
-                        {testResult === 'error' && (
-                            <XCircle className="text-red-500 w-5 h-5" />
-                        )}
-                        {jobs.length > 0 && (
-    <div className="mt-4 border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                    <th className="p-2 text-left">Título</th>
-                    <th className="p-2 text-left">Empresa</th>
-                    <th className="p-2 text-left">Ubicación</th>
-                </tr>
-            </thead>
-            <tbody>
-                {jobs.map((job, i) => (
-                    <tr key={i} className="border-t">
-                        <td className="p-2">{job.title}</td>
-                        <td className="p-2">{job.company}</td>
-                        <td className="p-2">{job.location}</td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
-)}
+                        </button>
+
+                        <div className="flex items-center">
+
+                            {testResult ===
+                                'success' && (
+                                <CheckCircle
+                                    className="
+                                        text-green-500
+                                        w-6 h-6
+                                    "
+                                />
+                            )}
+
+                            {testResult ===
+                                'error' && (
+                                <XCircle
+                                    className="
+                                        text-red-500
+                                        w-6 h-6
+                                    "
+                                />
+                            )}
+
+                        </div>
+
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={onClose}>
+                    {/* 🔥 TABLA */}
+                    {jobs.length > 0 && (
+
+                        <div
+                            className="
+                                mt-6
+                                border rounded-2xl
+                                overflow-hidden
+                            "
+                        >
+
+                            <div
+                                className="
+                                    px-4 py-3
+                                    bg-gray-100 dark:bg-gray-800
+                                    font-medium
+                                "
+                            >
+                                Datos encontrados
+                            </div>
+
+                            <div
+                                className="
+                                    overflow-auto
+                                    max-h-[350px]
+                                "
+                            >
+
+                                <table
+                                    className="
+                                        w-full text-sm
+                                    "
+                                >
+
+                                    <thead
+                                        className="
+                                            bg-gray-50
+                                            dark:bg-gray-900
+                                            border-b
+                                        "
+                                    >
+
+                                        <tr>
+
+                                            <th
+                                                className="
+                                                    p-3 text-left
+                                                "
+                                            >
+                                                Título
+                                            </th>
+
+                                            <th
+                                                className="
+                                                    p-3 text-left
+                                                "
+                                            >
+                                                Empresa
+                                            </th>
+
+                                            <th
+                                                className="
+                                                    p-3 text-left
+                                                "
+                                            >
+                                                Ubicación
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody>
+
+                                        {jobs.map(
+                                            (
+                                                job: any,
+                                                i: number
+                                            ) => (
+
+                                                <tr
+                                                    key={i}
+                                                    className="
+                                                        border-b
+                                                    "
+                                                >
+
+                                                    <td
+                                                        className="
+                                                            p-3
+                                                        "
+                                                    >
+                                                        {job.title ||
+                                                            'N/A'}
+                                                    </td>
+
+                                                    <td
+                                                        className="
+                                                            p-3
+                                                        "
+                                                    >
+                                                        {job.company_name ||
+                                                            job.company ||
+                                                            'N/A'}
+                                                    </td>
+
+                                                    <td
+                                                        className="
+                                                            p-3
+                                                        "
+                                                    >
+                                                        {job.location ||
+                                                            job.candidate_required_location ||
+                                                            'Remote'}
+                                                    </td>
+
+                                                </tr>
+                                            )
+                                        )}
+
+                                    </tbody>
+
+                                </table>
+
+                            </div>
+
+                        </div>
+                    )}
+
+                    {/* FOOTER */}
+                    <div
+                        className="
+                            flex justify-end
+                            gap-3
+                            pt-6
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="
+                                px-4 py-2
+                                rounded-xl
+                                border
+                            "
+                        >
                             Cancelar
                         </button>
 
-                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+                        <button
+                            type="submit"
+                            className="
+                                bg-blue-600
+                                text-white
+                                px-5 py-2
+                                rounded-xl
+                                hover:bg-blue-700
+                            "
+                        >
                             Guardar
                         </button>
+
                     </div>
+
                 </form>
+
             </div>
+
         </div>
     );
 }
