@@ -193,52 +193,130 @@ class DiscoverGlobalMacroTrendsCommand extends Command
        PROMPT GPT
     ===================================================== */
 
- protected function buildPrompt(array $articles): string
+protected function buildPrompt(array $articles): string
 {
     $list = collect($articles)
-        ->take(40) // más contexto mejora resultados
-        ->map(fn($a) => "- {$a['title']} ({$a['url']})")
-        ->implode("\n");
+        ->take(60)
+        ->map(function ($a, $i) {
+
+            $title = $a['title'] ?? '';
+            $url   = $a['url'] ?? '';
+
+            return ($i + 1) . ". {$title}\n{$url}";
+        })
+        ->implode("\n\n");
 
     return <<<PROMPT
-You are a global technology intelligence analyst.
+Eres un analista senior de tendencias tecnológicas con enfoque en transformación digital, empleabilidad y educación.
 
-Below is a list of real articles about technology, digital transformation, AI, and future trends.
+ARTÍCULOS
 
-ARTICLES:
+A continuación recibirás varios artículos relacionados con:
+- tecnología
+- inteligencia artificial
+- transformación digital
+- futuro del trabajo
+- cloud
+- ciberseguridad
+- automatización
+- educación digital
+
+Cada artículo contiene:
+- título
+- enlace
+
+ARTÍCULOS:
 {$list}
 
-TASK
-Identify 6–12 MACRO technology trends shaping global digital transformation.
+TAREA
 
-REQUIREMENTS
-- Trend names MUST be written in Spanish.
-- Descriptions MUST be written in Spanish.
-- Use short strategic descriptions (max 3 sentences).
-- Use the article list as evidence.
-- Do NOT invent sources.
-- Keep the original article title and URL exactly as provided.
-- Prefer trends appearing across multiple sources.
+Identifica entre 8 y 12 MACROTENDENCIAS tecnológicas globales basadas EXCLUSIVAMENTE en los artículos proporcionados.
 
-OUTPUT
-Return STRICT JSON only.
+DEFINICIÓN CLAVE
+
+Una macrotendencia NO es una tecnología aislada.
+
+Debe representar un cambio estructural que impacta:
+- la forma en que trabajan las empresas
+- los perfiles profesionales
+- las habilidades demandadas
+- la transformación digital empresarial
+
+CRITERIOS OBLIGATORIOS
+
+Cada tendencia debe:
+- estar respaldada por al menos 2 artículos
+- representar un cambio observable y real
+- tener impacto en empleabilidad o roles tecnológicos
+- ser estratégica y transversal
+- NO ser solamente una herramienta o producto
+
+ENFOQUE ADICIONAL
+
+Prioriza tendencias que representen oportunidades claras para:
+- actualización curricular
+- nuevas competencias digitales
+- formación tecnológica
+- nuevas especializaciones
+- adaptación educativa al mercado laboral
+
+IMPORTANTE:
+- NO inventar tendencias educativas
+- El enfoque educativo debe derivarse de la evidencia de mercado
+
+RESTRICCIONES
+
+- NO inventar información
+- NO usar conocimiento externo
+- NO crear tendencias sin respaldo
+- NO repetir tendencias similares
+- Evitar nombres genéricos como:
+  - "Inteligencia Artificial"
+  - "Cloud"
+  - "Automatización"
+
+En su lugar usar enfoques específicos como:
+- "Automatización inteligente de procesos empresariales"
+- "Adopción de IA generativa en flujos corporativos"
+- "Convergencia entre cloud e IA empresarial"
+
+SALIDA
+
+Devuelve ÚNICAMENTE un JSON válido con esta estructura EXACTA:
 
 {
- "trends":[
-  {
-   "name":"Nombre de la tendencia en español",
-   "description":"Explicación estratégica breve en español",
-   "source":{
-      "name":"Website or institution",
-      "title":"Original article title",
-      "url":"https://...",
-      "type":"article | report | study"
-   }
-  }
- ]
+  "trends": [
+    {
+      "trend_name": "Nombre de la tendencia en español",
+
+      "description": "Explicación clara del cambio estructural que está ocurriendo",
+
+      "evidence": [
+        {
+          "title": "Título original del artículo",
+
+          "url": "URL exacta del artículo",
+
+          "insight": "Qué parte del artículo sustenta la tendencia"
+        }
+      ],
+
+      "impact_on_employability": "Cómo afecta roles, habilidades o demanda laboral",
+
+      "education_opportunity": "Cómo podría traducirse en actualización curricular o nuevas competencias",
+
+      "maturity_level": "Emergente | En crecimiento | Consolidada"
+    }
+  ]
 }
 
-Do NOT include any text outside the JSON.
+REGLAS FINALES
+
+- SOLO JSON
+- NO markdown
+- NO explicaciones
+- NO texto adicional
+- JSON válido
 PROMPT;
 }
 
