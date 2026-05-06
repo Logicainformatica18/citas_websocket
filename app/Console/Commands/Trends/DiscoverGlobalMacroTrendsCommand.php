@@ -112,7 +112,7 @@ class DiscoverGlobalMacroTrendsCommand extends Command
             $response = Http::post(
                 'https://api.tavily.com/search',
                 [
-                    'api_key' => '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',
+                    'api_key' => env('TAVILY_KEY'),
                     'query' => $query,
                     'search_depth' => 'basic',
                     'max_results' => $limit

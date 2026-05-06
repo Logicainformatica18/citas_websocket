@@ -9,13 +9,18 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 
-import { Trophy, Calendar } from "lucide-react";
+import { Trophy, Calendar, Download } from "lucide-react";
+
+import { usePage } from "@inertiajs/react";
 
 export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
+
+  const { meta } = usePage().props as any; // 🔥 FIX
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
   const [filter, setFilter] = useState("weekly");
+  const [loading, setLoading] = useState(false);
 
   /* ==================================================
      FETCH
@@ -23,19 +28,42 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return;
 
+    setLoading(true);
+
     axios
       .get("/dashboard/ranking-certificaciones/weekly", {
-        params: { page, per_page: 6, filter },
+        params: {
+          page,
+          per_page: 6,
+          filter,
+          year: meta?.year, // 🔥 importante
+        },
       })
       .then((res) => {
         setData(res.data.data);
         setPagination(res.data.pagination);
-      });
+      })
+      .finally(() => setLoading(false));
   }, [open, page, filter]);
 
   useEffect(() => {
     setPage(1);
   }, [filter]);
+
+  /* ==================================================
+     EXPORT
+  ================================================== */
+  const downloadExcel = () => {
+    const params = new URLSearchParams({
+      year: meta?.year?.toString(),
+      filter,
+    });
+
+    window.open(
+      `/dashboard/ranking-certificaciones/weekly/export?${params}`,
+      "_blank"
+    );
+  };
 
   /* ==================================================
      HELPERS
@@ -60,8 +88,7 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
 
     if (filter === "biweekly") {
       const parts = item.period.toString().split("-");
-      const q = parts[2];
-      return q === "1"
+      return parts[2] === "1"
         ? "Primera quincena"
         : "Segunda quincena";
     }
@@ -84,13 +111,12 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!max-w-[1000px] w-full p-0">
 
-        {/* 🔥 FIX ACCESIBILIDAD */}
         <DialogHeader>
           <DialogTitle className="sr-only">
             {getTitle()}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Evolución de certificaciones por demanda laboral
+            Evolución de certificaciones
           </DialogDescription>
         </DialogHeader>
 
@@ -106,8 +132,9 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
               </p>
             </div>
 
-            {/* FILTRO */}
-            <div className="pr-10">
+            <div className="flex items-center gap-2 pr-10">
+
+              {/* FILTRO */}
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -117,13 +144,33 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
                 <option value="biweekly">Quincenal</option>
                 <option value="monthly">Mensual</option>
               </select>
+
+              {/* EXPORT */}
+              <button
+                onClick={downloadExcel}
+                className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold hover:bg-slate-50"
+              >
+                <Download className="w-4 h-4" />
+                Exportar
+              </button>
+
             </div>
           </div>
 
           {/* LISTA */}
           <div className="overflow-y-auto px-5 py-4 space-y-5">
 
-            {data.map((item) => (
+            {loading && (
+              <p className="text-sm text-slate-500">Cargando...</p>
+            )}
+
+            {!loading && data.length === 0 && (
+              <p className="text-sm text-slate-400">
+                No hay datos disponibles
+              </p>
+            )}
+
+            {!loading && data.map((item) => (
               <div
                 key={item.period}
                 className="border rounded-xl p-4 bg-white"
@@ -147,9 +194,7 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs text-slate-400">
-                      Total
-                    </p>
+                    <p className="text-xs text-slate-400">Total</p>
                     <p className="text-lg font-bold text-teal-600">
                       {item.total_period}
                     </p>

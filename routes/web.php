@@ -460,6 +460,11 @@ Route::prefix('trends')->group(function () {
 
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
 Route::get(
+    '/weekly/export',
+    [RankingCertificacionesController::class, 'exportWeekly']
+)->name('certifications.weekly.export');
+
+Route::get(
     '/weekly',
     [RankingCertificacionesController::class, 'weeklyScores']
 );

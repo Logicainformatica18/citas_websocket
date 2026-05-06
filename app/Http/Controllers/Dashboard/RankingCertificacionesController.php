@@ -8,7 +8,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Prueba;
 use Illuminate\Support\Facades\Artisan;
- 
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CertificationsWeeklyExport;
 use Illuminate\Support\Facades\Log;
 
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -553,16 +554,16 @@ public function weeklyScores(Request $request, $certId = null)
             ";
 
             $startDate = "
-                CASE 
-                    WHEN DAY(MIN(j.published_at)) <= 15 
+                CASE
+                    WHEN DAY(MIN(j.published_at)) <= 15
                     THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-01')
                     ELSE DATE_FORMAT(MIN(j.published_at), '%Y-%m-16')
                 END
             ";
 
             $endDate = "
-                CASE 
-                    WHEN DAY(MIN(j.published_at)) <= 15 
+                CASE
+                    WHEN DAY(MIN(j.published_at)) <= 15
                     THEN DATE_FORMAT(MIN(j.published_at), '%Y-%m-15')
                     ELSE LAST_DAY(MIN(j.published_at))
                 END
@@ -637,5 +638,15 @@ public function weeklyScores(Request $request, $certId = null)
             'last_page' => ceil($total / $perPage),
         ],
     ]);
+}
+public function exportWeekly(Request $request)
+{
+    $year   = (int) $request->get('year', 2026);
+    $filter = $request->get('filter', 'weekly');
+
+    return Excel::download(
+        new CertificationsWeeklyExport($year, $filter),
+        "certifications_weekly.xlsx"
+    );
 }
 }
