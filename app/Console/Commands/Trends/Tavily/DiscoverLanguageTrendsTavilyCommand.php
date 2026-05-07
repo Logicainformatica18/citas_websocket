@@ -309,17 +309,20 @@ class DiscoverLanguageTrendsTavilyCommand extends Command
         $year = now()->year;
 
         return <<<QUERY
-{$language} programming language trends {$year}.
+Enterprise programming language trends for {$language} in {$year}.
 
 Focus on:
-- Job demand
-- AI ecosystem
-- Enterprise adoption
-- Backend/frontend usage
-- Cloud development
+- enterprise adoption
+- backend development
+- frontend ecosystem
+- cloud-native development
+- AI integration
+- developer demand
+- hiring growth
+- GitHub popularity
+- StackOverflow trends
+- modern software architecture
 
-Sources:
-GitHub, StackOverflow, Gartner, LinkedIn, JetBrains, RedMonk, TIOBE.
 QUERY;
     }
 
@@ -373,6 +376,85 @@ QUERY;
 
                     'include_images' =>
                         false,
+
+                    /*
+                    =========================================
+                    DOMINIOS PRIORITARIOS
+                    =========================================
+                    */
+
+                    'include_domains' => [
+
+                        /*
+                        =====================================
+                        NIVEL 1
+                        =====================================
+                        */
+
+                        'github.com',
+                        'stackoverflow.com',
+                        'stackoverflow.blog',
+                        'stackexchange.com',
+                        'jetbrains.com',
+                        'redmonk.com',
+                        'tiobe.com',
+                        'linkedin.com',
+                        'gartner.com',
+                        'mckinsey.com',
+                        'deloitte.com',
+                        'pwc.com',
+
+                        /*
+                        =====================================
+                        NIVEL 2
+                        =====================================
+                        */
+
+                        'infoq.com',
+                        'thoughtworks.com',
+                        'martinfowler.com',
+                        'dev.to',
+                        'hashnode.com',
+                        'medium.com',
+                        'towardsdatascience.com',
+                        'kdnuggets.com',
+
+                        /*
+                        =====================================
+                        NIVEL 3
+                        =====================================
+                        */
+
+                        'aws.amazon.com',
+                        'cloud.google.com',
+                        'azure.microsoft.com',
+                        'vercel.com',
+                        'netlify.com',
+
+                        /*
+                        =====================================
+                        NIVEL 4
+                        =====================================
+                        */
+
+                        'techcrunch.com',
+                        'theverge.com',
+                        'venturebeat.com',
+                        'zdnet.com',
+                        'computerworld.com',
+                        'techtarget.com',
+
+                        /*
+                        =====================================
+                        NIVEL 5
+                        =====================================
+                        */
+
+                        'openai.com',
+                        'anthropic.com',
+                        'huggingface.co',
+                        'langchain.com',
+                    ],
                 ]
             );
 

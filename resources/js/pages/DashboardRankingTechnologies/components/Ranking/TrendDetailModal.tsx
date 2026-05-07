@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 export type TrendReport = {
   id: number;
   trend_score: number | string;
@@ -28,7 +30,6 @@ type Props = {
   technologyName: string | null;
   reports: TrendReport[];
 
-  // 👇 NUEVO
   stats?: Stats;
 
   pagination?: Pagination;
@@ -40,22 +41,59 @@ export default function TrendDetailModal({
   open,
   technologyName,
   reports,
-
-  // 👇 NUEVO
   stats,
-
   pagination,
   onPageChange,
   onClose,
 }: Props) {
   if (!open) return null;
 
-  // 👇 AHORA VIENEN DEL BACKEND
   const tavilyCount =
     stats?.tavily_total ?? 0;
 
   const gptCount =
     stats?.gpt_total ?? 0;
+
+  /* =========================================================
+     FIX PAGINATION
+  ========================================================= */
+
+  const currentPage =
+    pagination?.current_page ?? 1;
+
+  const lastPage =
+    pagination?.last_page ?? 1;
+
+  const visiblePages = useMemo(() => {
+    if (lastPage <= 5) {
+      return Array.from(
+        { length: lastPage },
+        (_, i) => i + 1
+      );
+    }
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, 5];
+    }
+
+    if (currentPage >= lastPage - 2) {
+      return [
+        lastPage - 4,
+        lastPage - 3,
+        lastPage - 2,
+        lastPage - 1,
+        lastPage,
+      ];
+    }
+
+    return [
+      currentPage - 2,
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      currentPage + 2,
+    ];
+  }, [currentPage, lastPage]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -353,7 +391,12 @@ export default function TrendDetailModal({
                   <div className="flex-1">
                     {/* NUMBER */}
                     <div className="text-[11px] font-bold text-slate-400">
-                      #{index + 1}
+                      #
+                      {(currentPage - 1) *
+                        (pagination?.per_page ??
+                          reports.length) +
+                        index +
+                        1}
                     </div>
 
                     {/* TITLE */}
@@ -455,6 +498,31 @@ export default function TrendDetailModal({
                         </span>
                       )}
 
+                      {/* SOURCE */}
+                      {report.discovered_by && (
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            rounded-full
+                            border
+                            border-slate-200
+                            bg-slate-100
+                            dark:bg-slate-800
+                            dark:border-slate-700
+                            px-2.5
+                            py-1
+                            text-[11px]
+                            font-medium
+                            text-slate-700
+                            dark:text-slate-300
+                          "
+                        >
+                          🧠 Fuente:{" "}
+                          {report.discovered_by}
+                        </span>
+                      )}
+
                       {/* ORIGIN */}
                       <span
                         className={`
@@ -529,32 +597,151 @@ export default function TrendDetailModal({
             dark:border-slate-800
             bg-white
             dark:bg-[#111827]
-            flex
-            items-center
-            justify-between
           "
         >
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {pagination?.total ?? reports.length} fuentes · Haz clic
-            en el título para abrir la fuente original
-          </p>
+          <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+            {/* INFO */}
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {pagination?.total ??
+                  reports.length}{" "}
+                fuentes · Haz clic en el título para abrir
+                la fuente original
+              </p>
 
-          <button
-            onClick={onClose}
-            className="
-              px-4
-              py-2.5
-              rounded-xl
-              bg-[#0F172A]
-              hover:bg-[#111827]
-              text-white
-              text-sm
-              font-semibold
-              transition-colors
-            "
-          >
-            Cerrar
-          </button>
+              {pagination && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Página {currentPage} de{" "}
+                  {lastPage}
+                </p>
+              )}
+            </div>
+
+            {/* PAGINATION */}
+            {pagination &&
+              lastPage > 1 && (
+                <div className="flex items-center gap-2">
+                  {/* PREV */}
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      onPageChange?.(
+                        currentPage - 1
+                      )
+                    }
+                    className="
+                      px-3
+                      py-2
+                      rounded-xl
+                      border
+                      border-slate-200
+                      dark:border-slate-700
+                      bg-white
+                      dark:bg-slate-900
+                      text-xs
+                      font-medium
+                      text-slate-700
+                      dark:text-slate-300
+                      hover:bg-slate-50
+                      dark:hover:bg-slate-800
+                      disabled:opacity-40
+                      disabled:cursor-not-allowed
+                      transition-all
+                    "
+                  >
+                    ← Anterior
+                  </button>
+
+                  {/* PAGES */}
+                  <div className="flex items-center gap-1">
+                    {visiblePages.map((page) => {
+                      const active =
+                        page === currentPage;
+
+                      return (
+                        <button
+                          key={page}
+                          onClick={() =>
+                            onPageChange?.(
+                              page
+                            )
+                          }
+                          className={`
+                            h-9
+                            w-9
+                            rounded-xl
+                            text-xs
+                            font-semibold
+                            transition-all
+                            ${
+                              active
+                                ? "bg-violet-600 text-white shadow-md"
+                                : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            }
+                          `}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* NEXT */}
+                  <button
+                    disabled={
+                      currentPage ===
+                      lastPage
+                    }
+                    onClick={() =>
+                      onPageChange?.(
+                        currentPage + 1
+                      )
+                    }
+                    className="
+                      px-3
+                      py-2
+                      rounded-xl
+                      border
+                      border-slate-200
+                      dark:border-slate-700
+                      bg-white
+                      dark:bg-slate-900
+                      text-xs
+                      font-medium
+                      text-slate-700
+                      dark:text-slate-300
+                      hover:bg-slate-50
+                      dark:hover:bg-slate-800
+                      disabled:opacity-40
+                      disabled:cursor-not-allowed
+                      transition-all
+                    "
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              )}
+
+            {/* CLOSE */}
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="
+                  px-4
+                  py-2.5
+                  rounded-xl
+                  bg-[#0F172A]
+                  hover:bg-[#111827]
+                  text-white
+                  text-sm
+                  font-semibold
+                  transition-colors
+                "
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

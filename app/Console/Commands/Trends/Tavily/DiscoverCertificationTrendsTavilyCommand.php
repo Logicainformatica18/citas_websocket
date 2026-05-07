@@ -309,18 +309,20 @@ class DiscoverCertificationTrendsTavilyCommand extends Command
         $year = now()->year;
 
         return <<<QUERY
-{$certification} certification trends {$year}.
+Enterprise certification trends for {$certification} in {$year}.
 
 Focus on:
-- Job demand
-- Enterprise adoption
-- Cloud certifications
+- enterprise adoption
+- hiring demand
+- cloud certifications
 - AI certifications
-- Cybersecurity certifications
-- Hiring relevance
+- cybersecurity certifications
+- DevOps certifications
+- salary impact
+- career growth
+- workforce demand
+- professional upskilling
 
-Sources:
-Microsoft, AWS, Google Cloud, Cisco, CompTIA, LinkedIn, Gartner.
 QUERY;
     }
 
@@ -374,6 +376,84 @@ QUERY;
 
                     'include_images' =>
                         false,
+
+                    /*
+                    =========================================
+                    DOMINIOS PRIORITARIOS
+                    =========================================
+                    */
+
+                    'include_domains' => [
+
+                        /*
+                        =====================================
+                        CLOUD & BIG TECH
+                        =====================================
+                        */
+
+                        'aws.amazon.com',
+                        'cloud.google.com',
+                        'learn.microsoft.com',
+                        'azure.microsoft.com',
+                        'oracle.com',
+                        'ibm.com',
+                        'cisco.com',
+
+                        /*
+                        =====================================
+                        CERTIFICATION PROVIDERS
+                        =====================================
+                        */
+
+                        'comptia.org',
+                        'isc2.org',
+                        'pmi.org',
+                        'peoplecert.org',
+                        'scrum.org',
+                        'scrumalliance.org',
+                        'linuxfoundation.org',
+                        'redhat.com',
+                        'salesforce.com',
+
+                        /*
+                        =====================================
+                        MARKET & INDUSTRY
+                        =====================================
+                        */
+
+                        'linkedin.com',
+                        'gartner.com',
+                        'mckinsey.com',
+                        'deloitte.com',
+                        'pwc.com',
+                        'coursera.org',
+                        'udemy.com',
+                        'pluralsight.com',
+
+                        /*
+                        =====================================
+                        TECH NEWS
+                        =====================================
+                        */
+
+                        'techcrunch.com',
+                        'venturebeat.com',
+                        'zdnet.com',
+                        'computerworld.com',
+                        'techtarget.com',
+                        'infoq.com',
+
+                        /*
+                        =====================================
+                        AI & EMERGING TECH
+                        =====================================
+                        */
+
+                        'openai.com',
+                        'anthropic.com',
+                        'huggingface.co',
+                        'deepmind.google',
+                    ],
                 ]
             );
 

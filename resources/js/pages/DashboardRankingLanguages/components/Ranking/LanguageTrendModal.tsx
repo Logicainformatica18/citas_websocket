@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 export default function TrendDetailModal({
   open,
   language,
@@ -14,6 +16,47 @@ export default function TrendDetailModal({
 
   const gptCount =
     stats?.gpt_total ?? 0;
+
+  /* =========================================================
+     FIX PAGINATION
+  ========================================================= */
+
+  const currentPage =
+    pagination?.current_page ?? 1;
+
+  const lastPage =
+    pagination?.last_page ?? 1;
+
+  const visiblePages = useMemo(() => {
+    if (lastPage <= 5) {
+      return Array.from(
+        { length: lastPage },
+        (_, i) => i + 1
+      );
+    }
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, 5];
+    }
+
+    if (currentPage >= lastPage - 2) {
+      return [
+        lastPage - 4,
+        lastPage - 3,
+        lastPage - 2,
+        lastPage - 1,
+        lastPage,
+      ];
+    }
+
+    return [
+      currentPage - 2,
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      currentPage + 2,
+    ];
+  }, [currentPage, lastPage]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -258,6 +301,26 @@ export default function TrendDetailModal({
 
         {/* CONTENT */}
         <div className="px-6 py-5 max-h-[55vh] overflow-y-auto space-y-3">
+          {(trends ?? []).length === 0 && (
+            <div
+              className="
+                rounded-2xl
+                border
+                border-dashed
+                border-slate-300
+                dark:border-slate-700
+                bg-white
+                dark:bg-[#111827]
+                p-10
+                text-center
+              "
+            >
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No se encontraron tendencias.
+              </p>
+            </div>
+          )}
+
           {(trends ?? []).map((report, index) => {
             const source = report.discovered_by
               ?.trim()
@@ -285,10 +348,17 @@ export default function TrendDetailModal({
               >
                 <div className="flex gap-4">
                   <div className="flex-1">
+                    {/* NUMBER */}
                     <div className="text-[11px] font-bold text-slate-400">
-                      #{index + 1}
+                      #
+                      {(currentPage - 1) *
+                        (pagination?.per_page ??
+                          trends.length) +
+                        index +
+                        1}
                     </div>
 
+                    {/* TITLE */}
                     {report.source_url ? (
                       <a
                         href={report.source_url}
@@ -312,15 +382,18 @@ export default function TrendDetailModal({
                       </h3>
                     )}
 
+                    {/* DESCRIPTION */}
                     <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
                       {isTavily
                         ? "Fuente externa verificada."
                         : isGPT
-                        ? "Tendencia propuesta por IA."
-                        : "Origen no identificado."}
+                          ? "Tendencia propuesta por IA."
+                          : "Origen no identificado."}
                     </p>
 
+                    {/* META */}
                     <div className="mt-4 flex flex-wrap gap-2">
+                      {/* TYPE */}
                       {report.source_type && (
                         <span
                           className="
@@ -339,6 +412,7 @@ export default function TrendDetailModal({
                         </span>
                       )}
 
+                      {/* DATE */}
                       {report.created_at && (
                         <span
                           className="
@@ -360,6 +434,27 @@ export default function TrendDetailModal({
                         </span>
                       )}
 
+                      {/* SOURCE */}
+                      {report.discovered_by && (
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            rounded-full
+                            border
+                            border-slate-200
+                            bg-slate-100
+                            px-2.5
+                            py-1
+                            text-[11px]
+                          "
+                        >
+                          🧠 Fuente:{" "}
+                          {report.discovered_by}
+                        </span>
+                      )}
+
+                      {/* ORIGIN */}
                       <span
                         className={`
                           inline-flex
@@ -373,13 +468,17 @@ export default function TrendDetailModal({
                           ${
                             isTavily
                               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-violet-200 bg-violet-50 text-violet-700"
+                              : isGPT
+                                ? "border-violet-200 bg-violet-50 text-violet-700"
+                                : "border-slate-200 bg-slate-50 text-slate-700"
                           }
                         `}
                       >
                         {isTavily
                           ? "🔎 Tavily"
-                          : "🤖 GPT"}
+                          : isGPT
+                            ? "🤖 GPT"
+                            : "⚪ Desconocido"}
                       </span>
                     </div>
                   </div>
@@ -431,33 +530,151 @@ export default function TrendDetailModal({
             dark:border-slate-800
             bg-white
             dark:bg-[#111827]
-            flex
-            items-center
-            justify-between
           "
         >
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {pagination?.total ??
-              trends?.length ??
-              0}{" "}
-            fuentes
-          </p>
+          <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
 
-          <button
-            onClick={onClose}
-            className="
-              px-4
-              py-2.5
-              rounded-xl
-              bg-[#0F172A]
-              hover:bg-[#111827]
-              text-white
-              text-sm
-              font-semibold
-            "
-          >
-            Cerrar
-          </button>
+            {/* INFO */}
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {pagination?.total ??
+                  trends?.length ??
+                  0}{" "}
+                fuentes
+              </p>
+
+              {pagination && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Página {currentPage} de{" "}
+                  {lastPage}
+                </p>
+              )}
+            </div>
+
+            {/* PAGINATION */}
+            {pagination &&
+              lastPage > 1 && (
+                <div className="flex items-center gap-2">
+                  {/* PREV */}
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      onPageChange?.(
+                        currentPage - 1
+                      )
+                    }
+                    className="
+                      px-3
+                      py-2
+                      rounded-xl
+                      border
+                      border-slate-200
+                      dark:border-slate-700
+                      bg-white
+                      dark:bg-slate-900
+                      text-xs
+                      font-medium
+                      text-slate-700
+                      dark:text-slate-300
+                      hover:bg-slate-50
+                      dark:hover:bg-slate-800
+                      disabled:opacity-40
+                      disabled:cursor-not-allowed
+                      transition-all
+                    "
+                  >
+                    ← Anterior
+                  </button>
+
+                  {/* PAGES */}
+                  <div className="flex items-center gap-1">
+                    {visiblePages.map((page) => {
+                      const active =
+                        page === currentPage;
+
+                      return (
+                        <button
+                          key={page}
+                          onClick={() =>
+                            onPageChange?.(
+                              page
+                            )
+                          }
+                          className={`
+                            h-9
+                            w-9
+                            rounded-xl
+                            text-xs
+                            font-semibold
+                            transition-all
+                            ${
+                              active
+                                ? "bg-violet-600 text-white shadow-md"
+                                : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            }
+                          `}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* NEXT */}
+                  <button
+                    disabled={
+                      currentPage ===
+                      lastPage
+                    }
+                    onClick={() =>
+                      onPageChange?.(
+                        currentPage + 1
+                      )
+                    }
+                    className="
+                      px-3
+                      py-2
+                      rounded-xl
+                      border
+                      border-slate-200
+                      dark:border-slate-700
+                      bg-white
+                      dark:bg-slate-900
+                      text-xs
+                      font-medium
+                      text-slate-700
+                      dark:text-slate-300
+                      hover:bg-slate-50
+                      dark:hover:bg-slate-800
+                      disabled:opacity-40
+                      disabled:cursor-not-allowed
+                      transition-all
+                    "
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              )}
+
+            {/* CLOSE */}
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="
+                  px-4
+                  py-2.5
+                  rounded-xl
+                  bg-[#0F172A]
+                  hover:bg-[#111827]
+                  text-white
+                  text-sm
+                  font-semibold
+                "
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

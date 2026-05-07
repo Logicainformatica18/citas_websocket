@@ -14,17 +14,20 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                             {--limit=20 : Cantidad máxima de tecnologías}
                             {--sleep=10 : Segundos entre requests}';
 
-    protected $description = 'Descubre tendencias de tecnologías usando Tavily AI';
+    protected $description =
+        'Descubre tendencias de tecnologías usando Tavily AI';
 
     /* =========================================================
        HANDLE
     ========================================================= */
     public function handle()
     {
-        $year    = now()->year;
+        $year = now()->year;
+
         $quarter = now()->quarter;
 
         $limit = (int) $this->option('limit');
+
         $sleep = (int) $this->option('sleep');
 
         $this->info(
@@ -86,39 +89,75 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                         2
                     );
 
+                    /*
+                    =========================================
+                    NORMALIZAR URL
+                    =========================================
+                    */
+
                     $url = strtok($url, '?');
+
                     $url = rtrim($url, '/');
 
                     if (!$title || !$url) {
                         continue;
                     }
 
-                    // 🔥 DUPLICADOS
-                $exists = EntityTrend::where(
-    'market_entity_id',
-    $technology['id']
-)
-->where(function ($q) use ($url, $title) {
+                    /*
+                    =========================================
+                    DUPLICADOS
+                    =========================================
+                    */
 
-    $q->where('source_url', $url);
+                    $exists = EntityTrend::where(
+                        'market_entity_id',
+                        $technology['id']
+                    )
 
-    $q->orWhereRaw(
-        'LOWER(TRIM(source_title)) = ?',
-        [strtolower(trim($title))]
-    );
-})
-->exists();
+                    ->where(function ($q) use (
+                        $url,
+                        $title
+                    ) {
+
+                        $q->where(
+                            'source_url',
+                            $url
+                        );
+
+                        $q->orWhereRaw(
+                            'LOWER(TRIM(source_title)) = ?',
+                            [
+                                strtolower(
+                                    trim($title)
+                                )
+                            ]
+                        );
+                    })
+
+                    ->exists();
 
                     if ($exists) {
                         continue;
                     }
 
-                    // 🔥 NOMBRE TENDENCIA
-                    $trendName = $this->extractTrendName(
-                        $technology['name'],
-                        $title,
-                        $content
-                    );
+                    /*
+                    =========================================
+                    TREND NAME
+                    =========================================
+                    */
+
+                    $trendName =
+                        $this->extractTrendName(
+                            $technology['name'],
+                            $title,
+                            $content
+                        );
+
+                    /*
+                    =========================================
+                    SAVE
+                    =========================================
+                    */
 
                     EntityTrend::create([
 
@@ -241,6 +280,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             ->select(
                 'me.id',
                 'me.name',
+
                 DB::raw(
                     'MAX(et.created_at) as last_trend_at'
                 )
@@ -251,6 +291,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             ->map(fn ($t) => [
 
                 'id'   => $t->id,
+
                 'name' => $t->name,
 
             ])
@@ -268,28 +309,15 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
         $year = now()->year;
 
         return <<<QUERY
-Latest enterprise technology trends for {$technology} in {$year}.
+Enterprise technology trends for {$technology} in {$year}.
 
 Focus on:
-- Enterprise adoption
-- Job market demand
+- enterprise adoption
+- job demand
 - AI integration
-- Cloud relevance
-- Industry usage
-- Infrastructure growth
-- Hiring demand
-
-Prioritize authoritative sources:
-- Gartner
-- McKinsey
-- Deloitte
-- OECD
-- WEF
-- Coursera
-- LinkedIn
-- TechCrunch
-- IEEE
-- VentureBeat
+- cloud infrastructure
+- industry usage
+- hiring growth
 QUERY;
     }
 
@@ -305,7 +333,7 @@ QUERY;
         if (!$apiKey) {
 
             throw new \Exception(
-                'TAVILY_API_KEY no configurada'
+                'TAVILY_KEY no configurada'
             );
         }
 
@@ -343,6 +371,83 @@ QUERY;
 
                     'include_images' =>
                         false,
+
+                    /*
+                    =========================================
+                    DOMINIOS PRIORITARIOS
+                    =========================================
+                    */
+
+                    'include_domains' => [
+
+                        /*
+                        =====================================
+                        NIVEL 1
+                        =====================================
+                        */
+
+                        'weforum.org',
+                        'oecd.org',
+                        'unesco.org',
+                        'gartner.com',
+                        'mckinsey.com',
+                        'pwc.com',
+                        'deloitte.com',
+                        'holoniq.com',
+                        'linkedin.com',
+                        'coursera.org',
+                        'lightcast.io',
+                        'burning-glass.com',
+
+                        /*
+                        =====================================
+                        NIVEL 2
+                        =====================================
+                        */
+
+                        'techcrunch.com',
+                        'theverge.com',
+                        'zdnet.com',
+                        'venturebeat.com',
+                        'computerworld.com',
+                        'informationweek.com',
+                        'techrepublic.com',
+                        'networkworld.com',
+                        'theregister.com',
+                        'techtarget.com',
+
+                        /*
+                        =====================================
+                        NIVEL 3
+                        =====================================
+                        */
+
+                        'ieee.org',
+                        'kdnuggets.com',
+                        'towardsdatascience.com',
+
+                        /*
+                        =====================================
+                        NIVEL 4
+                        =====================================
+                        */
+
+                        'aws.amazon.com',
+                        'microsoft.com',
+                        'oracle.com',
+                        'salesforce.com',
+                        'cisco.com',
+                        'ces.tech',
+
+                        /*
+                        =====================================
+                        NIVEL 5
+                        =====================================
+                        */
+
+                        'educause.edu',
+                        'edtechmagazine.com',
+                    ],
                 ]
             );
 

@@ -62,48 +62,123 @@ export default function RankingTecnologiasPage() {
   ========================= */
 const [trendModal, setTrendModal] = useState<{
   open: boolean;
+
+  technologyId: number | null;
+
   technologyName: string | null;
+
   reports: any[];
+
   pagination?: any;
+
   stats?: {
     tavily_total: number;
     gpt_total: number;
   };
 }>({
   open: false,
+
+  technologyId: null,
+
   technologyName: null,
+
   reports: [],
+
   pagination: null,
+
   stats: undefined,
 });
 const [openWeeklyModal, setOpenWeeklyModal] = useState(false);
 
 const openTrendModal = (payload: {
+
+  technologyId: number;
+
   technologyName: string;
+
   reports: any[];
+
   pagination?: any;
+
   stats?: {
     tavily_total: number;
     gpt_total: number;
   };
 }) => {
+
   setTrendModal({
+
     open: true,
-    technologyName: payload.technologyName,
-    reports: payload.reports,
-    pagination: payload.pagination,
-    stats: payload.stats,
+
+    technologyId:
+      payload.technologyId,
+
+    technologyName:
+      payload.technologyName,
+
+    reports:
+      payload.reports,
+
+    pagination:
+      payload.pagination,
+
+    stats:
+      payload.stats,
   });
 };
 
 const closeTrendModal = () => {
   setTrendModal({
+
     open: false,
+
+    technologyId: null,
+
     technologyName: null,
+
     reports: [],
+
     pagination: null,
+
     stats: undefined,
   });
+};
+const loadTechnologyReports = (
+  technologyId: number,
+  technologyName: string,
+  page = 1
+) => {
+
+  axios
+    .get(
+      `/dashboard/ranking/technologies/${technologyId}/reports`,
+      {
+        params: {
+          year: meta.year,
+          period: meta.period,
+          page,
+        },
+      }
+    )
+
+    .then((res) => {
+
+      openTrendModal({
+
+        technologyId,
+
+        technologyName,
+
+        reports:
+          res.data?.data ?? [],
+
+        pagination:
+          res.data?.pagination,
+
+        stats:
+          res.data?.stats,
+      });
+    });
 };
   /* =========================
      MODAL OFERTAS (LABORAL)
@@ -231,33 +306,14 @@ const closeTrendModal = () => {
 
     /* ========= TENDENCIA ========= */
     if (action === "trend") {
-      if (!item.trend_reports || item.trend_reports === 0) return;
-
-    axios
-  .get(
-    `/dashboard/ranking/technologies/${item.id}/reports`,
-    {
-      params: {
-        year: meta.year,
-        period: meta.period,
-        page: 1,
-      },
-    }
-  )
-  .then((res) => {
-    if (!res.data?.data?.length) return;
-
-    openTrendModal({
-      technologyName: item.name,
-      reports: res.data.data,
-      pagination: res.data.pagination,
-      stats: res.data.stats,
-    });
-  });
+     loadTechnologyReports(
+  item.id,
+  item.name,
+  1
+);
 
 return;
 
-       
     }
 
     /* ========= LABORAL ========= */
@@ -311,18 +367,53 @@ return;
     </AppLayout>
 
     {/* ================= MODAL DETALLE TENDENCIA ================= */}
-   {trendModal.open && (
-<TrendDetailModal
-  open
-  technologyName={trendModal.technologyName}
-  reports={trendModal.reports}
+{trendModal.open && (
+  <TrendDetailModal
+    open
 
-  // 👇 NUEVO
-  stats={trendModal.stats}
+    technologyId={
+      trendModal.technologyId ?? 0
+    }
 
-  pagination={trendModal.pagination}
-  onClose={closeTrendModal}
-/>
+    technologyName={
+      trendModal.technologyName
+    }
+
+    reports={
+      trendModal.reports
+    }
+
+    stats={
+      trendModal.stats
+    }
+
+    pagination={
+      trendModal.pagination
+    }
+
+    onPageChange={(page) => {
+
+      console.log(
+        "CAMBIO PAGINA:",
+        page
+      );
+
+      if (
+        !trendModal.technologyId ||
+        !trendModal.technologyName
+      ) {
+        return;
+      }
+
+      loadTechnologyReports(
+        trendModal.technologyId,
+        trendModal.technologyName,
+        page
+      );
+    }}
+
+    onClose={closeTrendModal}
+  />
 )}
 <WeeklyEvolutionModal
   open={openWeeklyModal}
