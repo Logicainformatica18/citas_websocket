@@ -21,6 +21,9 @@ class RunAllJobs2 extends Command
 
 // 'trends:discover-languages --limit=50 --sleep=5',
 // 'trends:discover-methodologies --limit=50 --sleep=5',
+'trends:discover-certifications-tavily --limit=1000',
+'trends:discover-languages-tavily --limit=30',
+'trends:discover-technologies-tavily --limit=1500',
 'trends:discover-technologies --limit=1500 --sleep=5',
 // macrotendencias
 'trends:discover-exa',

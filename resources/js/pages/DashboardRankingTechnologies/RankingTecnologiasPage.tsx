@@ -60,36 +60,51 @@ export default function RankingTecnologiasPage() {
   /* =========================
      MODAL TENDENCIA
   ========================= */
-  const [trendModal, setTrendModal] = useState<{
+const [trendModal, setTrendModal] = useState<{
   open: boolean;
   technologyName: string | null;
   reports: any[];
+  pagination?: any;
+  stats?: {
+    tavily_total: number;
+    gpt_total: number;
+  };
 }>({
   open: false,
   technologyName: null,
   reports: [],
+  pagination: null,
+  stats: undefined,
 });
 const [openWeeklyModal, setOpenWeeklyModal] = useState(false);
 
 const openTrendModal = (payload: {
   technologyName: string;
   reports: any[];
+  pagination?: any;
+  stats?: {
+    tavily_total: number;
+    gpt_total: number;
+  };
 }) => {
   setTrendModal({
     open: true,
     technologyName: payload.technologyName,
     reports: payload.reports,
+    pagination: payload.pagination,
+    stats: payload.stats,
   });
 };
 
-
-  const closeTrendModal = () => {
-    setTrendModal({
-      open: false,
-      trend: null,
-    });
-  };
-
+const closeTrendModal = () => {
+  setTrendModal({
+    open: false,
+    technologyName: null,
+    reports: [],
+    pagination: null,
+    stats: undefined,
+  });
+};
   /* =========================
      MODAL OFERTAS (LABORAL)
   ========================= */
@@ -218,28 +233,31 @@ const openTrendModal = (payload: {
     if (action === "trend") {
       if (!item.trend_reports || item.trend_reports === 0) return;
 
-    axios.get(
-  `/dashboard/ranking/technologies/${item.id}/reports`,
-  {
-    params: {
-      year: meta.year,
-      period: meta.period,
-      page: 1,
-    },
-  }
-).then((res) => {
-  if (!res.data?.data?.length) return;
+    axios
+  .get(
+    `/dashboard/ranking/technologies/${item.id}/reports`,
+    {
+      params: {
+        year: meta.year,
+        period: meta.period,
+        page: 1,
+      },
+    }
+  )
+  .then((res) => {
+    if (!res.data?.data?.length) return;
 
-  openTrendModal({
-    technologyId: item.id,
-    technologyName: item.name,
-    reports: res.data.data,
-    pagination: res.data.pagination,
+    openTrendModal({
+      technologyName: item.name,
+      reports: res.data.data,
+      pagination: res.data.pagination,
+      stats: res.data.stats,
+    });
   });
-});
 
+return;
 
-      return;
+       
     }
 
     /* ========= LABORAL ========= */
@@ -294,12 +312,17 @@ const openTrendModal = (payload: {
 
     {/* ================= MODAL DETALLE TENDENCIA ================= */}
    {trendModal.open && (
-  <TrendDetailModal
-    open
-    technologyName={trendModal.technologyName}
-    reports={trendModal.reports}
-    onClose={closeTrendModal}
-  />
+<TrendDetailModal
+  open
+  technologyName={trendModal.technologyName}
+  reports={trendModal.reports}
+
+  // 👇 NUEVO
+  stats={trendModal.stats}
+
+  pagination={trendModal.pagination}
+  onClose={closeTrendModal}
+/>
 )}
 <WeeklyEvolutionModal
   open={openWeeklyModal}

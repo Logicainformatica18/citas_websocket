@@ -234,7 +234,7 @@ private function getBaseContext(Request $request): array
         'year' => $year,
          'search' => $request->get('search'),
         'period' => $period,
-        'quarter' => $period === 's1' ? 1 : 4,
+     'semester' => $period === 's1' ? 1 : 2,
         'range' => $this->getPeriodRange($period, $year),
 
         'areas' => array_filter((array) $request->get('area', [])),
@@ -443,28 +443,183 @@ public function jobsByCertification(Request $request, int $marketEntityId)
 /* ==================================================
    REPORTES / TENDENCIAS POR CERTIFICACIÓN
 ================================================== */
-public function trendDetail(Request $request, int $marketEntityId)
-{
-    $perPage = min((int) $request->get('per_page', 10), 50);
-    $page    = (int) $request->get('page', 1);
+public function trendDetail(
+    Request $request,
+    int $marketEntityId
+) {
+
+    $year = (int) $request->get(
+        'year',
+        now()->year
+    );
+
+    $period = $request->get(
+        'period',
+        's1'
+    );
+
+    $semester =
+        $period === 's1'
+            ? 1
+            : 2;
+
+    $perPage = min(
+        (int) $request->get('per_page', 10),
+        50
+    );
+
+    $page = (int) $request->get(
+        'page',
+        1
+    );
+
+    /*
+    ==================================================
+    📦 REPORTES PAGINADOS
+    ==================================================
+    */
 
     $trends = DB::table('entity_trends')
-        ->where('market_entity_id', $marketEntityId)
+
+        ->where(
+            'market_entity_id',
+            $marketEntityId
+        )
+
+        ->where(
+            'year',
+            $year
+        )
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
         ->orderByDesc('trend_score')
-        ->paginate($perPage, [
-            'id',
-            'trend_score',
-            'source_title',
-            'source_url',
-            'source_type',
-            'created_at',
-        ], 'page', $page);
+
+        ->paginate(
+            $perPage,
+            [
+                'id',
+                'trend_score',
+                'source_title',
+                'source_url',
+                'source_type',
+
+                // 👇 NUEVO
+                'discovered_by',
+
+                'created_at',
+            ],
+            'page',
+            $page
+        );
+
+    /*
+    ==================================================
+    📊 STATS GLOBALES
+    ==================================================
+    */
+
+    $tavilyTotal = DB::table('entity_trends')
+
+        ->where(
+            'market_entity_id',
+            $marketEntityId
+        )
+
+        ->where(
+            'year',
+            $year
+        )
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
+        ->where(
+            'discovered_by',
+            'LIKE',
+            '%tavily%'
+        )
+
+        ->count();
+
+    $gptTotal = DB::table('entity_trends')
+
+        ->where(
+            'market_entity_id',
+            $marketEntityId
+        )
+
+        ->where(
+            'year',
+            $year
+        )
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
+        ->where(
+            'discovered_by',
+            'LIKE',
+            '%gpt%'
+        )
+
+        ->count();
+
+    /*
+    ==================================================
+    🚀 RESPONSE
+    ==================================================
+    */
 
     return response()->json([
-        'data' => $trends,
+
+        'data' =>
+            $trends->items(),
+
+        'stats' => [
+
+            'tavily_total' =>
+                $tavilyTotal,
+
+            'gpt_total' =>
+                $gptTotal,
+        ],
+
+        'pagination' => [
+
+            'current_page' =>
+                $trends->currentPage(),
+
+            'last_page' =>
+                $trends->lastPage(),
+
+            'per_page' =>
+                $trends->perPage(),
+
+            'total' =>
+                $trends->total(),
+
+            'prev_page_url' =>
+                $trends->previousPageUrl(),
+
+            'next_page_url' =>
+                $trends->nextPageUrl(),
+        ],
     ]);
 }
-
 
 
 private function getDirectCertificationTrendsSubquery(array $range)

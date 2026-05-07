@@ -95,7 +95,7 @@ public function index(Request $request)
     ================================================== */
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 4;
+ $semester = $period === 's1' ? 1 : 2;
 $search = $request->get('search');
     $range = $this->getPeriodRange($period, $year);
 
@@ -151,10 +151,15 @@ $search = $request->get('search');
     /* ==================================================
        2. TENDENCIAS REALES (entity_trends)
     ================================================== */
-    $trendSub = DB::table('entity_trends as et')
-        ->where('et.year', $year)
-        ->where('et.quarter', $quarter)
-        ->groupBy('et.market_entity_id')
+   $trendSub = DB::table('entity_trends as et')
+    ->where('et.year', $year)
+    ->whereIn(
+        'et.quarter',
+        $semester === 1
+            ? [1, 2]
+            : [3, 4]
+    )
+    ->groupBy('et.market_entity_id')
         ->select(
             'et.market_entity_id',
             DB::raw('COUNT(et.id) as trend_reports'),
@@ -259,7 +264,12 @@ if ($search) {
 
     $totalReports = DB::table('entity_trends')
         ->where('year', $year)
-        ->where('quarter', $quarter)
+        ->whereIn(
+    'quarter',
+    $semester == 1
+        ? [1, 2]
+        : [3, 4]
+)
         ->count();
 
     /* ==================================================
@@ -309,15 +319,19 @@ public function trendsByTechnology(Request $request, int $marketEntityId)
 {
     $year    = (int) $request->get('year', 2026);
     $period  = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 4;
-
+$semester = $period === 's1' ? 1 : 2;
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-    $trends = DB::table('entity_trends as et')
-        ->where('et.market_entity_id', $marketEntityId)
-        ->where('et.year', $year)
-        ->where('et.quarter', $quarter)
-        ->orderByDesc('et.trend_score')
+$trends = DB::table('entity_trends as et')
+    ->where('et.market_entity_id', $marketEntityId)
+    ->where('et.year', $year)
+    ->whereIn(
+        'et.quarter',
+        $semester === 1
+            ? [1, 2]
+            : [3, 4]
+    )
+    ->orderByDesc('et.trend_score')
         ->select(
             'et.id',
             'et.topic_name',
@@ -327,6 +341,7 @@ public function trendsByTechnology(Request $request, int $marketEntityId)
             'et.source_title',
             'et.source_url',
             'et.source_type',
+             'et.discovered_by',
             'et.created_at'
         )
         ->paginate($perPage);
@@ -350,7 +365,7 @@ private function getBaseContext(Request $request): array
     ================================================== */
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 4;
+   $semester = $period === 's1' ? 1 : 2;
 
     /* ==================================================
        RANGO DE FECHAS
@@ -393,7 +408,7 @@ private function getBaseContext(Request $request): array
     return [
         'year'        => $year,
         'period'      => $period,
-        'quarter'     => $quarter,
+        'quarter'     => $semester,
         'range'       => $range,
 
         // filtros
@@ -410,15 +425,20 @@ public function reportsByTechnology(Request $request, int $marketEntityId)
 {
     $year    = (int) $request->get('year', 2026);
     $period  = $request->get('period', 's1');
-    $quarter = $period === 's1' ? 1 : 4;
+   $semester = $period === 's1' ? 1 : 2;
 
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-    $paginator = DB::table('entity_trends')
-        ->where('market_entity_id', $marketEntityId)
-        ->where('year', $year)
-        ->where('quarter', $quarter)
-        ->orderByDesc('trend_score')
+   $paginator = DB::table('entity_trends')
+    ->where('market_entity_id', $marketEntityId)
+    ->where('year', $year)
+    ->whereIn(
+        'quarter',
+        $semester === 1
+            ? [1, 2]
+            : [3, 4]
+    )
+    ->orderByDesc('trend_score')
         ->paginate(
             $perPage,
             [
@@ -427,16 +447,42 @@ public function reportsByTechnology(Request $request, int $marketEntityId)
                 'source_title',
                 'source_url',
                 'source_type',
+                  'discovered_by',
                 'created_at',
             ]
         );
+$tavilyTotal = DB::table('entity_trends')
+    ->where('market_entity_id', $marketEntityId)
+    ->where('year', $year)
+    ->whereIn(
+        'quarter',
+        $semester === 1
+            ? [1, 2]
+            : [3, 4]
+    )
+    ->where('discovered_by', 'LIKE', '%tavily%')
+    ->count();
 
-    return response()->json([
-        // 👇 DATA PLANA (clave para React)
-        'data' => $paginator->items(),
+$gptTotal = DB::table('entity_trends')
+    ->where('market_entity_id', $marketEntityId)
+    ->where('year', $year)
+    ->whereIn(
+        'quarter',
+        $semester === 1
+            ? [1, 2]
+            : [3, 4]
+    )
+    ->where('discovered_by', 'LIKE', '%gpt%')
+    ->count();
+  return response()->json([
+    'data' => $paginator->items(),
 
-        // 👇 PAGINACIÓN SEPARADA
-        'pagination' => [
+    'stats' => [
+        'tavily_total' => $tavilyTotal,
+        'gpt_total' => $gptTotal,
+    ],
+
+    'pagination' => [
             'current_page' => $paginator->currentPage(),
             'last_page'    => $paginator->lastPage(),
             'per_page'     => $paginator->perPage(),

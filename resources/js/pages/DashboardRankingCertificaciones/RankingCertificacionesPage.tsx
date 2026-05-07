@@ -68,11 +68,22 @@ export default function RankingCertificacionesPage() {
   /* =========================================================
      MODAL: Tendencias por certificación
   ========================================================= */
-  const [certTrendsModal, setCertTrendsModal] = useState({
-    open: false,
-    certification: null as any | null,
-    trends: [] as any[],
-  });
+const [certTrendsModal, setCertTrendsModal] = useState({
+  open: false,
+
+  certification: null as any | null,
+
+  trends: [] as any[],
+
+  pagination: null as any | null,
+
+  stats: undefined as
+    | {
+        tavily_total: number;
+        gpt_total: number;
+      }
+    | undefined,
+});
 
   /* =========================================================
      MODAL: Detalle de tendencia
@@ -91,17 +102,42 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
      Handlers
   ========================================================= */
 
-  const loadCertificationTrends = (certification: any) => {
-    axios
-      .get(`/dashboard/ranking-certificaciones/${certification.id}/reports`)
-      .then((res) => {
-        setCertTrendsModal({
-          open: true,
-          certification,
-          trends: res.data.data.data,
-        });
+  const loadCertificationTrends = (
+  certification: any,
+  page = 1
+) => {
+
+  axios
+    .get(
+      `/dashboard/ranking-certificaciones/${certification.id}/reports`,
+      {
+        params: {
+          year: meta.year,
+          period: meta.period,
+          page,
+        },
+      }
+    )
+
+    .then((res) => {
+
+      setCertTrendsModal({
+
+        open: true,
+
+        certification,
+
+        trends:
+          res.data?.data ?? [],
+
+        pagination:
+          res.data?.pagination ?? null,
+
+        stats:
+          res.data?.stats,
       });
-  };
+    });
+};
 
   const loadCertificationJobs = (certification: any) => {
     axios
@@ -253,19 +289,48 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
 
         {/* ================= MODAL TRENDS POR CERT ================= */}
         {certTrendsModal.open && (
-          <CertificationTrendModal
-            open={certTrendsModal.open}
-            certification={certTrendsModal.certification}
-            trends={certTrendsModal.trends}
-            onClose={() =>
-              setCertTrendsModal({
-                open: false,
-                certification: null,
-                trends: [],
-              })
-            }
-          />
-        )}
+  <CertificationTrendModal
+    open={certTrendsModal.open}
+
+    certification={
+      certTrendsModal.certification
+    }
+
+    trends={
+      certTrendsModal.trends
+    }
+
+    pagination={
+      certTrendsModal.pagination
+    }
+
+    stats={
+      certTrendsModal.stats
+    }
+
+    onPageChange={(page) =>
+      loadCertificationTrends(
+        certTrendsModal.certification,
+        page
+      )
+    }
+
+    onClose={() =>
+      setCertTrendsModal({
+
+        open: false,
+
+        certification: null,
+
+        trends: [],
+
+        pagination: null,
+
+        stats: undefined,
+      })
+    }
+  />
+)}
 
         {/* ================= MODAL DETALLE TENDENCIA ================= */}
         {trendDetailModal.open && (

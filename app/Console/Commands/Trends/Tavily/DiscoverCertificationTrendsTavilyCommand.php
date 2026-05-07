@@ -8,46 +8,49 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\EntityTrend;
 
-class DiscoverTechnologyTrendsTavilyCommand extends Command
+class DiscoverCertificationTrendsTavilyCommand extends Command
 {
-    protected $signature = 'trends:discover-technologies-tavily
-                            {--limit=20 : Cantidad máxima de tecnologías}
+    protected $signature = 'trends:discover-certifications-tavily
+                            {--limit=20 : Cantidad máxima de certificaciones}
                             {--sleep=10 : Segundos entre requests}';
 
-    protected $description = 'Descubre tendencias de tecnologías usando Tavily AI';
+    protected $description =
+        'Descubre tendencias de certificaciones usando Tavily AI';
 
     /* =========================================================
        HANDLE
     ========================================================= */
     public function handle()
     {
-        $year    = now()->year;
+        $year = now()->year;
+
         $quarter = now()->quarter;
 
         $limit = (int) $this->option('limit');
+
         $sleep = (int) $this->option('sleep');
 
         $this->info(
-            "🔍 Descubriendo tendencias TECNOLOGÍAS con Tavily"
+            "🔍 Descubriendo tendencias CERTIFICACIONES con Tavily"
         );
 
-        $technologies = $this->getTechnologies($limit);
+        $certifications = $this->getCertifications($limit);
 
-        if (empty($technologies)) {
+        if (empty($certifications)) {
 
             $this->warn(
-                '🟢 No hay tecnologías pendientes'
+                '🟢 No hay certificaciones pendientes'
             );
 
             return Command::SUCCESS;
         }
 
-        foreach ($technologies as $technology) {
+        foreach ($certifications as $certification) {
 
             try {
 
                 $query = $this->buildQuery(
-                    $technology['name']
+                    $certification['name']
                 );
 
                 $response = $this->tavilySearch(
@@ -86,44 +89,80 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                         2
                     );
 
+                    /*
+                    =========================================
+                    NORMALIZAR URL
+                    =========================================
+                    */
+
                     $url = strtok($url, '?');
+
                     $url = rtrim($url, '/');
 
                     if (!$title || !$url) {
                         continue;
                     }
 
-                    // 🔥 DUPLICADOS
-                $exists = EntityTrend::where(
-    'market_entity_id',
-    $technology['id']
-)
-->where(function ($q) use ($url, $title) {
+                    /*
+                    =========================================
+                    DUPLICADOS
+                    =========================================
+                    */
 
-    $q->where('source_url', $url);
+                    $exists = EntityTrend::where(
+                        'market_entity_id',
+                        $certification['id']
+                    )
 
-    $q->orWhereRaw(
-        'LOWER(TRIM(source_title)) = ?',
-        [strtolower(trim($title))]
-    );
-})
-->exists();
+                    ->where(function ($q) use (
+                        $url,
+                        $title
+                    ) {
+
+                        $q->where(
+                            'source_url',
+                            $url
+                        );
+
+                        $q->orWhereRaw(
+                            'LOWER(TRIM(source_title)) = ?',
+                            [
+                                strtolower(
+                                    trim($title)
+                                )
+                            ]
+                        );
+                    })
+
+                    ->exists();
 
                     if ($exists) {
                         continue;
                     }
 
-                    // 🔥 NOMBRE TENDENCIA
-                    $trendName = $this->extractTrendName(
-                        $technology['name'],
-                        $title,
-                        $content
-                    );
+                    /*
+                    =========================================
+                    TREND NAME
+                    =========================================
+                    */
+
+                    $trendName =
+                        $this->extractTrendName(
+                            $certification['name'],
+                            $title,
+                            $content
+                        );
+
+                    /*
+                    =========================================
+                    SAVE
+                    =========================================
+                    */
 
                     EntityTrend::create([
 
                         'market_entity_id' =>
-                            $technology['id'],
+                            $certification['id'],
 
                         'year' =>
                             $year,
@@ -161,7 +200,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                 }
 
                 $this->info(
-                    "✅ {$technology['name']} procesado"
+                    "✅ {$certification['name']} procesada"
                 );
 
                 sleep($sleep);
@@ -169,7 +208,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             } catch (\Throwable $e) {
 
                 $this->error(
-                    "❌ Error en {$technology['name']}"
+                    "❌ Error en {$certification['name']}"
                 );
 
                 $this->line(
@@ -177,11 +216,11 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                 );
 
                 Log::error(
-                    '[TECHNOLOGY-TRENDS-TAVILY]',
+                    '[CERTIFICATION-TRENDS-TAVILY]',
                     [
 
-                        'technology' =>
-                            $technology,
+                        'certification' =>
+                            $certification,
 
                         'error' =>
                             $e->getMessage(),
@@ -198,9 +237,9 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
     }
 
     /* =========================================================
-       TECNOLOGÍAS
+       CERTIFICATIONS
     ========================================================= */
-    protected function getTechnologies(
+    protected function getCertifications(
         int $limit
     ): array {
 
@@ -220,7 +259,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
 
             ->where(
                 'me.entity_type',
-                'technology'
+                'certification'
             )
 
             ->groupBy(
@@ -241,6 +280,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             ->select(
                 'me.id',
                 'me.name',
+
                 DB::raw(
                     'MAX(et.created_at) as last_trend_at'
                 )
@@ -248,10 +288,11 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
 
             ->get()
 
-            ->map(fn ($t) => [
+            ->map(fn ($c) => [
 
-                'id'   => $t->id,
-                'name' => $t->name,
+                'id'   => $c->id,
+
+                'name' => $c->name,
 
             ])
 
@@ -262,34 +303,24 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
        QUERY
     ========================================================= */
     protected function buildQuery(
-        string $technology
+        string $certification
     ): string {
 
         $year = now()->year;
 
         return <<<QUERY
-Latest enterprise technology trends for {$technology} in {$year}.
+{$certification} certification trends {$year}.
 
 Focus on:
+- Job demand
 - Enterprise adoption
-- Job market demand
-- AI integration
-- Cloud relevance
-- Industry usage
-- Infrastructure growth
-- Hiring demand
+- Cloud certifications
+- AI certifications
+- Cybersecurity certifications
+- Hiring relevance
 
-Prioritize authoritative sources:
-- Gartner
-- McKinsey
-- Deloitte
-- OECD
-- WEF
-- Coursera
-- LinkedIn
-- TechCrunch
-- IEEE
-- VentureBeat
+Sources:
+Microsoft, AWS, Google Cloud, Cisco, CompTIA, LinkedIn, Gartner.
 QUERY;
     }
 
@@ -305,7 +336,7 @@ QUERY;
         if (!$apiKey) {
 
             throw new \Exception(
-                'TAVILY_API_KEY no configurada'
+                'TAVILY_KEY no configurada'
             );
         }
 
@@ -361,7 +392,7 @@ QUERY;
        TREND NAME
     ========================================================= */
     protected function extractTrendName(
-        string $technology,
+        string $certification,
         string $title,
         string $content
     ): string {
@@ -372,6 +403,6 @@ QUERY;
             return $title;
         }
 
-        return "Trend related to {$technology}";
+        return "Trend related to {$certification}";
     }
 }

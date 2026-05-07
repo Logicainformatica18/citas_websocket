@@ -1,141 +1,465 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  ExternalLink,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-} from "lucide-react";
-
-interface LanguageTrendModalProps {
-  open: boolean;
-  language: {
-    id: number;
-    name: string;
-  } | null;
-  trends: any[];
-  pagination?: any;
-  onClose: () => void;
-  onPageChange?: (page: number) => void;
-}
-
-export default function LanguageTrendModal({
+export default function TrendDetailModal({
   open,
   language,
   trends,
+  stats,
   pagination,
-  onClose,
   onPageChange,
-}: LanguageTrendModalProps) {
-  if (!language) return null;
+  onClose,
+}: Props) {
+  if (!open) return null;
+
+  const tavilyCount =
+    stats?.tavily_total ?? 0;
+
+  const gptCount =
+    stats?.gpt_total ?? 0;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-cyan-600" />
-            Fuentes de tendencia – {language.name}
-          </DialogTitle>
-        </DialogHeader>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      {/* BACKDROP */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-        {/* LISTADO */}
-        <div className="max-h-[55vh] overflow-y-auto pr-4 space-y-4">
-          {trends.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              No se encontraron fuentes asociadas.
-            </div>
-          ) : (
-            trends.map((item: any) => (
+      {/* MODAL */}
+      <div
+        className="
+          relative
+          w-full
+          max-w-5xl
+          mx-4
+          rounded-3xl
+          overflow-hidden
+          bg-[#F5F7FB]
+          dark:bg-[#0F172A]
+          shadow-2xl
+        "
+      >
+        {/* HEADER */}
+        <div
+          className="
+            relative
+            overflow-hidden
+            px-6
+            py-5
+            bg-gradient-to-r
+            from-[#7C3AED]
+            via-[#5B5FF6]
+            to-[#00AEEF]
+          "
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex gap-4">
               <div
-                key={item.id}
-                className="rounded-xl border p-4 bg-white dark:bg-slate-900 hover:shadow-sm transition"
+                className="
+                  h-12
+                  w-12
+                  rounded-2xl
+                  bg-white/10
+                  backdrop-blur-md
+                  flex
+                  items-center
+                  justify-center
+                  border
+                  border-white/20
+                "
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex gap-3">
-                    <FileText className="w-5 h-5 text-cyan-600 mt-1" />
+                <span className="text-lg text-white">
+                  ✦
+                </span>
+              </div>
 
-                    <div>
-                      <h4 className="font-semibold text-slate-900 dark:text-slate-100">
-                        {item.source_title ?? "Fuente sin título"}
-                      </h4>
+              <div>
+                <p className="text-[10px] tracking-[0.22em] uppercase text-white/70 font-semibold">
+                  Insights · Ranking
+                </p>
 
-                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                        <Calendar className="w-3 h-3" />
-                        {item.created_at}
-                      </div>
+                <h2 className="mt-1 text-2xl font-bold text-white leading-tight">
+                  Evidencia de tendencias
+                </h2>
+
+                <p className="mt-2 text-xs text-white/80 max-w-2xl leading-relaxed">
+                  Reportes externos y descubrimientos
+                  generados por IA utilizados para
+                  construir el ranking.
+                </p>
+
+                {language?.name && (
+                  <div className="mt-4">
+                    <span
+                      className="
+                        inline-flex
+                        items-center
+                        rounded-full
+                        bg-white/15
+                        backdrop-blur-md
+                        border
+                        border-white/20
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-white
+                      "
+                    >
+                      {language.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="
+                text-white/70
+                hover:text-white
+                text-lg
+                transition-colors
+              "
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* LEGEND */}
+        <div className="px-6 py-4 bg-white dark:bg-[#111827] border-b dark:border-slate-800">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* TAVILY */}
+            <div
+              className="
+                rounded-2xl
+                border
+                border-emerald-200
+                bg-emerald-50
+                dark:bg-emerald-900/10
+                dark:border-emerald-900/30
+                p-4
+              "
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="
+                      h-8
+                      w-8
+                      rounded-full
+                      bg-emerald-500
+                      text-white
+                      flex
+                      items-center
+                      justify-center
+                      text-xs
+                    "
+                  >
+                    🔍
+                  </div>
+
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Tavily Search
+                  </h4>
+                </div>
+
+                <div
+                  className="
+                    h-7
+                    min-w-[28px]
+                    px-2
+                    rounded-full
+                    bg-white
+                    dark:bg-[#111827]
+                    border
+                    border-emerald-200
+                    flex
+                    items-center
+                    justify-center
+                    text-xs
+                    font-bold
+                    text-slate-700
+                  "
+                >
+                  {tavilyCount}
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                Tendencias identificadas mediante
+                fuentes externas verificadas.
+              </p>
+            </div>
+
+            {/* GPT */}
+            <div
+              className="
+                rounded-2xl
+                border
+                border-violet-200
+                bg-violet-50
+                dark:bg-violet-900/10
+                dark:border-violet-900/30
+                p-4
+              "
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="
+                      h-8
+                      w-8
+                      rounded-full
+                      bg-violet-500
+                      text-white
+                      flex
+                      items-center
+                      justify-center
+                      text-xs
+                    "
+                  >
+                    🤖
+                  </div>
+
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    GPT Discovery
+                  </h4>
+                </div>
+
+                <div
+                  className="
+                    h-7
+                    min-w-[28px]
+                    px-2
+                    rounded-full
+                    bg-white
+                    dark:bg-[#111827]
+                    border
+                    border-violet-200
+                    flex
+                    items-center
+                    justify-center
+                    text-xs
+                    font-bold
+                    text-slate-700
+                  "
+                >
+                  {gptCount}
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                Tendencias propuestas automáticamente
+                por IA.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* CONTENT */}
+        <div className="px-6 py-5 max-h-[55vh] overflow-y-auto space-y-3">
+          {(trends ?? []).map((report, index) => {
+            const source = report.discovered_by
+              ?.trim()
+              ?.toLowerCase();
+
+            const isTavily =
+              source?.includes("tavily");
+
+            const isGPT =
+              source?.includes("gpt");
+
+            return (
+              <div
+                key={report.id}
+                className="
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  dark:border-slate-800
+                  bg-white
+                  dark:bg-[#111827]
+                  p-4
+                  shadow-sm
+                "
+              >
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <div className="text-[11px] font-bold text-slate-400">
+                      #{index + 1}
+                    </div>
+
+                    {report.source_url ? (
+                      <a
+                        href={report.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="
+                          mt-1
+                          block
+                          text-base
+                          font-bold
+                          text-slate-900
+                          dark:text-white
+                          hover:text-[#5B5FF6]
+                        "
+                      >
+                        {report.source_title}
+                      </a>
+                    ) : (
+                      <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-white">
+                        {report.source_title}
+                      </h3>
+                    )}
+
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                      {isTavily
+                        ? "Fuente externa verificada."
+                        : isGPT
+                        ? "Tendencia propuesta por IA."
+                        : "Origen no identificado."}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {report.source_type && (
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            rounded-full
+                            border
+                            border-slate-200
+                            bg-slate-100
+                            px-2.5
+                            py-1
+                            text-[11px]
+                          "
+                        >
+                          📄 {report.source_type}
+                        </span>
+                      )}
+
+                      {report.created_at && (
+                        <span
+                          className="
+                            inline-flex
+                            items-center
+                            rounded-full
+                            border
+                            border-slate-200
+                            bg-slate-100
+                            px-2.5
+                            py-1
+                            text-[11px]
+                          "
+                        >
+                          📅{" "}
+                          {new Date(
+                            report.created_at
+                          ).toLocaleDateString()}
+                        </span>
+                      )}
+
+                      <span
+                        className={`
+                          inline-flex
+                          items-center
+                          rounded-full
+                          px-2.5
+                          py-1
+                          text-[11px]
+                          font-semibold
+                          border
+                          ${
+                            isTavily
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-violet-200 bg-violet-50 text-violet-700"
+                          }
+                        `}
+                      >
+                        {isTavily
+                          ? "🔎 Tavily"
+                          : "🤖 GPT"}
+                      </span>
                     </div>
                   </div>
 
-                  {item.trend_score && (
-                    <Badge variant="secondary">
-                      Score {Number(item.trend_score).toFixed(1)}
-                    </Badge>
-                  )}
-                </div>
+                  {/* SCORE */}
+                  <div
+                    className="
+                      w-[90px]
+                      min-w-[90px]
+                      rounded-2xl
+                      bg-gradient-to-br
+                      from-fuchsia-500
+                      to-violet-600
+                      flex
+                      flex-col
+                      items-center
+                      justify-center
+                      text-white
+                      shadow-lg
+                      px-3
+                      py-4
+                    "
+                  >
+                    <div className="text-sm opacity-90">
+                      ↗
+                    </div>
 
-                <div className="mt-3 flex items-center justify-between">
-                  <Badge variant="outline">
-                    {item.source_type ?? "desconocido"}
-                  </Badge>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.15em] font-semibold opacity-80">
+                      Score
+                    </p>
 
-                  {item.source_url && (
-                    <a
-                      href={item.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-cyan-600 hover:underline"
-                    >
-                      Ver fuente
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
+                    <div className="mt-1 text-3xl font-black leading-none">
+                      {report.trend_score}
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
 
-        {/* PAGINACIÓN */}
-        {pagination && (
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <span className="text-xs text-slate-500">
-              Página {pagination.current_page} de {pagination.last_page}
-            </span>
+        {/* FOOTER */}
+        <div
+          className="
+            px-6
+            py-4
+            border-t
+            border-slate-200
+            dark:border-slate-800
+            bg-white
+            dark:bg-[#111827]
+            flex
+            items-center
+            justify-between
+          "
+        >
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {pagination?.total ??
+              trends?.length ??
+              0}{" "}
+            fuentes
+          </p>
 
-            <div className="flex gap-2">
-              <button
-                disabled={!pagination.prev_page_url}
-                onClick={() =>
-                  onPageChange?.(pagination.current_page - 1)
-                }
-                className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm disabled:opacity-40"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Anterior
-              </button>
-
-              <button
-                disabled={!pagination.next_page_url}
-                onClick={() =>
-                  onPageChange?.(pagination.current_page + 1)
-                }
-                className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm disabled:opacity-40"
-              >
-                Siguiente
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          <button
+            onClick={onClose}
+            className="
+              px-4
+              py-2.5
+              rounded-xl
+              bg-[#0F172A]
+              hover:bg-[#111827]
+              text-white
+              text-sm
+              font-semibold
+            "
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -8,46 +8,49 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\EntityTrend;
 
-class DiscoverTechnologyTrendsTavilyCommand extends Command
+class DiscoverLanguageTrendsTavilyCommand extends Command
 {
-    protected $signature = 'trends:discover-technologies-tavily
-                            {--limit=20 : Cantidad máxima de tecnologías}
+    protected $signature = 'trends:discover-languages-tavily
+                            {--limit=20 : Cantidad máxima de lenguajes}
                             {--sleep=10 : Segundos entre requests}';
 
-    protected $description = 'Descubre tendencias de tecnologías usando Tavily AI';
+    protected $description =
+        'Descubre tendencias de lenguajes usando Tavily AI';
 
     /* =========================================================
        HANDLE
     ========================================================= */
     public function handle()
     {
-        $year    = now()->year;
+        $year = now()->year;
+
         $quarter = now()->quarter;
 
         $limit = (int) $this->option('limit');
+
         $sleep = (int) $this->option('sleep');
 
         $this->info(
-            "🔍 Descubriendo tendencias TECNOLOGÍAS con Tavily"
+            "🔍 Descubriendo tendencias LENGUAJES con Tavily"
         );
 
-        $technologies = $this->getTechnologies($limit);
+        $languages = $this->getLanguages($limit);
 
-        if (empty($technologies)) {
+        if (empty($languages)) {
 
             $this->warn(
-                '🟢 No hay tecnologías pendientes'
+                '🟢 No hay lenguajes pendientes'
             );
 
             return Command::SUCCESS;
         }
 
-        foreach ($technologies as $technology) {
+        foreach ($languages as $language) {
 
             try {
 
                 $query = $this->buildQuery(
-                    $technology['name']
+                    $language['name']
                 );
 
                 $response = $this->tavilySearch(
@@ -86,44 +89,80 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                         2
                     );
 
+                    /*
+                    =========================================
+                    NORMALIZAR URL
+                    =========================================
+                    */
+
                     $url = strtok($url, '?');
+
                     $url = rtrim($url, '/');
 
                     if (!$title || !$url) {
                         continue;
                     }
 
-                    // 🔥 DUPLICADOS
-                $exists = EntityTrend::where(
-    'market_entity_id',
-    $technology['id']
-)
-->where(function ($q) use ($url, $title) {
+                    /*
+                    =========================================
+                    DUPLICADOS
+                    =========================================
+                    */
 
-    $q->where('source_url', $url);
+                    $exists = EntityTrend::where(
+                        'market_entity_id',
+                        $language['id']
+                    )
 
-    $q->orWhereRaw(
-        'LOWER(TRIM(source_title)) = ?',
-        [strtolower(trim($title))]
-    );
-})
-->exists();
+                    ->where(function ($q) use (
+                        $url,
+                        $title
+                    ) {
+
+                        $q->where(
+                            'source_url',
+                            $url
+                        );
+
+                        $q->orWhereRaw(
+                            'LOWER(TRIM(source_title)) = ?',
+                            [
+                                strtolower(
+                                    trim($title)
+                                )
+                            ]
+                        );
+                    })
+
+                    ->exists();
 
                     if ($exists) {
                         continue;
                     }
 
-                    // 🔥 NOMBRE TENDENCIA
-                    $trendName = $this->extractTrendName(
-                        $technology['name'],
-                        $title,
-                        $content
-                    );
+                    /*
+                    =========================================
+                    TREND NAME
+                    =========================================
+                    */
+
+                    $trendName =
+                        $this->extractTrendName(
+                            $language['name'],
+                            $title,
+                            $content
+                        );
+
+                    /*
+                    =========================================
+                    SAVE
+                    =========================================
+                    */
 
                     EntityTrend::create([
 
                         'market_entity_id' =>
-                            $technology['id'],
+                            $language['id'],
 
                         'year' =>
                             $year,
@@ -161,7 +200,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                 }
 
                 $this->info(
-                    "✅ {$technology['name']} procesado"
+                    "✅ {$language['name']} procesado"
                 );
 
                 sleep($sleep);
@@ -169,7 +208,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             } catch (\Throwable $e) {
 
                 $this->error(
-                    "❌ Error en {$technology['name']}"
+                    "❌ Error en {$language['name']}"
                 );
 
                 $this->line(
@@ -177,11 +216,11 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
                 );
 
                 Log::error(
-                    '[TECHNOLOGY-TRENDS-TAVILY]',
+                    '[LANGUAGE-TRENDS-TAVILY]',
                     [
 
-                        'technology' =>
-                            $technology,
+                        'language' =>
+                            $language,
 
                         'error' =>
                             $e->getMessage(),
@@ -198,9 +237,9 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
     }
 
     /* =========================================================
-       TECNOLOGÍAS
+       LANGUAGES
     ========================================================= */
-    protected function getTechnologies(
+    protected function getLanguages(
         int $limit
     ): array {
 
@@ -220,7 +259,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
 
             ->where(
                 'me.entity_type',
-                'technology'
+                'language'
             )
 
             ->groupBy(
@@ -241,6 +280,7 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
             ->select(
                 'me.id',
                 'me.name',
+
                 DB::raw(
                     'MAX(et.created_at) as last_trend_at'
                 )
@@ -248,10 +288,11 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
 
             ->get()
 
-            ->map(fn ($t) => [
+            ->map(fn ($l) => [
 
-                'id'   => $t->id,
-                'name' => $t->name,
+                'id'   => $l->id,
+
+                'name' => $l->name,
 
             ])
 
@@ -262,34 +303,23 @@ class DiscoverTechnologyTrendsTavilyCommand extends Command
        QUERY
     ========================================================= */
     protected function buildQuery(
-        string $technology
+        string $language
     ): string {
 
         $year = now()->year;
 
         return <<<QUERY
-Latest enterprise technology trends for {$technology} in {$year}.
+{$language} programming language trends {$year}.
 
 Focus on:
+- Job demand
+- AI ecosystem
 - Enterprise adoption
-- Job market demand
-- AI integration
-- Cloud relevance
-- Industry usage
-- Infrastructure growth
-- Hiring demand
+- Backend/frontend usage
+- Cloud development
 
-Prioritize authoritative sources:
-- Gartner
-- McKinsey
-- Deloitte
-- OECD
-- WEF
-- Coursera
-- LinkedIn
-- TechCrunch
-- IEEE
-- VentureBeat
+Sources:
+GitHub, StackOverflow, Gartner, LinkedIn, JetBrains, RedMonk, TIOBE.
 QUERY;
     }
 
@@ -305,7 +335,7 @@ QUERY;
         if (!$apiKey) {
 
             throw new \Exception(
-                'TAVILY_API_KEY no configurada'
+                'TAVILY_KEY no configurada'
             );
         }
 
@@ -361,7 +391,7 @@ QUERY;
        TREND NAME
     ========================================================= */
     protected function extractTrendName(
-        string $technology,
+        string $language,
         string $title,
         string $content
     ): string {
@@ -372,6 +402,6 @@ QUERY;
             return $title;
         }
 
-        return "Trend related to {$technology}";
+        return "Trend related to {$language}";
     }
 }

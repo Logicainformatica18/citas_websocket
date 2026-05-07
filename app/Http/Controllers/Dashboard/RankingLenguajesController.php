@@ -164,7 +164,7 @@ $availableCareers = DB::table('careers')
     /* ==================================================
        2. SUBQUERY TENDENCIAS (entity_trends)
     ================================================== */
-  $quarter = $period === 's1' ? 1 : 4;
+$semester = $period === 's1' ? 1 : 2;
 
 $reportsSub = DB::table('entity_trends as et')
     ->join('market_entities as me', function ($j) {
@@ -172,7 +172,12 @@ $reportsSub = DB::table('entity_trends as et')
           ->where('me.entity_type', 'language');
     })
     ->where('et.year', $year)
-->where('et.quarter', $quarter)->select(
+->whereIn(
+    'et.quarter',
+    $semester === 1
+        ? [1, 2]
+        : [3, 4]
+)->select(
             'me.id as language_id',
             DB::raw('COUNT(DISTINCT et.id) as report_mentions')
         )
@@ -198,8 +203,13 @@ $reportsSub = DB::table('entity_trends as et')
                   ->where('me.entity_type', 'language');
             })
             ->where('et.year', $year)
-->where('et.quarter', $quarter)
-            ->count('et.id'),
+->whereIn(
+    'et.quarter',
+    $semester === 1
+        ? [1, 2]
+        : [3, 4]
+)
+->count('et.id'),
         1
     );
 
@@ -601,40 +611,148 @@ private function paginate($items, int $perPage)
         ]
     );
 }
-public function trendsByLanguage(Request $request, int $marketEntityId)
-{
-    $perPage = min((int) $request->get('per_page', 10), 50);
+public function trendsByLanguage(
+    Request $request,
+    int $marketEntityId
+) {
+    $perPage = min(
+        (int) $request->get('per_page', 10),
+        50
+    );
 
-    $year   = (int) $request->get('year', 2026);
+    $year = (int) $request->get('year', 2026);
+
     $period = $request->get('period', 's1');
-   $quarter = $period === 's1' ? 1 : 4;
+
+    $semester =
+        $period === 's1'
+            ? 1
+            : 2;
+
+    /*
+    ==================================================
+    📦 REPORTES PAGINADOS
+    ==================================================
+    */
 
     $trends = DB::table('entity_trends')
+
         ->where('market_entity_id', $marketEntityId)
+
         ->where('year', $year)
-        ->where('quarter', $quarter)
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
         ->orderByDesc('trend_score')
-        ->paginate($perPage, [
-            'id',
-            'trend_score',
-            'source_title',
-            'source_url',
-            'source_type',
-            'created_at',
-        ]);
+
+        ->paginate(
+            $perPage,
+            [
+                'id',
+                'trend_score',
+                'source_title',
+                'source_url',
+                'source_type',
+
+                // 👇 IMPORTANTE
+                'discovered_by',
+
+                'created_at',
+            ]
+        );
+
+    /*
+    ==================================================
+    📊 STATS GLOBALES
+    ==================================================
+    */
+
+    $tavilyTotal = DB::table('entity_trends')
+
+        ->where('market_entity_id', $marketEntityId)
+
+        ->where('year', $year)
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
+        ->where(
+            'discovered_by',
+            'LIKE',
+            '%tavily%'
+        )
+
+        ->count();
+
+    $gptTotal = DB::table('entity_trends')
+
+        ->where('market_entity_id', $marketEntityId)
+
+        ->where('year', $year)
+
+        ->whereIn(
+            'quarter',
+            $semester === 1
+                ? [1, 2]
+                : [3, 4]
+        )
+
+        ->where(
+            'discovered_by',
+            'LIKE',
+            '%gpt%'
+        )
+
+        ->count();
+
+    /*
+    ==================================================
+    🚀 RESPONSE
+    ==================================================
+    */
 
     return response()->json([
+
         'data' => $trends->items(),
+
+        'stats' => [
+
+            'tavily_total' => $tavilyTotal,
+
+            'gpt_total' => $gptTotal,
+        ],
+
         'pagination' => [
-            'current_page' => $trends->currentPage(),
-            'last_page'    => $trends->lastPage(),
-            'per_page'     => $trends->perPage(),
-            'total'        => $trends->total(),
+
+            'current_page' =>
+                $trends->currentPage(),
+
+            'last_page' =>
+                $trends->lastPage(),
+
+            'per_page' =>
+                $trends->perPage(),
+
+            'total' =>
+                $trends->total(),
+
+            'prev_page_url' =>
+                $trends->previousPageUrl(),
+
+            'next_page_url' =>
+                $trends->nextPageUrl(),
         ],
     ]);
 }
-
-
 
 private function getBaseContext(Request $request): array
 {
@@ -650,7 +768,7 @@ private function getBaseContext(Request $request): array
     return [
         'year' => $year,
         'period' => $period,
-        'quarter' => $period === 's1' ? 1 : 4,
+        'semester' => $period === 's1' ? 1 : 2,
         'range' => $this->getPeriodRange($period, $year),
 
         'areas' => [],

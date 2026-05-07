@@ -68,18 +68,26 @@ export default function RankingLenguajesPage() {
      MODAL TENDENCIAS (ENTITY_TRENDS)
   ========================================================= */
   const [trendModal, setTrendModal] = useState<{
-    open: boolean;
-    language: any | null;
-    trends: any[];
-    pagination: any | null;
-    page: number;
-  }>({
-    open: false,
-    language: null,
-    trends: [],
-    pagination: null,
-    page: 1,
-  });
+  open: boolean;
+  language: any | null;
+  trends: any[];
+  pagination: any | null;
+
+  // 👇 NUEVO
+  stats?: {
+    tavily_total: number;
+    gpt_total: number;
+  };
+
+  page: number;
+}>({
+  open: false,
+  language: null,
+  trends: [],
+  pagination: null,
+  stats: undefined,
+  page: 1,
+});
 
   /* =========================
      ABRIR MODAL TENDENCIAS
@@ -92,12 +100,16 @@ export default function RankingLenguajesPage() {
       );
 
       setTrendModal({
-        open: true,
-        language,
-        trends: res.data?.data ?? [],
-        pagination: res.data?.pagination ?? null,
-        page,
-      });
+  open: true,
+  language,
+  trends: res.data?.data ?? [],
+  pagination: res.data?.pagination ?? null,
+
+  // 👇 NUEVO
+  stats: res.data?.stats,
+
+  page,
+});
     } catch (e) {
       console.error("❌ Error cargando tendencias", e);
     }
@@ -105,12 +117,16 @@ export default function RankingLenguajesPage() {
 
   const closeTrendModal = () => {
     setTrendModal({
-      open: false,
-      language: null,
-      trends: [],
-      pagination: null,
-      page: 1,
-    });
+  open: false,
+  language: null,
+  trends: [],
+  pagination: null,
+
+  // 👇 NUEVO
+  stats: undefined,
+
+  page: 1,
+});
   };
 const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
   /* =========================================================
@@ -212,16 +228,20 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
 
           {/* ================= MODAL TENDENCIAS ================= */}
           {trendModal.open && trendModal.language && (
-            <LanguageTrendModal
-              open={trendModal.open}
-              language={trendModal.language}
-              trends={trendModal.trends}
-              pagination={trendModal.pagination}
-              onClose={closeTrendModal}
-              onPageChange={(page) =>
-                openTrendModal(trendModal.language, page)
-              }
-            />
+           <LanguageTrendModal
+  open={trendModal.open}
+  language={trendModal.language}
+  trends={trendModal.trends}
+
+  // 👇 NUEVO
+  stats={trendModal.stats}
+
+  pagination={trendModal.pagination}
+  onClose={closeTrendModal}
+  onPageChange={(page) =>
+    openTrendModal(trendModal.language, page)
+  }
+/>
           )}
 {/* ================= MODAL EVOLUCIÓN ================= */}
 <WeeklyEvolutionLanguagesModal
