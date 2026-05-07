@@ -12,7 +12,8 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
-
+use App\Services\ScraperRunService;
+use App\Services\SourceStatusService;
 class RemotiveByCertificationsCommand extends Command
 {
     protected $signature = 'remotive:certifications';
@@ -25,203 +26,518 @@ class RemotiveByCertificationsCommand extends Command
         'skipped'  => 0,
     ];
 
-    public function handle()
-    {
+   public function handle()
+{
+    $baseUrl = 'https://remotive.com/api/remote-jobs';
+
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Remotive',
+        'certifications'
+    );
+
+    $source = 'remotive_certifications';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: $baseUrl
+    );
+
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    try {
+
         /**
          * ✅ Certificaciones con keywords
          */
-        $certifications = Certification::select('id', 'name', 'keywords')->get();
+        $certifications = Certification::select(
+            'id',
+            'name',
+            'keywords'
+        )->get();
 
         if ($certifications->isEmpty()) {
-            $this->error('❌ No hay certificaciones');
+
+            $this->error(
+                '❌ No hay certificaciones'
+            );
+
             return;
         }
 
-        $this->info("🌎 Importando desde Remotive para {$certifications->count()} certificaciones…");
+        $this->info(
+            "🌎 Importando desde Remotive para {$certifications->count()} certificaciones…"
+        );
 
         foreach ($certifications as $cert) {
 
             if (empty($cert->keywords)) {
-                $this->warn("⚠️ {$cert->name} sin keywords, se omite");
+
+                $this->warn(
+                    "⚠️ {$cert->name} sin keywords, se omite"
+                );
+
                 continue;
             }
 
-            // 🔑 keywordss limpias
-            $keywordss = collect(explode(',', strtolower($cert->keywords)))
-                ->map(fn ($k) => trim($k))
-                ->filter(fn ($k) => strlen($k) >= 2)
-                ->values()
-                ->all();
+            // 🔑 keywords limpias
+            $keywords = collect(
+                explode(',', strtolower($cert->keywords))
+            )
+            ->map(fn ($k) => trim($k))
+            ->filter(fn ($k) => strlen($k) >= 2)
+            ->values()
+            ->all();
 
-            if (empty($keywordss)) {
-                $this->warn("⚠️ {$cert->name} keywords inválida");
+            if (empty($keywords)) {
+
+                $this->warn(
+                    "⚠️ {$cert->name} keywords inválidas"
+                );
+
                 continue;
             }
 
-            $this->warn("\n🏅 Procesando: {$cert->name}");
-            $this->line("🔑 Keywordss: " . implode(', ', $keywordss));
+            $this->warn(
+                "\n🏅 Procesando: {$cert->name}"
+            );
 
-            $totalFound = $totalNew = $totalDuplicates = 0;
+            $this->line(
+                "🔑 Keywords: " .
+                implode(', ', $keywords)
+            );
+
+            $totalFound = 0;
+            $totalNew   = 0;
+            $totalDuplicates = 0;
+
+            $countries  = [];
+            $modalities = [];
 
             try {
+
                 /**
-                 * 📡 Remotive search (por keywords principal)
-                 * Usamos la primera keywords como search base
+                 * 📡 Remotive search
                  */
-                $response = Http::timeout(20)
-                    ->get('https://remotive.com/api/remote-jobs', [
-                        'search' => $keywordss[0],
+                $response = Http::retry(3, 2000)
+                    ->timeout(20)
+                    ->get($baseUrl, [
+                        'search' => $keywords[0],
                     ]);
 
                 $this->stats['api_hits']++;
 
                 if ($response->failed()) {
-                    $this->error("❌ Error API Remotive");
+
+                    SourceStatusService::connectionFailed(
+                        $source,
+                        "HTTP failed: {$cert->name}"
+                    );
+
+                    $this->error(
+                        "❌ Error API Remotive"
+                    );
+
                     continue;
                 }
 
+                $connectionOk = true;
+
                 $jobs = $response->json()['jobs'] ?? [];
+
                 $totalFound = count($jobs);
+
+                // ✅ evitar N+1
+                $existingIds = JobOffer::whereIn(
+                    'external_id',
+                    collect($jobs)->pluck('id')->filter()
+                )
+                ->where('source', 'Remotive')
+                ->pluck('id', 'external_id');
 
                 foreach ($jobs as $job) {
 
-                    $externalId = $job['id'] ?? null;
-                    $title      = $job['title'] ?? 'N/A';
-                    $company    = $job['company_name'] ?? null;
-                    $urlJob     = $job['url'] ?? null;
-                    $desc       = strtolower(strip_tags($job['description'] ?? ''));
+                    try {
 
-                    /**
-                     * 🧠 Match flexible por keywords (title + description)
-                     */
-                    $text = strtolower($title . ' ' . $desc);
+                        $externalId =
+                            $job['id'] ?? null;
 
-                    $matched = false;
-                    foreach ($keywordss as $kw) {
-                        if (str_contains($text, $kw)) {
-                            $matched = true;
-                            break;
+                        $title =
+                            $job['title'] ?? 'N/A';
+
+                        $company =
+                            $job['company_name']
+                            ?? null;
+
+                        $urlJob =
+                            $job['url'] ?? null;
+
+                        $desc = strtolower(
+                            strip_tags(
+                                $job['description']
+                                ?? ''
+                            )
+                        );
+
+                        /**
+                         * 🧠 Match flexible
+                         */
+
+                        $text = strtolower(
+                            $title . ' ' . $desc
+                        );
+
+                        $matched = false;
+
+                        foreach ($keywords as $kw) {
+
+                            if (
+                                str_contains(
+                                    $text,
+                                    $kw
+                                )
+                            ) {
+
+                                $matched = true;
+
+                                break;
+                            }
                         }
-                    }
 
-                    if (!$matched) {
-                        continue;
-                    }
-
-                    /**
-                     * ⚙️ Modalidad
-                     */
-                    $modality = $this->detectModality($job);
-                    $isRemote = ($modality === 'remote');
-
-                    /**
-                     * 🌍 Ubicación
-                     */
-                    $locationStr = $job['candidate_required_location'] ?? 'Unknown';
-                    [$rawCity, $rawCountry] = $this->extractLocation($locationStr);
-
-                    $country = RemotiveCountry::normalize($rawCountry);
-
-                    /**
-                     * 🗺️ Geolocalización
-                     */
-                    if ($isRemote) {
-                        $finalCity = 'Remote';
-                        $lat = $lng = null;
-                    } else {
-                        [$finalCity, $lat, $lng] = $this->tryGeocode($rawCity, $country);
-
-                        if (!$lat || !$lng) {
-                            $this->stats['skipped']++;
+                        if (!$matched) {
                             continue;
                         }
-                    }
 
-                    /**
-                     * 🛑 Dedupe
-                     */
-                    $existing = JobOffer::where('external_id', $externalId)
-                        ->where('source', 'Remotive')
-                        ->first();
+                        /**
+                         * ⚙️ Modalidad
+                         */
 
-                    if ($existing) {
-                        if (method_exists($existing, 'certifications')) {
-                            $existing->certifications()
-                                ->syncWithoutDetaching([$cert->id]);
+                        $modality =
+                            $this->detectModality(
+                                $job
+                            );
+
+                        $isRemote =
+                            ($modality === 'remote');
+
+                        /**
+                         * 🌍 Ubicación
+                         */
+
+                        $locationStr =
+                            $job['candidate_required_location']
+                            ?? 'Unknown';
+
+                        [$rawCity, $rawCountry] =
+                            $this->extractLocation(
+                                $locationStr
+                            );
+
+                        $country =
+                            RemotiveCountry::normalize(
+                                $rawCountry
+                            );
+
+                        /**
+                         * 🗺️ GEO
+                         */
+
+                        if ($isRemote) {
+
+                            $finalCity = 'Remote';
+
+                            $lat = $lng = null;
+
+                        } else {
+
+                            [$finalCity, $lat, $lng] =
+                                $this->tryGeocode(
+                                    $rawCity,
+                                    $country
+                                );
+
+                            if (!$lat || !$lng) {
+
+                                $this->stats['skipped']++;
+                                $totalSkippedAll++;
+
+                                continue;
+                            }
                         }
-                        $totalDuplicates++;
-                        continue;
+
+                        /**
+                         * 🛑 DEDUPE
+                         */
+
+                        if (
+                            $externalId &&
+                            isset($existingIds[$externalId])
+                        ) {
+
+                            $existing = JobOffer::find(
+                                $existingIds[$externalId]
+                            );
+
+                            if (
+                                $existing &&
+                                method_exists(
+                                    $existing,
+                                    'certifications'
+                                )
+                            ) {
+
+                                $existing->certifications()
+                                    ->syncWithoutDetaching([
+                                        $cert->id
+                                    ]);
+                            }
+
+                            $totalDuplicates++;
+
+                            continue;
+                        }
+
+                        /**
+                         * 🌐 Región
+                         */
+
+                        $region =
+                            RegionMapper::resolve(
+                                $country
+                            );
+
+                        /**
+                         * 📊 Counters
+                         */
+
+                        $countries[$country] =
+                            ($countries[$country] ?? 0) + 1;
+
+                        $modalities[$modality] =
+                            ($modalities[$modality] ?? 0) + 1;
+
+                        /**
+                         * 💾 CREATE
+                         */
+
+                        $offer = JobOffer::create([
+
+                            'title' =>
+                                $title,
+
+                            'company' =>
+                                $company,
+
+                            'country' =>
+                                $country,
+
+                            'city' =>
+                                $finalCity,
+
+                            'latitude' =>
+                                $lat,
+
+                            'longitude' =>
+                                $lng,
+
+                            'modality' =>
+                                $modality,
+
+                            'salary_min' =>
+                                $this->extractMinSalary(
+                                    $job['salary'] ?? ''
+                                ),
+
+                            'salary_max' =>
+                                $this->extractMaxSalary(
+                                    $job['salary'] ?? ''
+                                ),
+
+                            'experience_level' =>
+                                $this->extractExperience(
+                                    $desc
+                                ),
+
+                            'education_level' =>
+                                $this->extractEducation(
+                                    $desc
+                                ),
+
+                            'requirements' =>
+                                $desc,
+
+                            'source' =>
+                                'Remotive',
+
+                            'external_id' =>
+                                $externalId,
+
+                            'url' =>
+                                $urlJob,
+
+                            'search_query' =>
+                                implode(', ', $keywords),
+
+                            'published_at' =>
+                                isset($job['publication_date'])
+                                    ? Carbon::parse(
+                                        $job['publication_date']
+                                    )
+                                    : now(),
+
+                            'region' =>
+                                $region,
+                        ]);
+
+                        if (
+                            method_exists(
+                                $offer,
+                                'certifications'
+                            )
+                        ) {
+
+                            $offer->certifications()
+                                ->syncWithoutDetaching([
+                                    $cert->id
+                                ]);
+                        }
+
+                        $totalNew++;
+
+                    } catch (\Throwable $e) {
+
+                        $this->stats['skipped']++;
+                        $totalSkippedAll++;
+
+                        Log::error(
+                            "❌ Remotive {$cert->name}: {$e->getMessage()}"
+                        );
                     }
-
-                    /**
-                     * 🌐 Región
-                     */
-                    $region = RegionMapper::resolve($country);
-
-                    /**
-                     * 💾 Insert JobOffer
-                     */
-                    $offer = JobOffer::create([
-                        'title'            => $title,
-                        'company'          => $company,
-                        'country'          => $country,
-                        'city'             => $finalCity,
-                        'latitude'         => $lat,
-                        'longitude'        => $lng,
-                        'modality'         => $modality,
-                        'salary_min'       => $this->extractMinSalary($job['salary'] ?? ''),
-                        'salary_max'       => $this->extractMaxSalary($job['salary'] ?? ''),
-                        'experience_level' => $this->extractExperience($desc),
-                        'education_level'  => $this->extractEducation($desc),
-                        'requirements'     => $desc,
-                        'source'           => 'Remotive',
-                        'external_id'      => $externalId,
-                        'url'              => $urlJob,
-                        'search_query'     => implode(', ', $keywordss),
-                        'published_at'     => isset($job['publication_date'])
-                            ? Carbon::parse($job['publication_date'])
-                            : now(),
-                        'region'           => $region,
-                    ]);
-
-                    if (method_exists($offer, 'certifications')) {
-                        $offer->certifications()
-                            ->syncWithoutDetaching([$cert->id]);
-                    }
-
-                    $totalNew++;
                 }
 
             } catch (\Throwable $e) {
-                Log::error("❌ Remotive {$cert->name}: " . $e->getMessage());
+
+                SourceStatusService::connectionFailed(
+                    $source,
+                    "Exception: {$cert->name}"
+                );
+
+                Log::error(
+                    "❌ Remotive {$cert->name}: " .
+                    $e->getMessage()
+                );
             }
+
+            /* =====================================================
+               📊 ACUMULADOS
+            ===================================================== */
+
+            $totalFoundAll += $totalFound;
+            $totalInsertedAll += $totalNew;
+            $totalSkippedAll += $totalDuplicates;
+
+            /* =====================================================
+               📊 STATUS PROGRESS
+            ===================================================== */
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
 
             /**
              * 📊 Métrica diaria
              */
-            $today = now()->toDateString();
 
             if ($totalFound > 0) {
+
                 CertificationMetric::updateOrCreate(
                     [
-                        'certification_id' => $cert->id,
-                        'run_date'         => $today,
-                        'source'           => 'Remotive',
+                        'certification_id' =>
+                            $cert->id,
+
+                        'run_date' =>
+                            now()->toDateString(),
+
+                        'source' =>
+                            'Remotive',
                     ],
                     [
-                        'total'      => $totalFound,
-                        'country'    => 'Multiple',
-                        'updated_at' => now(),
+                        'certification_name' =>
+                            $cert->name,
+
+                        'jobs_found_count' =>
+                            $totalFound,
+
+                        'jobs_new_count' =>
+                            $totalNew,
+
+                        'countries_breakdown' =>
+                            $countries,
+
+                        'modality_breakdown' =>
+                            $modalities,
                     ]
                 );
             }
 
-            $this->info("✅ {$cert->name}: {$totalNew} nuevas / {$totalFound} encontradas");
+            $this->info(
+                "✅ {$cert->name}: {$totalNew} nuevas / {$totalFound} encontradas"
+            );
         }
 
-        $this->line("\n🎯 REMOTIVE CERTIFICATIONS COMPLETADO");
-    }
+        /* =====================================================
+           ✅ SUCCESS
+        ===================================================== */
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->line(
+            "\n🎯 REMOTIVE CERTIFICATIONS COMPLETADO"
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
+    }
+}
     // =====================================================
     // HELPERS (idénticos al original)
     // =====================================================

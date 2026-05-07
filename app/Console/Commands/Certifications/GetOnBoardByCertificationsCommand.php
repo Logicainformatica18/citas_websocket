@@ -10,7 +10,8 @@ use App\Models\JobOffer;
 use App\Models\CertificationMetric;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
-
+ use App\Services\SourceStatusService;
+ use App\Services\ScraperRunService;
 class GetOnBoardByCertificationsCommand extends Command
 {
     protected $signature = 'getonboard:certifications {--pages=1}';
@@ -30,82 +31,178 @@ class GetOnBoardByCertificationsCommand extends Command
     ];
 
     public function handle()
-    {
-        $pages = (int) $this->option('pages');
+{
+    $baseUrl = 'https://www.getonbrd.com/api/v0/search/jobs';
+
+    $run = ScraperRunService::start(
+        $this->signature,
+        'GetOnBoard',
+        'certifications'
+    );
+
+    $source = 'getonboard_certifications';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [
+            'pages' => $this->option('pages'),
+        ],
+        apiUrl: $baseUrl
+    );
+
+    $pages = (int) $this->option('pages');
+
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    try {
 
         $certifications = Certification::where('enabled', 1)
             ->whereNotNull('keywords')
             ->get(['id', 'name', 'keywords']);
 
-        $this->info("🏅 GetOnBoard | {$certifications->count()} certificaciones | {$pages} páginas");
+        $this->info(
+            "🏅 GetOnBoard | {$certifications->count()} certificaciones | {$pages} páginas"
+        );
 
         foreach ($certifications as $cert) {
 
             $certId   = $cert->id;
             $certName = $cert->name;
 
-            // 🔑 keywords como array (cast seguro)
+            // 🔑 keywords
             $keywords = collect($cert->keywords)
                 ->map(fn ($k) => strtolower(trim($k)))
                 ->filter()
                 ->values();
 
             if ($keywords->isEmpty()) {
-                $this->warn("⚠️ {$certName} sin keywords válidos");
+
+                $this->warn(
+                    "⚠️ {$certName} sin keywords válidos"
+                );
+
                 continue;
             }
 
             $this->warn("\n💡 Certificación: {$certName}");
-            $this->line("🔑 Keywords: " . implode(', ', $keywords->toArray()));
+
+            $this->line(
+                "🔑 Keywords: " .
+                implode(', ', $keywords->toArray())
+            );
 
             $totalFound   = 0;
             $totalNew     = 0;
             $totalSkipped = 0;
-            $countries    = [];
-            $modalities   = [];
 
-            // 👉 keyword principal para query API
-            $primaryKeyword = urlencode($keywords->first());
+            $countries  = [];
+            $modalities = [];
 
             for ($page = 1; $page <= $pages; $page++) {
 
-             $url = "https://www.getonbrd.com/api/v0/search/jobs?page={$page}&per_page=100";
-
+                $url =
+                    "{$baseUrl}?page={$page}&per_page=100";
 
                 try {
-                    $response = Http::withHeaders([
-                            'User-Agent' => 'Mozilla/5.0 (compatible; ObservatorioISIL/1.0)',
-                            'Accept'     => 'application/json',
+
+                    $response = Http::retry(3, 2000)
+                        ->withHeaders([
+                            'User-Agent' =>
+                                'Mozilla/5.0 (compatible; ObservatorioISIL/1.0)',
+
+                            'Accept' =>
+                                'application/json',
                         ])
                         ->timeout(25)
                         ->get($url);
 
-                    if ($response->failed()) {
-                        $this->warn("❌ API falló página {$page} | status {$response->status()}");
-                        Log::warning('GetOnBoard API error', [
-                            'status' => $response->status(),
-                            'body'   => $response->body(),
-                        ]);
-                        continue;
-                    }
+                } catch (\Throwable $e) {
 
-                    $jobs = $response->json('data') ?? [];
-                    if (empty($jobs)) {
-                        $this->line("ℹ️ Sin resultados página {$page}");
-                        continue;
-                    }
+                    SourceStatusService::connectionFailed(
+                        $source,
+                        "Connection exception page {$page}"
+                    );
 
-                    foreach ($jobs as $job) {
+                    Log::error($e);
+
+                    continue;
+                }
+
+                if ($response->failed()) {
+
+                    SourceStatusService::connectionFailed(
+                        $source,
+                        "HTTP failed page {$page}"
+                    );
+
+                    $this->warn(
+                        "❌ API falló página {$page} | status {$response->status()}"
+                    );
+
+                    Log::warning('GetOnBoard API error', [
+                        'status' => $response->status(),
+                        'body'   => $response->body(),
+                    ]);
+
+                    continue;
+                }
+
+                $connectionOk = true;
+
+                $jobs = $response->json('data') ?? [];
+
+                if (empty($jobs)) {
+
+                    $this->line(
+                        "ℹ️ Sin resultados página {$page}"
+                    );
+
+                    continue;
+                }
+
+                // ✅ evitar N+1
+                $existingIds = JobOffer::whereIn(
+                    'external_id',
+                    collect($jobs)->pluck('id')->filter()
+                )
+                ->where('source', 'GetOnBoard')
+                ->pluck('id', 'external_id');
+
+                foreach ($jobs as $job) {
+
+                    try {
 
                         $attr = $job['attributes'] ?? [];
 
-                        $title   = $attr['title'] ?? '';
-                        $company = $attr['company']['data']['attributes']['name'] ?? null;
-                        $country = $attr['countries'][0] ?? null;
-                        $city    = $attr['city'] ?? null;
-                        $modality = $attr['remote_modality'] ?? 'unknown';
-                        $urlJob  = $job['links']['public_url'] ?? null;
-                        $externalId = $job['id'] ?? null;
+                        $title =
+                            $attr['title'] ?? '';
+
+                        $company =
+                            $attr['company']['data']['attributes']['name']
+                            ?? null;
+
+                        $country =
+                            $attr['countries'][0] ?? null;
+
+                        $city =
+                            $attr['city'] ?? null;
+
+                        $modality =
+                            $attr['remote_modality']
+                            ?? 'unknown';
+
+                        $urlJob =
+                            $job['links']['public_url']
+                            ?? null;
+
+                        $externalId =
+                            $job['id'] ?? null;
 
                         $text = strtolower(
                             strip_tags(
@@ -115,9 +212,10 @@ class GetOnBoardByCertificationsCommand extends Command
                             )
                         );
 
-                        // 🔎 matching real (mínimo 1 keyword)
+                        // 🔎 matching keywords
                         $matches = $keywords->filter(
-                            fn ($k) => str_contains($text, $k)
+                            fn ($k) =>
+                                str_contains($text, $k)
                         );
 
                         if ($matches->isEmpty()) {
@@ -126,66 +224,144 @@ class GetOnBoardByCertificationsCommand extends Command
 
                         $totalFound++;
 
-                        // 📊 métricas
-                        $countries[$country] = ($countries[$country] ?? 0) + 1;
-                        $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
+                        $countries[$country] =
+                            ($countries[$country] ?? 0) + 1;
+
+                        $modalities[$modality] =
+                            ($modalities[$modality] ?? 0) + 1;
 
                         // 📍 coords
                         [$finalCity, $lat, $lng] =
-                            $this->getCoordsFromCountry($city, $country);
+                            $this->getCoordsFromCountry(
+                                $city,
+                                $country
+                            );
 
                         if (!$lat || !$lng) {
+
                             $totalSkipped++;
+                            $totalSkippedAll++;
+
                             continue;
                         }
 
                         // 🔁 duplicado
-                        $existing = JobOffer::where('source', 'GetOnBoard')
-                            ->where('external_id', $externalId)
-                            ->first();
+                        if (
+                            $externalId &&
+                            isset($existingIds[$externalId])
+                        ) {
 
-                        if ($existing) {
-                            $existing->certifications()
-                                ->syncWithoutDetaching([$certId]);
+                            $existing = JobOffer::find(
+                                $existingIds[$externalId]
+                            );
+
+                            if ($existing) {
+
+                                $existing->certifications()
+                                    ->syncWithoutDetaching([
+                                        $certId
+                                    ]);
+                            }
+
                             continue;
                         }
 
-                        $countryNorm = $this->normalizeCountry($country);
+                        $countryNorm =
+                            $this->normalizeCountry($country);
 
                         $offer = JobOffer::create([
-                            'title'        => $title ?: 'N/A',
-                            'company'      => $company,
-                            'country'      => $countryNorm,
-                            'region'       => RegionHelper::fromCountry($countryNorm),
-                            'city'         => $finalCity,
-                            'latitude'     => $lat,
-                            'longitude'    => $lng,
-                            'modality'     => $modality,
-                            'source'       => 'GetOnBoard',
-                            'external_id'  => $externalId,
-                            'url'          => $urlJob,
-                            'published_at' => isset($attr['published_at'])
-                                ? Carbon::createFromTimestamp($attr['published_at'])
-                                : now(),
+
+                            'title' =>
+                                $title ?: 'N/A',
+
+                            'company' =>
+                                $company,
+
+                            'country' =>
+                                $countryNorm,
+
+                            'region' =>
+                                RegionHelper::fromCountry(
+                                    $countryNorm
+                                ),
+
+                            'city' =>
+                                $finalCity,
+
+                            'latitude' =>
+                                $lat,
+
+                            'longitude' =>
+                                $lng,
+
+                            'modality' =>
+                                $modality,
+
+                            'source' =>
+                                'GetOnBoard',
+
+                            'external_id' =>
+                                $externalId,
+
+                            'url' =>
+                                $urlJob,
+
+                            'published_at' =>
+                                isset($attr['published_at'])
+                                    ? Carbon::createFromTimestamp(
+                                        $attr['published_at']
+                                    )
+                                    : now(),
                         ]);
 
                         $offer->certifications()
-                            ->syncWithoutDetaching([$certId]);
+                            ->syncWithoutDetaching([
+                                $certId
+                            ]);
 
                         $totalNew++;
 
                         $this->line(
                             "✅ {$title} ({$countryNorm}) → [" .
-                            implode(', ', $matches->toArray()) . "]"
+                            implode(', ', $matches->toArray()) .
+                            "]"
+                        );
+
+                    } catch (\Throwable $e) {
+
+                        $totalSkipped++;
+                        $totalSkippedAll++;
+
+                        Log::error(
+                            "💥 {$certName}: {$e->getMessage()}"
                         );
                     }
-
-                    sleep(random_int(2, 4));
-
-                } catch (\Throwable $e) {
-                    Log::error("💥 {$certName} página {$page}: {$e->getMessage()}");
                 }
+
+                sleep(random_int(2, 4));
             }
+
+            /* =====================================================
+               📊 ACUMULADOS
+            ===================================================== */
+
+            $totalFoundAll    += $totalFound;
+            $totalInsertedAll += $totalNew;
+
+            /* =====================================================
+               📊 STATUS PROGRESS
+            ===================================================== */
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            /* =====================================================
+               📊 MÉTRICAS
+            ===================================================== */
 
             CertificationMetric::updateOrCreate(
                 [
@@ -207,8 +383,49 @@ class GetOnBoardByCertificationsCommand extends Command
             );
         }
 
-        $this->info("\n🎯 GetOnBoard por certificaciones COMPLETADO");
+        /* =====================================================
+           ✅ SUCCESS
+        ===================================================== */
+
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info(
+            "\n🎯 GetOnBoard por certificaciones COMPLETADO"
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
     }
+}
 
     /* ================= HELPERS ================= */
 

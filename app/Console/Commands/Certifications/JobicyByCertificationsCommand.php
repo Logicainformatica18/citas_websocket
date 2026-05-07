@@ -12,7 +12,8 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
-
+ use App\Services\SourceStatusService;
+ use App\Services\ScraperRunService;
 class JobicyByCertificationsCommand extends Command
 {
     protected $signature = 'jobicy:certifications';
@@ -44,104 +45,290 @@ class JobicyByCertificationsCommand extends Command
     ];
 
     public function handle()
-    {
-        // ✅ MISMO CRITERIO QUE ADZUNA (NO académico)
+{
+    $baseUrl = 'https://jobicy.com/api/v2/remote-jobs';
+
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Jobicy',
+        'certifications'
+    );
+
+    $source = 'jobicy_certifications';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [],
+        apiUrl: $baseUrl
+    );
+
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    try {
+
+        // ✅ certificaciones
         $certifications = Certification::where('enabled', 1)
             ->pluck('name', 'id');
 
         if ($certifications->isEmpty()) {
-            $this->error('❌ No hay certificaciones habilitadas');
+
+            $this->error(
+                '❌ No hay certificaciones habilitadas'
+            );
+
             return;
         }
 
-        $this->info("🏅 Jobicy → {$certifications->count()} certificaciones");
+        $this->info(
+            "🏅 Jobicy → {$certifications->count()} certificaciones"
+        );
 
-        // 🌐 Jobicy = UNA llamada global
-        $response = Http::timeout(25)->get('https://jobicy.com/api/v2/remote-jobs');
+        // 🌐 UNA llamada global
+        try {
+
+            $response = Http::retry(3, 2000)
+                ->timeout(25)
+                ->get($baseUrl);
+
+        } catch (\Throwable $e) {
+
+            SourceStatusService::connectionFailed(
+                $source,
+                'Connection exception'
+            );
+
+            Log::error($e);
+
+            return;
+        }
 
         if ($response->failed()) {
-            $this->error('❌ Jobicy API no respondió');
+
+            SourceStatusService::connectionFailed(
+                $source,
+                'HTTP failed'
+            );
+
+            $this->error(
+                '❌ Jobicy API no respondió'
+            );
+
             return;
         }
+
+        $connectionOk = true;
 
         $this->stats['api_hits']++;
 
-        $allJobs = collect($response->json('jobs') ?? []);
+        $allJobs = collect(
+            $response->json('jobs') ?? []
+        );
+
+        // ✅ evitar N+1
+        $existingIds = JobOffer::whereIn(
+            'external_id',
+            $allJobs->pluck('id')->filter()
+        )
+        ->where('source', 'Jobicy')
+        ->pluck('id', 'external_id');
 
         foreach ($certifications as $certId => $certName) {
 
-            $this->warn("\n🎯 Procesando: {$certName}");
-
-            $jobs = $allJobs->filter(fn ($job) =>
-                str_contains(
-                    strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
-                    strtolower($certName)
-                )
+            $this->warn(
+                "\n🎯 Procesando: {$certName}"
             );
+
+            $jobs = $allJobs->filter(function ($job) use ($certName) {
+
+                return str_contains(
+                    strtolower(
+                        ($job['jobTitle'] ?? '') . ' ' .
+                        ($job['jobDescription'] ?? '')
+                    ),
+                    strtolower($certName)
+                );
+            });
 
             $totalFound = $jobs->count();
             $totalNew   = 0;
+
             $countries  = [];
             $modalities = [];
 
             foreach ($jobs as $job) {
 
-                $externalId = $job['id'] ?? null;
-                if (!$externalId) continue;
+                try {
 
-                // 🔁 Evitar duplicados
-                $existing = JobOffer::where('external_id', $externalId)->first();
-                if ($existing) {
-                    $existing->certifications()
-                        ->syncWithoutDetaching([$certId]);
-                    continue;
+                    $externalId =
+                        $job['id'] ?? null;
+
+                    if (!$externalId) {
+
+                        $totalSkippedAll++;
+
+                        continue;
+                    }
+
+                    // 🔁 duplicado
+                    if (
+                        isset($existingIds[$externalId])
+                    ) {
+
+                        $existing = JobOffer::find(
+                            $existingIds[$externalId]
+                        );
+
+                        if ($existing) {
+
+                            $existing->certifications()
+                                ->syncWithoutDetaching([
+                                    $certId
+                                ]);
+                        }
+
+                        continue;
+                    }
+
+                    // 🌍 país
+                    $countryRaw =
+                        $job['jobGeo'] ?? null;
+
+                    $country =
+                        CountryNormalizer::normalize(
+                            $countryRaw
+                        );
+
+                    // 📍 geo
+                    [$city, $lat, $lng] =
+                        $this->resolveCoords(
+                            $country
+                        );
+
+                    // 🧠 modalidad
+                    $desc = strtolower(
+                        strip_tags(
+                            $job['jobDescription']
+                            ?? ''
+                        )
+                    );
+
+                    $modality =
+                        $this->detectModality(
+                            $desc
+                        );
+
+                    $offer = JobOffer::create([
+
+                        'title' =>
+                            $job['jobTitle']
+                            ?? 'N/A',
+
+                        'company' =>
+                            $job['companyName']
+                            ?? null,
+
+                        'country' =>
+                            $country,
+
+                        'region' =>
+                            RegionHelper::fromCountry(
+                                $country
+                            ),
+
+                        'city' =>
+                            $city,
+
+                        'latitude' =>
+                            $lat,
+
+                        'longitude' =>
+                            $lng,
+
+                        'modality' =>
+                            $modality,
+
+                        'description' =>
+                            strip_tags(
+                                $job['jobDescription']
+                                ?? ''
+                            ),
+
+                        'source' =>
+                            'Jobicy',
+
+                        'external_id' =>
+                            $externalId,
+
+                        'url' =>
+                            $job['url']
+                            ?? null,
+
+                        'search_query' =>
+                            $certName,
+
+                        'published_at' =>
+                            isset($job['pubDate'])
+                                ? Carbon::parse(
+                                    $job['pubDate']
+                                )
+                                : now(),
+                    ]);
+
+                    $offer->certifications()
+                        ->syncWithoutDetaching([
+                            $certId
+                        ]);
+
+                    $totalNew++;
+
+                    $countries[$country] =
+                        ($countries[$country] ?? 0) + 1;
+
+                    $modalities[$modality] =
+                        ($modalities[$modality] ?? 0) + 1;
+
+                    $this->line(
+                        "✅ {$offer->title}"
+                    );
+
+                } catch (\Throwable $e) {
+
+                    $totalSkippedAll++;
+
+                    Log::error(
+                        "Jobicy item error: {$e->getMessage()}"
+                    );
                 }
-
-                // 🌍 País NORMALIZADO (seguro)
-                $countryRaw = $job['jobGeo'] ?? null;
-                $country    = CountryNormalizer::normalize($countryRaw);
-
-                // 📍 Geolocalización segura
-                [$city, $lat, $lng] = $this->resolveCoords($country);
-
-                // 🧠 Modalidad
-                $desc = strtolower(strip_tags($job['jobDescription'] ?? ''));
-                $modality = $this->detectModality($desc);
-
-                $offer = JobOffer::create([
-                    'title'        => $job['jobTitle'] ?? 'N/A',
-                    'company'      => $job['companyName'] ?? null,
-                    'country'      => $country,
-                    'region'       => RegionHelper::fromCountry($country),
-                    'city'         => $city,
-                    'latitude'     => $lat,
-                    'longitude'    => $lng,
-                    'modality'     => $modality,
-                    'description'  => strip_tags($job['jobDescription'] ?? ''),
-                    'source'       => 'Jobicy',
-                    'external_id'  => $externalId,
-                    'url'          => $job['url'] ?? null,
-                    'search_query' => $certName,
-                    'published_at' => isset($job['pubDate'])
-                        ? Carbon::parse($job['pubDate'])
-                        : now(),
-                ]);
-
-                $offer->certifications()
-                    ->syncWithoutDetaching([$certId]);
-
-                $totalNew++;
-
-                $countries[$country] =
-                    ($countries[$country] ?? 0) + 1;
-
-                $modalities[$modality] =
-                    ($modalities[$modality] ?? 0) + 1;
-
-                $this->line("✅ {$offer->title}");
             }
 
-            // 📊 Métrica diaria
+            /* =====================================================
+               📊 ACUMULADOS
+            ===================================================== */
+
+            $totalFoundAll += $totalFound;
+            $totalInsertedAll += $totalNew;
+
+            /* =====================================================
+               📊 STATUS PROGRESS
+            ===================================================== */
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            /* =====================================================
+               📊 MÉTRICAS
+            ===================================================== */
+
             CertificationMetric::updateOrCreate(
                 [
                     'certification_id' => $certId,
@@ -149,20 +336,71 @@ class JobicyByCertificationsCommand extends Command
                     'source'           => 'Jobicy',
                 ],
                 [
-                    'certification_name' => $certName,
-                    'jobs_found_count'   => $totalFound,
-                    'jobs_new_count'     => $totalNew,
-                    'countries_breakdown'=> $countries,
-                    'modality_breakdown' => $modalities,
+                    'certification_name' =>
+                        $certName,
+
+                    'jobs_found_count' =>
+                        $totalFound,
+
+                    'jobs_new_count' =>
+                        $totalNew,
+
+                    'countries_breakdown' =>
+                        $countries,
+
+                    'modality_breakdown' =>
+                        $modalities,
                 ]
             );
 
-            $this->info("📊 {$certName}: {$totalNew} nuevas | {$totalFound} encontradas");
+            $this->info(
+                "📊 {$certName}: {$totalNew} nuevas | {$totalFound} encontradas"
+            );
         }
 
-        $this->info("\n🎯 Jobicy certificaciones finalizado");
-    }
+        /* =====================================================
+           ✅ SUCCESS
+        ===================================================== */
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info(
+            "\n🎯 Jobicy certificaciones finalizado"
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
+    }
+}
     /* ================= HELPERS ================= */
 
     protected function detectModality(string $text): string

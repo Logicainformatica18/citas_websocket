@@ -10,11 +10,14 @@ use App\Models\JobOffer;
 use App\Models\CertificationMetric;
 use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
-
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Intl\Countries;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
+ use App\Services\SourceStatusService;
+use Illuminate\Support\Str;
 
 class AdzunaByCertificationsCommand extends Command
 {
@@ -60,15 +63,35 @@ class AdzunaByCertificationsCommand extends Command
 
  public function handle()
 {
+    $baseUrl = config(
+        'services.adzuna.base_url',
+        'https://api.adzuna.com/v1/api/jobs'
+    );
+
     $run = ScraperRunService::start(
         $this->signature,
         'Adzuna',
         'market_entities'
     );
 
+    $source = 'adzuna_certifications';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [
+            'country' => $this->option('country'),
+            'pages'   => $this->option('pages'),
+        ],
+        apiUrl: $baseUrl
+    );
+
     $totalFoundAll    = 0;
     $totalInsertedAll = 0;
     $totalSkippedAll  = 0;
+
+    $connectionOk = false;
+    $startedAt = now();
 
     try {
 
@@ -76,42 +99,43 @@ class AdzunaByCertificationsCommand extends Command
         $pages   = (int) $this->option('pages');
 
         /* =====================================================
-           🔁 BASE QUERY (Market Entities tipo certification)
+           🔁 BASE QUERY
         ===================================================== */
-     $baseQuery = MarketEntity::where('entity_type', 'certification')->orderBy('id');
-
+        $baseQuery = MarketEntity::where(
+            'entity_type',
+            'certification'
+        )->orderBy('id');
 
         /* =====================================================
-           ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD PROCESADA
+           ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD
         ===================================================== */
-       $lastEntityId = MarketEntityMetric::where('source', 'Adzuna')
-    ->orderByDesc('created_at')
-    ->value('market_entity_id');
-$entitiesQuery = clone $baseQuery;
+        $lastEntityId = MarketEntityMetric::where('source', 'Adzuna')
+            ->orderByDesc('created_at')
+            ->value('market_entity_id');
 
-if ($lastEntityId) {
-    $entitiesQuery->where('id', '>', $lastEntityId);
-}
+        $entitiesQuery = clone $baseQuery;
 
+        if ($lastEntityId) {
+            $entitiesQuery->where('id', '>', $lastEntityId);
+        }
 
+        $entities = $entitiesQuery->pluck('name', 'id');
 
-$entities = $entitiesQuery->pluck('name', 'id');
+        // 🔁 reinicio completo
+        if ($entities->isEmpty()) {
+            $entities = $baseQuery->pluck('name', 'id');
+        }
 
-if ($entities->isEmpty()) {
-    // 🔁 ciclo completo → reiniciar
-    $entities = $baseQuery->pluck('name', 'id');
-}
+        $appId  = config('services.adzuna.app_id');
+        $appKey = config('services.adzuna.app_key');
 
-
-        $appId   = config('services.adzuna.app_id');
-        $appKey  = config('services.adzuna.app_key');
-        $baseUrl = config('services.adzuna.base_url', 'https://api.adzuna.com/v1/api/jobs');
-
-        $this->info("🏅 Iniciando Adzuna para {$entities->count()} market certifications");
+        $this->info(
+            "🏅 Iniciando Adzuna para {$entities->count()} certifications"
+        );
 
         foreach ($entities as $entityId => $entityName) {
 
-            $this->warn("\n💡 Market certification: {$entityName}");
+            $this->warn("\n💡 Certification: {$entityName}");
 
             $totalFound     = 0;
             $totalNew       = 0;
@@ -127,132 +151,252 @@ if ($entities->isEmpty()) {
                     . "&results_per_page=100"
                     . "&what=" . urlencode($entityName);
 
-             try {
-    $response = Http::timeout(30)->get($url);
-} catch (\Illuminate\Http\Client\ConnectionException $e) {
-    $this->error("⏱️ Timeout Adzuna ({$entityName}) page {$page}");
-    sleep(5); // backoff
-    continue;
-}
+                try {
 
+                    $response = Http::retry(3, 2000)
+                        ->timeout(30)
+                        ->get($url);
 
-                if ($response->failed()) {
-                    $this->error("❌ API error {$entityName} page {$page}");
+                } catch (\Throwable $e) {
+
+                    SourceStatusService::connectionFailed(
+                        $source,
+                        "Timeout/API error: {$entityName} page {$page}"
+                    );
+
+                    Log::error($e);
+
                     continue;
                 }
 
+                if ($response->failed()) {
+
+                    SourceStatusService::connectionFailed(
+                        $source,
+                        "HTTP failed: {$entityName} page {$page}"
+                    );
+
+                    $this->error(
+                        "❌ API error {$entityName} page {$page}"
+                    );
+
+                    continue;
+                }
+
+                $connectionOk = true;
+
                 $results = $response->json('results') ?? [];
+
+                if (empty($results)) {
+                    break;
+                }
+
                 $totalFound += count($results);
+
+                // ✅ evitar N+1
+                $existingIds = JobOffer::whereIn(
+                    'external_id',
+                    collect($results)->pluck('id')->filter()
+                )->pluck('id', 'external_id');
 
                 foreach ($results as $job) {
 
                     $desc = strtolower($job['description'] ?? '');
 
-                    // 🔍 Validación real por texto
-                    if (!str_contains($desc, strtolower($entityName))) {
+                    // ✅ validación exacta
+                    if (!preg_match(
+                        '/\b' . preg_quote($entityName, '/') . '\b/i',
+                        $desc
+                    )) {
                         continue;
                     }
 
                     $externalId = $job['id'] ?? null;
 
-                    $existing = JobOffer::where('external_id', $externalId)->first();
+                    if (!$externalId) {
+                        continue;
+                    }
 
-                    if ($existing) {
-                        // 👉 asociar entidad de mercado
-                   $existing->marketCertifications()->syncWithoutDetaching([$entityId]);
+                    // ✅ duplicado
+                    if (isset($existingIds[$externalId])) {
+
+                        $existing = JobOffer::find(
+                            $existingIds[$externalId]
+                        );
+
+                        if ($existing) {
+
+                            $existing->marketCertifications()
+                                ->syncWithoutDetaching([$entityId]);
+                        }
 
                         $totalDuplicate++;
+
                         continue;
                     }
 
                     /* ===============================
                        MODALIDAD
                     =============================== */
+
                     $title = strtolower($job['title'] ?? '');
-                    $modality = $this->detectModality($title, $desc);
+
+                    $modality = $this->detectModality(
+                        $title,
+                        $desc
+                    );
 
                     /* ===============================
                        UBICACIÓN
                     =============================== */
+
                     $area = $job['location']['area'] ?? [];
+
                     $city = $area[1] ?? ($area[0] ?? null);
 
-                    $countryCode = strtoupper($area[0] ?? $country);
-                    $countryFull = ucfirst(strtolower($countryCode));
+                    $countryCode = strtoupper($country);
 
                     [$city, $lat, $lng] =
-                        $this->getCoordsFromCountry($city, strtolower($countryCode));
+                        $this->getCoordsFromCountry(
+                            $city,
+                            strtolower($countryCode)
+                        );
 
+                    // fallback capital
                     if (!$lat || !$lng) {
-                        if (isset($this->capitalMap[strtolower($countryCode)])) {
-                            $cap = $this->capitalMap[strtolower($countryCode)];
+
+                        if (isset(
+                            $this->capitalMap[strtolower($countryCode)]
+                        )) {
+
+                            $cap = $this->capitalMap[
+                                strtolower($countryCode)
+                            ];
+
                             $city = $cap['city'];
                             $lat  = $cap['lat'];
                             $lng  = $cap['lng'];
+
+                            $this->stats['fallback']++;
+
                         } else {
+
                             $totalSkippedAll++;
                             continue;
                         }
                     }
 
                     $offer = JobOffer::create([
-                        'title'        => $job['title'] ?? 'N/A',
-                        'company'      => $job['company']['display_name'] ?? null,
-                        'country'      => $countryFull,
-                        'city'         => $city,
-                        'latitude'     => $lat,
-                        'longitude'    => $lng,
-                        'modality'     => $modality,
-                        'requirements' => strip_tags($job['description'] ?? null),
-                        'source'       => 'Adzuna',
-                        'external_id'  => $externalId,
-                        'url'          => $job['redirect_url'] ?? null,
-                        'search_query' => $entityName,
-                        'published_at' => isset($job['created'])
-                            ? Carbon::parse($job['created'])
-                            : now(),
-                        'region'       => RegionHelper::fromCountry($countryFull),
+
+                        'title' =>
+                            $job['title'] ?? 'N/A',
+
+                        'company' =>
+                            $job['company']['display_name'] ?? null,
+
+                        'country' =>
+                            $countryCode,
+
+                        'city' =>
+                            $city,
+
+                        'latitude' =>
+                            $lat,
+
+                        'longitude' =>
+                            $lng,
+
+                        'modality' =>
+                            $modality,
+
+                        'requirements' =>
+                            strip_tags(
+                                $job['description'] ?? null
+                            ),
+
+                        'source' =>
+                            'Adzuna',
+
+                        'external_id' =>
+                            $externalId,
+
+                        'url' =>
+                            $job['redirect_url'] ?? null,
+
+                        'search_query' =>
+                            $entityName,
+
+                        'published_at' =>
+                            isset($job['created'])
+                                ? Carbon::parse($job['created'])
+                                : now(),
+
+                        'region' =>
+                            RegionHelper::fromCountry($countryCode),
                     ]);
 
-                    // 👉 asociar market entity
-                  $offer->marketCertifications()->syncWithoutDetaching([$entityId]);
-
+                    // ✅ attach certification
+                    $offer->marketCertifications()
+                        ->syncWithoutDetaching([$entityId]);
 
                     $totalNew++;
-                    $countries[$countryCode] = ($countries[$countryCode] ?? 0) + 1;
-                    $modalities[$modality]   = ($modalities[$modality] ?? 0) + 1;
+
+                    $countries[$countryCode] =
+                        ($countries[$countryCode] ?? 0) + 1;
+
+                    $modalities[$modality] =
+                        ($modalities[$modality] ?? 0) + 1;
                 }
 
                 sleep(1);
             }
 
             /* ===============================
-               ACUMULADOS GLOBALES
+               ACUMULADOS
             =============================== */
+
             $totalFoundAll    += $totalFound;
             $totalInsertedAll += $totalNew;
             $totalSkippedAll  += $totalDuplicate;
 
             /* ===============================
-               MÉTRICA DIARIA (Market Entity)
+               STATUS PROGRESS
             =============================== */
-            MarketEntityMetric::firstOrCreate(
+
+            SourceStatusService::progress(
+                $source,
+                $totalFoundAll,
+                $totalInsertedAll,
+                $totalSkippedAll
+            );
+
+            /* ===============================
+               MÉTRICAS
+            =============================== */
+
+            MarketEntityMetric::updateOrCreate(
                 [
                     'market_entity_id' => $entityId,
                     'run_date'         => now()->toDateString(),
                     'source'           => 'Adzuna',
                 ],
                 [
-                    'entity_name'        => $entityName,
-                    'jobs_found_count'   => $totalFound,
-                    'jobs_new_count'     => $totalNew,
-                    'countries_breakdown'=> $countries,
-                    'modality_breakdown' => $modalities,
+                    'entity_name'         => $entityName,
+                    'jobs_found_count'    => $totalFound,
+                    'jobs_new_count'      => $totalNew,
+                    'countries_breakdown' => $countries,
+                    'modality_breakdown'  => $modalities,
                 ]
             );
 
-            $this->info("✅ {$entityName}: {$totalNew} nuevas | {$totalFound} encontradas");
+            $this->info(
+                "✅ {$entityName}: {$totalNew} nuevas | {$totalFound} encontradas"
+            );
         }
+
+        /* ===============================
+           SUCCESS
+        =============================== */
 
         ScraperRunService::success(
             $run,
@@ -261,14 +405,36 @@ if ($entities->isEmpty()) {
             $totalSkippedAll
         );
 
-        $this->info("🎯 Scraper de market certifications finalizado");
+        if ($connectionOk) {
+
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->info("🎯 Scraper finalizado");
 
     } catch (\Throwable $e) {
+
         ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
         throw $e;
     }
 }
-
 
     /* ================= HELPERS ================= */
 

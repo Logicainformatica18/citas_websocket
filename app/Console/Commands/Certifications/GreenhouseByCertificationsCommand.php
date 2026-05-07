@@ -11,7 +11,8 @@ use App\Models\CertificationMetric;
 use App\Models\City;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
-
+ use App\Services\SourceStatusService;
+ use App\Services\ScraperRunService;
 class GreenhouseByCertificationsCommand extends Command
 {
     protected $signature = 'greenhouse:certifications {--company=*}';
@@ -24,79 +25,181 @@ class GreenhouseByCertificationsCommand extends Command
     ];
 
     public function handle()
-    {
-        $companies = $this->option('company');
+{
+    $companies = $this->option('company');
 
-        if (empty($companies)) {
-            $this->error("❌ Debes pasar empresas, ej: --company=stripe --company=cloudflare");
-            return;
-        }
+    if (empty($companies)) {
 
-        // 🔹 Cargar certificaciones con keywords
+        $this->error(
+            "❌ Debes pasar empresas, ej: --company=stripe --company=cloudflare"
+        );
+
+        return;
+    }
+
+    $baseUrl = 'https://boards-api.greenhouse.io/v1/boards';
+
+    $run = ScraperRunService::start(
+        $this->signature,
+        'Greenhouse',
+        'certifications'
+    );
+
+    $source = 'greenhouse_certifications';
+
+    SourceStatusService::start(
+        source: $source,
+        runId: $run->id,
+        config: [
+            'companies' => $companies,
+        ],
+        apiUrl: $baseUrl
+    );
+
+    $totalFoundAll    = 0;
+    $totalInsertedAll = 0;
+    $totalSkippedAll  = 0;
+
+    $connectionOk = false;
+    $startedAt = now();
+
+    try {
+
+        // 🔹 certificaciones
         $certifications = Certification::where('enabled', 1)
             ->select('id', 'name', 'keywords')
             ->get();
 
-        $this->info("🌱 Greenhouse | {$certifications->count()} certificaciones");
+        $this->info(
+            "🌱 Greenhouse | {$certifications->count()} certificaciones"
+        );
 
         foreach ($companies as $companySlug) {
 
             $this->warn("\n🏢 Empresa: {$companySlug}");
 
-            $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
+            $url =
+                "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
 
             try {
-                $response = Http::timeout(20)->get($url);
 
-                if ($response->failed()) {
-                    $this->error("❌ No se pudo obtener datos de {$companySlug}");
-                    continue;
+                $response = Http::retry(3, 2000)
+                    ->timeout(20)
+                    ->get($url);
+
+            } catch (\Throwable $e) {
+
+                SourceStatusService::connectionFailed(
+                    $source,
+                    "Connection exception: {$companySlug}"
+                );
+
+                Log::error($e);
+
+                continue;
+            }
+
+            if ($response->failed()) {
+
+                SourceStatusService::connectionFailed(
+                    $source,
+                    "HTTP failed: {$companySlug}"
+                );
+
+                $this->error(
+                    "❌ No se pudo obtener datos de {$companySlug}"
+                );
+
+                continue;
+            }
+
+            $connectionOk = true;
+
+            $jobs = $response->json('jobs') ?? [];
+
+            $hasContent = $this->companyHasContent($jobs);
+
+            $this->line(
+                $hasContent
+                    ? "✔ Esta empresa expone descripción"
+                    : "⚠ Solo títulos (sin descripción)"
+            );
+
+            // ✅ evitar N+1
+            $existingIds = JobOffer::whereIn(
+                'external_id',
+                collect($jobs)->pluck('id')->filter()
+            )
+            ->where('source', 'Greenhouse')
+            ->pluck('id', 'external_id');
+
+            foreach ($certifications as $cert) {
+
+                $certId   = $cert->id;
+                $certName = $cert->name;
+
+                // 🧠 keywords
+                $keywords = [];
+
+                if (!empty($cert->keywords)) {
+
+                    $keywords = is_array($cert->keywords)
+                        ? $cert->keywords
+                        : json_decode($cert->keywords, true);
                 }
 
-                $jobs = $response->json('jobs') ?? [];
-                $hasContent = $this->companyHasContent($jobs);
+                // 🔁 fallback
+                if (empty($keywords)) {
 
-                $this->line($hasContent
-                    ? "✔ Esta empresa expone descripción"
-                    : "⚠ Solo títulos (sin descripción)");
+                    $keywords = [
+                        strtolower($certName)
+                    ];
+                }
 
-                foreach ($certifications as $cert) {
+                $this->line("\n🔎 Certificación: {$certName}");
 
-                    $certId   = $cert->id;
-                    $certName = $cert->name;
+                $this->line(
+                    "   🔑 Keywords: " .
+                    implode(', ', $keywords)
+                );
 
-                    // 🧠 Obtener keywords (JSON → array)
-                    $keywords = [];
+                $found = [];
+                $new   = [];
 
-                    if (!empty($cert->keywords)) {
-                        $keywords = is_array($cert->keywords)
-                            ? $cert->keywords
-                            : json_decode($cert->keywords, true);
-                    }
+                $countries  = [];
+                $modalities = [];
 
-                    // 🔁 Fallback si aún no tiene keywords
-                    if (empty($keywords)) {
-                        $keywords = [ strtolower($certName) ];
-                    }
+                foreach ($jobs as $job) {
 
-                    $this->line("\n🔎 Certificación: {$certName}");
-                    $this->line("   🔑 Keywords: " . implode(', ', $keywords));
+                    try {
 
-                    $found = [];
-                    $new   = [];
+                        $title =
+                            $job['title'] ?? '';
 
-                    foreach ($jobs as $job) {
+                        $content =
+                            $hasContent
+                                ? ($job['content'] ?? '')
+                                : '';
 
-                        $title   = $job['title'] ?? '';
-                        $content = $hasContent ? ($job['content'] ?? '') : '';
+                        $text = strtolower(
+                            $title . ' ' . $content
+                        );
 
-                        $text = strtolower($title . ' ' . $content);
-
-                        // 🔎 MATCH POR KEYWORDS
+                        // 🔎 match keywords
                         $matched = false;
+
                         foreach ($keywords as $kw) {
-                            if ($kw && str_contains($text, strtolower($kw))) {
+
+                            if (
+                                $kw &&
+                                str_contains(
+                                    $text,
+                                    strtolower($kw)
+                                )
+                            ) {
+
                                 $matched = true;
+
                                 break;
                             }
                         }
@@ -105,105 +208,279 @@ class GreenhouseByCertificationsCommand extends Command
                             continue;
                         }
 
-                        $companyName = $job['company_name'] ?? ucfirst($companySlug);
-                        $urlJob = $job['absolute_url'] ?? null;
-                        $externalId = $job['id'];
+                        $companyName =
+                            $job['company_name']
+                            ?? ucfirst($companySlug);
 
-                        // 📍 Ubicación cruda
-                        $loc = strtolower($job['location']['name'] ?? '');
+                        $urlJob =
+                            $job['absolute_url'] ?? null;
 
-                        // Extraer país
-                        $countryCode = $this->extractCountryCodeOrNull($loc);
+                        $externalId =
+                            $job['id'];
+
+                        // 📍 ubicación
+                        $loc = strtolower(
+                            $job['location']['name']
+                            ?? ''
+                        );
+
+                        // 🌍 país
+                        $countryCode =
+                            $this->extractCountryCodeOrNull(
+                                $loc
+                            );
+
                         if (!$countryCode) {
+
                             $this->stats['skipped']++;
+                            $totalSkippedAll++;
+
                             continue;
                         }
 
-                        $countryFull = CountryNormalizer::normalize($countryCode);
+                        $countryFull =
+                            CountryNormalizer::normalize(
+                                $countryCode
+                            );
 
-                        // Extraer ciudad
-                        $cityRaw = $this->extractCity($loc);
+                        // 🏙 ciudad
+                        $cityRaw =
+                            $this->extractCity($loc);
 
-                        // Coordenadas desde tabla cities
-                        [$cityClean, $lat, $lng] = $this->getCoords($cityRaw, $countryCode);
+                        [$cityClean, $lat, $lng] =
+                            $this->getCoords(
+                                $cityRaw,
+                                $countryCode
+                            );
 
                         if (!$lat || !$lng) {
+
                             $this->stats['skipped']++;
+                            $totalSkippedAll++;
+
                             continue;
                         }
 
-                        $modality = $this->detectModality($loc, $content);
+                        $modality =
+                            $this->detectModality(
+                                $loc,
+                                $content
+                            );
 
-                        // 🔁 Duplicados
-                        $existing = JobOffer::where('source', 'Greenhouse')
-                            ->where('external_id', $externalId)
-                            ->first();
+                        $countries[$countryFull] =
+                            ($countries[$countryFull] ?? 0) + 1;
 
-                        if ($existing) {
-                            $existing->certifications()
-                                ->syncWithoutDetaching([$certId]);
+                        $modalities[$modality] =
+                            ($modalities[$modality] ?? 0) + 1;
+
+                        // 🔁 duplicado
+                        if (
+                            isset($existingIds[$externalId])
+                        ) {
+
+                            $existing = JobOffer::find(
+                                $existingIds[$externalId]
+                            );
+
+                            if ($existing) {
+
+                                $existing->certifications()
+                                    ->syncWithoutDetaching([
+                                        $certId
+                                    ]);
+                            }
+
+                            $found[] = $externalId;
+
                             continue;
                         }
 
-                        $region = RegionHelper::fromCountry($countryFull);
+                        $region =
+                            RegionHelper::fromCountry(
+                                $countryFull
+                            );
 
                         $offer = JobOffer::create([
-                            'title'             => $title ?: 'N/A',
-                            'company'           => $companyName,
-                            'country'           => $countryFull,
-                            'city'              => $cityClean,
-                            'latitude'          => $lat,
-                            'longitude'         => $lng,
-                            'modality'          => $modality,
-                            'experience_level'  => $this->extractExperience($content),
-                            'education_level'   => $this->extractEducation($content),
-                            'skills'            => $this->extractSkills($content),
-                            'certifications'    => $certName, // inferida
-                            'requirements'      => strip_tags($content),
-                            'source'            => 'Greenhouse',
-                            'external_id'       => $externalId,
-                            'url'               => $urlJob,
-                            'published_at'      => $job['updated_at'] ?? now(),
-                            'region'            => $region,
+
+                            'title' =>
+                                $title ?: 'N/A',
+
+                            'company' =>
+                                $companyName,
+
+                            'country' =>
+                                $countryFull,
+
+                            'city' =>
+                                $cityClean,
+
+                            'latitude' =>
+                                $lat,
+
+                            'longitude' =>
+                                $lng,
+
+                            'modality' =>
+                                $modality,
+
+                            'experience_level' =>
+                                $this->extractExperience(
+                                    $content
+                                ),
+
+                            'education_level' =>
+                                $this->extractEducation(
+                                    $content
+                                ),
+
+                            'skills' =>
+                                $this->extractSkills(
+                                    $content
+                                ),
+
+                            'certifications' =>
+                                $certName,
+
+                            'requirements' =>
+                                strip_tags($content),
+
+                            'source' =>
+                                'Greenhouse',
+
+                            'external_id' =>
+                                $externalId,
+
+                            'url' =>
+                                $urlJob,
+
+                            'published_at' =>
+                                $job['updated_at']
+                                ?? now(),
+
+                            'region' =>
+                                $region,
                         ]);
 
                         $offer->certifications()
-                            ->syncWithoutDetaching([$certId]);
+                            ->syncWithoutDetaching([
+                                $certId
+                            ]);
 
                         $new[]   = $externalId;
                         $found[] = $externalId;
+
+                    } catch (\Throwable $e) {
+
+                        $this->stats['skipped']++;
+                        $totalSkippedAll++;
+
+                        Log::error(
+                            "Greenhouse item error: {$e->getMessage()}"
+                        );
                     }
-
-                    // 📊 Métrica diaria por certificación
-                    CertificationMetric::updateOrCreate(
-                        [
-                            'certification_id' => $certId,
-                            'run_date'         => now()->toDateString(),
-                            'source'           => 'Greenhouse',
-                        ],
-                        [
-                            'certification_name' => $certName,
-                            'jobs_found_count'   => count($found),
-                            'jobs_new_count'     => count($new),
-                            'countries_breakdown'=> [],
-                            'modality_breakdown' => [],
-                        ]
-                    );
-
-                    $this->info("✔ {$certName}: " . count($new) . " nuevas");
                 }
 
-            } catch (\Throwable $e) {
-                $this->error("⚠ Error Greenhouse {$companySlug}: {$e->getMessage()}");
-                Log::error("Greenhouse error: {$e->getMessage()}");
+                /* =====================================================
+                   📊 ACUMULADOS
+                ===================================================== */
+
+                $totalFoundAll += count($found);
+                $totalInsertedAll += count($new);
+
+                /* =====================================================
+                   📊 STATUS PROGRESS
+                ===================================================== */
+
+                SourceStatusService::progress(
+                    $source,
+                    $totalFoundAll,
+                    $totalInsertedAll,
+                    $totalSkippedAll
+                );
+
+                /* =====================================================
+                   📊 MÉTRICA
+                ===================================================== */
+
+                CertificationMetric::updateOrCreate(
+                    [
+                        'certification_id' => $certId,
+                        'run_date'         => now()->toDateString(),
+                        'source'           => 'Greenhouse',
+                    ],
+                    [
+                        'certification_name' =>
+                            $certName,
+
+                        'jobs_found_count' =>
+                            count($found),
+
+                        'jobs_new_count' =>
+                            count($new),
+
+                        'countries_breakdown' =>
+                            $countries,
+
+                        'modality_breakdown' =>
+                            $modalities,
+                    ]
+                );
+
+                $this->info(
+                    "✔ {$certName}: " .
+                    count($new) .
+                    " nuevas"
+                );
             }
         }
 
-        $this->newLine();
-        $this->info("🎯 Finalizado");
-        $this->line("   ⏭️ Skipped: {$this->stats['skipped']}");
-    }
+        /* =====================================================
+           ✅ SUCCESS
+        ===================================================== */
 
+        ScraperRunService::success(
+            $run,
+            $totalFoundAll,
+            $totalInsertedAll,
+            $totalSkippedAll
+        );
+
+        if ($connectionOk) {
+
+            SourceStatusService::connectionOk($source);
+        }
+
+        SourceStatusService::success(
+            source: $source,
+            runId: $run->id,
+            found: $totalFoundAll,
+            inserted: $totalInsertedAll,
+            skipped: $totalSkippedAll,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        $this->newLine();
+
+        $this->info("🎯 Finalizado");
+
+        $this->line(
+            "   ⏭️ Skipped: {$this->stats['skipped']}"
+        );
+
+    } catch (\Throwable $e) {
+
+        ScraperRunService::failed($run, $e);
+
+        SourceStatusService::failed(
+            source: $source,
+            runId: $run->id,
+            e: $e,
+            durationSeconds: now()->diffInSeconds($startedAt)
+        );
+
+        throw $e;
+    }
+}
     /* ================= HELPERS ================= */
 
     protected function companyHasContent(array $jobs): bool
