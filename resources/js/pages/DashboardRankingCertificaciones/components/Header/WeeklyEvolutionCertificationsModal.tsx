@@ -71,11 +71,9 @@ export function WeeklyEvolutionCertificationsModal({ open, onClose }) {
   /* ==================================================
      HELPERS
   ================================================== */
-  const formatDate = (date) =>
-    new Date(date).toLocaleDateString("es-PE", {
-      day: "2-digit",
-      month: "short",
-    });
+const formatDate = (date) => {
+  return dayjs(date).format("DD-MMM");
+};
 
   const getTitle = () => {
     if (filter === "monthly") return "Evolución mensual";
