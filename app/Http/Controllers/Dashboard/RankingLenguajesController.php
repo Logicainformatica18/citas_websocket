@@ -785,8 +785,9 @@ private function getBaseContext(Request $request): array
 
 public function weeklyScores(Request $request, $languageId = null)
 {
-\Carbon\Carbon::setLocale('es');
-setlocale(LC_TIME, 'es_ES.UTF-8');
+    \Carbon\Carbon::setLocale('es');
+    setlocale(LC_TIME, 'es_ES.UTF-8');
+
     try {
 
         /*
@@ -879,7 +880,13 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                 FLOOR((DAY(j.published_at)-1)/7)+1
             ";
 
-            $rows = $query
+            /*
+            ==========================================
+            🔵 TOP LENGUAJES
+            ==========================================
+            */
+
+            $rows = (clone $query)
 
                 ->groupBy(
 
@@ -918,6 +925,65 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
 
                 ->get();
 
+            /*
+            ==========================================
+            🟢 TOTALES REALES
+            ==========================================
+            */
+
+            $realTotals = DB::table('language_job as lj')
+
+                ->join(
+                    'job_offers as j',
+                    'j.id',
+                    '=',
+                    'lj.job_offer_id'
+                )
+
+                ->whereRaw(
+                    'YEAR(j.published_at) = ?',
+                    [$year]
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    DB::raw("
+                        {$weekExpression}
+                        as week_number
+                    "),
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total_unique
+                    ")
+                )
+
+                ->groupBy(
+                    DB::raw("MONTH(j.published_at)"),
+                    DB::raw($weekExpression)
+                )
+
+                ->get()
+
+                ->keyBy(function ($item) {
+
+                    return
+                        $item->month_number .
+                        '-' .
+                        $item->week_number;
+                });
+
+            /*
+            ==========================================
+            📦 PERIODOS
+            ==========================================
+            */
+
             $periods = $rows
 
                 ->groupBy(function ($item) {
@@ -928,7 +994,10 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                         $item->week_number;
                 })
 
-                ->map(function ($items) use ($year) {
+                ->map(function ($items, $key) use (
+                    $year,
+                    $realTotals
+                ) {
 
                     $first = $items->first();
 
@@ -1011,8 +1080,16 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                         'end_date' =>
                             $endDate,
 
+                        /*
+                        ✅ TOTAL REAL
+                        */
+
                         'total_period' =>
-                            $items->sum('total'),
+                            $realTotals[$key]->total_unique ?? 0,
+
+                        /*
+                        🔵 TOP
+                        */
 
                         'top' => $items
 
@@ -1060,7 +1137,7 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                 END
             ";
 
-            $rows = $query
+            $rows = (clone $query)
 
                 ->groupBy(
 
@@ -1099,6 +1176,53 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
 
                 ->get();
 
+            $realTotals = DB::table('language_job as lj')
+
+                ->join(
+                    'job_offers as j',
+                    'j.id',
+                    '=',
+                    'lj.job_offer_id'
+                )
+
+                ->whereRaw(
+                    'YEAR(j.published_at) = ?',
+                    [$year]
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    DB::raw("
+                        {$expression}
+                        as quincena
+                    "),
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total_unique
+                    ")
+                )
+
+                ->groupBy(
+                    DB::raw("MONTH(j.published_at)"),
+                    DB::raw($expression)
+                )
+
+                ->get()
+
+                ->keyBy(function ($item) {
+
+                    return
+                        $item->month_number .
+                        '-' .
+                        $item->quincena;
+                });
+
             $periods = $rows
 
                 ->groupBy(function ($item) {
@@ -1109,7 +1233,10 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                         $item->quincena;
                 })
 
-                ->map(function ($items) use ($year) {
+                ->map(function ($items, $key) use (
+                    $year,
+                    $realTotals
+                ) {
 
                     $first = $items->first();
 
@@ -1169,8 +1296,12 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                         'end_date' =>
                             $endDate,
 
+                        /*
+                        ✅ TOTAL REAL
+                        */
+
                         'total_period' =>
-                            $items->sum('total'),
+                            $realTotals[$key]->total_unique ?? 0,
 
                         'top' => $items
 
@@ -1210,7 +1341,7 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
 
         else {
 
-            $rows = $query
+            $rows = (clone $query)
 
                 ->groupBy(
 
@@ -1242,6 +1373,42 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
 
                 ->get();
 
+            $realTotals = DB::table('language_job as lj')
+
+                ->join(
+                    'job_offers as j',
+                    'j.id',
+                    '=',
+                    'lj.job_offer_id'
+                )
+
+                ->whereRaw(
+                    'YEAR(j.published_at) = ?',
+                    [$year]
+                )
+
+                ->select(
+
+                    DB::raw("
+                        MONTH(j.published_at)
+                        as month_number
+                    "),
+
+                    DB::raw("
+                        COUNT(DISTINCT lj.job_offer_id)
+                        as total_unique
+                    ")
+                )
+
+                ->groupBy(
+                    DB::raw("MONTH(j.published_at)")
+                )
+
+                ->pluck(
+                    'total_unique',
+                    'month_number'
+                );
+
             $periods = $rows
 
                 ->groupBy('month_number')
@@ -1249,7 +1416,10 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                 ->map(function (
                     $items,
                     $month
-                ) use ($year) {
+                ) use (
+                    $year,
+                    $realTotals
+                ) {
 
                     $daysInMonth = \Carbon\Carbon::create(
                         $year,
@@ -1289,8 +1459,12 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
                         'end_date' =>
                             $endDate,
 
+                        /*
+                        ✅ TOTAL REAL
+                        */
+
                         'total_period' =>
-                            $items->sum('total'),
+                            $realTotals[$month] ?? 0,
 
                         'top' => $items
 
@@ -1394,12 +1568,24 @@ setlocale(LC_TIME, 'es_ES.UTF-8');
 }
  public function exportEvolution(Request $request)
 {
-    $year   = (int) $request->get('year', 2026);
-    $filter = $request->get('filter', 'weekly');
+    $year = (int) $request->get(
+        'year',
+        2026
+    );
+
+    $filter = $request->get(
+        'filter',
+        'weekly'
+    );
 
     return Excel::download(
-        new LanguagesEvolutionExport($year, $filter),
-        "languages_evolution.xlsx"
+
+        new LanguagesEvolutionExport(
+            $year,
+            $filter
+        ),
+
+        "languages_evolution_{$filter}.xlsx"
     );
 }
 }

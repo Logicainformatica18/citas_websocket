@@ -9,13 +9,13 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class CertificationsWeeklyExport implements FromCollection, WithHeadings
 {
-    protected $year;
+    protected int $year;
 
-    protected $filter;
+    protected string $filter;
 
     public function __construct(
-        $year,
-        $filter = 'weekly'
+        int $year,
+        string $filter = 'weekly'
     ) {
 
         $this->year = $year;
@@ -26,9 +26,9 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
     public function collection()
     {
         /*
-        ==============================================
+        ==================================================
         🔍 BASE QUERY
-        ==============================================
+        ==================================================
         */
 
         $rows = DB::table('certification_job as cj')
@@ -77,40 +77,34 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
             ->get();
 
         /*
-        ==============================================
+        ==================================================
         📅 WEEKLY
-        ==============================================
+        ==================================================
         */
 
         if ($this->filter === 'weekly') {
 
-            return $this->buildWeekly(
-                $rows
-            );
+            return $this->buildWeekly($rows);
         }
 
         /*
-        ==============================================
+        ==================================================
         📅 BIWEEKLY
-        ==============================================
+        ==================================================
         */
 
         if ($this->filter === 'biweekly') {
 
-            return $this->buildBiweekly(
-                $rows
-            );
+            return $this->buildBiweekly($rows);
         }
 
         /*
-        ==============================================
+        ==================================================
         📅 MONTHLY
-        ==============================================
+        ==================================================
         */
 
-        return $this->buildMonthly(
-            $rows
-        );
+        return $this->buildMonthly($rows);
     }
 
     /*
@@ -138,9 +132,38 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                     $row->certificacion;
             });
 
+        /*
+        ==================================================
+        🟢 TOTALES REALES
+        ==================================================
+        */
+
+        $realTotals = $rows
+
+            ->groupBy(function ($row) {
+
+                $week =
+                    floor(
+                        ($row->day_number - 1) / 7
+                    ) + 1;
+
+                return
+                    $row->month_number .
+                    '-' .
+                    $week;
+            })
+
+            ->map(function ($group) {
+
+                return $group
+                    ->pluck('job_offer_id')
+                    ->unique()
+                    ->count();
+            });
+
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($grouped as $key => $group) {
 
             $first = $group->first();
 
@@ -169,6 +192,11 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                 ->month($month)
                 ->translatedFormat('F');
 
+            $periodKey =
+                $month .
+                '-' .
+                $week;
+
             $export->push([
 
                 'Periodo' =>
@@ -191,10 +219,13 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$periodKey] ?? 0,
+
                 'Certificación' =>
                     $first->certificacion,
 
-                'Vacantes' =>
+                'Vacantes con Certificación' =>
                     $group
                         ->pluck('job_offer_id')
                         ->unique()
@@ -232,6 +263,35 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                     $row->certificacion;
             });
 
+        /*
+        ==================================================
+        🟢 TOTALES REALES
+        ==================================================
+        */
+
+        $realTotals = $rows
+
+            ->groupBy(function ($row) {
+
+                $q =
+                    $row->day_number <= 15
+                        ? 1
+                        : 2;
+
+                return
+                    $row->month_number .
+                    '-' .
+                    $q;
+            })
+
+            ->map(function ($group) {
+
+                return $group
+                    ->pluck('job_offer_id')
+                    ->unique()
+                    ->count();
+            });
+
         $export = collect();
 
         foreach ($grouped as $group) {
@@ -265,6 +325,11 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                 ->month($month)
                 ->translatedFormat('F');
 
+            $periodKey =
+                $month .
+                '-' .
+                $q;
+
             $export->push([
 
                 'Periodo' =>
@@ -287,10 +352,13 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$periodKey] ?? 0,
+
                 'Certificación' =>
                     $first->certificacion,
 
-                'Vacantes' =>
+                'Vacantes con Certificación' =>
                     $group
                         ->pluck('job_offer_id')
                         ->unique()
@@ -319,6 +387,24 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                     $row->month_number .
                     '-' .
                     $row->certificacion;
+            });
+
+        /*
+        ==================================================
+        🟢 TOTALES REALES
+        ==================================================
+        */
+
+        $realTotals = $rows
+
+            ->groupBy('month_number')
+
+            ->map(function ($group) {
+
+                return $group
+                    ->pluck('job_offer_id')
+                    ->unique()
+                    ->count();
             });
 
         $export = collect();
@@ -358,10 +444,13 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
                         $daysInMonth
                     )->format('Y-m-d'),
 
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$month] ?? 0,
+
                 'Certificación' =>
                     $first->certificacion,
 
-                'Vacantes' =>
+                'Vacantes con Certificación' =>
                     $group
                         ->pluck('job_offer_id')
                         ->unique()
@@ -384,9 +473,11 @@ class CertificationsWeeklyExport implements FromCollection, WithHeadings
 
             'Fecha Fin',
 
+            'Vacantes Únicas Reales',
+
             'Certificación',
 
-            'Vacantes',
+            'Vacantes con Certificación',
         ];
     }
 }

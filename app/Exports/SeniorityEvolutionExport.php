@@ -8,14 +8,17 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class SeniorityEvolutionExport implements FromCollection, WithHeadings
 {
-    protected $range;
-    protected $filter;
+    protected array $range;
+
+    protected string $filter;
 
     public function __construct(
-        $range,
-        $filter = 'weekly'
+        array $range,
+        string $filter = 'weekly'
     ) {
+
         $this->range = $range;
+
         $this->filter = $filter;
     }
 
@@ -23,7 +26,7 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
     {
         /*
         ==================================================
-        🔥 MISMA LÓGICA DEL MODAL
+        📅 GROUPING
         ==================================================
         */
 
@@ -33,28 +36,46 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
                 $group = "
                     DATE_FORMAT(
-                        COALESCE(jo.published_at, jo.created_at),
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        ),
                         '%Y-%m'
                     )
                 ";
 
                 $label = "
                     DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%M %Y'
                     )
                 ";
 
                 $startDate = "
                     DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-01'
                     )
                 ";
 
                 $endDate = "
                     LAST_DAY(
-                        MIN(COALESCE(jo.published_at, jo.created_at))
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
                     )
                 ";
 
@@ -64,26 +85,74 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
                 $group = "
                     CONCAT(
-                        YEAR(COALESCE(jo.published_at, jo.created_at)), '-',
-                        LPAD(MONTH(COALESCE(jo.published_at, jo.created_at)),2,'0'), '-',
-                        IF(DAY(COALESCE(jo.published_at, jo.created_at)) <= 15, 1, 2)
+                        YEAR(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
+                        '-',
+
+                        LPAD(
+                            MONTH(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ),
+                            2,
+                            '0'
+                        ),
+
+                        '-',
+
+                        IF(
+                            DAY(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ) <= 15,
+                            1,
+                            2
+                        )
                     )
                 ";
 
                 $label = "
                     CASE
-                        WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                        WHEN DAY(
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ) <= 15
+
                         THEN CONCAT(
                             'Primera quincena de ',
                             DATE_FORMAT(
-                                MIN(COALESCE(jo.published_at, jo.created_at)),
+                                MIN(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                ),
                                 '%M'
                             )
                         )
+
                         ELSE CONCAT(
                             'Segunda quincena de ',
                             DATE_FORMAT(
-                                MIN(COALESCE(jo.published_at, jo.created_at)),
+                                MIN(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                ),
                                 '%M'
                             )
                         )
@@ -92,13 +161,33 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
                 $startDate = "
                     CASE
-                        WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                        WHEN DAY(
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ) <= 15
+
                         THEN DATE_FORMAT(
-                            MIN(COALESCE(jo.published_at, jo.created_at)),
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ),
                             '%Y-%m-01'
                         )
+
                         ELSE DATE_FORMAT(
-                            MIN(COALESCE(jo.published_at, jo.created_at)),
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ),
                             '%Y-%m-16'
                         )
                     END
@@ -106,24 +195,47 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
                 $endDate = "
                     CASE
-                        WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                        WHEN DAY(
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ) <= 15
+
                         THEN DATE_FORMAT(
-                            MIN(COALESCE(jo.published_at, jo.created_at)),
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ),
                             '%Y-%m-15'
                         )
+
                         ELSE LAST_DAY(
-                            MIN(COALESCE(jo.published_at, jo.created_at))
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
                         )
                     END
                 ";
 
                 break;
 
-            default: // weekly
+            default:
 
                 $group = "
                     YEARWEEK(
-                        COALESCE(jo.published_at, jo.created_at),
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        ),
                         1
                     )
                 ";
@@ -133,12 +245,22 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
                         'Semana ',
                         CEIL(
                             DAY(
-                                MIN(COALESCE(jo.published_at, jo.created_at))
+                                MIN(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                )
                             ) / 7
                         ),
                         ' de ',
                         DATE_FORMAT(
-                            MIN(COALESCE(jo.published_at, jo.created_at)),
+                            MIN(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            ),
                             '%M'
                         )
                     )
@@ -146,9 +268,23 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
                 $startDate = "
                     DATE_SUB(
-                        MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                        MIN(
+                            DATE(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ),
                         INTERVAL WEEKDAY(
-                            MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                            MIN(
+                                DATE(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                )
+                            )
                         ) DAY
                     )
                 ";
@@ -156,9 +292,23 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
                 $endDate = "
                     DATE_ADD(
                         DATE_SUB(
-                            MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                            MIN(
+                                DATE(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                )
+                            ),
                             INTERVAL WEEKDAY(
-                                MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                                MIN(
+                                    DATE(
+                                        COALESCE(
+                                            jo.published_at,
+                                            jo.created_at
+                                        )
+                                    )
+                                )
                             ) DAY
                         ),
                         INTERVAL 6 DAY
@@ -170,46 +320,77 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
 
         /*
         ==================================================
-        🔥 QUERY
+        🔵 QUERY
         ==================================================
         */
 
-        return DB::table('job_offers as jo')
+        $rows = DB::table('job_offers as jo')
 
             ->where(function ($q) {
 
-                $q->whereBetween('jo.published_at', [
-                    $this->range['start'],
-                    $this->range['end'],
-                ])
+                $q->whereBetween(
+                    'jo.published_at',
+                    [
+                        $this->range['start'],
+                        $this->range['end'],
+                    ]
+                )
 
                 ->orWhere(function ($q2) {
 
-                    $q2->whereNull('jo.published_at')
-                       ->whereBetween('jo.created_at', [
-                           $this->range['start'],
-                           $this->range['end'],
-                       ]);
+                    $q2->whereNull(
+                        'jo.published_at'
+                    )
+
+                    ->whereBetween(
+                        'jo.created_at',
+                        [
+                            $this->range['start'],
+                            $this->range['end'],
+                        ]
+                    );
                 });
             })
 
             ->whereIn(
-                DB::raw('LOWER(TRIM(jo.seniority))'),
-                ['junior', 'mid', 'senior']
+                DB::raw(
+                    'LOWER(TRIM(jo.seniority))'
+                ),
+                [
+                    'junior',
+                    'mid',
+                    'senior',
+                ]
             )
 
             ->groupBy(
                 DB::raw($group),
-                DB::raw('UPPER(TRIM(jo.seniority))')
+                DB::raw(
+                    'UPPER(TRIM(jo.seniority))'
+                )
             )
 
             ->select(
 
-                DB::raw("$label as periodo"),
+                DB::raw("
+                    {$group}
+                    as period
+                "),
 
-                DB::raw("$startDate as fecha_inicio"),
+                DB::raw("
+                    {$label}
+                    as periodo
+                "),
 
-                DB::raw("$endDate as fecha_fin"),
+                DB::raw("
+                    {$startDate}
+                    as fecha_inicio
+                "),
+
+                DB::raw("
+                    {$endDate}
+                    as fecha_fin
+                "),
 
                 DB::raw("
                     UPPER(
@@ -217,22 +398,137 @@ class SeniorityEvolutionExport implements FromCollection, WithHeadings
                     ) as nivel
                 "),
 
-                DB::raw('COUNT(*) as vacantes')
+                DB::raw("
+                    COUNT(DISTINCT jo.id)
+                    as vacantes
+                ")
             )
 
-            ->orderBy('fecha_inicio')
-
             ->get();
+
+        /*
+        ==================================================
+        🟢 TOTALES REALES
+        ==================================================
+        */
+
+        $realTotals = DB::table('job_offers as jo')
+
+            ->where(function ($q) {
+
+                $q->whereBetween(
+                    'jo.published_at',
+                    [
+                        $this->range['start'],
+                        $this->range['end'],
+                    ]
+                )
+
+                ->orWhere(function ($q2) {
+
+                    $q2->whereNull(
+                        'jo.published_at'
+                    )
+
+                    ->whereBetween(
+                        'jo.created_at',
+                        [
+                            $this->range['start'],
+                            $this->range['end'],
+                        ]
+                    );
+                });
+            })
+
+            ->whereIn(
+                DB::raw(
+                    'LOWER(TRIM(jo.seniority))'
+                ),
+                [
+                    'junior',
+                    'mid',
+                    'senior',
+                ]
+            )
+
+            ->groupBy(
+                DB::raw($group)
+            )
+
+            ->select(
+
+                DB::raw("
+                    {$group}
+                    as period
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT jo.id)
+                    as total_unique
+                ")
+            )
+
+            ->pluck(
+                'total_unique',
+                'period'
+            );
+
+        /*
+        ==================================================
+        📦 EXPORT
+        ==================================================
+        */
+
+        return $rows
+
+            ->map(function ($row) use (
+                $realTotals
+            ) {
+
+                return [
+
+                    'Periodo' =>
+                        $row->periodo,
+
+                    'Fecha Inicio' =>
+                        $row->fecha_inicio,
+
+                    'Fecha Fin' =>
+                        $row->fecha_fin,
+
+                    'Vacantes Únicas Reales' =>
+                        $realTotals[
+                            $row->period
+                        ] ?? 0,
+
+                    'Nivel' =>
+                        $row->nivel,
+
+                    'Vacantes por Nivel' =>
+                        $row->vacantes,
+                ];
+            })
+
+            ->sortBy('Fecha Inicio')
+
+            ->values();
     }
 
     public function headings(): array
     {
         return [
+
             'Periodo',
+
             'Fecha Inicio',
+
             'Fecha Fin',
+
+            'Vacantes Únicas Reales',
+
             'Nivel',
-            'Vacantes',
+
+            'Vacantes por Nivel',
         ];
     }
 }

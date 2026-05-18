@@ -372,32 +372,61 @@ private function baseCareerQuery(array $range, array $careers = [])
 public function evolution(Request $request)
 {
     $year   = (int) $request->get('year', 2026);
+
     $period = $request->get('period', 's1');
+
     $filter = $request->get('filter', 'weekly');
 
-    $perPage = min((int) $request->get('per_page', 6), 20);
+    $perPage = min(
+        (int) $request->get('per_page', 6),
+        20
+    );
 
-    $range = $this->getPeriodRange($period, $year);
+    $range = $this->getPeriodRange(
+        $period,
+        $year
+    );
 
-    /* =========================
-       AGRUPADOR
-    ========================= */
+    /*
+    ==================================================
+    📅 GROUPING
+    ==================================================
+    */
+
     switch ($filter) {
 
         case 'monthly':
 
-            $group = "DATE_FORMAT(COALESCE(jo.published_at, jo.created_at), '%Y-%m')";
+            $group = "
+                DATE_FORMAT(
+                    COALESCE(
+                        jo.published_at,
+                        jo.created_at
+                    ),
+                    '%Y-%m'
+                )
+            ";
 
             $startDate = "
                 DATE_FORMAT(
-                    MIN(COALESCE(jo.published_at, jo.created_at)),
+                    MIN(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    ),
                     '%Y-%m-01'
                 )
             ";
 
             $endDate = "
                 LAST_DAY(
-                    MIN(COALESCE(jo.published_at, jo.created_at))
+                    MIN(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    )
                 )
             ";
 
@@ -407,21 +436,65 @@ public function evolution(Request $request)
 
             $group = "
                 CONCAT(
-                    YEAR(COALESCE(jo.published_at, jo.created_at)), '-',
-                    LPAD(MONTH(COALESCE(jo.published_at, jo.created_at)),2,'0'), '-',
-                    IF(DAY(COALESCE(jo.published_at, jo.created_at)) <= 15, 1, 2)
+                    YEAR(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    ),
+                    '-',
+                    LPAD(
+                        MONTH(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
+                        2,
+                        '0'
+                    ),
+                    '-',
+                    IF(
+                        DAY(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ) <= 15,
+                        1,
+                        2
+                    )
                 )
             ";
 
             $startDate = "
                 CASE
-                    WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+                    WHEN DAY(
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ) <= 15
+
                     THEN DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-01'
                     )
+
                     ELSE DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-16'
                     )
                 END
@@ -429,28 +502,70 @@ public function evolution(Request $request)
 
             $endDate = "
                 CASE
-                    WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                    WHEN DAY(
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ) <= 15
+
                     THEN DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-15'
                     )
+
                     ELSE LAST_DAY(
-                        MIN(COALESCE(jo.published_at, jo.created_at))
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
                     )
                 END
             ";
 
             break;
 
-        default: // weekly
+        default:
 
-            $group = "YEARWEEK(COALESCE(jo.published_at, jo.created_at),1)";
+            $group = "
+                YEARWEEK(
+                    COALESCE(
+                        jo.published_at,
+                        jo.created_at
+                    ),
+                    1
+                )
+            ";
 
             $startDate = "
                 DATE_SUB(
-                    MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                    MIN(
+                        DATE(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ),
                     INTERVAL WEEKDAY(
-                        MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                        MIN(
+                            DATE(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        )
                     ) DAY
                 )
             ";
@@ -458,9 +573,23 @@ public function evolution(Request $request)
             $endDate = "
                 DATE_ADD(
                     DATE_SUB(
-                        MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                        MIN(
+                            DATE(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ),
                         INTERVAL WEEKDAY(
-                            MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                            MIN(
+                                DATE(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                )
+                            )
                         ) DAY
                     ),
                     INTERVAL 6 DAY
@@ -470,71 +599,217 @@ public function evolution(Request $request)
             break;
     }
 
+    /*
+    ==================================================
+    🔵 DISTRIBUCIÓN
+    ==================================================
+    */
+
     $rows = DB::table('job_offers as jo')
+
         ->where(function ($q) use ($range) {
 
-            $q->whereBetween('jo.published_at', [
-                $range['start'],
-                $range['end'],
-            ])
+            $q->whereBetween(
+                'jo.published_at',
+                [
+                    $range['start'],
+                    $range['end'],
+                ]
+            )
+
             ->orWhere(function ($q2) use ($range) {
 
-                $q2->whereNull('jo.published_at')
-                   ->whereBetween('jo.created_at', [
-                       $range['start'],
-                       $range['end'],
-                   ]);
+                $q2->whereNull(
+                    'jo.published_at'
+                )
+
+                ->whereBetween(
+                    'jo.created_at',
+                    [
+                        $range['start'],
+                        $range['end'],
+                    ]
+                );
             });
         })
+
         ->whereIn(
-            DB::raw('LOWER(TRIM(jo.seniority))'),
-            ['junior','mid','senior']
+            DB::raw(
+                'LOWER(TRIM(jo.seniority))'
+            ),
+            [
+                'junior',
+                'mid',
+                'senior',
+            ]
         )
+
         ->groupBy(
             DB::raw($group),
             'jo.seniority'
         )
+
         ->select(
-            DB::raw("$group as period"),
-            DB::raw("$startDate as start_date"),
-            DB::raw("$endDate as end_date"),
+
+            DB::raw("
+                {$group}
+                as period
+            "),
+
+            DB::raw("
+                {$startDate}
+                as start_date
+            "),
+
+            DB::raw("
+                {$endDate}
+                as end_date
+            "),
+
             'jo.seniority',
-            DB::raw('COUNT(*) as total')
+
+            DB::raw("
+                COUNT(DISTINCT jo.id)
+                as total
+            ")
         )
+
         ->get();
 
+    /*
+    ==================================================
+    🟢 TOTALES REALES
+    ==================================================
+    */
+
+    $realTotals = DB::table('job_offers as jo')
+
+        ->where(function ($q) use ($range) {
+
+            $q->whereBetween(
+                'jo.published_at',
+                [
+                    $range['start'],
+                    $range['end'],
+                ]
+            )
+
+            ->orWhere(function ($q2) use ($range) {
+
+                $q2->whereNull(
+                    'jo.published_at'
+                )
+
+                ->whereBetween(
+                    'jo.created_at',
+                    [
+                        $range['start'],
+                        $range['end'],
+                    ]
+                );
+            });
+        })
+
+        ->whereIn(
+            DB::raw(
+                'LOWER(TRIM(jo.seniority))'
+            ),
+            [
+                'junior',
+                'mid',
+                'senior',
+            ]
+        )
+
+        ->groupBy(
+            DB::raw($group)
+        )
+
+        ->select(
+
+            DB::raw("
+                {$group}
+                as period
+            "),
+
+            DB::raw("
+                COUNT(DISTINCT jo.id)
+                as total_unique
+            ")
+        )
+
+        ->pluck(
+            'total_unique',
+            'period'
+        );
+
+    /*
+    ==================================================
+    📦 COLLECTION
+    ==================================================
+    */
+
     $collection = $rows
+
         ->groupBy('period')
-        ->map(function ($items) use ($filter) {
+
+        ->map(function ($items) use (
+            $filter,
+            $realTotals
+        ) {
 
             $first = $items->first();
 
             $start = $first->start_date;
-            $end   = $first->end_date;
 
-            /* =========================
-               LABEL
-            ========================= */
+            $end = $first->end_date;
+
+            /*
+            ==========================================
+            📅 LABEL
+            ==========================================
+            */
+
             switch ($filter) {
 
                 case 'monthly':
 
-                    $label = \Carbon\Carbon::parse($start)
+                    $label =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
+
                         ->locale('es')
-                        ->translatedFormat('F Y');
+
+                        ->translatedFormat(
+                            'F Y'
+                        );
 
                     break;
 
                 case 'biweekly':
 
-                    $month = \Carbon\Carbon::parse($start)
+                    $month =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
+
                         ->locale('es')
-                        ->translatedFormat('F');
 
-                    $day = \Carbon\Carbon::parse($start)->day;
+                        ->translatedFormat(
+                            'F'
+                        );
 
-                    $label = $day <= 15
+                    $day =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )->day;
+
+                    $label =
+                        $day <= 15
+
                         ? "Primera quincena de {$month}"
+
                         : "Segunda quincena de {$month}";
 
                     break;
@@ -542,73 +817,177 @@ public function evolution(Request $request)
                 default:
 
                     $week = ceil(
-                        \Carbon\Carbon::parse($start)->day / 7
+                        \Carbon\Carbon::parse(
+                            $start
+                        )->day / 7
                     );
 
-                    $month = \Carbon\Carbon::parse($start)
-                        ->locale('es')
-                        ->translatedFormat('F');
+                    $month =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
 
-                    $label = "Semana {$week} de {$month}";
+                        ->locale('es')
+
+                        ->translatedFormat(
+                            'F'
+                        );
+
+                    $label =
+                        "Semana {$week} de {$month}";
 
                     break;
             }
 
-            $total = $items->sum('total');
-
-            $levels = collect(['junior','mid','senior'])
-                ->map(function ($level) use ($items, $total) {
-
-                    $row = $items->firstWhere('seniority', $level);
-
-                    $jobs = $row ? $row->total : 0;
-
-                    return [
-                        'level' => strtoupper($level),
-                        'jobs' => $jobs,
-                        'percentage' => $total > 0
-                            ? round(($jobs / $total) * 100, 1)
-                            : 0,
-                    ];
-                })
-                ->values();
-
             return [
-                'period' => $first->period,
-                'label' => $label,
-                'start_date' => $start,
-                'end_date' => $end,
-                'total_jobs' => $total,
-                'distribution' => $levels,
+
+                'period' =>
+                    $first->period,
+
+                'label' =>
+                    $label,
+
+                'start_date' =>
+                    $start,
+
+                'end_date' =>
+                    $end,
+
+                /*
+                ✅ TOTAL REAL
+                */
+
+                'total_jobs' =>
+                    $realTotals[
+                        $first->period
+                    ] ?? 0,
+
+                'distribution' =>
+
+                    collect([
+                        'junior',
+                        'mid',
+                        'senior',
+                    ])
+
+                    ->map(function ($level) use (
+                        $items,
+                        $realTotals,
+                        $first
+                    ) {
+
+                        $row =
+                            $items
+                                ->firstWhere(
+                                    'seniority',
+                                    $level
+                                );
+
+                        $jobs =
+                            $row
+                                ? $row->total
+                                : 0;
+
+                        $total =
+                            $realTotals[
+                                $first->period
+                            ] ?? 0;
+
+                        return [
+
+                            'level' =>
+                                strtoupper(
+                                    $level
+                                ),
+
+                            'jobs' =>
+                                $jobs,
+
+                            'percentage' =>
+                                $total > 0
+
+                                ? round(
+                                    (
+                                        $jobs /
+                                        $total
+                                    ) * 100,
+                                    1
+                                )
+
+                                : 0,
+                        ];
+                    })
+
+                    ->values(),
             ];
         })
+
         ->sortByDesc('start_date')
+
         ->values();
 
-    /* =========================
-       PAGINACIÓN
-    ========================= */
-    $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+    /*
+    ==================================================
+    📄 PAGINATION
+    ==================================================
+    */
 
-    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-        $collection->slice(($page - 1) * $perPage, $perPage)->values(),
-        $collection->count(),
-        $perPage,
-        $page,
-        [
-            'path' => request()->url(),
-            'query' => request()->query(),
-        ]
-    );
+  $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+
+    $paginated =
+        new \Illuminate\Pagination\LengthAwarePaginator(
+
+            $collection
+
+                ->slice(
+                    ($page - 1) * $perPage,
+                    $perPage
+                )
+
+                ->values(),
+
+            $collection->count(),
+
+            $perPage,
+
+            $page,
+
+            [
+                'path' =>
+                    request()->url(),
+
+                'query' =>
+                    request()->query(),
+            ]
+        );
+
+    /*
+    ==================================================
+    🚀 RESPONSE
+    ==================================================
+    */
 
     return response()->json([
-        'filter' => $filter,
-        'data' => $paginated->items(),
+
+        'filter' =>
+            $filter,
+
+        'data' =>
+            $paginated->items(),
+
         'pagination' => [
-            'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
-            'per_page' => $paginated->perPage(),
-            'total' => $paginated->total(),
+
+            'current_page' =>
+                $paginated->currentPage(),
+
+            'last_page' =>
+                $paginated->lastPage(),
+
+            'per_page' =>
+                $paginated->perPage(),
+
+            'total' =>
+                $paginated->total(),
         ],
     ]);
 }
@@ -627,10 +1006,21 @@ public function exportEvolution(Request $request)
 public function evolutionCareers(Request $request)
 {
     $year   = (int) $request->get('year', 2026);
+
     $period = $request->get('period', 's1');
+
     $filter = $request->get('filter', 'weekly');
 
-    $range = $this->getPeriodRange($period, $year);
+    $range = $this->getPeriodRange(
+        $period,
+        $year
+    );
+
+    /*
+    ==================================================
+    📅 GROUPING
+    ==================================================
+    */
 
     switch ($filter) {
 
@@ -638,21 +1028,34 @@ public function evolutionCareers(Request $request)
 
             $group = "
                 DATE_FORMAT(
-                    COALESCE(jo.published_at, jo.created_at),
+                    COALESCE(
+                        jo.published_at,
+                        jo.created_at
+                    ),
                     '%Y-%m'
                 )
             ";
 
             $startDate = "
                 DATE_FORMAT(
-                    MIN(COALESCE(jo.published_at, jo.created_at)),
+                    MIN(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    ),
                     '%Y-%m-01'
                 )
             ";
 
             $endDate = "
                 LAST_DAY(
-                    MIN(COALESCE(jo.published_at, jo.created_at))
+                    MIN(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    )
                 )
             ";
 
@@ -662,21 +1065,66 @@ public function evolutionCareers(Request $request)
 
             $group = "
                 CONCAT(
-                    YEAR(COALESCE(jo.published_at, jo.created_at)), '-',
-                    LPAD(MONTH(COALESCE(jo.published_at, jo.created_at)),2,'0'), '-',
-                    IF(DAY(COALESCE(jo.published_at, jo.created_at))<=15,1,2)
+                    YEAR(
+                        COALESCE(
+                            jo.published_at,
+                            jo.created_at
+                        )
+                    ),
+                    '-',
+                    LPAD(
+                        MONTH(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
+                        2,
+                        '0'
+                    ),
+                    '-',
+                    IF(
+                        DAY(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ) <= 15,
+                        1,
+                        2
+                    )
                 )
             ";
 
             $startDate = "
                 CASE
-                    WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                    WHEN DAY(
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ) <= 15
+
                     THEN DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-01'
                     )
+
                     ELSE DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-16'
                     )
                 END
@@ -684,13 +1132,33 @@ public function evolutionCareers(Request $request)
 
             $endDate = "
                 CASE
-                    WHEN DAY(MIN(COALESCE(jo.published_at, jo.created_at))) <= 15
+
+                    WHEN DAY(
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ) <= 15
+
                     THEN DATE_FORMAT(
-                        MIN(COALESCE(jo.published_at, jo.created_at)),
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        ),
                         '%Y-%m-15'
                     )
+
                     ELSE LAST_DAY(
-                        MIN(COALESCE(jo.published_at, jo.created_at))
+                        MIN(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
                     )
                 END
             ";
@@ -701,16 +1169,33 @@ public function evolutionCareers(Request $request)
 
             $group = "
                 YEARWEEK(
-                    COALESCE(jo.published_at, jo.created_at),
+                    COALESCE(
+                        jo.published_at,
+                        jo.created_at
+                    ),
                     1
                 )
             ";
 
             $startDate = "
                 DATE_SUB(
-                    MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                    MIN(
+                        DATE(
+                            COALESCE(
+                                jo.published_at,
+                                jo.created_at
+                            )
+                        )
+                    ),
                     INTERVAL WEEKDAY(
-                        MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                        MIN(
+                            DATE(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        )
                     ) DAY
                 )
             ";
@@ -718,9 +1203,23 @@ public function evolutionCareers(Request $request)
             $endDate = "
                 DATE_ADD(
                     DATE_SUB(
-                        MIN(DATE(COALESCE(jo.published_at, jo.created_at))),
+                        MIN(
+                            DATE(
+                                COALESCE(
+                                    jo.published_at,
+                                    jo.created_at
+                                )
+                            )
+                        ),
                         INTERVAL WEEKDAY(
-                            MIN(DATE(COALESCE(jo.published_at, jo.created_at)))
+                            MIN(
+                                DATE(
+                                    COALESCE(
+                                        jo.published_at,
+                                        jo.created_at
+                                    )
+                                )
+                            )
                         ) DAY
                     ),
                     INTERVAL 6 DAY
@@ -730,25 +1229,65 @@ public function evolutionCareers(Request $request)
             break;
     }
 
+    /*
+    ==================================================
+    🔵 CAREERS DISTRIBUTION
+    ==================================================
+    */
+
     $rows = DB::table('job_offers as jo')
-        ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-        ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-        ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-        ->join('careers as c', 'c.id', '=', 'cc.career_id')
+
+        ->join(
+            'technology_job as tj',
+            'tj.job_offer_id',
+            '=',
+            'jo.id'
+        )
+
+        ->join(
+            'course_technology as ct',
+            'ct.technology_id',
+            '=',
+            'tj.technology_id'
+        )
+
+        ->join(
+            'career_course as cc',
+            'cc.course_id',
+            '=',
+            'ct.course_id'
+        )
+
+        ->join(
+            'careers as c',
+            'c.id',
+            '=',
+            'cc.career_id'
+        )
 
         ->where(function ($q) use ($range) {
 
-            $q->whereBetween('jo.published_at', [
-                $range['start'],
-                $range['end'],
-            ])
+            $q->whereBetween(
+                'jo.published_at',
+                [
+                    $range['start'],
+                    $range['end'],
+                ]
+            )
+
             ->orWhere(function ($q2) use ($range) {
 
-                $q2->whereNull('jo.published_at')
-                   ->whereBetween('jo.created_at', [
-                       $range['start'],
-                       $range['end'],
-                   ]);
+                $q2->whereNull(
+                    'jo.published_at'
+                )
+
+                ->whereBetween(
+                    'jo.created_at',
+                    [
+                        $range['start'],
+                        $range['end'],
+                    ]
+                );
             });
         })
 
@@ -758,42 +1297,181 @@ public function evolutionCareers(Request $request)
         )
 
         ->select(
-            DB::raw("$group as period"),
-            DB::raw("$startDate as start_date"),
-            DB::raw("$endDate as end_date"),
+
+            DB::raw("
+                {$group}
+                as period
+            "),
+
+            DB::raw("
+                {$startDate}
+                as start_date
+            "),
+
+            DB::raw("
+                {$endDate}
+                as end_date
+            "),
+
             'c.name as career',
-            DB::raw('COUNT(DISTINCT jo.id) as total')
+
+            DB::raw("
+                COUNT(DISTINCT jo.id)
+                as total
+            ")
         )
+
         ->get();
 
+    /*
+    ==================================================
+    🟢 TOTALES REALES
+    ==================================================
+    */
+
+    $realTotals = DB::table('job_offers as jo')
+
+        ->join(
+            'technology_job as tj',
+            'tj.job_offer_id',
+            '=',
+            'jo.id'
+        )
+
+        ->join(
+            'course_technology as ct',
+            'ct.technology_id',
+            '=',
+            'tj.technology_id'
+        )
+
+        ->join(
+            'career_course as cc',
+            'cc.course_id',
+            '=',
+            'ct.course_id'
+        )
+
+        ->join(
+            'careers as c',
+            'c.id',
+            '=',
+            'cc.career_id'
+        )
+
+        ->where(function ($q) use ($range) {
+
+            $q->whereBetween(
+                'jo.published_at',
+                [
+                    $range['start'],
+                    $range['end'],
+                ]
+            )
+
+            ->orWhere(function ($q2) use ($range) {
+
+                $q2->whereNull(
+                    'jo.published_at'
+                )
+
+                ->whereBetween(
+                    'jo.created_at',
+                    [
+                        $range['start'],
+                        $range['end'],
+                    ]
+                );
+            });
+        })
+
+        ->groupBy(
+            DB::raw($group)
+        )
+
+        ->select(
+
+            DB::raw("
+                {$group}
+                as period
+            "),
+
+            DB::raw("
+                COUNT(DISTINCT jo.id)
+                as total_unique
+            ")
+        )
+
+        ->pluck(
+            'total_unique',
+            'period'
+        );
+
+    /*
+    ==================================================
+    📦 COLLECTION
+    ==================================================
+    */
+
     $data = $rows
+
         ->groupBy('period')
-        ->map(function ($items) use ($filter) {
+
+        ->map(function ($items) use (
+            $filter,
+            $realTotals
+        ) {
 
             $first = $items->first();
 
             $start = $first->start_date;
 
+            /*
+            ==========================================
+            📅 LABEL
+            ==========================================
+            */
+
             switch ($filter) {
 
                 case 'monthly':
 
-                    $label = \Carbon\Carbon::parse($start)
+                    $label =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
+
                         ->locale('es')
-                        ->translatedFormat('F Y');
+
+                        ->translatedFormat(
+                            'F Y'
+                        );
 
                     break;
 
                 case 'biweekly':
 
-                    $month = \Carbon\Carbon::parse($start)
+                    $month =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
+
                         ->locale('es')
-                        ->translatedFormat('F');
 
-                    $day = \Carbon\Carbon::parse($start)->day;
+                        ->translatedFormat(
+                            'F'
+                        );
 
-                    $label = $day <= 15
+                    $day =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )->day;
+
+                    $label =
+                        $day <= 15
+
                         ? "Primera quincena de {$month}"
+
                         : "Segunda quincena de {$month}";
 
                     break;
@@ -801,48 +1479,111 @@ public function evolutionCareers(Request $request)
                 default:
 
                     $week = ceil(
-                        \Carbon\Carbon::parse($start)->day / 7
+                        \Carbon\Carbon::parse(
+                            $start
+                        )->day / 7
                     );
 
-                    $month = \Carbon\Carbon::parse($start)
-                        ->locale('es')
-                        ->translatedFormat('F');
+                    $month =
+                        \Carbon\Carbon::parse(
+                            $start
+                        )
 
-                    $label = "Semana {$week} de {$month}";
+                        ->locale('es')
+
+                        ->translatedFormat(
+                            'F'
+                        );
+
+                    $label =
+                        "Semana {$week} de {$month}";
 
                     break;
             }
 
-            $total = $items->sum('total');
-
             return [
-                'period' => $first->period,
-                'label' => $label,
-                'start_date' => $first->start_date,
-                'end_date' => $first->end_date,
-                'total_jobs' => $total,
 
-                'careers' => $items
-                    ->sortByDesc('total')
-                    ->values()
-                    ->map(function ($c) use ($total) {
+                'period' =>
+                    $first->period,
 
-                        return [
-                            'career_name' => $c->career,
-                            'jobs' => $c->total,
-                            'percentage' => $total > 0
-                                ? round(($c->total / $total) * 100, 1)
-                                : 0,
-                        ];
-                    }),
+                'label' =>
+                    $label,
+
+                'start_date' =>
+                    $first->start_date,
+
+                'end_date' =>
+                    $first->end_date,
+
+                /*
+                ✅ TOTAL REAL
+                */
+
+                'total_jobs' =>
+                    $realTotals[
+                        $first->period
+                    ] ?? 0,
+
+                'careers' =>
+
+                    $items
+
+                        ->sortByDesc('total')
+
+                        ->values()
+
+                        ->map(function ($career) use (
+                            $realTotals,
+                            $first
+                        ) {
+
+                            $total =
+                                $realTotals[
+                                    $first->period
+                                ] ?? 0;
+
+                            return [
+
+                                'career_name' =>
+                                    $career->career,
+
+                                'jobs' =>
+                                    $career->total,
+
+                                'percentage' =>
+                                    $total > 0
+
+                                    ? round(
+                                        (
+                                            $career->total /
+                                            $total
+                                        ) * 100,
+                                        1
+                                    )
+
+                                    : 0,
+                            ];
+                        }),
             ];
         })
+
         ->sortByDesc('start_date')
+
         ->values();
 
+    /*
+    ==================================================
+    🚀 RESPONSE
+    ==================================================
+    */
+
     return response()->json([
-        'filter' => $filter,
-        'data' => $data,
+
+        'filter' =>
+            $filter,
+
+        'data' =>
+            $data,
     ]);
 }
 public function exportEvolutionCareers(Request $request)

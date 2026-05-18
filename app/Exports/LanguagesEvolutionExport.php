@@ -3,19 +3,20 @@
 namespace App\Exports;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class LanguagesEvolutionExport implements FromCollection, WithHeadings
 {
-    protected $year;
+    protected int $year;
 
-    protected $filter;
+    protected string $filter;
 
     public function __construct(
-        $year,
-        $filter = 'weekly'
+        int $year,
+        string $filter = 'weekly'
     ) {
 
         $this->year = $year;
@@ -26,12 +27,12 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
     public function collection()
     {
         /*
-        ==============================================
-        🔍 BASE QUERY
-        ==============================================
+        ==================================================
+        🔍 QUERY BASE
+        ==================================================
         */
 
-        $rows = DB::table('language_job as lj')
+        $query = DB::table('language_job as lj')
 
             ->join(
                 'job_offers as j',
@@ -50,6 +51,63 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
             ->whereYear(
                 'j.published_at',
                 $this->year
+            );
+
+        /*
+        ==================================================
+        📅 WEEKLY
+        ==================================================
+        */
+
+        if ($this->filter === 'weekly') {
+
+            return $this->buildWeekly($query);
+        }
+
+        /*
+        ==================================================
+        📅 BIWEEKLY
+        ==================================================
+        */
+
+        if ($this->filter === 'biweekly') {
+
+            return $this->buildBiweekly($query);
+        }
+
+        /*
+        ==================================================
+        📅 MONTHLY
+        ==================================================
+        */
+
+        return $this->buildMonthly($query);
+    }
+
+    /*
+    ==================================================
+    📅 WEEKLY
+    ==================================================
+    */
+
+    private function buildWeekly($query)
+    {
+        $weekExpression = "
+            FLOOR((DAY(j.published_at)-1)/7)+1
+        ";
+
+        /*
+        ==================================================
+        🔵 LENGUAJES
+        ==================================================
+        */
+
+        $rows = (clone $query)
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($weekExpression),
+                'me.name'
             )
 
             ->select(
@@ -60,91 +118,86 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
                 "),
 
                 DB::raw("
-                    DAY(j.published_at)
-                    as day_number
+                    {$weekExpression}
+                    as week_number
                 "),
 
                 'me.name as lenguaje',
 
-                'lj.job_offer_id'
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total
+                ")
             )
 
             ->get();
 
         /*
-        ==============================================
-        📅 WEEKLY
-        ==============================================
+        ==================================================
+        🟢 VACANTES ÚNICAS REALES
+        ==================================================
         */
 
-        if ($this->filter === 'weekly') {
+        $realTotals = DB::table('language_job as lj')
 
-            return $this->buildWeekly(
-                $rows
-            );
-        }
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'lj.job_offer_id'
+            )
 
-        /*
-        ==============================================
-        📅 BIWEEKLY
-        ==============================================
-        */
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
 
-        if ($this->filter === 'biweekly') {
+            ->select(
 
-            return $this->buildBiweekly(
-                $rows
-            );
-        }
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
 
-        /*
-        ==============================================
-        📅 MONTHLY
-        ==============================================
-        */
+                DB::raw("
+                    {$weekExpression}
+                    as week_number
+                "),
 
-        return $this->buildMonthly(
-            $rows
-        );
-    }
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total_unique
+                ")
+            )
 
-    /*
-    ==================================================
-    📅 WEEKLY
-    ==================================================
-    */
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($weekExpression)
+            )
 
-    private function buildWeekly($rows)
-    {
-        $grouped = $rows
+            ->get()
 
-            ->groupBy(function ($row) {
-
-                $week =
-                    floor(
-                        ($row->day_number - 1) / 7
-                    ) + 1;
+            ->keyBy(function ($item) {
 
                 return
-                    $row->month_number .
+                    $item->month_number .
                     '-' .
-                    $week .
-                    '-' .
-                    $row->lenguaje;
+                    $item->week_number;
             });
+
+        /*
+        ==================================================
+        📦 EXPORT
+        ==================================================
+        */
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
+            $month = $row->month_number;
 
-            $month = $first->month_number;
-
-            $week =
-                floor(
-                    ($first->day_number - 1) / 7
-                ) + 1;
+            $week = $row->week_number;
 
             $startDay =
                 (($week - 1) * 7) + 1;
@@ -163,6 +216,11 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
             $monthName = Carbon::create()
                 ->month($month)
                 ->translatedFormat('F');
+
+            $key =
+                $month .
+                '-' .
+                $week;
 
             $export->push([
 
@@ -186,14 +244,14 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
-                'Lenguaje' =>
-                    $first->lenguaje,
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$key]->total_unique ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Lenguaje' =>
+                    $row->lenguaje,
+
+                'Menciones Lenguaje' =>
+                    $row->total,
             ]);
         }
 
@@ -208,37 +266,100 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
     ==================================================
     */
 
-    private function buildBiweekly($rows)
+    private function buildBiweekly($query)
     {
-        $grouped = $rows
+        $expression = "
+            CASE
+                WHEN DAY(j.published_at) <= 15
+                THEN 1
+                ELSE 2
+            END
+        ";
 
-            ->groupBy(function ($row) {
+        $rows = (clone $query)
 
-                $q =
-                    $row->day_number <= 15
-                        ? 1
-                        : 2;
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($expression),
+                'me.name'
+            )
+
+            ->select(
+
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$expression}
+                    as quincena
+                "),
+
+                'me.name as lenguaje',
+
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total
+                ")
+            )
+
+            ->get();
+
+        $realTotals = DB::table('language_job as lj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'lj.job_offer_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->select(
+
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$expression}
+                    as quincena
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total_unique
+                ")
+            )
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($expression)
+            )
+
+            ->get()
+
+            ->keyBy(function ($item) {
 
                 return
-                    $row->month_number .
+                    $item->month_number .
                     '-' .
-                    $q .
-                    '-' .
-                    $row->lenguaje;
+                    $item->quincena;
             });
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
+            $month = $row->month_number;
 
-            $month = $first->month_number;
-
-            $q =
-                $first->day_number <= 15
-                    ? 1
-                    : 2;
+            $q = $row->quincena;
 
             $daysInMonth = Carbon::create(
                 $this->year,
@@ -259,6 +380,11 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
             $monthName = Carbon::create()
                 ->month($month)
                 ->translatedFormat('F');
+
+            $key =
+                $month .
+                '-' .
+                $q;
 
             $export->push([
 
@@ -282,14 +408,14 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
-                'Lenguaje' =>
-                    $first->lenguaje,
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$key]->total_unique ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Lenguaje' =>
+                    $row->lenguaje,
+
+                'Menciones Lenguaje' =>
+                    $row->total,
             ]);
         }
 
@@ -304,25 +430,73 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
     ==================================================
     */
 
-    private function buildMonthly($rows)
+    private function buildMonthly($query)
     {
-        $grouped = $rows
+        $rows = (clone $query)
 
-            ->groupBy(function ($row) {
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                'me.name'
+            )
 
-                return
-                    $row->month_number .
-                    '-' .
-                    $row->lenguaje;
-            });
+            ->select(
+
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                'me.name as lenguaje',
+
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total
+                ")
+            )
+
+            ->get();
+
+        $realTotals = DB::table('language_job as lj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'lj.job_offer_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->select(
+
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT lj.job_offer_id)
+                    as total_unique
+                ")
+            )
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)")
+            )
+
+            ->pluck(
+                'total_unique',
+                'month_number'
+            );
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
-
-            $month = $first->month_number;
+            $month = $row->month_number;
 
             $daysInMonth = Carbon::create(
                 $this->year,
@@ -353,14 +527,14 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
                         $daysInMonth
                     )->format('Y-m-d'),
 
-                'Lenguaje' =>
-                    $first->lenguaje,
+                'Vacantes Únicas Reales' =>
+                    $realTotals[$month] ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Lenguaje' =>
+                    $row->lenguaje,
+
+                'Menciones Lenguaje' =>
+                    $row->total,
             ]);
         }
 
@@ -379,9 +553,11 @@ class LanguagesEvolutionExport implements FromCollection, WithHeadings
 
             'Fecha Fin',
 
+            'Vacantes Únicas Reales',
+
             'Lenguaje',
 
-            'Vacantes',
+            'Menciones Lenguaje',
         ];
     }
 }

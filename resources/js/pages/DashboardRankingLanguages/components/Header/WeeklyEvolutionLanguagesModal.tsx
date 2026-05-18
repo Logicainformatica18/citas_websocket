@@ -162,9 +162,9 @@ const getLabel = (item) => {
               </p>
             )}
 
-            {!loading && data.map((item) => (
-              <div
-                key={item.period}
+           {!loading && data.map((item) => (
+  <div
+    key={item.label}
                 className="border rounded-xl p-4 bg-white"
               >
 
