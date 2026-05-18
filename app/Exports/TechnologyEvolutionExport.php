@@ -10,13 +10,13 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class TechnologyEvolutionExport implements FromCollection, WithHeadings
 {
-    protected $year;
+    protected int $year;
 
-    protected $filter;
+    protected string $filter;
 
     public function __construct(
-        $year,
-        $filter = 'weekly'
+        int $year,
+        string $filter = 'weekly'
     ) {
 
         $this->year = $year;
@@ -27,12 +27,12 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
     public function collection()
     {
         /*
-        ==============================================
-        🔍 BASE QUERY
-        ==============================================
+        ==================================================
+        🔍 QUERY BASE
+        ==================================================
         */
 
-        $rows = DB::table('technology_job as tj')
+        $query = DB::table('technology_job as tj')
 
             ->join(
                 'job_offers as j',
@@ -51,62 +51,37 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
             ->whereYear(
                 'j.published_at',
                 $this->year
-            )
-
-            ->select(
-
-                DB::raw("
-                    MONTH(j.published_at)
-                    as month_number
-                "),
-
-                DB::raw("
-                    DAY(j.published_at)
-                    as day_number
-                "),
-
-                'me.name as tecnologia',
-
-                'tj.job_offer_id'
-            )
-
-            ->get();
+            );
 
         /*
-        ==============================================
+        ==================================================
         📅 WEEKLY
-        ==============================================
+        ==================================================
         */
 
         if ($this->filter === 'weekly') {
 
-            return $this->buildWeekly(
-                $rows
-            );
+            return $this->buildWeekly($query);
         }
 
         /*
-        ==============================================
+        ==================================================
         📅 BIWEEKLY
-        ==============================================
+        ==================================================
         */
 
         if ($this->filter === 'biweekly') {
 
-            return $this->buildBiweekly(
-                $rows
-            );
+            return $this->buildBiweekly($query);
         }
 
         /*
-        ==============================================
+        ==================================================
         📅 MONTHLY
-        ==============================================
+        ==================================================
         */
 
-        return $this->buildMonthly(
-            $rows
-        );
+        return $this->buildMonthly($query);
     }
 
     /*
@@ -115,37 +90,112 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
     ==================================================
     */
 
-    private function buildWeekly($rows)
+    private function buildWeekly($query)
     {
-        $grouped = $rows
+        $weekExpression = "
+            FLOOR((DAY(j.published_at)-1)/7)+1
+        ";
 
-            ->groupBy(function ($row) {
+        /*
+        ==================================================
+        🔵 TECNOLOGÍAS
+        ==================================================
+        */
 
-                $week =
-                    floor(
-                        ($row->day_number - 1) / 7
-                    ) + 1;
+        $rows = (clone $query)
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($weekExpression),
+                'me.name'
+            )
+
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$weekExpression}
+                    as week_number
+                "),
+
+                'me.name as tecnologia',
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total
+                ")
+            )
+
+            ->get();
+
+        /*
+        ==================================================
+        🟢 TOTALES REALES
+        ==================================================
+        */
+
+        $realTotals = DB::table('technology_job as tj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'tj.job_offer_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$weekExpression}
+                    as week_number
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total_unique
+                ")
+            )
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($weekExpression)
+            )
+
+            ->get()
+
+            ->keyBy(function ($item) {
 
                 return
-                    $row->month_number .
+                    $item->month_number .
                     '-' .
-                    $week .
-                    '-' .
-                    $row->tecnologia;
+                    $item->week_number;
             });
+
+        /*
+        ==================================================
+        📦 EXPORT
+        ==================================================
+        */
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
+            $month = $row->month_number;
 
-            $month = $first->month_number;
-
-            $week =
-                floor(
-                    ($first->day_number - 1) / 7
-                ) + 1;
+            $week = $row->week_number;
 
             $startDay =
                 (($week - 1) * 7) + 1;
@@ -164,6 +214,11 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
             $monthName = Carbon::create()
                 ->month($month)
                 ->translatedFormat('F');
+
+            $key =
+                $month .
+                '-' .
+                $week;
 
             $export->push([
 
@@ -187,14 +242,14 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
-                'Tecnología' =>
-                    $first->tecnologia,
+                'Total Vacantes Reales' =>
+                    $realTotals[$key]->total_unique ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Tecnología' =>
+                    $row->tecnologia,
+
+                'Vacantes Tecnología' =>
+                    $row->total,
             ]);
         }
 
@@ -209,37 +264,98 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
     ==================================================
     */
 
-    private function buildBiweekly($rows)
+    private function buildBiweekly($query)
     {
-        $grouped = $rows
+        $expression = "
+            CASE
+                WHEN DAY(j.published_at) <= 15
+                THEN 1
+                ELSE 2
+            END
+        ";
 
-            ->groupBy(function ($row) {
+        $rows = (clone $query)
 
-                $q =
-                    $row->day_number <= 15
-                        ? 1
-                        : 2;
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($expression),
+                'me.name'
+            )
+
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$expression}
+                    as quincena
+                "),
+
+                'me.name as tecnologia',
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total
+                ")
+            )
+
+            ->get();
+
+        $realTotals = DB::table('technology_job as tj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'tj.job_offer_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    {$expression}
+                    as quincena
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total_unique
+                ")
+            )
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                DB::raw($expression)
+            )
+
+            ->get()
+
+            ->keyBy(function ($item) {
 
                 return
-                    $row->month_number .
+                    $item->month_number .
                     '-' .
-                    $q .
-                    '-' .
-                    $row->tecnologia;
+                    $item->quincena;
             });
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
+            $month = $row->month_number;
 
-            $month = $first->month_number;
-
-            $q =
-                $first->day_number <= 15
-                    ? 1
-                    : 2;
+            $q = $row->quincena;
 
             $daysInMonth = Carbon::create(
                 $this->year,
@@ -260,6 +376,11 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
             $monthName = Carbon::create()
                 ->month($month)
                 ->translatedFormat('F');
+
+            $key =
+                $month .
+                '-' .
+                $q;
 
             $export->push([
 
@@ -283,14 +404,14 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
                         $endDay
                     )->format('Y-m-d'),
 
-                'Tecnología' =>
-                    $first->tecnologia,
+                'Total Vacantes Reales' =>
+                    $realTotals[$key]->total_unique ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Tecnología' =>
+                    $row->tecnologia,
+
+                'Vacantes Tecnología' =>
+                    $row->total,
             ]);
         }
 
@@ -305,25 +426,71 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
     ==================================================
     */
 
-    private function buildMonthly($rows)
+    private function buildMonthly($query)
     {
-        $grouped = $rows
+        $rows = (clone $query)
 
-            ->groupBy(function ($row) {
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)"),
+                'me.name'
+            )
 
-                return
-                    $row->month_number .
-                    '-' .
-                    $row->tecnologia;
-            });
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                'me.name as tecnologia',
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total
+                ")
+            )
+
+            ->get();
+
+        $realTotals = DB::table('technology_job as tj')
+
+            ->join(
+                'job_offers as j',
+                'j.id',
+                '=',
+                'tj.job_offer_id'
+            )
+
+            ->whereYear(
+                'j.published_at',
+                $this->year
+            )
+
+            ->select(
+                DB::raw("
+                    MONTH(j.published_at)
+                    as month_number
+                "),
+
+                DB::raw("
+                    COUNT(DISTINCT tj.job_offer_id)
+                    as total_unique
+                ")
+            )
+
+            ->groupBy(
+                DB::raw("MONTH(j.published_at)")
+            )
+
+            ->pluck(
+                'total_unique',
+                'month_number'
+            );
 
         $export = collect();
 
-        foreach ($grouped as $group) {
+        foreach ($rows as $row) {
 
-            $first = $group->first();
-
-            $month = $first->month_number;
+            $month = $row->month_number;
 
             $daysInMonth = Carbon::create(
                 $this->year,
@@ -354,14 +521,14 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
                         $daysInMonth
                     )->format('Y-m-d'),
 
-                'Tecnología' =>
-                    $first->tecnologia,
+                'Total Vacantes Reales' =>
+                    $realTotals[$month] ?? 0,
 
-                'Vacantes' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Tecnología' =>
+                    $row->tecnologia,
+
+                'Vacantes Tecnología' =>
+                    $row->total,
             ]);
         }
 
@@ -380,9 +547,11 @@ class TechnologyEvolutionExport implements FromCollection, WithHeadings
 
             'Fecha Fin',
 
+            'Total Vacantes Reales',
+
             'Tecnología',
 
-            'Vacantes',
+            'Vacantes Tecnología',
         ];
     }
 }
