@@ -12,7 +12,7 @@ use App\Http\Controllers\Dashboard\JobMarketStatusController;
 use Illuminate\Support\Facades\Artisan;
 use App\Exports\TechnologyEvolutionExport;
 use Maatwebsite\Excel\Facades\Excel;
-
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class RankingTecnologiasController extends Controller
@@ -618,630 +618,242 @@ public function jobsByLanguage(Request $request, int $languageId)
             'end'   => "$year-12-31",
         ];
     }
-
-// public function weeklyScores(Request $request, $technologyId = null)
-// {
-//     $year = (int) $request->get('year', 2026);
-//     $perPage = min((int) $request->get('per_page', 6), 20);
-//     $page = (int) $request->get('page', 1);
-
-//     $query = DB::table('technology_job as tj')
-//         ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
-//         ->join('market_entities as me', 'me.id', '=', 'tj.market_entity_id')
-//         ->whereYear('j.published_at', $year);
-
-//     if ($technologyId) {
-//         $query->where('tj.market_entity_id', $technologyId);
-//     }
-
-//     $rows = $query
-//         ->groupBy(
-//             DB::raw('YEARWEEK(j.published_at, 1)'),
-//             'me.id',
-//             'me.name'
-//         )
-//         ->select(
-//             DB::raw('YEARWEEK(j.published_at, 1) as week'),
-//             DB::raw('MIN(DATE(j.published_at)) as start_date'),
-//             DB::raw('MAX(DATE(j.published_at)) as end_date'),
-//             'me.id',
-//             'me.name',
-//             DB::raw('COUNT(DISTINCT tj.job_offer_id) as total')
-//         )
-//         ->get();
-
-//     $weeks = $rows
-//         ->groupBy('week')
-//         ->map(function ($items, $week) {
-
-//             $first = $items->first();
-
-//             return [
-//                 'week' => $week,
-//                 'start_date' => $first->start_date,
-//                 'end_date' => $first->end_date,
-
-//                 // 🔥 TOTAL SEMANAL
-//                 'total_week' => $items->sum('total'),
-
-//                 'top' => $items
-//                     ->sortByDesc('total')
-//                     ->take(5)
-//                     ->values()
-//                     ->map(function ($item) {
-//                         return [
-//                             'id' => $item->id,
-//                             'name' => $item->name,
-//                             'total' => $item->total,
-//                         ];
-//                     }),
-//             ];
-//         })
-//         ->sortKeysDesc()
-//         ->values();
-
-//     $total = $weeks->count();
-//     $paged = $weeks->forPage($page, $perPage)->values();
-
-//     return response()->json([
-//         'data' => $paged,
-//         'pagination' => [
-//             'current_page' => $page,
-//             'per_page' => $perPage,
-//             'total' => $total,
-//             'last_page' => ceil($total / $perPage),
-//         ],
-//     ]);
-// }
-public function weeklyScores(Request $request, $technologyId = null)
+ public function weeklyScores(Request $request)
 {
     try {
 
         /*
         ==================================================
-        📅 PARAMS
+        PARAMS
         ==================================================
         */
 
-        $year = (int) $request->get('year');
+        $year = (int) $request->get(
+            'year',
+            now()->year
+        );
 
-        if (!$year) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Year es requerido',
-            ], 422);
-        }
+        $filter = $request->get(
+            'filter',
+            'weekly'
+        );
+
+        $page = (int) $request->get(
+            'page',
+            1
+        );
 
         $perPage = min(
-            (int) $request->get('per_page', 6),
+            (int) $request->get(
+                'per_page',
+                6
+            ),
             20
         );
 
-        $page = (int) $request->get('page', 1);
-
-        $filter = $request->get('filter', 'weekly');
+        /*
+        ==================================================
+        VALID FILTER
+        ==================================================
+        */
 
         if (!in_array($filter, [
             'weekly',
             'biweekly',
             'monthly',
         ])) {
+
             $filter = 'weekly';
         }
 
         /*
         ==================================================
-        🔍 QUERY BASE
+        QUERY CACHE
         ==================================================
         */
 
-        $query = DB::table('technology_job as tj')
+        $rows = DB::table(
+            'technology_evolution_cache as tec'
+        )
 
-            ->join(
-                'job_offers as j',
-                'j.id',
-                '=',
-                'tj.job_offer_id'
+        ->join(
+            'market_entities as me',
+            'me.id',
+            '=',
+            'tec.market_entity_id'
+        )
+
+        ->where(
+            'tec.year',
+            $year
+        )
+
+        ->where(
+            'tec.period_type',
+            $filter
+        )
+
+        ->select(
+
+            'tec.*',
+
+            'me.name'
+        )
+
+        ->orderByDesc(
+            'tec.start_date'
+        )
+
+        ->orderBy(
+            'tec.ranking_position'
+        )
+
+        ->get();
+
+        /*
+        ==================================================
+        GROUP PERIODS
+        ==================================================
+        */
+
+        $periods = $rows
+
+            ->groupBy(function ($item) {
+
+                return
+                    $item->period_type .
+                    '_' .
+                    $item->start_date;
+            })
+
+            ->map(function ($items) {
+
+                $first = $items->first();
+
+                return [
+
+                    /*
+                    ======================================
+                    INFO
+                    ======================================
+                    */
+
+                    'period' =>
+                        $first->period_label,
+
+                    'label' =>
+                        $first->period_label,
+
+                    'start_date' =>
+                        $first->start_date,
+
+                    'end_date' =>
+                        $first->end_date,
+
+                    /*
+                    ======================================
+                    SCORE PROMEDIO
+                    ======================================
+                    */
+
+                    'period_score' => round(
+
+                        $items->avg(
+                            'final_score'
+                        ),
+
+                        1
+                    ),
+
+                    /*
+                    ======================================
+                    TOTAL JOBS
+                    ======================================
+                    */
+
+                    'total_jobs' =>
+
+                        $items->sum(
+                            'jobs'
+                        ),
+
+                    /*
+                    ======================================
+                    TOP TECNOLOGÍAS
+                    ======================================
+                    */
+
+                    'top' => $items
+
+                        ->sortBy(
+                            'ranking_position'
+                        )
+
+                        ->take(5)
+
+                        ->values()
+
+                        ->map(function ($item) {
+
+                            return [
+
+                                'id' =>
+                                    $item->market_entity_id,
+
+                                'name' =>
+                                    $item->name,
+
+                                'jobs' =>
+                                    $item->jobs,
+
+                                'trend_reports' =>
+                                    $item->trend_reports,
+
+                                'labor_score' =>
+                                    (float)
+                                    $item->labor_score,
+
+                                'trend_score' =>
+                                    (float)
+                                    $item->trend_score,
+
+                                'final_score' =>
+                                    (float)
+                                    $item->final_score,
+
+                                'ranking_position' =>
+                                    $item->ranking_position,
+                            ];
+                        }),
+                ];
+            })
+
+            ->sortByDesc(
+                'start_date'
             )
 
-            ->join(
-                'market_entities as me',
-                'me.id',
-                '=',
-                'tj.market_entity_id'
-            )
-
-            ->whereYear('j.published_at', $year);
-
-        if ($technologyId) {
-            $query->where(
-                'tj.market_entity_id',
-                $technologyId
-            );
-        }
+            ->values();
 
         /*
         ==================================================
-        📅 WEEKLY
-        ==================================================
-        */
-
-        if ($filter === 'weekly') {
-
-            $weekExpression = "
-                FLOOR((DAY(j.published_at)-1)/7)+1
-            ";
-
-            /*
-            ==========================================
-            🔵 TOP TECNOLOGÍAS
-            ==========================================
-            */
-
-            $rows = (clone $query)
-
-                ->groupBy(
-                    DB::raw("MONTH(j.published_at)"),
-                    DB::raw($weekExpression),
-                    'me.id',
-                    'me.name'
-                )
-
-                ->select(
-                    DB::raw("MONTH(j.published_at) as month_number"),
-                    DB::raw("{$weekExpression} as week_number"),
-                    'me.id',
-                    'me.name',
-
-                    DB::raw("
-                        COUNT(DISTINCT tj.job_offer_id)
-                        as total
-                    ")
-                )
-
-                ->get();
-
-            /*
-            ==========================================
-            🟢 TOTALES REALES
-            ==========================================
-            */
-
-          $realTotals = DB::table('technology_job as tj')
-
-    ->join(
-        'job_offers as j',
-        'j.id',
-        '=',
-        'tj.job_offer_id'
-    )
-
-    ->whereYear('j.published_at', $year)
-
-    ->select(
-        DB::raw("MONTH(j.published_at) as month_number"),
-        DB::raw("{$weekExpression} as week_number"),
-
-        DB::raw("
-            COUNT(DISTINCT tj.job_offer_id)
-            as total_unique
-        ")
-    )
-
-    ->groupBy(
-        DB::raw("MONTH(j.published_at)"),
-        DB::raw($weekExpression)
-    )
-
-    ->get()
-
-    ->keyBy(function ($item) {
-        return $item->month_number . '-' . $item->week_number;
-    });
-
-            $periods = $rows
-
-                ->groupBy(function ($item) {
-                    return
-                        $item->month_number .
-                        '-' .
-                        $item->week_number;
-                })
-
-                ->map(function ($items, $key) use ($year, $realTotals) {
-
-                    $first = $items->first();
-
-                    $month = $first->month_number;
-                    $week  = $first->week_number;
-
-                    $startDay =
-                        (($week - 1) * 7) + 1;
-
-                    $daysInMonth = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        1
-                    )->daysInMonth;
-
-                    $endDay = min(
-                        $startDay + 6,
-                        $daysInMonth
-                    );
-
-                    $startDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $startDay
-                    )->format('Y-m-d');
-
-                    $endDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $endDay
-                    )->format('Y-m-d');
-
-                    $monthName = \Carbon\Carbon::create()
-                        ->month($month)
-                        ->translatedFormat('F');
-
-                    return [
-
-                        'period' =>
-                            'Semana ' . $week,
-
-                        'label' =>
-                            'Semana ' .
-                            $week .
-                            ' de ' .
-                            ucfirst($monthName),
-
-                        'month' => $month,
-
-                        'week' => $week,
-
-                        'start_date' => $startDate,
-                        'end_date'   => $endDate,
-
-                        /*
-                        ✅ TOTAL REAL
-                        */
-
-                        'total_period' =>
-                            $realTotals[$key]->total_unique ?? 0,
-
-                        /*
-                        🔵 TOP TECNOLOGÍAS
-                        */
-
-                        'top' => $items
-                            ->sortByDesc('total')
-                            ->take(5)
-                            ->values()
-                            ->map(function ($item) {
-
-                                return [
-                                    'id'    => $item->id,
-                                    'name'  => $item->name,
-                                    'total' => $item->total,
-                                ];
-                            }),
-                    ];
-                })
-
-                ->sortByDesc('start_date')
-                ->values();
-        }
-
-        /*
-        ==================================================
-        📅 BIWEEKLY
-        ==================================================
-        */
-
-        elseif ($filter === 'biweekly') {
-
-            $expression = "
-                CASE
-                    WHEN DAY(j.published_at) <= 15
-                    THEN 1
-                    ELSE 2
-                END
-            ";
-
-            $rows = (clone $query)
-
-                ->groupBy(
-                    DB::raw("MONTH(j.published_at)"),
-                    DB::raw($expression),
-                    'me.id',
-                    'me.name'
-                )
-
-                ->select(
-                    DB::raw("MONTH(j.published_at) as month_number"),
-                    DB::raw("{$expression} as quincena"),
-                    'me.id',
-                    'me.name',
-
-                    DB::raw("
-                        COUNT(DISTINCT tj.job_offer_id)
-                        as total
-                    ")
-                )
-
-                ->get();
-
-         $realTotals = DB::table('technology_job as tj')
-
-    ->join(
-        'job_offers as j',
-        'j.id',
-        '=',
-        'tj.job_offer_id'
-    )
-
-    ->whereYear('j.published_at', $year)
-
-    ->select(
-        DB::raw("MONTH(j.published_at) as month_number"),
-        DB::raw("{$expression} as quincena"),
-
-        DB::raw("
-            COUNT(DISTINCT tj.job_offer_id)
-            as total_unique
-        ")
-    )
-
-    ->groupBy(
-        DB::raw("MONTH(j.published_at)"),
-        DB::raw($expression)
-    )
-
-    ->get()
-
-    ->keyBy(function ($item) {
-        return $item->month_number . '-' . $item->quincena;
-    });
-
-            $periods = $rows
-
-                ->groupBy(function ($item) {
-                    return
-                        $item->month_number .
-                        '-' .
-                        $item->quincena;
-                })
-
-                ->map(function ($items, $key) use ($year, $realTotals) {
-
-                    $first = $items->first();
-
-                    $month = $first->month_number;
-                    $quincena = $first->quincena;
-
-                    $daysInMonth = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        1
-                    )->daysInMonth;
-
-                    if ($quincena == 1) {
-                        $startDay = 1;
-                        $endDay   = 15;
-                    } else {
-                        $startDay = 16;
-                        $endDay   = $daysInMonth;
-                    }
-
-                    $startDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $startDay
-                    )->format('Y-m-d');
-
-                    $endDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $endDay
-                    )->format('Y-m-d');
-
-                    $monthName = \Carbon\Carbon::create()
-                        ->month($month)
-                        ->translatedFormat('F');
-
-                    return [
-
-                        'period' =>
-                            'Quincena ' . $quincena,
-
-                        'label' =>
-                            'Quincena ' .
-                            $quincena .
-                            ' de ' .
-                            ucfirst($monthName),
-
-                        'month' => $month,
-
-                        'start_date' => $startDate,
-                        'end_date'   => $endDate,
-
-                        /*
-                        ✅ TOTAL REAL
-                        */
-
-                        'total_period' =>
-                            $realTotals[$key]->total_unique ?? 0,
-
-                        'top' => $items
-                            ->sortByDesc('total')
-                            ->take(5)
-                            ->values()
-                            ->map(function ($item) {
-
-                                return [
-                                    'id'    => $item->id,
-                                    'name'  => $item->name,
-                                    'total' => $item->total,
-                                ];
-                            }),
-                    ];
-                })
-
-                ->sortByDesc('start_date')
-                ->values();
-        }
-
-        /*
-        ==================================================
-        📅 MONTHLY
-        ==================================================
-        */
-
-        else {
-
-            $rows = (clone $query)
-
-                ->groupBy(
-                    DB::raw("MONTH(j.published_at)"),
-                    'me.id',
-                    'me.name'
-                )
-
-                ->select(
-                    DB::raw("MONTH(j.published_at) as month_number"),
-                    'me.id',
-                    'me.name',
-
-                    DB::raw("
-                        COUNT(DISTINCT tj.job_offer_id)
-                        as total
-                    ")
-                )
-
-                ->get();
-
-            /*
-            ==========================================
-            🟢 TOTALES REALES
-            ==========================================
-            */
-
-            $realTotals = DB::table('technology_job as tj')
-
-    ->join(
-        'job_offers as j',
-        'j.id',
-        '=',
-        'tj.job_offer_id'
-    )
-
-    ->whereYear('j.published_at', $year)
-
-    ->select(
-        DB::raw("MONTH(j.published_at) as month_number"),
-
-        DB::raw("
-            COUNT(DISTINCT tj.job_offer_id)
-            as total_unique
-        ")
-    )
-
-    ->groupBy(
-        DB::raw("MONTH(j.published_at)")
-    )
-
-    ->pluck(
-        'total_unique',
-        'month_number'
-    );
-
-            $periods = $rows
-
-                ->groupBy('month_number')
-
-                ->map(function ($items, $month) use ($year, $realTotals) {
-
-                    $daysInMonth = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        1
-                    )->daysInMonth;
-
-                    $startDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        1
-                    )->format('Y-m-d');
-
-                    $endDate = \Carbon\Carbon::create(
-                        $year,
-                        $month,
-                        $daysInMonth
-                    )->format('Y-m-d');
-
-                    $monthName = \Carbon\Carbon::create()
-                        ->month($month)
-                        ->translatedFormat('F');
-
-                    return [
-
-                        'period' =>
-                            ucfirst($monthName),
-
-                        'label' =>
-                            ucfirst($monthName),
-
-                        'month' => $month,
-
-                        'start_date' => $startDate,
-                        'end_date'   => $endDate,
-
-                        /*
-                        ✅ TOTAL REAL
-                        */
-
-                        'total_period' =>
-                            $realTotals[$month] ?? 0,
-
-                        /*
-                        🔵 TOP TECNOLOGÍAS
-                        */
-
-                        'top' => $items
-                            ->sortByDesc('total')
-                            ->take(5)
-                            ->values()
-                            ->map(function ($item) {
-
-                                return [
-                                    'id'    => $item->id,
-                                    'name'  => $item->name,
-                                    'total' => $item->total,
-                                ];
-                            }),
-                    ];
-                })
-
-                ->sortByDesc('month')
-                ->values();
-        }
-
-        /*
-        ==================================================
-        📦 PAGINATION
+        PAGINATION
         ==================================================
         */
 
         $total = $periods->count();
 
         $paged = $periods
-            ->forPage($page, $perPage)
+
+            ->forPage(
+                $page,
+                $perPage
+            )
+
             ->values();
 
         /*
         ==================================================
-        🚀 RESPONSE
+        RESPONSE
         ==================================================
         */
 
@@ -1272,26 +884,35 @@ public function weeklyScores(Request $request, $technologyId = null)
 
     } catch (\Throwable $e) {
 
-        Log::error('[EVOLUTION_ERROR]', [
+        Log::error(
+            '[EVOLUTION_CACHE_ERROR]',
+            [
 
-            'message' => $e->getMessage(),
+                'message' =>
+                    $e->getMessage(),
 
-            'line' => $e->getLine(),
+                'line' =>
+                    $e->getLine(),
 
-            'file' => $e->getFile(),
+                'file' =>
+                    $e->getFile(),
 
-            'trace' => $e->getTraceAsString(),
-        ]);
+                'trace' =>
+                    $e->getTraceAsString(),
+            ]
+        );
 
         return response()->json([
 
             'success' => false,
 
-            'message' => $e->getMessage(),
+            'message' =>
+                $e->getMessage(),
 
         ], 500);
     }
 }
+ 
 public function exportTechnologyEvolution(Request $request)
 {
     $year = (int) $request->get('year', 2026);
@@ -1311,5 +932,5 @@ public function exportTechnologyEvolution(Request $request)
         "technology_evolution_{$filter}.xlsx"
     );
 }
- 
+
 }

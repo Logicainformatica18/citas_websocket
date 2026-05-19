@@ -308,140 +308,291 @@ export function WeeklyEvolutionModal({
               CONTENT
           ======================================= */}
 
-          <div className="overflow-y-auto px-5 py-4 space-y-5">
+     <div className="overflow-y-auto px-5 py-4 space-y-5">
 
-            {loading && (
+  {loading && (
 
-              <p className="text-sm text-slate-500">
-                Cargando...
-              </p>
-            )}
+    <p className="text-sm text-slate-500">
+      Cargando...
+    </p>
+  )}
 
-            {!loading && data.length === 0 && (
+  {!loading && data.length === 0 && (
 
-              <div className="text-center py-10">
+    <div className="text-center py-10">
 
-                <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-500">
 
-                  No hay datos para este período
+        No hay datos para este período
 
-                </p>
+      </p>
 
-              </div>
-            )}
+    </div>
+  )}
 
-            {!loading && data.map((item) => (
+  {!loading && data.map((item) => (
 
-              <div
-                key={
-                  item.period +
-                  item.start_date
-                }
-                className="
-                  border rounded-xl
-                  p-4 bg-white
-                "
-              >
+    <div
+      key={
+        item.period +
+        item.start_date
+      }
+      className="
+        border rounded-2xl
+        p-5 bg-white
+        shadow-sm
+      "
+    >
 
-                {/* HEADER */}
+      {/* ======================================
+          HEADER
+      ====================================== */}
 
-                <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-start mb-5">
 
-                  <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
 
-                    <Calendar className="w-4 h-4 text-teal-500" />
+          <div className="
+            w-10 h-10 rounded-xl
+            bg-teal-50
+            flex items-center justify-center
+          ">
 
-                    <div>
+            <Calendar className="
+              w-5 h-5 text-teal-600
+            " />
 
-                      <p className="font-semibold">
-                        {getLabel(item)}
-                      </p>
-
-                      <p className="text-xs text-slate-500">
-
-                        {formatDate(
-                          item.start_date
-                        )}
-
-                        {" → "}
-
-                        {formatDate(
-                          item.end_date
-                        )}
-
-                      </p>
-
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-
-                    <p className="text-xs text-slate-400">
-                      Total
-                    </p>
-
-                    <p className="text-lg font-bold text-teal-600">
-
-                      {item.total_period}
-
-                    </p>
-
-                  </div>
-                </div>
-
-                {/* GRID */}
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-
-                  {item.top?.map(
-                    (tech, i) => (
-
-                    <div
-                      key={tech.id || i}
-                      className={`
-
-                        p-3 rounded-lg
-
-                        ${
-                          i === 0
-                            ? "bg-teal-500 text-white"
-                            : "bg-slate-100"
-                        }
-                      `}
-                    >
-
-                      <div className="flex items-center gap-1 mb-1">
-
-                        {i === 0 && (
-                          <Trophy className="w-3 h-3" />
-                        )}
-
-                        <span className="text-xs font-bold">
-
-                          #{i + 1}
-
-                        </span>
-
-                      </div>
-
-                      <p className="text-sm font-semibold truncate">
-
-                        {tech.name}
-
-                      </p>
-
-                      <p className="text-xs opacity-70">
-
-                        {tech.total}
-
-                      </p>
-
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
           </div>
+
+          <div>
+
+            <p className="
+              font-bold text-base
+            ">
+              {getLabel(item)}
+            </p>
+
+            <p className="
+              text-xs text-slate-500
+            ">
+
+              {formatDate(
+                item.start_date
+              )}
+
+              {" → "}
+
+              {formatDate(
+                item.end_date
+              )}
+
+            </p>
+
+          </div>
+        </div>
+
+        {/* RIGHT */}
+
+        <div className="text-right">
+
+          <p className="
+            text-xs uppercase
+            tracking-wide
+            text-slate-400
+          ">
+            Score promedio
+          </p>
+
+          <p className="
+            text-3xl font-black
+            text-teal-600
+          ">
+
+            {item.period_score}
+
+          </p>
+
+          <p className="
+            text-xs text-slate-500 mt-1
+          ">
+
+            {item.total_jobs}
+            {" vacantes"}
+
+          </p>
+
+        </div>
+      </div>
+
+      {/* ======================================
+          GRID
+      ====================================== */}
+
+      <div className="
+        grid grid-cols-1
+        md:grid-cols-5
+        gap-4
+      ">
+
+        {item.top?.map(
+          (tech, i) => (
+
+          <div
+            key={tech.id || i}
+            className={`
+
+              rounded-2xl
+              p-4
+              border
+              transition-all
+
+              ${
+                i === 0
+
+                  ? `
+                    bg-teal-500
+                    text-white
+                    border-teal-500
+                    shadow-lg
+                  `
+
+                  : `
+                    bg-slate-50
+                    border-slate-200
+                  `
+              }
+            `}
+          >
+
+            {/* TOP */}
+
+            <div className="
+              flex items-center
+              justify-between mb-3
+            ">
+
+              <div className="
+                flex items-center gap-1
+              ">
+
+                {i === 0 && (
+
+                  <Trophy className="
+                    w-4 h-4
+                  " />
+                )}
+
+                <span className="
+                  text-xs font-black
+                ">
+
+                  #{i + 1}
+
+                </span>
+              </div>
+
+              <span className="
+                text-xl font-black
+              ">
+
+                {tech.final_score}
+
+              </span>
+            </div>
+
+            {/* NAME */}
+
+            <p className="
+              text-sm font-bold
+              truncate mb-3
+            ">
+
+              {tech.name}
+
+            </p>
+
+            {/* STATS */}
+
+            <div className="
+              space-y-2 text-xs
+            ">
+
+              <div className="
+                flex justify-between
+              ">
+
+                <span className="
+                  opacity-70
+                ">
+                  Vacantes
+                </span>
+
+                <span className="
+                  font-bold
+                ">
+                  {tech.jobs}
+                </span>
+              </div>
+
+              <div className="
+                flex justify-between
+              ">
+
+                <span className="
+                  opacity-70
+                ">
+                  Laboral
+                </span>
+
+                <span className="
+                  font-bold
+                ">
+                  {tech.labor_score}
+                </span>
+              </div>
+
+              <div className="
+                flex justify-between
+              ">
+
+                <span className="
+                  opacity-70
+                ">
+                  Tendencia
+                </span>
+
+                <span className="
+                  font-bold
+                ">
+                  {tech.trend_score}
+                </span>
+              </div>
+
+              <div className="
+                pt-2 mt-2
+                border-t border-white/20
+                flex justify-between
+              ">
+
+                <span className="
+                  font-semibold
+                ">
+                  Final
+                </span>
+
+                <span className="
+                  text-sm font-black
+                ">
+                  {tech.final_score}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ))}
+</div>
 
           {/* =======================================
               PAGINATION
