@@ -34,13 +34,13 @@ public function index(Request $request)
         $range
     ] = $this->resolveParams($request);
 
-   
+
 
     $mode = $request->get('view', 'courses');
 
     $availableCareers = $this->getAvailableCareers();
 
-   
+
 
     $meta = $this->getGlobalMeta(
         $careerId,
@@ -50,15 +50,49 @@ public function index(Request $request)
         $period
     );
 
-    $data = $mode === 'competencies'
-        ? $this->cctc->getCompetencies($careerId, $year)
-        : $this->cctc->getCourses($careerId, $year);
+   $search = $request->get('search');
 
-   
+$originalData = $mode === 'competencies'
+    ? $this->cctc->getCompetencies($careerId, $year)
+    : $this->cctc->getCourses($careerId, $year);
 
-    $totalCourses = collect($data)->count();
+$data = $originalData;
+/* =========================================
+   FILTRO POR NOMBRE DEL CURSO
+========================================= */
 
-    $marketAligned = collect($data)
+if (!empty($search) && $mode === 'courses') {
+
+    $normalize = function ($text) {
+
+        $text = mb_strtolower($text, 'UTF-8');
+
+        return str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ñ'],
+            ['a', 'e', 'i', 'o', 'u', 'n'],
+            $text
+        );
+    };
+
+    $data = collect($originalData)
+        ->filter(function ($course) use ($search, $normalize) {
+
+            $name = is_array($course)
+                ? ($course['name'] ?? '')
+                : ($course->name ?? '');
+
+            return str_contains(
+                $normalize($name),
+                $normalize($search)
+            );
+        })
+        ->values();
+}
+
+
+   $totalCourses = collect($originalData)->count();
+
+$marketAligned = collect($originalData)
         ->whereIn('estado', [
             'Estrategicamente alineado',
             'Altamente alineado',
@@ -70,21 +104,21 @@ public function index(Request $request)
        🔥 BLOQUE CRÍTICO CON LOGS
     =============================== */
 
-    $trendAligned = collect($data)
+    $trendAligned = collect($originalData)
         ->filter(function ($course) use ($careerId) {
 
             try {
 
-              
+
 
                 // 🔥 Detectar si es array u objeto
                 $courseId = is_array($course)
                     ? ($course['id'] ?? null)
                     : ($course->id ?? null);
 
-             
 
-               
+
+
 
                 $entityIds = DB::table('course_language as cl')
                     ->join('languages as l', 'l.id', '=', 'cl.language_id')
@@ -104,7 +138,7 @@ public function index(Request $request)
                     )
                     ->unique();
 
-                
+
 
                 if ($entityIds->isEmpty()) {
                     return false;
@@ -114,13 +148,13 @@ public function index(Request $request)
                     ->whereIn('market_entity_id', $entityIds)
                     ->exists();
 
-                
+
 
                 return $exists;
 
             } catch (\Throwable $e) {
 
-                
+
 
                 return false;
             }
@@ -145,7 +179,7 @@ public function index(Request $request)
 
     $gapTotal = $totalCourses - $marketAligned;
 
-   
+
 
     return Inertia::render(
         'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
@@ -155,6 +189,7 @@ public function index(Request $request)
                 'career_id' => $careerId,
                 'year'      => $year,
                 'period'    => $period,
+                'search'    => $search,
             ],
             'availableCareers' => $availableCareers,
             'data' => $data,

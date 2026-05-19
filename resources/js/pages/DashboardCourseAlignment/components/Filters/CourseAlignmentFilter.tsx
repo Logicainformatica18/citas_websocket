@@ -1,37 +1,92 @@
 import { router } from "@inertiajs/react";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Props {
   careers: any[];
   filters: any;
 }
 
-export default function CourseAlignmentFilter({ careers, filters }: Props) {
-  const handleChange = (careerId: number | null) => {
+export default function CourseAlignmentFilter({
+  careers,
+  filters,
+}: Props) {
+
+  const [search, setSearch] = useState(
+    filters.search ?? ""
+  );
+
+  /* =========================================
+     FILTRO GENERAL
+  ========================================= */
+
+  const handleChange = (
+    careerId: number | null,
+    searchValue?: string
+  ) => {
+
     router.get(
       "/dashboard/indicators/course-alignment",
       {
         career_id: careerId,
         year: filters.year,
         period: filters.period,
+        search: searchValue ?? search,
       },
-      { preserveState: true, replace: true }
+      {
+        preserveState: true,
+        replace: true,
+      }
     );
   };
+
+  /* =========================================
+     DEBOUNCE SEARCH
+     Espera 500ms después de escribir
+  ========================================= */
+
+  useEffect(() => {
+
+    const timeout = setTimeout(() => {
+
+      handleChange(
+        filters?.career_id ?? null,
+        search
+      );
+
+    }, 500);
+
+    return () => clearTimeout(timeout);
+
+  }, [search]);
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm p-5 flex flex-col md:flex-row md:items-center gap-6">
 
       {/* Header */}
       <div className="flex items-center gap-3">
+
         <div className="bg-[#E6F7FD] dark:bg-[#0B3A46] text-[#1CBCE8] p-2 rounded-xl">
           <GraduationCap size={18} />
         </div>
-  <div className="w-full md:w-[340px] relative">
+
+        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Filtro estratégico
+        </p>
+      </div>
+
+      {/* Select carrera */}
+      <div className="w-full md:w-[340px] relative">
+
         <select
           value={filters?.career_id ?? ""}
           onChange={(e) =>
-            handleChange(e.target.value ? Number(e.target.value) : null)
+            handleChange(
+              e.target.value
+                ? Number(e.target.value)
+                : null,
+              search
+            )
           }
           className="
             w-full
@@ -53,9 +108,15 @@ export default function CourseAlignmentFilter({ careers, filters }: Props) {
             cursor-pointer
           "
         >
-            <option value="">Seleccione una carrera</option>
+          <option value="">
+            Seleccione una carrera
+          </option>
+
           {careers.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+            >
               {c.name}
             </option>
           ))}
@@ -66,13 +127,47 @@ export default function CourseAlignmentFilter({ careers, filters }: Props) {
           ▼
         </div>
       </div>
-        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Filtro estratégico
-        </p>
+
+      {/* Buscador */}
+      <div className="w-full md:w-[320px] relative">
+
+        <Search
+          size={16}
+          className="
+            absolute
+            left-3
+            top-1/2
+            -translate-y-1/2
+            text-slate-400
+          "
+        />
+
+        <input
+          type="text"
+          placeholder="Buscar curso..."
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+          className="
+            w-full
+            bg-slate-100 dark:bg-slate-800
+            border border-slate-200 dark:border-slate-700
+            rounded-xl
+            pl-10
+            pr-4
+            py-3
+            text-sm
+            text-slate-800 dark:text-slate-200
+            outline-none
+            transition
+            focus:ring-2
+            focus:ring-[#1CBCE8]
+            focus:border-[#1CBCE8]
+          "
+        />
       </div>
 
-      {/* Select */}
-    
     </div>
   );
 }
