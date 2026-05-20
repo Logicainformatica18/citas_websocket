@@ -7,19 +7,18 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Prueba;
 use Carbon\Carbon;
 
-class BackfillLanguageHistoryCommand extends Command
+class BackfillCertificationHistoryCommand extends Command
 {
-    protected $signature = 'languages:backfill-all {year=2026}';
-    protected $description = 'Reconstruye el historial de Lenguajes (Semanal, Quincenal y Mensual) guardando la foto exacta acumulada de cada fecha de corte.';
+    protected $signature = 'certifications:backfill-all {year=2026}';
+    protected $description = 'Reconstruye el historial (Semanal, Quincenal y Mensual) para certificaciones guardando la foto exacta acumulada de cada fecha de corte.';
 
     public function handle()
     {
         $year = (int) $this->argument('year');
-        $this->info("=== INICIANDO RECONSTRUCCIÓN INTEGRAL (MÉTODO ACUMULADO) PARA EL AÑO {$year} - LENGUAJES ===");
+        $this->info("=== INICIANDO RECONSTRUCCIÓN INTEGRAL (MÉTODO ACUMULADO) PARA CERTIFICACIONES - AÑO {$year} ===");
 
-        // 1. Cargar Ponderaciones Activas para Lenguajes
         try { 
-            $weights = Prueba::getActive('languages'); 
+            $weights = Prueba::getActive('certifications'); 
         } catch (\Throwable $e) { 
             $weights = null; 
         }
@@ -37,17 +36,15 @@ class BackfillLanguageHistoryCommand extends Command
         while ($currentMonth <= $endMonth) {
             $monthName = $meses[$currentMonth];
             $this->comment("=============================================");
-            $this->comment("Procesando cortes acumulados para Lenguajes: {$monthName}");
+            $this->comment("Procesando cortes acumulados Certs: {$monthName}");
             $this->comment("=============================================");
 
             $startOfMonth = Carbon::create($year, $currentMonth, 1)->startOfDay();
             $endOfMonth = $startOfMonth->copy()->endOfMonth()->endOfDay();
 
-            // ==================================================
-            // 📅 DEFINICIÓN DE RANGOS ESTÁTICOS CORREGIDOS
-            // ==================================================
+            // 📅 RANGOS CALCULADOS POR DÍA DE CALENDARIO ESTÁTICO
             $tramos = [
-                // Semanas Estrictas (Bloques fijos del mes)
+                // Semanas estrictas
                 [
                     'type' => 'weekly',
                     'label' => "Semana 1 - {$monthName} {$year}",
@@ -70,9 +67,9 @@ class BackfillLanguageHistoryCommand extends Command
                     'type' => 'weekly',
                     'label' => "Semana 4 - {$monthName} {$year}",
                     'start_date' => Carbon::create($year, $currentMonth, 22)->startOfDay(),
-                    'end_date' => $endOfMonth->copy(), // El resto: Termina dinámicamente en 28, 30 o 31
+                    'end_date' => $endOfMonth->copy(), // Absorbe hasta el 28, 30 o 31 según el mes
                 ],
-                // Quincenas Estrictas
+                // Quincenas estrictas
                 [
                     'type' => 'biweekly',
                     'label' => "1ra Quincena {$monthName} - {$year}",
@@ -85,7 +82,7 @@ class BackfillLanguageHistoryCommand extends Command
                     'start_date' => Carbon::create($year, $currentMonth, 16)->startOfDay(),
                     'end_date' => $endOfMonth->copy(),
                 ],
-                // Mensual Estricto
+                // Mensual estricto
                 [
                     'type' => 'monthly',
                     'label' => "{$monthName} - {$year}",
@@ -98,7 +95,6 @@ class BackfillLanguageHistoryCommand extends Command
                 $startRange = $tramo['start_date'];
                 $endRange = $tramo['end_date'];
 
-                // Evitar procesar tramos futuros si estamos en el mes actual
                 if ($endRange->greaterThan(Carbon::now())) {
                     continue;
                 }
@@ -106,79 +102,91 @@ class BackfillLanguageHistoryCommand extends Command
                 $startString = $startRange->format('Y-m-d');
                 $endString = $endRange->format('Y-m-d');
 
-                // Lógica del inicio de semestre para mantener el acumulado histórico semestral
                 $semester = $currentMonth <= 6 ? 1 : 2;
                 $semStart = $semester === 1 ? "$year-01-01" : "$year-07-01";
-                $quarters = $semester === 1 ? [1, 2] : [3, 4];
 
-                // 1. Subquery Laboral: Acumulado semestral hasta la fecha de fin del corte actual
-                $laborSub = DB::table('language_job as lj')
-                    ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
+                // 1. Subquery Laboral
+                $laborSub = DB::table('certification_job as cj')
+                    ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
                     ->whereBetween('j.published_at', [$semStart, $endString])
-                    ->groupBy('lj.market_entity_id')
-                    ->select('lj.market_entity_id', DB::raw('COUNT(DISTINCT lj.job_offer_id) as offers'));
+                    ->groupBy('cj.market_entity_id')
+                    ->select('cj.market_entity_id', DB::raw('COUNT(DISTINCT cj.job_offer_id) as offers'));
 
                 $maxLabor = max(DB::query()->fromSub($laborSub, 'x')->max('offers'), 1);
 
-                // 2. Subquery Tendencias Directas: Filtrado para entidades tipo 'language'
+                // 2. Subquery Tendencias
                 $trendSub = DB::table('entity_trends as et')
                     ->join('market_entities as me', function ($j) {
                         $j->on('me.id', '=', 'et.market_entity_id')
-                          ->where('me.entity_type', 'language');
+                          ->where('me.entity_type', 'certification');
                     })
-                    ->where('et.year', $year)
-                    ->whereIn('et.quarter', $quarters)
+                    ->whereBetween('et.created_at', [$semStart, $endString])
                     ->groupBy('me.id')
-                    ->select('me.id as language_id', DB::raw('COUNT(DISTINCT et.id) as report_mentions'));
+                    ->select('me.id as certification_id', DB::raw('COUNT(DISTINCT et.id) as report_mentions'));
 
-                $maxTrendReports = max(DB::query()->fromSub($trendSub, 't')->max('report_mentions'), 1);
+                $maxTrend = max(DB::query()->fromSub($trendSub, 'r')->max('report_mentions'), 1);
 
-                // 3. Query Principal: Ranking Matemático
-                $languages = DB::table('market_entities as me')
+                $totalReports = max(
+                    DB::table('entity_trends as et')
+                        ->join('market_entities as me', function ($j) {
+                            $j->on('me.id', '=', 'et.market_entity_id')
+                              ->where('me.entity_type', 'certification');
+                        })
+                        ->whereBetween('et.created_at', [$semStart, $endString])
+                        ->count('et.id'),
+                    1
+                );
+
+                // 3. Query Principal
+                $certifications = DB::table('market_entities as me')
                     ->leftJoinSub($laborSub, 'labor', 'labor.market_entity_id', '=', 'me.id')
-                    ->leftJoinSub($trendSub, 'trends', 'trends.language_id', '=', 'me.id')
-                    ->where('me.entity_type', 'language')
+                    ->leftJoinSub($trendSub, 'trends', 'trends.certification_id', '=', 'me.id')
+                    ->where('me.entity_type', 'certification')
                     ->select(
                         'me.id as market_entity_id',
                         DB::raw('COALESCE(labor.offers, 0) as total_jobs'),
-                        DB::raw('COALESCE(trends.report_mentions, 0) as total_trends'),
-                        DB::raw("ROUND(((LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100), 1) as labor_score"),
-                        DB::raw("ROUND(((LOG(COALESCE(trends.report_mentions,0)+1) / LOG({$maxTrendReports}+1)) * 100), 1) as trend_score"),
-                        DB::raw("ROUND(
-                            (
-                                ((LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100 * {$laborWeight}) 
-                                + 
-                                ((LOG(COALESCE(trends.report_mentions,0)+1) / LOG({$maxTrendReports}+1)) * 100 * {$trendWeight})
-                            ), 1) as final_score")
+                        DB::raw('COALESCE(trends.report_mentions, 0) as trend_reports'),
+                        DB::raw("ROUND(((LOG(COALESCE(labor.offers, 0) + 1) / LOG({$maxLabor} + 1)) * 100), 1) as labor_score"),
+                        DB::raw("ROUND(((LOG(COALESCE(trends.report_mentions, 0) + 1) / LOG({$maxTrend} + 1)) * 100), 1) as trend_score"),
+                        DB::raw("
+                            ROUND(
+                                (
+                                    (LOG(COALESCE(labor.offers, 0) + 1) / LOG({$maxLabor} + 1)) * 100 * {$laborWeight}
+                                    +
+                                    (COALESCE(trends.report_mentions, 0) / {$totalReports}) * 100 * {$trendWeight}
+                                ), 
+                            1) as final_score
+                        ")
                     )
-                    ->orderByDesc('final_score')
-                    ->get();
+                    ->get()
+                    ->sortByDesc('final_score')
+                    ->values();
 
-                // 4. Guardado transaccional forzando sobreescritura limpia de fechas
-                if ($languages->isNotEmpty()) {
-                    DB::transaction(function () use ($languages, $tramo, $year, $startString, $endString) {
+                // 4. Guardado transaccional limpiando duplicados de tramos previos amorfos
+                if ($certifications->isNotEmpty()) {
+                    DB::transaction(function () use ($certifications, $tramo, $year, $startString, $endString) {
                         
-                        // 🔥 Solución al problema visual: Eliminamos registros sucios con fechas mal cuadradas para este periodo exacto
-                        DB::table('language_evolution_cache')
+                        // Eliminar registros viejos del mismo periodo para evitar que se pisen o queden huerfanos con fechas corridas
+                        DB::table('certification_evolution_cache')
                             ->where('year', $year)
                             ->where('period_type', $tramo['type'])
                             ->where('period_label', $tramo['label'])
                             ->delete();
 
                         $position = 1;
-                        foreach ($languages as $lang) {
-                            DB::table('language_evolution_cache')->insert([
-                                'market_entity_id' => $lang->market_entity_id,
-                                'start_date'       => $startString, // Forzado 01, 08, 15, 22
-                                'end_date'         => $endString,   // Forzado 07, 14, 21, Fin de mes
+                        foreach ($certifications as $cert) {
+                            DB::table('certification_evolution_cache')->insert([
+                                'market_entity_id' => $cert->market_entity_id,
+                                'start_date'       => $startString,
+                                'end_date'         => $endString,
                                 'period_type'      => $tramo['type'],
                                 'year'             => $year,
                                 'period_label'     => $tramo['label'],
-                                'jobs'             => $lang->total_jobs,
-                                'trend_reports'    => $lang->total_trends,
-                                'labor_score'      => $lang->labor_score,
-                                'trend_score'      => $lang->trend_score,
-                                'final_score'      => $lang->final_score,
+                                'jobs'             => $cert->total_jobs,
+                                'trend_reports'    => $cert->trend_reports,
+                                'labor_score'      => $cert->labor_score,
+                                'trend_score'      => $cert->trend_score,
+                                'final_score'      => $cert->final_score,
                                 'ranking_position' => $position,
                                 'updated_at'       => now(),
                                 'created_at'       => now(),
@@ -186,14 +194,12 @@ class BackfillLanguageHistoryCommand extends Command
                             $position++;
                         }
                     });
-                    $this->info(" -> Guardada foto limpia [{$tramo['type']}] para rango {$startString} al {$endString}: '{$tramo['label']}'");
+                    $this->info(" -> Foto guardada [{$tramo['type']}] ({$startString} al {$endString})");
                 }
             }
-
             $currentMonth++;
         }
-
-        $this->info("=== ¡PROCESO COMPLETADO! HISTORIAL DE LENGUAJES SINCRONIZADO AL 100% ===");
+        $this->info("=== ¡PROCESO COMPLETADO! HISTORIAL DE CERTIFICACIONES AL 100% ===");
         return 0;
     }
 }

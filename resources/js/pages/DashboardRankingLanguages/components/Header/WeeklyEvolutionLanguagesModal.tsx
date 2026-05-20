@@ -155,19 +155,32 @@ export function WeeklyEvolutionLanguagesModal({
 
   /*
   ==================================================
-  FORMATTERS
+  FORMATTERS (¡CORREGIDO AQUÍ!)
   ==================================================
   */
 
-  const formatDate = (date: string) => {
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
 
-    if (!date) return "-";
+    try {
+      // Separamos "2026-05-08" en componentes individuales [2026, 05, 08]
+      const parts = dateString.split("-");
+      if (parts.length !== 3) return dateString;
 
-    return new Date(date)
-      .toLocaleDateString("es-PE", {
+      const yearNum = parseInt(parts[0], 10);
+      const monthNum = parseInt(parts[1], 10) - 1; // Enero es 0 en JS
+      const dayNum = parseInt(parts[2], 10);
+
+      // Creamos la fecha usando el constructor local, evitando desfases UTC/GMT
+      const localDate = new Date(yearNum, monthNum, dayNum);
+
+      return localDate.toLocaleDateString("es-PE", {
         day: "2-digit",
         month: "short",
       });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   /*
@@ -546,81 +559,6 @@ export function WeeklyEvolutionLanguagesModal({
 
                   </div>
 
-                  {/* RIGHT */}
-
-                  <div className="text-right">
-
-                    <p
-                      className="
-                        text-[10px]
-                        uppercase
-                        tracking-[0.22em]
-
-                        text-slate-400
-                        dark:text-white/40
-                      "
-                    >
-                      Score Promedio
-                    </p>
-
-                    <div className="mt-1 flex items-end gap-1 justify-end">
-
-                      <span
-                        className="
-                          text-4xl
-                          font-black
-                          leading-none
-
-                          text-emerald-600
-                          dark:text-emerald-400
-                        "
-                      >
-                        {item.period_score}
-                      </span>
-
-                      <span
-                        className="
-                          text-sm
-                          mb-1
-
-                          text-slate-400
-                          dark:text-white/40
-                        "
-                      >
-                        /100
-                      </span>
-
-                    </div>
-
-                    <p
-                      className="
-                        mt-1
-                        text-[12px]
-
-                        text-slate-500
-                        dark:text-white/50
-                      "
-                    >
-
-                      Basado en{" "}
-
-                      <span
-                        className="
-                          font-bold
-
-                          text-slate-700
-                          dark:text-white
-                        "
-                      >
-                        {item.total_jobs}
-                      </span>
-
-                      {" vacantes activas"}
-
-                    </p>
-
-                  </div>
-
                 </div>
 
                 {/* ======================================
@@ -959,7 +897,7 @@ export function WeeklyEvolutionLanguagesModal({
                 "
               >
 
-                ← Anterior
+                &larr; Anterior
 
               </button>
 
@@ -1009,7 +947,7 @@ export function WeeklyEvolutionLanguagesModal({
                 "
               >
 
-                Siguiente →
+                Siguiente &rarr;
 
               </button>
 
