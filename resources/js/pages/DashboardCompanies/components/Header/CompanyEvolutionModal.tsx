@@ -33,7 +33,6 @@ export function CompanyEvolutionModal({
       data: [],
       pagination: {},
     },
-
     international: {
       data: [],
       pagination: {},
@@ -78,22 +77,16 @@ export function CompanyEvolutionModal({
           },
         }
       )
-
       .then((res) => {
-
         setData(res.data);
-
         setPage(pageToLoad);
       })
-
       .catch((err) => {
-
         console.error(
           "❌ Error evolución empresas:",
           err
         );
       })
-
       .finally(() => {
         setLoading(false);
       });
@@ -106,11 +99,8 @@ export function CompanyEvolutionModal({
   */
 
   useEffect(() => {
-
     if (!open) return;
-
     fetchData(1);
-
   }, [open, filter]);
 
   /*
@@ -137,15 +127,11 @@ export function CompanyEvolutionModal({
 
     const params =
       new URLSearchParams({
-
         year:
           meta.year.toString(),
-
         period:
           meta.period,
-
         filter,
-
         type:
           activeTab,
       });
@@ -171,7 +157,6 @@ export function CompanyEvolutionModal({
     /*
     🔥 FIX TIMEZONE BUG
     */
-
     return dayjs(date)
       .locale("es")
       .format("DD-MMM")
@@ -186,26 +171,21 @@ export function CompanyEvolutionModal({
   */
 
   const getTitle = () => {
-
     if (filter === "monthly") {
       return "Evolución mensual";
     }
-
     if (filter === "biweekly") {
       return "Evolución quincenal";
     }
-
     return "Evolución semanal";
   };
 
   const getRangeLabel = (
     period
   ) => {
-
     if (period?.label) {
       return period.label;
     }
-
     return `${formatDate(
       period.start_date
     )} → ${formatDate(
@@ -220,12 +200,10 @@ export function CompanyEvolutionModal({
   */
 
   return (
-
     <Dialog
       open={open}
       onOpenChange={onClose}
     >
-
       <DialogContent
         className="
           !w-[80vw]
@@ -233,7 +211,6 @@ export function CompanyEvolutionModal({
           p-0
         "
       >
-
         <div
           className="
             flex
@@ -241,7 +218,6 @@ export function CompanyEvolutionModal({
             max-h-[80vh]
           "
         >
-
           {/* HEADER */}
 
           <DialogHeader
@@ -252,7 +228,6 @@ export function CompanyEvolutionModal({
               border-b
             "
           >
-
             <DialogTitle
               className="
                 text-2xl
@@ -263,10 +238,8 @@ export function CompanyEvolutionModal({
             </DialogTitle>
 
             <DialogDescription>
-              Distribución de empresas
-              por demanda laboral
+              Distribución de empresas por demanda laboral
             </DialogDescription>
-
           </DialogHeader>
 
           {/* CONTROLS */}
@@ -283,7 +256,6 @@ export function CompanyEvolutionModal({
               gap-4
             "
           >
-
             {/* LEFT */}
 
             <div
@@ -294,26 +266,19 @@ export function CompanyEvolutionModal({
                 flex-wrap
               "
             >
-
               {/* TABS */}
 
               <div className="flex gap-2">
-
                 {[
                   "national",
                   "international",
                 ].map((tab) => (
-
                   <button
                     key={tab}
-
                     onClick={() => {
-
                       setActiveTab(tab);
-
                       setPage(1);
                     }}
-
                     className={`
                       px-4
                       py-2
@@ -321,15 +286,12 @@ export function CompanyEvolutionModal({
                       text-sm
                       font-semibold
                       transition
-
                       ${
                         activeTab === tab
-
                           ? `
                             bg-teal-500
                             text-white
                           `
-
                           : `
                             bg-slate-100
                             text-slate-600
@@ -338,29 +300,24 @@ export function CompanyEvolutionModal({
                       }
                     `}
                   >
-
                     {
                       tab === "national"
                         ? "Nacional"
                         : "Internacional"
                     }
-
                   </button>
                 ))}
-
               </div>
 
               {/* FILTER */}
 
               <select
                 value={filter}
-
                 onChange={(e) => {
                   setFilter(
                     e.target.value
                   );
                 }}
-
                 className="
                   border
                   rounded-lg
@@ -370,21 +327,10 @@ export function CompanyEvolutionModal({
                   bg-white
                 "
               >
-
-                <option value="weekly">
-                  Semanal
-                </option>
-
-                <option value="biweekly">
-                  Quincenal
-                </option>
-
-                <option value="monthly">
-                  Mensual
-                </option>
-
+                <option value="weekly">Semanal</option>
+                <option value="biweekly">Quincenal</option>
+                <option value="monthly">Mensual</option>
               </select>
-
             </div>
 
             {/* RIGHT */}
@@ -396,7 +342,6 @@ export function CompanyEvolutionModal({
                 gap-3
               "
             >
-
               <div
                 className="
                   text-sm
@@ -411,7 +356,6 @@ export function CompanyEvolutionModal({
 
               <button
                 onClick={downloadExcel}
-
                 className="
                   flex
                   items-center
@@ -426,20 +370,15 @@ export function CompanyEvolutionModal({
                   transition
                 "
               >
-
                 <Download
                   className="
                     w-4
                     h-4
                   "
                 />
-
                 Exportar Excel
-
               </button>
-
             </div>
-
           </div>
 
           {/* CONTENT */}
@@ -452,9 +391,7 @@ export function CompanyEvolutionModal({
               space-y-5
             "
           >
-
             {loading && (
-
               <p
                 className="
                   text-sm
@@ -467,7 +404,6 @@ export function CompanyEvolutionModal({
 
             {!loading &&
               dataset.length === 0 && (
-
               <p
                 className="
                   text-sm
@@ -479,12 +415,9 @@ export function CompanyEvolutionModal({
             )}
 
             {!loading &&
-              dataset.map(
-                (period, i) => (
-
+              dataset.map((period, i) => (
                 <div
                   key={i}
-
                   className="
                     border
                     rounded-xl
@@ -492,8 +425,7 @@ export function CompanyEvolutionModal({
                     bg-white
                   "
                 >
-
-                  {/* HEADER */}
+                  {/* PERIOD HEADER */}
 
                   <div
                     className="
@@ -503,7 +435,6 @@ export function CompanyEvolutionModal({
                       mb-4
                     "
                   >
-
                     <div
                       className="
                         flex
@@ -511,7 +442,6 @@ export function CompanyEvolutionModal({
                         gap-3
                       "
                     >
-
                       <Calendar
                         className="
                           w-5
@@ -519,54 +449,28 @@ export function CompanyEvolutionModal({
                           text-teal-500
                         "
                       />
-
                       <div>
-
                         <p
                           className="
                             font-semibold
                           "
                         >
-                          {
-                            getRangeLabel(
-                              period
-                            )
-                          }
+                          {getRangeLabel(period)}
                         </p>
-
                         <p
                           className="
                             text-xs
                             text-slate-500
                           "
                         >
-
-                          {
-                            formatDate(
-                              period.start_date
-                            )
-                          }
-
+                          {formatDate(period.start_date)}
                           {" → "}
-
-                          {
-                            formatDate(
-                              period.end_date
-                            )
-                          }
-
+                          {formatDate(period.end_date)}
                         </p>
-
                       </div>
-
                     </div>
 
-                    <div
-                      className="
-                        text-right
-                      "
-                    >
-
+                    <div className="text-right">
                       <p
                         className="
                           text-xs
@@ -575,7 +479,6 @@ export function CompanyEvolutionModal({
                       >
                         Total
                       </p>
-
                       <p
                         className="
                           text-lg
@@ -583,16 +486,12 @@ export function CompanyEvolutionModal({
                           text-teal-600
                         "
                       >
-                        {
-                          period.total_jobs
-                        }
+                        {period.total_jobs}
                       </p>
-
                     </div>
-
                   </div>
 
-                  {/* GRID */}
+                  {/* COMPANIES GRID */}
 
                   <div
                     className="
@@ -603,20 +502,15 @@ export function CompanyEvolutionModal({
                       gap-3
                     "
                   >
-
-                    {period.companies.map(
-                      (c, idx) => (
-
+                    {period.companies?.map((c, idx) => (
                       <div
                         key={idx}
-
                         className="
                           bg-slate-100
                           rounded-xl
                           p-4
                         "
                       >
-
                         <div
                           className="
                             flex
@@ -625,7 +519,6 @@ export function CompanyEvolutionModal({
                             mb-2
                           "
                         >
-
                           <Building2
                             className="
                               w-4
@@ -633,7 +526,6 @@ export function CompanyEvolutionModal({
                               text-slate-500
                             "
                           />
-
                           <span
                             className="
                               text-xs
@@ -641,10 +533,8 @@ export function CompanyEvolutionModal({
                               text-slate-500
                             "
                           >
-                            #
-                            {idx + 1}
+                            #{idx + 1}
                           </span>
-
                         </div>
 
                         <p
@@ -654,6 +544,7 @@ export function CompanyEvolutionModal({
                             text-[#0A2540]
                             truncate
                           "
+                          title={c.company}
                         >
                           {c.company}
                         </p>
@@ -667,32 +558,24 @@ export function CompanyEvolutionModal({
                             text-slate-500
                           "
                         >
-
                           <span>
                             {c.jobs} vacantes
                           </span>
-
                           <span>
                             {c.percentage}%
                           </span>
-
                         </div>
-
                       </div>
                     ))}
-
                   </div>
-
                 </div>
               ))}
-
           </div>
 
           {/* PAGINATION */}
 
           {!loading &&
             pagination?.last_page > 1 && (
-
             <div
               className="
                 p-4
@@ -702,16 +585,11 @@ export function CompanyEvolutionModal({
                 items-center
               "
             >
-
               <button
-                disabled={
-                  pagination.current_page === 1
-                }
-
+                disabled={pagination.current_page === 1}
                 onClick={() => {
                   fetchData(page - 1);
                 }}
-
                 className="
                   px-5
                   py-2
@@ -732,26 +610,16 @@ export function CompanyEvolutionModal({
                   font-medium
                 "
               >
-                Página{" "}
-                {
-                  pagination.current_page
-                }{" "}
-                de{" "}
-                {
-                  pagination.last_page
-                }
+                Página {pagination.current_page} de {pagination.last_page}
               </span>
 
               <button
                 disabled={
-                  pagination.current_page ===
-                  pagination.last_page
+                  pagination.current_page === pagination.last_page
                 }
-
                 onClick={() => {
                   fetchData(page + 1);
                 }}
-
                 className="
                   px-5
                   py-2
@@ -765,14 +633,10 @@ export function CompanyEvolutionModal({
               >
                 Siguiente →
               </button>
-
             </div>
           )}
-
         </div>
-
       </DialogContent>
-
     </Dialog>
   );
 }
