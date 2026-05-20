@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -10,474 +10,86 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 class CertificationsWeeklyExport implements FromCollection, WithHeadings
 {
     protected int $year;
-
     protected string $filter;
 
-    public function __construct(
-        int $year,
-        string $filter = 'weekly'
-    ) {
-
+    public function __construct(int $year, string $filter = 'weekly')
+    {
         $this->year = $year;
-
-        $this->filter = $filter;
+        $this->filter = $filter; 
     }
 
-    public function collection()
+    public function collection(): Collection
     {
-        /*
-        ==================================================
-        🔍 BASE QUERY
-        ==================================================
-        */
-
-        $rows = DB::table('certification_job as cj')
-
-            ->join(
-                'job_offers as j',
-                'j.id',
-                '=',
-                'cj.job_offer_id'
-            )
-
-            ->join(
-                'market_entities as me',
-                'me.id',
-                '=',
-                'cj.market_entity_id'
-            )
-
-            ->whereYear(
-                'j.published_at',
-                $this->year
-            )
-
-            ->where(
-                'me.entity_type',
-                'certification'
-            )
-
-            ->select(
-
-                DB::raw("
-                    MONTH(j.published_at)
-                    as month_number
-                "),
-
-                DB::raw("
-                    DAY(j.published_at)
-                    as day_number
-                "),
-
+        // 1. Consultar la tabla de caché de certificaciones extrayendo todas las métricas analíticas
+        $rows = DB::table('certification_evolution_cache as cec')
+            ->join('market_entities as me', 'me.id', '=', 'cec.market_entity_id')
+            ->where('cec.year', $this->year)
+            ->where('cec.period_type', $this->filter)
+            ->select([
+                'cec.period_label as periodo',
+                'cec.start_date as fecha_inicio',
+                'cec.end_date as fecha_fin',
                 'me.name as certificacion',
-
-                'cj.job_offer_id'
-            )
-
+                'cec.jobs as vacantes_certificacion',
+                'cec.trend_reports as reportes_tendencia',
+                'cec.labor_score as puntaje_laboral',
+                'cec.trend_score as puntaje_tendencia',
+                'cec.final_score as puntaje_final',
+                'cec.ranking_position as posicion_ranking'
+            ])
+            // Ordenamos cronológicamente por la fecha de inicio y luego por el puesto del ranking
+            ->orderBy('cec.start_date', 'asc')
+            ->orderBy('cec.ranking_position', 'asc')
             ->get();
 
         /*
         ==================================================
-        📅 WEEKLY
+        🟢 TOTALES REUNIDOS POR CORTE
         ==================================================
+        Agrupamos por la fecha de inicio del periodo para calcular el acumulado total
+        de ofertas reflejadas en ese corte exacto (sumando 'vacantes_certificacion').
         */
+        $totalsPerPeriod = $rows->groupBy('fecha_inicio')->map(function ($group) {
+            return $group->sum('vacantes_certificacion');
+        });
 
-        if ($this->filter === 'weekly') {
-
-            return $this->buildWeekly($rows);
-        }
-
-        /*
-        ==================================================
-        📅 BIWEEKLY
-        ==================================================
-        */
-
-        if ($this->filter === 'biweekly') {
-
-            return $this->buildBiweekly($rows);
-        }
-
-        /*
-        ==================================================
-        📅 MONTHLY
-        ==================================================
-        */
-
-        return $this->buildMonthly($rows);
-    }
-
-    /*
-    ==================================================
-    📅 WEEKLY
-    ==================================================
-    */
-
-    private function buildWeekly($rows)
-    {
-        $grouped = $rows
-
-            ->groupBy(function ($row) {
-
-                $week =
-                    floor(
-                        ($row->day_number - 1) / 7
-                    ) + 1;
-
-                return
-                    $row->month_number .
-                    '-' .
-                    $week .
-                    '-' .
-                    $row->certificacion;
-            });
-
-        /*
-        ==================================================
-        🟢 TOTALES REALES
-        ==================================================
-        */
-
-        $realTotals = $rows
-
-            ->groupBy(function ($row) {
-
-                $week =
-                    floor(
-                        ($row->day_number - 1) / 7
-                    ) + 1;
-
-                return
-                    $row->month_number .
-                    '-' .
-                    $week;
-            })
-
-            ->map(function ($group) {
-
-                return $group
-                    ->pluck('job_offer_id')
-                    ->unique()
-                    ->count();
-            });
-
+        // 2. Construir la colección mapeada fila por fila para el reporte de Excel
         $export = collect();
 
-        foreach ($grouped as $key => $group) {
-
-            $first = $group->first();
-
-            $month = $first->month_number;
-
-            $week =
-                floor(
-                    ($first->day_number - 1) / 7
-                ) + 1;
-
-            $startDay =
-                (($week - 1) * 7) + 1;
-
-            $daysInMonth = Carbon::create(
-                $this->year,
-                $month,
-                1
-            )->daysInMonth;
-
-            $endDay = min(
-                $startDay + 6,
-                $daysInMonth
-            );
-
-            $monthName = Carbon::create()
-                ->month($month)
-                ->translatedFormat('F');
-
-            $periodKey =
-                $month .
-                '-' .
-                $week;
-
+        foreach ($rows as $row) {
             $export->push([
-
-                'Periodo' =>
-                    'Semana ' .
-                    $week .
-                    ' de ' .
-                    ucfirst($monthName),
-
-                'Fecha Inicio' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        $startDay
-                    )->format('Y-m-d'),
-
-                'Fecha Fin' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        $endDay
-                    )->format('Y-m-d'),
-
-                'Vacantes Únicas Reales' =>
-                    $realTotals[$periodKey] ?? 0,
-
-                'Certificación' =>
-                    $first->certificacion,
-
-                'Vacantes con Certificación' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
+                'Periodo'                    => $row->periodo,
+                'Fecha Inicio'               => $row->fecha_inicio,
+                'Fecha Fin'                  => $row->fecha_fin,
+                'Total Vacantes Reales'      => $totalsPerPeriod[$row->fecha_inicio] ?? 0,
+                'Certificación'              => $row->certificacion,
+                'Vacantes con Certificación' => $row->vacantes_certificacion,
+                'Reportes Tendencia'         => $row->reportes_tendencia,
+                'Puntaje Laboral'            => $row->puntaje_laboral,
+                'Puntaje Tendencia'          => $row->puntaje_tendencia,
+                'Puntaje Final'              => $row->puntaje_final,
+                'Posición Ranking'           => $row->posicion_ranking,
             ]);
         }
 
-        return $export
-            ->sortBy('Fecha Inicio')
-            ->values();
-    }
-
-    /*
-    ==================================================
-    📅 BIWEEKLY
-    ==================================================
-    */
-
-    private function buildBiweekly($rows)
-    {
-        $grouped = $rows
-
-            ->groupBy(function ($row) {
-
-                $q =
-                    $row->day_number <= 15
-                        ? 1
-                        : 2;
-
-                return
-                    $row->month_number .
-                    '-' .
-                    $q .
-                    '-' .
-                    $row->certificacion;
-            });
-
-        /*
-        ==================================================
-        🟢 TOTALES REALES
-        ==================================================
-        */
-
-        $realTotals = $rows
-
-            ->groupBy(function ($row) {
-
-                $q =
-                    $row->day_number <= 15
-                        ? 1
-                        : 2;
-
-                return
-                    $row->month_number .
-                    '-' .
-                    $q;
-            })
-
-            ->map(function ($group) {
-
-                return $group
-                    ->pluck('job_offer_id')
-                    ->unique()
-                    ->count();
-            });
-
-        $export = collect();
-
-        foreach ($grouped as $group) {
-
-            $first = $group->first();
-
-            $month = $first->month_number;
-
-            $q =
-                $first->day_number <= 15
-                    ? 1
-                    : 2;
-
-            $daysInMonth = Carbon::create(
-                $this->year,
-                $month,
-                1
-            )->daysInMonth;
-
-            $startDay =
-                $q == 1
-                    ? 1
-                    : 16;
-
-            $endDay =
-                $q == 1
-                    ? 15
-                    : $daysInMonth;
-
-            $monthName = Carbon::create()
-                ->month($month)
-                ->translatedFormat('F');
-
-            $periodKey =
-                $month .
-                '-' .
-                $q;
-
-            $export->push([
-
-                'Periodo' =>
-                    'Quincena ' .
-                    $q .
-                    ' de ' .
-                    ucfirst($monthName),
-
-                'Fecha Inicio' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        $startDay
-                    )->format('Y-m-d'),
-
-                'Fecha Fin' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        $endDay
-                    )->format('Y-m-d'),
-
-                'Vacantes Únicas Reales' =>
-                    $realTotals[$periodKey] ?? 0,
-
-                'Certificación' =>
-                    $first->certificacion,
-
-                'Vacantes con Certificación' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
-            ]);
-        }
-
-        return $export
-            ->sortBy('Fecha Inicio')
-            ->values();
-    }
-
-    /*
-    ==================================================
-    📅 MONTHLY
-    ==================================================
-    */
-
-    private function buildMonthly($rows)
-    {
-        $grouped = $rows
-
-            ->groupBy(function ($row) {
-
-                return
-                    $row->month_number .
-                    '-' .
-                    $row->certificacion;
-            });
-
-        /*
-        ==================================================
-        🟢 TOTALES REALES
-        ==================================================
-        */
-
-        $realTotals = $rows
-
-            ->groupBy('month_number')
-
-            ->map(function ($group) {
-
-                return $group
-                    ->pluck('job_offer_id')
-                    ->unique()
-                    ->count();
-            });
-
-        $export = collect();
-
-        foreach ($grouped as $group) {
-
-            $first = $group->first();
-
-            $month = $first->month_number;
-
-            $daysInMonth = Carbon::create(
-                $this->year,
-                $month,
-                1
-            )->daysInMonth;
-
-            $monthName = Carbon::create()
-                ->month($month)
-                ->translatedFormat('F');
-
-            $export->push([
-
-                'Periodo' =>
-                    ucfirst($monthName),
-
-                'Fecha Inicio' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        1
-                    )->format('Y-m-d'),
-
-                'Fecha Fin' =>
-                    Carbon::create(
-                        $this->year,
-                        $month,
-                        $daysInMonth
-                    )->format('Y-m-d'),
-
-                'Vacantes Únicas Reales' =>
-                    $realTotals[$month] ?? 0,
-
-                'Certificación' =>
-                    $first->certificacion,
-
-                'Vacantes con Certificación' =>
-                    $group
-                        ->pluck('job_offer_id')
-                        ->unique()
-                        ->count(),
-            ]);
-        }
-
-        return $export
-            ->sortBy('Fecha Inicio')
-            ->values();
+        return $export;
     }
 
     public function headings(): array
     {
+        // Encabezados en español consistentes y ordenados con el resto del ecosistema de analíticas
         return [
-
             'Periodo',
-
             'Fecha Inicio',
-
             'Fecha Fin',
-
-            'Vacantes Únicas Reales',
-
+            'Total Vacantes Reales',
             'Certificación',
-
             'Vacantes con Certificación',
+            'Reportes Tendencia',
+            'Puntaje Laboral',
+            'Puntaje Tendencia',
+            'Puntaje Final',
+            'Posición Ranking',
         ];
     }
 }
