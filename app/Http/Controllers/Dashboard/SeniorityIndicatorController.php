@@ -486,597 +486,68 @@ public function evolution(Request $request)
 }
 public function exportEvolution(Request $request)
 {
-    $year   = (int) $request->get('year', 2026);
-    $period = $request->get('period', 's1');
+    // 1. Recibimos los parámetros dinámicos que el frontend demostró enviar
+    $year       = (int) $request->get('year', date('Y'));
+    $period     = $request->get('period', 's1');
+    $filter     = $request->get('filter', 'weekly');
 
+    // 🔥 AQUÍ ESTÁ LA CORRECCIÓN: Capturamos el career_slug ('global' o el slug de la carrera)
+    $careerSlug = $request->get('career_slug', 'global');
+
+    // 2. Calculamos el rango del segundo semestre del 2026 (2026-07-01 al 2026-12-31)
     $range = $this->getPeriodRange($period, $year);
 
+    // 3. Pasamos el $careerSlug al constructor del Export para que el query no se rompa
     return Excel::download(
-        new SeniorityEvolutionExport($range),
-        "seniority_evolution.xlsx"
+        new SeniorityEvolutionExport($range, $filter, $careerSlug),
+        "seniority_evolution_{$careerSlug}_{$period}_{$year}.xlsx"
     );
 }
 public function evolutionCareers(Request $request)
 {
-    $year   = (int) $request->get('year', 2026);
-
+    // 1️⃣ Capturamos los filtros que vienen del Frontend (con fallbacks seguros)
+    $year   = (int) $request->get('year', date('Y'));
     $period = $request->get('period', 's1');
+    $filter = $request->get('filter', 'weekly'); // 'weekly', 'biweekly', 'monthly'
 
-    $filter = $request->get('filter', 'weekly');
+    // 2️⃣ Obtenemos los límites del semestre para filtrar la caché
+    $range = $this->getPeriodRange($period, $year);
 
-    $range = $this->getPeriodRange(
-        $period,
-        $year
-    );
-
-    /*
-    ==================================================
-    📅 GROUPING
-    ==================================================
-    */
-
-    switch ($filter) {
-
-        case 'monthly':
-
-            $group = "
-                DATE_FORMAT(
-                    COALESCE(
-                        jo.published_at,
-                        jo.created_at
-                    ),
-                    '%Y-%m'
-                )
-            ";
-
-            $startDate = "
-                DATE_FORMAT(
-                    MIN(
-                        COALESCE(
-                            jo.published_at,
-                            jo.created_at
-                        )
-                    ),
-                    '%Y-%m-01'
-                )
-            ";
-
-            $endDate = "
-                LAST_DAY(
-                    MIN(
-                        COALESCE(
-                            jo.published_at,
-                            jo.created_at
-                        )
-                    )
-                )
-            ";
-
-            break;
-
-        case 'biweekly':
-
-            $group = "
-                CONCAT(
-                    YEAR(
-                        COALESCE(
-                            jo.published_at,
-                            jo.created_at
-                        )
-                    ),
-                    '-',
-                    LPAD(
-                        MONTH(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        2,
-                        '0'
-                    ),
-                    '-',
-                    IF(
-                        DAY(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ) <= 15,
-                        1,
-                        2
-                    )
-                )
-            ";
-
-            $startDate = "
-                CASE
-
-                    WHEN DAY(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        )
-                    ) <= 15
-
-                    THEN DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '%Y-%m-01'
-                    )
-
-                    ELSE DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '%Y-%m-16'
-                    )
-                END
-            ";
-
-            $endDate = "
-                CASE
-
-                    WHEN DAY(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        )
-                    ) <= 15
-
-                    THEN DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '%Y-%m-15'
-                    )
-
-                    ELSE LAST_DAY(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        )
-                    )
-                END
-            ";
-
-            break;
-
-        default:
-
-            $group = "
-                YEARWEEK(
-                    COALESCE(
-                        jo.published_at,
-                        jo.created_at
-                    ),
-                    1
-                )
-            ";
-
-            $startDate = "
-                DATE_SUB(
-                    MIN(
-                        DATE(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        )
-                    ),
-                    INTERVAL WEEKDAY(
-                        MIN(
-                            DATE(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        )
-                    ) DAY
-                )
-            ";
-
-            $endDate = "
-                DATE_ADD(
-                    DATE_SUB(
-                        MIN(
-                            DATE(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        ),
-                        INTERVAL WEEKDAY(
-                            MIN(
-                                DATE(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                )
-                            )
-                        ) DAY
-                    ),
-                    INTERVAL 6 DAY
-                )
-            ";
-
-            break;
-    }
-
-    /*
-    ==================================================
-    🔵 CAREERS DISTRIBUTION
-    ==================================================
-    */
-
-    $rows = DB::table('job_offers as jo')
-
-        ->join(
-            'technology_job as tj',
-            'tj.job_offer_id',
-            '=',
-            'jo.id'
-        )
-
-        ->join(
-            'course_technology as ct',
-            'ct.technology_id',
-            '=',
-            'tj.technology_id'
-        )
-
-        ->join(
-            'career_course as cc',
-            'cc.course_id',
-            '=',
-            'ct.course_id'
-        )
-
-        ->join(
-            'careers as c',
-            'c.id',
-            '=',
-            'cc.career_id'
-        )
-
-        ->where(function ($q) use ($range) {
-
-            $q->whereBetween(
-                'jo.published_at',
-                [
-                    $range['start'],
-                    $range['end'],
-                ]
-            )
-
-            ->orWhere(function ($q2) use ($range) {
-
-                $q2->whereNull(
-                    'jo.published_at'
-                )
-
-                ->whereBetween(
-                    'jo.created_at',
-                    [
-                        $range['start'],
-                        $range['end'],
-                    ]
-                );
-            });
-        })
-
-        ->groupBy(
-            DB::raw($group),
-            'c.name'
-        )
-
-        ->select(
-
-            DB::raw("
-                {$group}
-                as period
-            "),
-
-            DB::raw("
-                {$startDate}
-                as start_date
-            "),
-
-            DB::raw("
-                {$endDate}
-                as end_date
-            "),
-
-            'c.name as career',
-
-            DB::raw("
-                COUNT(DISTINCT jo.id)
-                as total
-            ")
-        )
-
+    // 3️⃣ Consultamos la tabla caché usando los índices optimizados
+    $cacheRows = DB::table('career_evolution_cache')
+        ->where('year', $year)
+        ->where('period_type', $filter)
+        ->whereBetween('start_date', [$range['start'], $range['end']])
+        ->orderBy('start_date', 'desc') // Para que muestre lo más reciente primero
+        ->orderByDesc('jobs')            // Ordena las carreras internamente por volumen
         ->get();
 
-    /*
-    ==================================================
-    🟢 TOTALES REALES
-    ==================================================
-    */
-
-    $realTotals = DB::table('job_offers as jo')
-
-        ->join(
-            'technology_job as tj',
-            'tj.job_offer_id',
-            '=',
-            'jo.id'
-        )
-
-        ->join(
-            'course_technology as ct',
-            'ct.technology_id',
-            '=',
-            'tj.technology_id'
-        )
-
-        ->join(
-            'career_course as cc',
-            'cc.course_id',
-            '=',
-            'ct.course_id'
-        )
-
-        ->join(
-            'careers as c',
-            'c.id',
-            '=',
-            'cc.career_id'
-        )
-
-        ->where(function ($q) use ($range) {
-
-            $q->whereBetween(
-                'jo.published_at',
-                [
-                    $range['start'],
-                    $range['end'],
-                ]
-            )
-
-            ->orWhere(function ($q2) use ($range) {
-
-                $q2->whereNull(
-                    'jo.published_at'
-                )
-
-                ->whereBetween(
-                    'jo.created_at',
-                    [
-                        $range['start'],
-                        $range['end'],
-                    ]
-                );
-            });
-        })
-
-        ->groupBy(
-            DB::raw($group)
-        )
-
-        ->select(
-
-            DB::raw("
-                {$group}
-                as period
-            "),
-
-            DB::raw("
-                COUNT(DISTINCT jo.id)
-                as total_unique
-            ")
-        )
-
-        ->pluck(
-            'total_unique',
-            'period'
-        );
-
-    /*
-    ==================================================
-    📦 COLLECTION
-    ==================================================
-    */
-
-    $data = $rows
-
-        ->groupBy('period')
-
-        ->map(function ($items) use (
-            $filter,
-            $realTotals
-        ) {
-
-            $first = $items->first();
-
-            $start = $first->start_date;
-
-            /*
-            ==========================================
-            📅 LABEL
-            ==========================================
-            */
-
-            switch ($filter) {
-
-                case 'monthly':
-
-                    $label =
-                        \Carbon\Carbon::parse(
-                            $start
-                        )
-
-                        ->locale('es')
-
-                        ->translatedFormat(
-                            'F Y'
-                        );
-
-                    break;
-
-                case 'biweekly':
-
-                    $month =
-                        \Carbon\Carbon::parse(
-                            $start
-                        )
-
-                        ->locale('es')
-
-                        ->translatedFormat(
-                            'F'
-                        );
-
-                    $day =
-                        \Carbon\Carbon::parse(
-                            $start
-                        )->day;
-
-                    $label =
-                        $day <= 15
-
-                        ? "Primera quincena de {$month}"
-
-                        : "Segunda quincena de {$month}";
-
-                    break;
-
-                default:
-
-                    $week = ceil(
-                        \Carbon\Carbon::parse(
-                            $start
-                        )->day / 7
-                    );
-
-                    $month =
-                        \Carbon\Carbon::parse(
-                            $start
-                        )
-
-                        ->locale('es')
-
-                        ->translatedFormat(
-                            'F'
-                        );
-
-                    $label =
-                        "Semana {$week} de {$month}";
-
-                    break;
-            }
-
-            return [
-
-                'period' =>
-                    $first->period,
-
-                'label' =>
-                    $label,
-
-                'start_date' =>
-                    $first->start_date,
-
-                'end_date' =>
-                    $first->end_date,
-
-                /*
-                ✅ TOTAL REAL
-                */
-
-                'total_jobs' =>
-                    $realTotals[
-                        $first->period
-                    ] ?? 0,
-
-                'careers' =>
-
-                    $items
-
-                        ->sortByDesc('total')
-
-                        ->values()
-
-                        ->map(function ($career) use (
-                            $realTotals,
-                            $first
-                        ) {
-
-                            $total =
-                                $realTotals[
-                                    $first->period
-                                ] ?? 0;
-
-                            return [
-
-                                'career_name' =>
-                                    $career->career,
-
-                                'jobs' =>
-                                    $career->total,
-
-                                'percentage' =>
-                                    $total > 0
-
-                                    ? round(
-                                        (
-                                            $career->total /
-                                            $total
-                                        ) * 100,
-                                        1
-                                    )
-
-                                    : 0,
-                            ];
-                        }),
-            ];
-        })
-
-        ->sortByDesc('start_date')
-
-        ->values();
-
-    /*
-    ==================================================
-    🚀 RESPONSE
-    ==================================================
-    */
-
+    // 4️⃣ Agrupamos por el tramo temporal ('period_label') para estructurar el JSON idéntico a tu formato original
+    $data = $cacheRows->groupBy('period_label')->map(function ($items, $periodLabel) {
+        $first = $items->first();
+
+        return [
+            'period'     => $first->period_label, // Tu frontend espera el identificador/label del tramo
+            'label'      => $first->period_label,
+            'start_date' => $first->start_date,
+            'end_date'   => $first->end_date,
+            'total_jobs' => (int) $first->total_market_jobs, // El total global del mercado guardado en la fila
+
+            // Mapeamos el listado de carreras dentro de este tramo específico
+            'careers'    => $items->map(function ($row) {
+                return [
+                    'career_name' => $row->career_name,
+                    'jobs'        => (int) $row->jobs,
+                    'percentage'  => (float) $row->percentage, // Ya calculado exactamente por el comando
+                ];
+            })->values()
+        ];
+    })->values();
+
+    // 5️⃣ Respuesta veloz al Frontend en milisegundos 🚀
     return response()->json([
-
-        'filter' =>
-            $filter,
-
-        'data' =>
-            $data,
+        'filter' => $filter,
+        'data'   => $data,
     ]);
 }
 public function exportEvolutionCareers(Request $request)
