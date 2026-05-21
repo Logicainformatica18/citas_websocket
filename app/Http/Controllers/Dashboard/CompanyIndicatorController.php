@@ -250,558 +250,86 @@ $jobMarketStatus = JobMarketStatusBuilder::build([
             ->limit(10)
             ->pluck('country');
     }
-  public function evolutionCompanies(Request $request)
+public function evolutionCompanies(Request $request)
 {
-    DB::statement("SET lc_time_names = 'es_ES'");
-
-    \Carbon\Carbon::setLocale('es');
-
     $year   = (int) $request->get('year', 2026);
     $period = $request->get('period', 's1');
-    $filter = $request->get('filter', 'weekly');
-
-    $perPage = min(
-        (int) $request->get('per_page', 5),
-        20
-    );
-
-    $range = $period === 's1'
-        ? [
-            'start' => "$year-01-01",
-            'end'   => "$year-06-30",
-        ]
-        : [
-            'start' => "$year-07-01",
-            'end'   => "$year-12-31",
-        ];
-
-    /*
-    ==================================================
-    🔥 FILTROS
-    ==================================================
-    */
-
-    switch ($filter) {
-
-        /*
-        ==================================================
-        📅 MONTHLY
-        ==================================================
-        */
-        case 'monthly':
-
-            $group = "
-                DATE_FORMAT(
-                    COALESCE(published_at, created_at),
-                    '%Y-%m'
-                )
-            ";
-
-            $labelSql = "
-                CONCAT(
-                    UCASE(
-                        LEFT(
-                            MONTHNAME(
-                                MIN(
-                                    COALESCE(
-                                        published_at,
-                                        created_at
-                                    )
-                                )
-                            ),
-                            1
-                        )
-                    ),
-                    SUBSTRING(
-                        MONTHNAME(
-                            MIN(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        ),
-                        2
-                    ),
-                    ' ',
-                    YEAR(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    )
-                )
-            ";
-
-            $startDate = "
-                DATE_FORMAT(
-                    MIN(
-                        COALESCE(
-                            published_at,
-                            created_at
-                        )
-                    ),
-                    '%Y-%m-01'
-                )
-            ";
-
-            $endDate = "
-                LAST_DAY(
-                    MIN(
-                        COALESCE(
-                            published_at,
-                            created_at
-                        )
-                    )
-                )
-            ";
-
-            break;
-
-        /*
-        ==================================================
-        📅 BIWEEKLY
-        ==================================================
-        */
-        case 'biweekly':
-
-            $group = "
-                CONCAT(
-                    YEAR(
-                        COALESCE(
-                            published_at,
-                            created_at
-                        )
-                    ),
-                    '-',
-                    LPAD(
-                        MONTH(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        ),
-                        2,
-                        '0'
-                    ),
-                    '-',
-                    IF(
-                        DAY(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        ) <= 15,
-                        1,
-                        2
-                    )
-                )
-            ";
-
-            $labelSql = "
-                CASE
-
-                    WHEN DAY(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    ) <= 15
-
-                    THEN CONCAT(
-                        'Primera quincena de ',
-                        MONTHNAME(
-                            MIN(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        )
-                    )
-
-                    ELSE CONCAT(
-                        'Segunda quincena de ',
-                        MONTHNAME(
-                            MIN(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        )
-                    )
-
-                END
-            ";
-
-            $startDate = "
-                CASE
-
-                    WHEN DAY(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    ) <= 15
-
-                    THEN DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        ),
-                        '%Y-%m-01'
-                    )
-
-                    ELSE DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        ),
-                        '%Y-%m-16'
-                    )
-
-                END
-            ";
-
-            $endDate = "
-                CASE
-
-                    WHEN DAY(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    ) <= 15
-
-                    THEN DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        ),
-                        '%Y-%m-15'
-                    )
-
-                    ELSE LAST_DAY(
-                        MIN(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    )
-
-                END
-            ";
-
-            break;
-
-        /*
-        ==================================================
-        📅 WEEKLY
-        ==================================================
-        */
-        default:
-
-            $group = "
-                YEARWEEK(
-                    COALESCE(
-                        published_at,
-                        created_at
-                    ),
-                    1
-                )
-            ";
-
-            $labelSql = "
-                CONCAT(
-                    'Semana ',
-                    CEIL(
-                        DAY(
-                            MIN(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        ) / 7
-                    ),
-                    ' de ',
-                    CONCAT(
-                        UCASE(
-                            LEFT(
-                                MONTHNAME(
-                                    MIN(
-                                        COALESCE(
-                                            published_at,
-                                            created_at
-                                        )
-                                    )
-                                ),
-                                1
-                            )
-                        ),
-                        SUBSTRING(
-                            MONTHNAME(
-                                MIN(
-                                    COALESCE(
-                                        published_at,
-                                        created_at
-                                    )
-                                )
-                            ),
-                            2
-                        )
-                    )
-                )
-            ";
-
-            $startDate = "
-                DATE_SUB(
-                    MIN(
-                        DATE(
-                            COALESCE(
-                                published_at,
-                                created_at
-                            )
-                        )
-                    ),
-                    INTERVAL WEEKDAY(
-                        MIN(
-                            DATE(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        )
-                    ) DAY
-                )
-            ";
-
-            $endDate = "
-                DATE_ADD(
-                    DATE_SUB(
-                        MIN(
-                            DATE(
-                                COALESCE(
-                                    published_at,
-                                    created_at
-                                )
-                            )
-                        ),
-                        INTERVAL WEEKDAY(
-                            MIN(
-                                DATE(
-                                    COALESCE(
-                                        published_at,
-                                        created_at
-                                    )
-                                )
-                            )
-                        ) DAY
-                    ),
-                    INTERVAL 6 DAY
-                )
-            ";
-
-            break;
-    }
-
-    /*
-    ==================================================
-    🔥 BASE QUERY
-    ==================================================
-    */
-
-    $base = DB::table('job_offers')
-
-        ->whereNotNull('company')
-
-        ->where(function ($q) use ($range) {
-
-            $q->whereBetween('published_at', [
-                $range['start'],
-                $range['end'],
-            ])
-
-            ->orWhere(function ($q2) use ($range) {
-
-                $q2->whereNull('published_at')
-
-                   ->whereBetween('created_at', [
-                       $range['start'],
-                       $range['end'],
-                   ]);
-            });
-        });
-
-    /*
-    ==================================================
-    🔥 BUILDER
-    ==================================================
-    */
-
-    $build = function ($query) use (
-        $group,
-        $labelSql,
-        $startDate,
-        $endDate,
-        $perPage
-    ) {
-
-        $rows = $query
-
-            ->select(
-
-                DB::raw("$group as period"),
-
-                DB::raw("$labelSql as label"),
-
-                DB::raw("$startDate as start_date"),
-
-                DB::raw("$endDate as end_date"),
-
-                DB::raw("
-                    UPPER(
-                        TRIM(company)
-                    ) as company
-                "),
-
-                DB::raw("COUNT(*) as total")
-            )
-
-            ->groupBy(
-                DB::raw($group),
-                DB::raw("UPPER(TRIM(company))")
-            )
-
-            ->get();
-
-        $collection = $rows
-
-            ->groupBy('period')
-
-            ->map(function ($items) {
-
-                $first = $items->first();
-
-                $total = $items->sum('total');
-
-                return [
-
-                    'period' => $first->period,
-
-                    'label' => $first->label,
-
-                    'start_date' => $first->start_date,
-
-                    'end_date' => $first->end_date,
-
-                    'total_jobs' => $total,
-
-                    'companies' => $items
-
-                        ->sortByDesc('total')
-
-                        ->take(5)
-
-                        ->values()
-
-                        ->map(function ($c) use ($total) {
-
-                            return [
-
-                                'company' => $c->company,
-
-                                'jobs' => $c->total,
-
-                                'percentage' => $total > 0
-                                    ? round(
-                                        ($c->total / $total) * 100,
-                                        1
-                                    )
-                                    : 0,
-                            ];
-                        }),
-                ];
-            })
-
-            ->sortByDesc('start_date')
-
-            ->values();
-
-        $page = \Illuminate\Pagination\LengthAwarePaginator
-            ::resolveCurrentPage();
-
+    $filter = $request->get('filter', 'weekly'); // 'weekly', 'biweekly', 'monthly'
+
+    $perPage = min((int) $request->get('per_page', 5), 20);
+
+    // 1️⃣ Mapeamos los meses que corresponden al periodo seleccionado (s1 o s2)
+    // Esto asegura que la paginación no mezcle semestres
+    $mesesFiltro = $period === 's1'
+        ? ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio']
+        : ['Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // 2️⃣ Consultamos la tabla caché trayendo los datos ya consolidados y acumulados
+    $rawCachedData = DB::table('company_evolution_cache')
+        ->where('year', $year)
+        ->where('period_type', $filter)
+        ->where(function($query) use ($mesesFiltro) {
+            foreach ($mesesFiltro as $mes) {
+                // Buscamos que el label contenga el nombre del mes correspondiente
+                $query->orWhere('period_label', 'LIKE', "%{$mes}%");
+            }
+        })
+        ->orderBy('start_date', 'desc')
+        ->orderBy('ranking_position', 'asc')
+        ->get();
+
+    // 3️⃣ Helper para agrupar y formatear la colección al contrato exacto que espera tu Frontend
+    $formatMarketData = function ($items) use ($perPage) {
+        $collection = $items->groupBy('period_label')->map(function ($companiesInPeriod) {
+            $first = $companiesInPeriod->first();
+
+            return [
+                'period'     => $first->period_label, // Tu frontend lee el label identificador
+                'label'      => $first->period_label,
+                'start_date' => $first->start_date,
+                'end_date'   => $first->end_date,
+                'total_jobs' => (int) $first->total_market_jobs, // 🌟 ¡El acumulado real del mercado completo!
+                'companies'  => $companiesInPeriod->map(function ($c) {
+                    return [
+                        'company'    => $c->company_original,
+                        'jobs'       => (int) $c->jobs, // 🌟 Las vacantes acumuladas acumulativas de la empresa
+                        // Calculamos el porcentaje real basado en el mercado global acumulado
+                        'percentage' => $c->total_market_jobs > 0
+                            ? round(($c->jobs / $c->total_market_jobs) * 100, 1)
+                            : 0,
+                    ];
+                })->values()->all()
+            ];
+        })->values();
+
+        // 4️⃣ Paginación manual de los bloques de tiempo (Semanas/Quincenas/Meses)
+        $page      = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-
-            $collection
-                ->slice(
-                    ($page - 1) * $perPage,
-                    $perPage
-                )
-                ->values(),
-
+            $collection->slice(($page - 1) * $perPage, $perPage)->values(),
             $collection->count(),
-
             $perPage,
-
-            $page
+            $page,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
         );
 
         return [
-
             'data' => $paginated->items(),
-
             'pagination' => [
-
-                'current_page' =>
-                    $paginated->currentPage(),
-
-                'last_page' =>
-                    $paginated->lastPage(),
-
-                'per_page' =>
-                    $paginated->perPage(),
-
-                'total' =>
-                    $paginated->total(),
+                'current_page' => $paginated->currentPage(),
+                'last_page'    => $paginated->lastPage(),
+                'per_page'     => $paginated->perPage(),
+                'total'        => $paginated->total(),
             ],
         ];
     };
 
-    /*
-    ==================================================
-    🚀 RESPONSE
-    ==================================================
-    */
+    // 5️⃣ Separamos por mercados de forma limpia y ultra rápida en memoria
+    $nationalData      = $rawCachedData->where('market_type', 'national');
+    $internationalData = $rawCachedData->where('market_type', 'international');
 
     return response()->json([
-
-        'national' => $build(
-            (clone $base)
-                ->where('country', 'Peru')
-        ),
-
-        'international' => $build(
-            (clone $base)
-                ->where('country', '!=', 'Peru')
-        ),
+        'national'      => $formatMarketData($nationalData),
+        'international' => $formatMarketData($internationalData),
     ]);
 }
 public function exportEvolutionCompanies(Request $request)

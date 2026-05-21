@@ -470,7 +470,7 @@ export function CompanyEvolutionModal({
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    {/* <div className="text-right">
                       <p
                         className="
                           text-xs
@@ -488,7 +488,7 @@ export function CompanyEvolutionModal({
                       >
                         {period.total_jobs}
                       </p>
-                    </div>
+                    </div> */}
                   </div>
 
                   {/* COMPANIES GRID */}
@@ -561,9 +561,9 @@ export function CompanyEvolutionModal({
                           <span>
                             {c.jobs} vacantes
                           </span>
-                          <span>
+                          {/* <span>
                             {c.percentage}%
-                          </span>
+                          </span> */}
                         </div>
                       </div>
                     ))}
