@@ -5,530 +5,87 @@ namespace App\Exports;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Carbon\Carbon;
 
 class SeniorityEvolutionExport implements FromCollection, WithHeadings
 {
     protected array $range;
-
     protected string $filter;
 
-    public function __construct(
-        array $range,
-        string $filter = 'weekly'
-    ) {
-
+    /**
+     * Constructor del Export.
+     * * @param array $range ['start' => 'YYYY-MM-DD', 'end' => 'YYYY-MM-DD']
+     * @param string $filter 'weekly', 'biweekly' o 'monthly'
+     */
+    public function __construct(array $range, string $filter = 'weekly')
+    {
         $this->range = $range;
-
         $this->filter = $filter;
     }
 
+    /**
+     * Recupera y formatea la colección de datos desde la tabla de caché.
+     */
     public function collection()
     {
-        /*
-        ==================================================
-        📅 GROUPING
-        ==================================================
-        */
+        // 1. Extraer los años límites del rango para aprovechar el índice compuesto (idx_seniority_cache_lookup)
+        $startYear = Carbon::parse($this->range['start'])->year;
+        $endYear = Carbon::parse($this->range['end'])->year;
 
-        switch ($this->filter) {
-
-            case 'monthly':
-
-                $group = "
-                    DATE_FORMAT(
-                        COALESCE(
-                            jo.published_at,
-                            jo.created_at
-                        ),
-                        '%Y-%m'
-                    )
-                ";
-
-                $label = "
-                    DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '%M %Y'
-                    )
-                ";
-
-                $startDate = "
-                    DATE_FORMAT(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '%Y-%m-01'
-                    )
-                ";
-
-                $endDate = "
-                    LAST_DAY(
-                        MIN(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        )
-                    )
-                ";
-
-                break;
-
-            case 'biweekly':
-
-                $group = "
-                    CONCAT(
-                        YEAR(
-                            COALESCE(
-                                jo.published_at,
-                                jo.created_at
-                            )
-                        ),
-                        '-',
-
-                        LPAD(
-                            MONTH(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ),
-                            2,
-                            '0'
-                        ),
-
-                        '-',
-
-                        IF(
-                            DAY(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ) <= 15,
-                            1,
-                            2
-                        )
-                    )
-                ";
-
-                $label = "
-                    CASE
-
-                        WHEN DAY(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        ) <= 15
-
-                        THEN CONCAT(
-                            'Primera quincena de ',
-                            DATE_FORMAT(
-                                MIN(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                ),
-                                '%M'
-                            )
-                        )
-
-                        ELSE CONCAT(
-                            'Segunda quincena de ',
-                            DATE_FORMAT(
-                                MIN(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                ),
-                                '%M'
-                            )
-                        )
-                    END
-                ";
-
-                $startDate = "
-                    CASE
-
-                        WHEN DAY(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        ) <= 15
-
-                        THEN DATE_FORMAT(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ),
-                            '%Y-%m-01'
-                        )
-
-                        ELSE DATE_FORMAT(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ),
-                            '%Y-%m-16'
-                        )
-                    END
-                ";
-
-                $endDate = "
-                    CASE
-
-                        WHEN DAY(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        ) <= 15
-
-                        THEN DATE_FORMAT(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ),
-                            '%Y-%m-15'
-                        )
-
-                        ELSE LAST_DAY(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        )
-                    END
-                ";
-
-                break;
-
-            default:
-
-                $group = "
-                    YEARWEEK(
-                        COALESCE(
-                            jo.published_at,
-                            jo.created_at
-                        ),
-                        1
-                    )
-                ";
-
-                $label = "
-                    CONCAT(
-                        'Semana ',
-                        CEIL(
-                            DAY(
-                                MIN(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                )
-                            ) / 7
-                        ),
-                        ' de ',
-                        DATE_FORMAT(
-                            MIN(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            ),
-                            '%M'
-                        )
-                    )
-                ";
-
-                $startDate = "
-                    DATE_SUB(
-                        MIN(
-                            DATE(
-                                COALESCE(
-                                    jo.published_at,
-                                    jo.created_at
-                                )
-                            )
-                        ),
-                        INTERVAL WEEKDAY(
-                            MIN(
-                                DATE(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                )
-                            )
-                        ) DAY
-                    )
-                ";
-
-                $endDate = "
-                    DATE_ADD(
-                        DATE_SUB(
-                            MIN(
-                                DATE(
-                                    COALESCE(
-                                        jo.published_at,
-                                        jo.created_at
-                                    )
-                                )
-                            ),
-                            INTERVAL WEEKDAY(
-                                MIN(
-                                    DATE(
-                                        COALESCE(
-                                            jo.published_at,
-                                            jo.created_at
-                                        )
-                                    )
-                                )
-                            ) DAY
-                        ),
-                        INTERVAL 6 DAY
-                    )
-                ";
-
-                break;
-        }
-
-        /*
-        ==================================================
-        🔵 QUERY
-        ==================================================
-        */
-
-        $rows = DB::table('job_offers as jo')
-
-            ->where(function ($q) {
-
-                $q->whereBetween(
-                    'jo.published_at',
-                    [
-                        $this->range['start'],
-                        $this->range['end'],
-                    ]
-                )
-
-                ->orWhere(function ($q2) {
-
-                    $q2->whereNull(
-                        'jo.published_at'
-                    )
-
-                    ->whereBetween(
-                        'jo.created_at',
-                        [
-                            $this->range['start'],
-                            $this->range['end'],
-                        ]
-                    );
-                });
-            })
-
-            ->whereIn(
-                DB::raw(
-                    'LOWER(TRIM(jo.seniority))'
-                ),
-                [
-                    'junior',
-                    'mid',
-                    'senior',
-                ]
-            )
-
-            ->groupBy(
-                DB::raw($group),
-                DB::raw(
-                    'UPPER(TRIM(jo.seniority))'
-                )
-            )
-
-            ->select(
-
-                DB::raw("
-                    {$group}
-                    as period
-                "),
-
-                DB::raw("
-                    {$label}
-                    as periodo
-                "),
-
-                DB::raw("
-                    {$startDate}
-                    as fecha_inicio
-                "),
-
-                DB::raw("
-                    {$endDate}
-                    as fecha_fin
-                "),
-
-                DB::raw("
-                    UPPER(
-                        TRIM(jo.seniority)
-                    ) as nivel
-                "),
-
-                DB::raw("
-                    COUNT(DISTINCT jo.id)
-                    as vacantes
-                ")
-            )
-
+        // 2. Ejecutar la consulta apuntando directamente a la tabla intermedia
+        $cachedRecords = DB::table('seniority_evolution_cache')
+            ->whereNull('career_id') // Filtrar por el universo GLOBAL
+            ->where('period_type', $this->filter)
+            ->whereBetween('year', [$startYear, $endYear])
+            ->whereBetween('start_date', [$this->range['start'], $this->range['end']])
+            ->orderBy('start_date', 'asc')
             ->get();
 
-        /*
-        ==================================================
-        🟢 TOTALES REALES
-        ==================================================
-        */
-
-        $realTotals = DB::table('job_offers as jo')
-
-            ->where(function ($q) {
-
-                $q->whereBetween(
-                    'jo.published_at',
-                    [
-                        $this->range['start'],
-                        $this->range['end'],
-                    ]
-                )
-
-                ->orWhere(function ($q2) {
-
-                    $q2->whereNull(
-                        'jo.published_at'
-                    )
-
-                    ->whereBetween(
-                        'jo.created_at',
-                        [
-                            $this->range['start'],
-                            $this->range['end'],
-                        ]
-                    );
-                });
-            })
-
-            ->whereIn(
-                DB::raw(
-                    'LOWER(TRIM(jo.seniority))'
-                ),
-                [
-                    'junior',
-                    'mid',
-                    'senior',
-                ]
-            )
-
-            ->groupBy(
-                DB::raw($group)
-            )
-
-            ->select(
-
-                DB::raw("
-                    {$group}
-                    as period
-                "),
-
-                DB::raw("
-                    COUNT(DISTINCT jo.id)
-                    as total_unique
-                ")
-            )
-
-            ->pluck(
-                'total_unique',
-                'period'
-            );
-
-        /*
-        ==================================================
-        📦 EXPORT
-        ==================================================
-        */
-
-        return $rows
-
-            ->map(function ($row) use (
-                $realTotals
-            ) {
-
-                return [
-
-                    'Periodo' =>
-                        $row->periodo,
-
-                    'Fecha Inicio' =>
-                        $row->fecha_inicio,
-
-                    'Fecha Fin' =>
-                        $row->fecha_fin,
-
-                    'Vacantes Únicas Reales' =>
-                        $realTotals[
-                            $row->period
-                        ] ?? 0,
-
-                    'Nivel' =>
-                        $row->nivel,
-
-                    'Vacantes por Nivel' =>
-                        $row->vacantes,
-                ];
-            })
-
-            ->sortBy('Fecha Inicio')
-
-            ->values();
+        // 3. Mapear cada registro respetando el esquema real de la base de datos
+        return $cachedRecords->map(function ($row) {
+            return [
+                'id'           => (int) $row->id,
+                // 'career_id'    => $row->career_id ?? 'NULL (Global)',
+                // 'career_slug'  => $row->career_slug,
+                'year'         => (int) $row->year,
+                'period_type'  => $row->period_type,
+                'period_label' => $row->period_label,
+                'start_date'   => $row->start_date,
+                'end_date'     => $row->end_date,
+                'total_jobs'   => (int) $row->total_jobs,
+                'junior_count' => (int) $row->junior_count,
+                'mid_count'    => (int) $row->mid_count,
+                'senior_count' => (int) $row->senior_count,
+                'junior_pct'   => number_format($row->junior_pct, 2) . '%',
+                'mid_pct'      => number_format($row->mid_pct, 2) . '%',
+                'senior_pct'   => number_format($row->senior_pct, 2) . '%',
+                'created_at'   => $row->created_at,
+                'updated_at'   => $row->updated_at,
+            ];
+        });
     }
 
+    /**
+     * Encabezados limpios y profesionales para las columnas del Excel.
+     */
     public function headings(): array
     {
         return [
-
-            'Periodo',
-
-            'Fecha Inicio',
-
-            'Fecha Fin',
-
-            'Vacantes Únicas Reales',
-
-            'Nivel',
-
-            'Vacantes por Nivel',
+            'ID',
+            'Año',
+            'Tipo de Periodo',
+            'Etiqueta de Periodo',
+            'Fecha de Inicio',
+            'Fecha de Fin',
+            'Total Vacantes (Acumulado)',
+            'Cantidad Junior',
+            'Cantidad Mid',
+            'Cantidad Senior',
+            'Porcentaje Junior',
+            'Porcentaje Mid',
+            'Porcentaje Senior',
+            'Fecha de Creación',
+            'Última Actualización',
         ];
     }
 }

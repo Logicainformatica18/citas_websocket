@@ -37,7 +37,7 @@ class Kernel extends ConsoleKernel
     \App\Console\Commands\RSS\ImportTechCrunch::class,
     \App\Console\Commands\RSS\ImportTheVerge::class,
     \App\Console\Commands\RSS\ImportVentureBeat::class,
-
+\App\Console\Commands\Evolution\BackfillSeniorityHistoryCommand::class,
  \App\Console\Commands\RunAllRss::class,
  \App\Console\Commands\trends\DiscoverTrendsFromMarketEntitiesCommand::class,
 
