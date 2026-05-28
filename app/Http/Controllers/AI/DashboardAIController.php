@@ -28,19 +28,25 @@ class DashboardAIController extends Controller
         // ============================
         // 1️⃣ Recuperar solo los últimos 5 mensajes
         // ============================
-        $previous = DB::table('chat_histories')
-            ->where('session_id', $sessionId)
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get(['user_message', 'ai_response'])
-            ->reverse()
-            ->map(fn($r) => [
-                ['role' => 'user', 'content' => $r->user_message],
-                ['role' => 'assistant', 'content' => $r->ai_response],
-            ])
-            ->flatten(1)
-            ->values()
-            ->toArray();
+       $previous = DB::table('chat_histories')
+    ->where('session_id', $sessionId)
+    ->whereNotNull('user_message')
+    ->whereNotNull('ai_response')
+    ->where('user_message', '!=', '')
+    ->where('ai_response', '!=', '')
+    ->where('ai_response', 'NOT LIKE', '%No se pudo generar respuesta%')
+    ->where('ai_response', 'NOT LIKE', '%Error en modo contextual%')
+    ->orderByDesc('id')
+    ->limit(5)
+    ->get(['user_message', 'ai_response'])
+    ->reverse()
+    ->map(fn($r) => [
+        ['role' => 'user', 'content' => $r->user_message],
+        ['role' => 'assistant', 'content' => $r->ai_response],
+    ])
+    ->flatten(1)
+    ->values()
+    ->toArray();
 
     // ============================================================
 // ⚡ 1️⃣ Reejecutar SQL REAL si existe training y NO se forza
@@ -237,15 +243,34 @@ Responde siempre de forma:
 );
 
             try {
-                $response = Http::withToken(env('OPENAI_API_KEY'))
-                    ->post('https://api.openai.com/v1/chat/completions', [
-                        'model' => 'gpt-4o-mini',
-                        'messages' => $messages,
-                        'temperature' => 0.4,
-                        'max_tokens' => 400,
-                    ]);
+               $response = Http::withToken(env('OPENAI_API_KEY'))
+    ->post('https://api.openai.com/v1/chat/completions', [
+        'model' => 'gpt-4o-mini',
+        'messages' => $messages,
+        'temperature' => 0.4,
+        'max_tokens' => 400,
+    ]);
 
-                $aiText = trim($response->json('choices.0.message.content') ?? 'No se pudo generar respuesta.');
+// 🔍 LOG TEMPORAL
+Log::info('🔍 OpenAI raw response', [
+    'status'  => $response->status(),
+    'ok'      => $response->ok(),
+    'body'    => $response->body(),
+    'messages_sent' => $messages,
+]);
+
+$aiText = trim($response->json('choices.0.message.content') ?? '');
+
+// 🔒 Validar antes de guardar
+if ($aiText === '' || stripos($aiText, 'no se pudo generar') !== false) {
+    Log::warning('⚠️ Respuesta IA inválida o vacía, no se persiste', [
+        'raw' => $response->body(),
+    ]);
+    return response()->json([
+        'message' => '⚠️ No fue posible procesar la consulta. Intenta de nuevo.',
+    ], 500);
+}
+
 
                 // 🧾 Guardar conversación
                 DB::table('chat_histories')->insert([
