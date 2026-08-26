@@ -26,182 +26,270 @@ public function __construct(CCTCService $cctc)
 
 public function index(Request $request)
 {
-    [
-        $careerId,
-        $year,
-        $period,
-        $quarter,
-        $range
-    ] = $this->resolveParams($request);
+    /* =====================================================
+       INSTRUMENTACIÓN
+    ===================================================== */
 
+    $reqId      = substr(md5(uniqid('', true)), 0, 8);
+    $queryCount = 0;
+    $t0         = microtime(true);
+    $tFase      = microtime(true);
 
+    // Cuenta queries SIN almacenar bindings (no consume memoria)
+    DB::listen(function () use (&$queryCount) {
+        $queryCount++;
+    });
 
-    $mode = $request->get('view', 'courses');
-
-    $availableCareers = $this->getAvailableCareers();
-
-
-
-    $meta = $this->getGlobalMeta(
-        $careerId,
-        $year,
-        $quarter,
-        $range,
-        $period
-    );
-
-   $search = $request->get('search');
-
-$originalData = $mode === 'competencies'
-    ? $this->cctc->getCompetencies($careerId, $year)
-    : $this->cctc->getCourses($careerId, $year);
-
-$data = $originalData;
-/* =========================================
-   FILTRO POR NOMBRE DEL CURSO
-========================================= */
-
-if (!empty($search) && $mode === 'courses') {
-
-    $normalize = function ($text) {
-
-        $text = mb_strtolower($text, 'UTF-8');
-
-        return str_replace(
-            ['á', 'é', 'í', 'ó', 'ú', 'ñ'],
-            ['a', 'e', 'i', 'o', 'u', 'n'],
-            $text
-        );
+    $mark = function (string $fase) use (&$tFase, &$queryCount, $reqId, $t0) {
+        Log::info('CCTC fase', [
+            'req'      => $reqId,
+            'fase'     => $fase,
+            'ms_fase'  => round((microtime(true) - $tFase) * 1000),
+            'ms_total' => round((microtime(true) - $t0) * 1000),
+            'queries'  => $queryCount,
+            'mem_mb'   => round(memory_get_peak_usage(true) / 1048576, 1),
+        ]);
+        $tFase = microtime(true);
     };
 
-    $data = collect($originalData)
-        ->filter(function ($course) use ($search, $normalize) {
+    try {
 
-            $name = is_array($course)
-                ? ($course['name'] ?? '')
-                : ($course->name ?? '');
+        [
+            $careerId,
+            $year,
+            $period,
+            $quarter,
+            $range
+        ] = $this->resolveParams($request);
 
-            return str_contains(
-                $normalize($name),
-                $normalize($search)
-            );
-        })
-        ->values();
-}
+        $mode   = $request->get('view', 'courses');
+        $search = $request->get('search');
 
+        Log::info('CCTC inicio', [
+            'req'       => $reqId,
+            'career_id' => $careerId,
+            'year'      => $year,
+            'period'    => $period,
+            'mode'      => $mode,
+            'search'    => $search,
+        ]);
 
-   $totalCourses = collect($originalData)->count();
+        $mark('resolveParams');
 
-$marketAligned = collect($originalData)
-        ->whereIn('estado', [
-            'Estrategicamente alineado',
-            'Altamente alineado',
-            'Alineado'
-        ])
-        ->count();
+        /* =====================================================
+           CARRERAS DISPONIBLES
+        ===================================================== */
 
-    /* ===============================
-       🔥 BLOQUE CRÍTICO CON LOGS
-    =============================== */
+        $availableCareers = $this->getAvailableCareers();
 
-    $trendAligned = collect($originalData)
-        ->filter(function ($course) use ($careerId) {
+        $mark('getAvailableCareers');
 
-            try {
+        /* =====================================================
+           META GLOBAL  ← sospechoso principal
+        ===================================================== */
 
+        $meta = $this->getGlobalMeta(
+            $careerId,
+            $year,
+            $quarter,
+            $range,
+            $period,
+            $reqId
+        );
 
+        $mark('getGlobalMeta');
 
-                // 🔥 Detectar si es array u objeto
-                $courseId = is_array($course)
-                    ? ($course['id'] ?? null)
-                    : ($course->id ?? null);
+        /* =====================================================
+           DATA DESDE EL SERVICE  ← segundo sospechoso
+        ===================================================== */
 
+        $originalData = $mode === 'competencies'
+            ? $this->cctc->getCompetencies($careerId, $year)
+            : $this->cctc->getCourses($careerId, $year);
 
+        Log::info('CCTC data', [
+            'req'   => $reqId,
+            'filas' => collect($originalData)->count(),
+        ]);
 
+        $mark('CCTCService');
 
+        $data = $originalData;
 
-                $entityIds = DB::table('course_language as cl')
-                    ->join('languages as l', 'l.id', '=', 'cl.language_id')
-                    ->where('cl.course_id', $courseId)
-                    ->pluck('l.market_entity_id')
-                    ->merge(
-                        DB::table('course_technology as ct')
-                            ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-                            ->where('ct.course_id', $courseId)
-                            ->pluck('t.market_entity_id')
-                    )
-                    ->merge(
-                        DB::table('course_methodology as cm')
-                            ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
-                            ->where('cm.course_id', $courseId)
-                            ->pluck('m.market_entity_id')
-                    )
-                    ->unique();
+        /* =========================================
+           FILTRO POR NOMBRE DEL CURSO
+        ========================================= */
 
+        if (!empty($search) && $mode === 'courses') {
 
+            $normalize = function ($text) {
 
-                if ($entityIds->isEmpty()) {
+                $text = mb_strtolower($text, 'UTF-8');
+
+                return str_replace(
+                    ['á', 'é', 'í', 'ó', 'ú', 'ñ'],
+                    ['a', 'e', 'i', 'o', 'u', 'n'],
+                    $text
+                );
+            };
+
+            $data = collect($originalData)
+                ->filter(function ($course) use ($search, $normalize) {
+
+                    $name = is_array($course)
+                        ? ($course['name'] ?? '')
+                        : ($course->name ?? '');
+
+                    return str_contains(
+                        $normalize($name),
+                        $normalize($search)
+                    );
+                })
+                ->values();
+        }
+
+        $mark('filtroSearch');
+
+        /* =====================================================
+           CONTEOS BASE
+        ===================================================== */
+
+        $totalCourses = collect($originalData)->count();
+
+        $marketAligned = collect($originalData)
+            ->whereIn('estado', [
+                'Estrategicamente alineado',
+                'Altamente alineado',
+                'Alineado'
+            ])
+            ->count();
+
+        $mark('conteosBase');
+
+        /* =====================================================
+           BLOQUE N+1  (4 queries por curso)
+        ===================================================== */
+
+        $qAntesTrend = $queryCount;
+
+        $trendAligned = collect($originalData)
+            ->filter(function ($course) use ($reqId) {
+
+                try {
+
+                    $courseId = is_array($course)
+                        ? ($course['id'] ?? null)
+                        : ($course->id ?? null);
+
+                    $entityIds = DB::table('course_language as cl')
+                        ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                        ->where('cl.course_id', $courseId)
+                        ->pluck('l.market_entity_id')
+                        ->merge(
+                            DB::table('course_technology as ct')
+                                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                                ->where('ct.course_id', $courseId)
+                                ->pluck('t.market_entity_id')
+                        )
+                        ->merge(
+                            DB::table('course_methodology as cm')
+                                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                                ->where('cm.course_id', $courseId)
+                                ->pluck('m.market_entity_id')
+                        )
+                        ->unique();
+
+                    if ($entityIds->isEmpty()) {
+                        return false;
+                    }
+
+                    return DB::table('entity_trends')
+                        ->whereIn('market_entity_id', $entityIds)
+                        ->exists();
+
+                } catch (\Throwable $e) {
+
+                    // Antes esto se tragaba el error en silencio
+                    Log::warning('CCTC trend curso falló', [
+                        'req'  => $reqId,
+                        'msg'  => $e->getMessage(),
+                        'file' => $e->getFile() . ':' . $e->getLine(),
+                    ]);
+
                     return false;
                 }
+            })
+            ->count();
 
-                $exists = DB::table('entity_trends')
-                    ->whereIn('market_entity_id', $entityIds)
-                    ->exists();
+        Log::info('CCTC trendAligned', [
+            'req'            => $reqId,
+            'queries_bloque' => $queryCount - $qAntesTrend,
+            'cursos'         => $totalCourses,
+        ]);
 
+        $mark('trendAligned');
 
+        /* =====================================================
+           KPIs
+        ===================================================== */
 
-                return $exists;
+        $marketRate = $totalCourses > 0
+            ? ($marketAligned / $totalCourses) * 100
+            : 0;
 
-            } catch (\Throwable $e) {
+        $trendRate = $totalCourses > 0
+            ? ($trendAligned / $totalCourses) * 100
+            : 0;
 
+        $finalIndex = $totalCourses > 0
+            ? (($marketRate + $trendRate) / 2)
+            : 0;
 
+        $gapTotal = $totalCourses - $marketAligned;
 
-                return false;
-            }
-        })
-        ->count();
+        $mark('FIN');
 
-    /* ===============================
-       KPIs
-    =============================== */
+        return Inertia::render(
+            'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
+            [
+                'viewMode' => $mode,
+                'filters' => [
+                    'career_id' => $careerId,
+                    'year'      => $year,
+                    'period'    => $period,
+                    'search'    => $search,
+                ],
+                'availableCareers' => $availableCareers,
+                'data' => $data,
+                'meta' => $meta,
+                'final_index' => round($finalIndex, 1),
+                'market_rate' => round($marketRate, 1),
+                'trend_rate'  => round($trendRate, 1),
+                'gap_total'   => $gapTotal,
+                'aligned_count' => $marketAligned,
+                'total_courses' => $totalCourses,
+            ]
+        );
 
-    $marketRate = $totalCourses > 0
-        ? ($marketAligned / $totalCourses) * 100
-        : 0;
+    } catch (\Throwable $e) {
 
-    $trendRate = $totalCourses > 0
-        ? ($trendAligned / $totalCourses) * 100
-        : 0;
+        Log::error('CCTC 500', [
+            'req'       => $reqId,
+            'career_id' => $careerId ?? null,
+            'clase'     => get_class($e),
+            'msg'       => $e->getMessage(),
+            'file'      => $e->getFile() . ':' . $e->getLine(),
+            'queries'   => $queryCount,
+            'ms_total'  => round((microtime(true) - $t0) * 1000),
+            'mem_mb'    => round(memory_get_peak_usage(true) / 1048576, 1),
+            'trace'     => collect($e->getTrace())
+                ->take(8)
+                ->map(fn ($f) => ($f['file'] ?? '?') . ':' . ($f['line'] ?? '?'))
+                ->all(),
+        ]);
 
-    $finalIndex = $totalCourses > 0
-        ? (($marketRate + $trendRate) / 2)
-        : 0;
-
-    $gapTotal = $totalCourses - $marketAligned;
-
-
-
-    return Inertia::render(
-        'DashboardCourseAlignment/CourseAlignmentIndicatorPage',
-        [
-            'viewMode' => $mode,
-            'filters' => [
-                'career_id' => $careerId,
-                'year'      => $year,
-                'period'    => $period,
-                'search'    => $search,
-            ],
-            'availableCareers' => $availableCareers,
-            'data' => $data,
-            'meta' => $meta,
-            'final_index' => round($finalIndex, 1),
-            'market_rate' => round($marketRate, 1),
-            'trend_rate'  => round($trendRate, 1),
-            'gap_total'   => $gapTotal,
-            'aligned_count' => $marketAligned,
-            'total_courses' => $totalCourses,
-        ]
-    );
+        throw $e;
+    }
 }
 private function getCompetencyAlignment(int $careerId)
 {
@@ -808,124 +896,113 @@ private function getGlobalMeta(
     int $year,
     int $quarter,
     array $range,
-    string $period
+    string $period,
+    ?string $reqId = null
 ): array {
 
     /* =====================================================
-       1️⃣ ENTIDADES DIRECTAS DE LA CARRERA
+       1️⃣ ENTIDADES DE LA CARRERA (conjunto chico: ~98 filas)
     ===================================================== */
 
-  $entityIds = collect()
-    ->merge(
-        DB::table('career_course as cc')
-            ->join('courses as c', 'c.id', '=', 'cc.course_id')
-            ->join('course_language as cl', 'cl.course_id', '=', 'c.id')
-            ->join('languages as l', 'l.id', '=', 'cl.language_id')
-            ->where('cc.career_id', $careerId)
-            ->pluck('l.market_entity_id')
-    )
-    ->merge(
-        DB::table('career_course as cc')
-            ->join('courses as c', 'c.id', '=', 'cc.course_id')
-            ->join('course_technology as ct', 'ct.course_id', '=', 'c.id')
-            ->join('technologies as t', 't.id', '=', 'ct.technology_id')
-            ->where('cc.career_id', $careerId)
-            ->pluck('t.market_entity_id')
-    )
-    ->merge(
-        DB::table('career_course as cc')
-            ->join('courses as c', 'c.id', '=', 'cc.course_id')
-            ->join('course_methodology as cm', 'cm.course_id', '=', 'c.id')
-            ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
-            ->where('cc.career_id', $careerId)
-            ->pluck('m.market_entity_id')
-    )
-    ->filter()
-    ->unique()
-    ->values();
+    $entityIds = collect()
+        ->merge(
+            DB::table('career_course as cc')
+                ->join('course_language as cl', 'cl.course_id', '=', 'cc.course_id')
+                ->join('languages as l', 'l.id', '=', 'cl.language_id')
+                ->where('cc.career_id', $careerId)
+                ->distinct()
+                ->pluck('l.market_entity_id')
+        )
+        ->merge(
+            DB::table('career_course as cc')
+                ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
+                ->join('technologies as t', 't.id', '=', 'ct.technology_id')
+                ->where('cc.career_id', $careerId)
+                ->distinct()
+                ->pluck('t.market_entity_id')
+        )
+        ->merge(
+            DB::table('career_course as cc')
+                ->join('course_methodology as cm', 'cm.course_id', '=', 'cc.course_id')
+                ->join('methodologies as m', 'm.id', '=', 'cm.methodology_id')
+                ->where('cc.career_id', $careerId)
+                ->distinct()
+                ->pluck('m.market_entity_id')
+        )
+        ->filter()
+        ->map(fn ($id) => (int) $id)
+        ->unique()
+        ->values();
 
+    Log::info('CCTC meta entidades', [
+        'req'       => $reqId,
+        'career_id' => $careerId,
+        'entidades' => $entityIds->count(),
+    ]);
+
+    if ($entityIds->isEmpty()) {
+        return [
+            'year'                => $year,
+            'period'              => $period,
+            'periodo_label'       => 'Histórico acumulado',
+            'vacantes_analizadas' => 0,
+            'reportes_analizados' => 0,
+            'actualizado'         => now()->toDateTimeString(),
+        ];
+    }
 
     /* =====================================================
-       2️⃣ TOTAL REPORTES (histórico completo)
+       2️⃣ REPORTES
     ===================================================== */
 
-  $reportes = DB::table('entity_trends')
-    ->whereIn('market_entity_id', $entityIds)
-    ->where('year', $year)
-    ->count();
-
-
-    /* =====================================================
-       3️⃣ TOTAL VACANTES (histórico completo)
-    ===================================================== */
-
-    // $vacantes = DB::table('job_offers as jo')
-    //     ->leftJoin('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-    //     ->leftJoin('language_job as lj', 'lj.job_offer_id', '=', 'jo.id')
-    //     ->leftJoin('methodology_job as mj', 'mj.job_offer_id', '=', 'jo.id')
-    //     ->where(function ($q) use ($entityIds) {
-    //         $q->whereIn('tj.market_entity_id', $entityIds)
-    //           ->orWhereIn('lj.market_entity_id', $entityIds)
-    //           ->orWhereIn('mj.market_entity_id', $entityIds);
-    //     })
-    //     ->distinct('jo.id')
-    //     ->count('jo.id');
-/* =====================================================
-   3️⃣ TOTAL VACANTES (histórico acumulado por carrera)
-===================================================== */
-
-/* =====================================================
-   3️⃣ TOTAL VACANTES (solo año/periodo actual)
-===================================================== */
-
-$jobIds = collect()
-    ->merge(
-       DB::table('technology_job as tj')
-    ->join('technologies as t', 't.id', '=', 'tj.technology_id')
-    ->whereIn('t.market_entity_id', $entityIds)
-    ->pluck('tj.job_offer_id')
-
-    )
-    ->merge(
-       DB::table('language_job as lj')
-    ->join('languages as l', 'l.id', '=', 'lj.language_id')
-    ->whereIn('l.market_entity_id', $entityIds)
-    ->pluck('lj.job_offer_id')
-
-    )
-    ->merge(
-       DB::table('methodology_job as mj')
-    ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
-    ->whereIn('m.market_entity_id', $entityIds)
-    ->pluck('mj.job_offer_id')
-
-    )
-    ->unique()
-    ->values();
-
-if ($jobIds->isEmpty()) {
-    $vacantes = 0;
-} else {
-    $vacantes = DB::table('job_offers')
-        ->whereIn('id', $jobIds)
-        ->whereBetween('published_at', $range) // 🔥 aquí aplica año/periodo
+    $reportes = DB::table('entity_trends')
+        ->whereIn('market_entity_id', $entityIds)
+        ->where('year', $year)
         ->count();
-}
 
+    /* =====================================================
+       3️⃣ VACANTES — todo dentro del motor
+    ===================================================== */
 
+    $tech = DB::table('technology_job as tj')
+        ->join('technologies as t', 't.id', '=', 'tj.technology_id')
+        ->whereIn('t.market_entity_id', $entityIds)
+        ->select('tj.job_offer_id as job_id');
+
+    $lang = DB::table('language_job as lj')
+        ->join('languages as l', 'l.id', '=', 'lj.language_id')
+        ->whereIn('l.market_entity_id', $entityIds)
+        ->select('lj.job_offer_id as job_id');
+
+    $meth = DB::table('methodology_job as mj')
+        ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
+        ->whereIn('m.market_entity_id', $entityIds)
+        ->select('mj.job_offer_id as job_id');
+
+    // union() (NO unionAll) → dedupe en MySQL, no en PHP
+    $jobsUnion = $tech->union($lang)->union($meth);
+
+    $vacantes = DB::query()
+        ->fromSub($jobsUnion, 'x')
+        ->join('job_offers as jo', 'jo.id', '=', 'x.job_id')
+        ->whereBetween('jo.published_at', $range)
+        ->count();
+
+    Log::info('CCTC meta vacantes', [
+        'req'      => $reqId,
+        'vacantes' => $vacantes,
+        'mem_mb'   => round(memory_get_peak_usage(true) / 1048576, 1),
+    ]);
 
     return [
-        'year' => $year,
-        'period' => $period,
-        'periodo_label' => "Histórico acumulado",
+        'year'                => $year,
+        'period'              => $period,
+        'periodo_label'       => 'Histórico acumulado',
         'vacantes_analizadas' => $vacantes,
         'reportes_analizados' => $reportes,
-        'actualizado' => now()->toDateTimeString(),
+        'actualizado'         => now()->toDateTimeString(),
     ];
 }
-
-
-
    private function renderEmpty($careers, $meta, $year, $period)
 {
     return Inertia::render(
