@@ -10,6 +10,13 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 // ---- Módulo Encuestas · REBANADA 1 (activa) --------------------------------
 use App\Http\Controllers\TypeController;
 
+// ---- Módulo Encuestas · REBANADA 2 (activa) --------------------------------
+use App\Http\Controllers\CategoryController;
+
+// ---- Módulo Encuestas · REBANADA 3 (activa) --------------------------------
+use App\Http\Controllers\SelectionController;
+use App\Http\Controllers\SelectionDetailController;
+
 /*
 |--------------------------------------------------------------------------
 | DECISIONES TOMADAS AL ADAPTAR EL MÓDULO ENCUESTAS
@@ -136,6 +143,43 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/types/{id}', [TypeController::class, 'show'])->name('types.show')->middleware('permission:administrar');
     Route::put('/types/{id}', [TypeController::class, 'update'])->name('types.update')->middleware('permission:administrar');
     Route::delete('/types/{id}', [TypeController::class, 'destroy'])->name('types.destroy')->middleware('permission:administrar');
+
+    /*
+    |---------------------------------------------------------------------
+    | ENCUESTAS · REBANADA 2 — Catálogo de categorías
+    |---------------------------------------------------------------------
+    | Origen: CategoryController + Route::resource("categorias") +
+    | category{Store,Edit,Update,Destroy,Show}.
+    |
+    | Del origen se descarta el CRUD público de un módulo que no
+    | corresponde: era un bloque de "Encuestas_respuestas" fuera del
+    | grupo de administrador. Aquí se mantiene el catálogo dentro del
+    | patrón del proyecto, con permisos y rutas protegidas.
+    */
+    Route::get('/categories/fetch', [CategoryController::class, 'fetchPaginated'])->name('categories.fetch')->middleware('permission:administrar');
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index')->middleware('permission:administrar');
+    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store')->middleware('permission:administrar');
+    Route::get('/categories/{id}', [CategoryController::class, 'show'])->name('categories.show')->middleware('permission:administrar');
+    Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update')->middleware('permission:administrar');
+    Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy')->middleware('permission:administrar');
+
+    /*
+    |---------------------------------------------------------------------
+    | ENCUESTAS · REBANADA 3 — Selecciones + detalles
+    |---------------------------------------------------------------------
+    | Origen: Route::resource("seleccion") + selection{Store,Edit,Update,
+    | Destroy} + selection_detail{Store,Edit,Update,Destroy}
+    */
+    Route::get('/selections/fetch', [SelectionController::class, 'fetchPaginated'])->name('selections.fetch')->middleware('permission:administrar');
+    Route::get('/selections', [SelectionController::class, 'index'])->name('selections.index')->middleware('permission:administrar');
+    Route::post('/selections', [SelectionController::class, 'store'])->name('selections.store')->middleware('permission:administrar');
+    Route::get('/selections/{id}/details', [SelectionDetailController::class, 'fetchPaginated'])->name('selections.details.fetch')->middleware('permission:administrar');
+    Route::post('/selections/{id}/details', [SelectionDetailController::class, 'store'])->name('selections.details.store')->middleware('permission:administrar');
+    Route::get('/selections/{id}', [SelectionController::class, 'show'])->name('selections.show')->middleware('permission:administrar');
+    Route::put('/selections/{id}', [SelectionController::class, 'update'])->name('selections.update')->middleware('permission:administrar');
+    Route::delete('/selections/{id}', [SelectionController::class, 'destroy'])->name('selections.destroy')->middleware('permission:administrar');
+    Route::put('/selection-details/{id}', [SelectionDetailController::class, 'update'])->name('selection-details.update')->middleware('permission:administrar');
+    Route::delete('/selection-details/{id}', [SelectionDetailController::class, 'destroy'])->name('selection-details.destroy')->middleware('permission:administrar');
 });
 
 require __DIR__ . '/settings.php';
