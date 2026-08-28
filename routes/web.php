@@ -16,6 +16,11 @@ use App\Http\Controllers\CategoryController;
 // ---- Módulo Encuestas · REBANADA 3 (activa) --------------------------------
 use App\Http\Controllers\SelectionController;
 use App\Http\Controllers\SelectionDetailController;
+use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\SurveyDetailController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\SurveyClientController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,6 +80,12 @@ Route::get('/unauthorized', function () {
 Route::get('/', function () {
     return redirect('/dashboard');
 });
+
+// Rendición pública de encuestas
+Route::get('/survey/{id}', [SurveyClientController::class, 'show'])->name('public.survey.show');
+Route::post('/survey/{id}/client', [ClientController::class, 'store'])->name('public.survey.client.store')->middleware('throttle:100,1440');
+Route::post('/survey/{id}/answers', [SurveyClientController::class, 'store'])->name('public.survey.answers.store');
+Route::get('/survey/selection-details/{id}/associated', [SurveyClientController::class, 'associated'])->name('public.survey.selection.associated');
 
 /*
 |--------------------------------------------------------------------------
@@ -180,6 +191,21 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/selections/{id}', [SelectionController::class, 'destroy'])->name('selections.destroy')->middleware('permission:administrar');
     Route::put('/selection-details/{id}', [SelectionDetailController::class, 'update'])->name('selection-details.update')->middleware('permission:administrar');
     Route::delete('/selection-details/{id}', [SelectionDetailController::class, 'destroy'])->name('selection-details.destroy')->middleware('permission:administrar');
+
+    // SURVEYS + QUESTIONS
+    Route::get('/surveys/fetch', [SurveyController::class, 'fetchPaginated'])->name('surveys.fetch')->middleware('permission:administrar');
+    Route::get('/surveys', [SurveyController::class, 'index'])->name('surveys.index')->middleware('permission:administrar');
+    Route::post('/surveys', [SurveyController::class, 'store'])->name('surveys.store')->middleware('permission:administrar');
+    Route::get('/surveys/{id}/report', [ReportController::class, 'index'])->name('surveys.report')->middleware('permission:administrar');
+    Route::get('/surveys/{id}', [SurveyController::class, 'show'])->name('surveys.show')->middleware('permission:administrar');
+    Route::put('/surveys/{id}', [SurveyController::class, 'update'])->name('surveys.update')->middleware('permission:administrar');
+    Route::delete('/surveys/{id}', [SurveyController::class, 'destroy'])->name('surveys.destroy')->middleware('permission:administrar');
+    Route::post('/surveys/{id}/notify', [SurveyController::class, 'notify'])->name('surveys.notify')->middleware('permission:administrar');
+    Route::get('/surveys/{id}/questions', [SurveyDetailController::class, 'index'])->name('surveys.questions.index')->middleware('permission:administrar');
+    Route::get('/surveys/{id}/questions/fetch', [SurveyDetailController::class, 'fetchPaginated'])->name('surveys.questions.fetch')->middleware('permission:administrar');
+    Route::post('/surveys/{id}/questions', [SurveyDetailController::class, 'store'])->name('surveys.questions.store')->middleware('permission:administrar');
+    Route::put('/questions/{id}', [SurveyDetailController::class, 'update'])->name('questions.update')->middleware('permission:administrar');
+    Route::delete('/questions/{id}', [SurveyDetailController::class, 'destroy'])->name('questions.destroy')->middleware('permission:administrar');
 });
 
 require __DIR__ . '/settings.php';

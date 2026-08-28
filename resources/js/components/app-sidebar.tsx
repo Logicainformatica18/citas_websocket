@@ -20,6 +20,11 @@ import {
     Shield,
     Settings,
     ChevronDown,
+    ClipboardList,
+    Library,
+    Tag,
+    Folder,
+    Network,
 } from "lucide-react";
 
 const colorAlign = "text-sky-500 dark:text-sky-400";
@@ -68,6 +73,58 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                 </SidebarMenu>
 
+                {/* ================= ENCUESTAS ================= */}
+                {/*
+                    Todo el módulo está detrás de permission:administrar en
+                    routes/web.php, así que se reusa el mismo gate isAdmin.
+                    Cuando definas permisos granulares (surveys.ver,
+                    surveys.editar), este es el lugar a cambiar.
+                */}
+                {isAdmin && (
+                    <CollapsibleSection
+                        title="Encuestas"
+                        icon={<ClipboardList className={colorAlign} />}
+                    >
+                        <MenuItem
+                            href="/surveys"
+                            icon={<ClipboardList className={colorAlign} />}
+                            label="Encuestas"
+                        />
+
+                        {/*
+                            REBANADA 5 · pendiente. Los reportes cuelgan de una
+                            encuesta (/surveys/{id}/report), así que no tienen
+                            entrada propia de menú: se entra desde el listado
+                            de encuestas.
+                        */}
+
+                        <MenuItem
+                            href="/selections"
+                            icon={<Network className={colorAlign} />}
+                            label="Selecciones"
+                        />
+                    </CollapsibleSection>
+                )}
+
+                {/* ================= CATÁLOGOS ================= */}
+                {isAdmin && (
+                    <CollapsibleSection
+                        title="Catálogos"
+                        icon={<Library className={colorAlign} />}
+                    >
+                        <MenuItem
+                            href="/types"
+                            icon={<Tag className={colorAlign} />}
+                            label="Tipos"
+                        />
+                        <MenuItem
+                            href="/categories"
+                            icon={<Folder className={colorAlign} />}
+                            label="Categorías"
+                        />
+                    </CollapsibleSection>
+                )}
+
                 {/* ================= ADMIN ================= */}
                 {isAdmin && (
                     <CollapsibleSection
@@ -98,17 +155,23 @@ export function AppSidebar() {
 
 /* ======================================================
    COLLAPSIBLE SECTION
+
+   `defaultOpen` es nuevo: con una sola sección daba igual que todas
+   arrancaran abiertas, pero con cuatro el sidebar queda muy largo.
+   Encuestas arranca abierta; Catálogos y Administración cerradas.
 ====================================================== */
 function CollapsibleSection({
     title,
     icon,
     children,
+    defaultOpen = true,
 }: {
     title: string;
     icon: React.ReactNode;
     children: React.ReactNode;
+    defaultOpen?: boolean;
 }) {
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(defaultOpen);
 
     return (
         <div className="px-2">
@@ -142,6 +205,10 @@ function CollapsibleSection({
 
 /* ======================================================
    MENU ITEM
+
+   `active` resalta la ruta actual comparándola con el url que Inertia
+   ya expone en usePage(). Con siete entradas se hace necesario para
+   saber dónde estás parado.
 ====================================================== */
 function MenuItem({
     href,
@@ -152,17 +219,21 @@ function MenuItem({
     icon: React.ReactNode;
     label: string;
 }) {
+    const { url } = usePage();
+    const active = url === href || url.startsWith(`${href}/`);
+
     return (
         <SidebarMenu>
             <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                     <Link
                         href={href}
-                        className="
+                        className={`
                             flex items-center gap-3 px-2 py-1.5 rounded-md
                             hover:bg-sky-100 dark:hover:bg-sky-900/30
                             transition
-                        "
+                            ${active ? "bg-sky-100 dark:bg-sky-900/40 font-semibold" : ""}
+                        `}
                     >
                         {icon}
                         <span className="font-medium text-sm">{label}</span>
