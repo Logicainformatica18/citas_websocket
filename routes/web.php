@@ -127,9 +127,7 @@ Route::middleware('web')->group(function () {
 
 Route::middleware(['auth'])->group(function () {
 
-    Route::get('/dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
 
     // USERS
     Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch')->middleware('permission:administrar');

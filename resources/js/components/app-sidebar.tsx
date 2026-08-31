@@ -6,13 +6,13 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar';
 
-import { Link, usePage } from "@inertiajs/react";
-import { useState } from "react";
+import { Link, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
-import AppLogo from "./app-logo";
-import { NavUser } from "@/components/nav-user";
+import AppLogo from './app-logo';
+import { NavUser } from '@/components/nav-user';
 
 import {
     BarChart3,
@@ -25,30 +25,25 @@ import {
     Tag,
     Folder,
     Network,
-} from "lucide-react";
+} from 'lucide-react';
 
-const colorAlign = "text-sky-500 dark:text-sky-400";
+const colorAlign = 'text-[#8dd8f2]';
 
-/* ======================================================
-   SIDEBAR
-====================================================== */
 export function AppSidebar() {
     type PageProps = {
         permissions: string[];
     };
     const { permissions } = usePage<PageProps>().props;
     const has = (perm: string) => permissions.includes(perm);
-
-    const isAdmin = has("administrar");
+    const isAdmin = has('administrar');
 
     return (
-        <Sidebar variant="inset">
-            {/* ================= LOGO ================= */}
-            <SidebarHeader>
+        <Sidebar variant="inset" className="border-r border-[#1a3446] bg-[#0d2434] text-white shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)]">
+            <SidebarHeader className="border-b border-[#1d3243] bg-[#0d2434] px-4 py-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href="/">
+                        <SidebarMenuButton size="lg" asChild className="h-auto p-0 hover:bg-transparent data-[state=open]:bg-transparent">
+                            <Link href="/" className="flex items-center gap-3">
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -56,110 +51,50 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent className="pt-4 pb-2 space-y-3">
-
-                {/* ================= DASHBOARD ================= */}
+            <SidebarContent className="space-y-3 bg-[#0d2434] px-2 pb-2 pt-4 text-white">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild>
                             <Link
                                 href="/dashboard"
-                                className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-sky-100 dark:hover:bg-sky-900/30"
+                                className="flex items-center gap-3 rounded-md px-3 py-2 text-[15px] font-medium text-white/90 transition hover:bg-[#17374d] hover:text-white"
                             >
-                                <BarChart3 className={`w-5 h-5 ${colorAlign}`} />
-                                <span className="font-semibold">Dashboard</span>
+                                <BarChart3 className={`h-5 w-5 ${colorAlign}`} />
+                                <span>Resumen</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
 
-                {/* ================= ENCUESTAS ================= */}
-                {/*
-                    Todo el módulo está detrás de permission:administrar en
-                    routes/web.php, así que se reusa el mismo gate isAdmin.
-                    Cuando definas permisos granulares (surveys.ver,
-                    surveys.editar), este es el lugar a cambiar.
-                */}
                 {isAdmin && (
-                    <CollapsibleSection
-                        title="Encuestas"
-                        icon={<ClipboardList className={colorAlign} />}
-                    >
-                        <MenuItem
-                            href="/surveys"
-                            icon={<ClipboardList className={colorAlign} />}
-                            label="Encuestas"
-                        />
-
-                        {/*
-                            REBANADA 5 · pendiente. Los reportes cuelgan de una
-                            encuesta (/surveys/{id}/report), así que no tienen
-                            entrada propia de menú: se entra desde el listado
-                            de encuestas.
-                        */}
-
-                        <MenuItem
-                            href="/selections"
-                            icon={<Network className={colorAlign} />}
-                            label="Selecciones"
-                        />
+                    <CollapsibleSection title="Encuestas" icon={<ClipboardList className={colorAlign} />} defaultOpen>
+                        <MenuItem href="/surveys" icon={<ClipboardList className={colorAlign} />} label="Encuestas" />
+                        <MenuItem href="/selections" icon={<Network className={colorAlign} />} label="Selecciones" />
                     </CollapsibleSection>
                 )}
 
-                {/* ================= CATÁLOGOS ================= */}
                 {isAdmin && (
-                    <CollapsibleSection
-                        title="Catálogos"
-                        icon={<Library className={colorAlign} />}
-                    >
-                        <MenuItem
-                            href="/types"
-                            icon={<Tag className={colorAlign} />}
-                            label="Tipos"
-                        />
-                        <MenuItem
-                            href="/categories"
-                            icon={<Folder className={colorAlign} />}
-                            label="Categorías"
-                        />
+                    <CollapsibleSection title="Catálogos" icon={<Library className={colorAlign} />} defaultOpen={false}>
+                        <MenuItem href="/types" icon={<Tag className={colorAlign} />} label="Tipos" />
+                        <MenuItem href="/categories" icon={<Folder className={colorAlign} />} label="Categorías" />
                     </CollapsibleSection>
                 )}
 
-                {/* ================= ADMIN ================= */}
                 {isAdmin && (
-                    <CollapsibleSection
-                        title="Administración"
-                        icon={<Settings className={colorAlign} />}
-                    >
-                        <MenuItem
-                            href="/users"
-                            icon={<UserCircle2 className={colorAlign} />}
-                            label="Usuarios"
-                        />
-                        <MenuItem
-                            href="/roles"
-                            icon={<Shield className={colorAlign} />}
-                            label="Roles"
-                        />
+                    <CollapsibleSection title="Administración" icon={<Settings className={colorAlign} />} defaultOpen={false}>
+                        <MenuItem href="/users" icon={<UserCircle2 className={colorAlign} />} label="Usuarios" />
+                        <MenuItem href="/roles" icon={<Shield className={colorAlign} />} label="Roles" />
                     </CollapsibleSection>
                 )}
-
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="border-t border-[#1d3243] bg-[#0d2434] p-2">
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
     );
 }
 
-/* ======================================================
-   COLLAPSIBLE SECTION
-
-   `defaultOpen` es nuevo: con una sola sección daba igual que todas
-   arrancaran abiertas, pero con cuatro el sidebar queda muy largo.
-   Encuestas arranca abierta; Catálogos y Administración cerradas.
-====================================================== */
 function CollapsibleSection({
     title,
     icon,
@@ -177,39 +112,20 @@ function CollapsibleSection({
         <div className="px-2">
             <button
                 onClick={() => setOpen(!open)}
-                className="
-                    w-full flex items-center justify-between
-                    px-2 py-2 rounded-md
-                    text-xs uppercase tracking-wide font-semibold
-                    text-gray-600 dark:text-gray-400
-                    hover:bg-gray-100 dark:hover:bg-gray-800
-                "
+                className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[#dfeaf1] transition hover:bg-[#17374d]"
             >
                 <div className="flex items-center gap-2">
                     {icon}
                     <span>{title}</span>
                 </div>
-                <ChevronDown
-                    className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
-                />
+                <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
-            {open && (
-                <div className="mt-1 pl-4 space-y-1">
-                    {children}
-                </div>
-            )}
+            {open && <div className="mt-1 space-y-1 pl-2">{children}</div>}
         </div>
     );
 }
 
-/* ======================================================
-   MENU ITEM
-
-   `active` resalta la ruta actual comparándola con el url que Inertia
-   ya expone en usePage(). Con siete entradas se hace necesario para
-   saber dónde estás parado.
-====================================================== */
 function MenuItem({
     href,
     icon,
@@ -229,14 +145,12 @@ function MenuItem({
                     <Link
                         href={href}
                         className={`
-                            flex items-center gap-3 px-2 py-1.5 rounded-md
-                            hover:bg-sky-100 dark:hover:bg-sky-900/30
-                            transition
-                            ${active ? "bg-sky-100 dark:bg-sky-900/40 font-semibold" : ""}
+                            flex items-center gap-3 rounded-md px-2 py-2 text-[15px] font-medium transition
+                            ${active ? 'bg-[#17374d] text-white shadow-[inset_0_0_0_1px_rgba(141,216,242,0.15)]' : 'text-white/80 hover:bg-[#17374d] hover:text-white'}
                         `}
                     >
                         {icon}
-                        <span className="font-medium text-sm">{label}</span>
+                        <span>{label}</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
