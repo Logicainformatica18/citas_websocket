@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { MouseEvent } from 'react';
 
 type Question = { id: number; question: string };
-type Result = { client_id: number; [key: string]: string | number | null };
+type Result = { client_id: number; answered: number; [key: `answer_${number}`]: string | number | null };
 
 function parseAnswer(raw: string | number | null | undefined) {
     if (raw === null || raw === undefined || raw === '' || raw === 'no_respondido') return null;
@@ -29,15 +29,15 @@ const CABECERA = 'bg-slate-100 dark:bg-neutral-800';
 export function ReportTable({
     questions,
     results,
-    contestadasPorFila,
     compact,
+    loading = false,
     onHover,
     onLeave,
 }: {
     questions: Question[];
     results: Result[];
-    contestadasPorFila: Map<number, number>;
     compact: boolean;
+    loading?: boolean;
     onHover: (event: MouseEvent<HTMLElement>, text: string) => void;
     onLeave: () => void;
 }) {
@@ -65,7 +65,10 @@ export function ReportTable({
 
     return (
         // min-w-0 acá es lo que hace que el scroll quede adentro y no en la página.
-        <div className="w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div className={[
+            'w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-opacity dark:border-neutral-800 dark:bg-neutral-900',
+            loading ? 'opacity-60' : 'opacity-100',
+        ].join(' ')}>
             <div className="max-h-[70vh] w-full min-w-0 overflow-auto overscroll-x-contain">
                 {/* w-max: la tabla mide lo que mide y el contenedor scrollea.
                     border-separate porque border-collapse borra los bordes de
@@ -117,7 +120,7 @@ export function ReportTable({
 
                     <tbody>
                         {results.map((result) => {
-                            const contestadas = contestadasPorFila.get(result.client_id) ?? 0;
+                            const contestadas = result.answered ?? 0;
                             const incompleta = contestadas < questions.length;
 
                             return (
@@ -173,8 +176,8 @@ export function ReportTable({
                                                 >
                                                     <span
                                                         className={[
-                                                            'block max-w-full break-words text-[11px] leading-relaxed text-slate-700 dark:text-neutral-300',
-                                                            compact ? 'line-clamp-2' : '',
+                                                            'max-w-full break-words text-[11px] leading-relaxed text-slate-700 dark:text-neutral-300',
+                                                            compact ? 'line-clamp-2' : 'block',
                                                         ].join(' ')}
                                                     >
                                                         {answer.label}

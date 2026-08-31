@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Survey;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -13,7 +15,7 @@ class SurveyController extends Controller
 {
     public function index(Request $request)
     {
-        $surveys = Survey::with('created_bys')->orderBy('id', 'desc')->paginate(10);
+        $surveys = $this->listado()->paginate(10);
 
         if ($request->wantsJson()) {
             return response()->json(['surveys' => $surveys]);
@@ -24,9 +26,7 @@ class SurveyController extends Controller
 
     public function fetchPaginated()
     {
-        return response()->json([
-            'surveys' => Survey::with('created_bys')->orderBy('id', 'desc')->paginate(10),
-        ]);
+        return response()->json(['surveys' => $this->listado()->paginate(10)]);
     }
 
     public function store(Request $request)
@@ -36,7 +36,10 @@ class SurveyController extends Controller
         $data['front_page'] = $this->storeFrontPage($request);
         $survey = Survey::create($data);
 
-        return response()->json(['message' => 'Encuesta creada', 'survey' => $survey->load('created_bys')]);
+        return response()->json([
+            'message' => 'Encuesta creada',
+            'survey' => $this->listado()->findOrFail($survey->id),
+        ]);
     }
 
     public function show($id)
@@ -60,12 +63,38 @@ class SurveyController extends Controller
 
         $survey->update($data);
 
-        return response()->json(['message' => 'Encuesta actualizada', 'survey' => $survey->load('created_bys')]);
+        return response()->json([
+            'message' => 'Encuesta actualizada',
+            'survey' => $this->listado()->findOrFail($survey->id),
+        ]);
     }
 
     public function destroy($id)
     {
-        Survey::findOrFail($id)->delete();
+        $survey = Survey::findOrFail($id);
+
+        // Las FK de survey_details.survey_id y survey_clients.survey_detail_id
+        // están en RESTRICT: sin este chequeo el delete revienta con un 1451 y
+        // el front recibe una excepción en vez de un mensaje.
+        $preguntas = DB::table('survey_details')->where('survey_id', $survey->id)->count();
+
+        if ($preguntas > 0) {
+            $respuestas = DB::table('survey_clients')
+                ->join('survey_details', 'survey_details.id', '=', 'survey_clients.survey_detail_id')
+                ->where('survey_details.survey_id', $survey->id)
+                ->count();
+
+            return response()->json([
+                'message' => "No se puede eliminar: la encuesta tiene {$preguntas} preguntas y {$respuestas} respuestas asociadas. Eliminá primero las preguntas.",
+            ], 409);
+        }
+
+        if ($survey->front_page) {
+            Storage::disk('public')->delete($survey->front_page);
+        }
+
+        $survey->delete();
+
         return response()->json(['message' => 'Encuesta eliminada']);
     }
 
@@ -83,6 +112,42 @@ class SurveyController extends Controller
         });
 
         return response()->json(['message' => 'Notificación enviada']);
+    }
+
+    /**
+     * Listado con los dos conteos que muestra la tabla del front.
+     *
+     * Van como subconsultas correlacionadas y no como withCount para no
+     * depender de relaciones en el modelo, y para poder filtrar por
+     * completed_at. Es una sola query, sin N+1.
+     *
+     * Criterio de los conteos, el mismo que usa el dashboard:
+     * solo participantes que terminaron (completed_at IS NOT NULL).
+     * Las sesiones abandonadas no cuentan.
+     */
+    private function listado(): Builder
+    {
+        $respuestas = DB::table('survey_clients')
+            ->join('survey_details', 'survey_details.id', '=', 'survey_clients.survey_detail_id')
+            ->join('clients', 'clients.id', '=', 'survey_clients.client_id')
+            ->whereColumn('survey_details.survey_id', 'surveys.id')
+            ->whereNotNull('clients.completed_at')
+            ->where('survey_clients.answer', '<>', 'no_respondido')
+            ->selectRaw('count(*)');
+
+        $participantes = DB::table('clients')
+            ->join('survey_clients', 'survey_clients.client_id', '=', 'clients.id')
+            ->join('survey_details', 'survey_details.id', '=', 'survey_clients.survey_detail_id')
+            ->whereColumn('survey_details.survey_id', 'surveys.id')
+            ->whereNotNull('clients.completed_at')
+            ->selectRaw('count(distinct clients.id)');
+
+        return Survey::query()
+            ->with('created_bys')
+            ->select('surveys.*')
+            ->selectSub($respuestas, 'answers_count')
+            ->selectSub($participantes, 'participants_count')
+            ->orderBy('surveys.id', 'desc');
     }
 
     private function validated(Request $request): array

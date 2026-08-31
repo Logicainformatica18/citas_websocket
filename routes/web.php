@@ -210,6 +210,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/surveys/fetch', [SurveyController::class, 'fetchPaginated'])->name('surveys.fetch')->middleware('permission:administrar');
     Route::get('/surveys', [SurveyController::class, 'index'])->name('surveys.index')->middleware('permission:administrar');
     Route::post('/surveys', [SurveyController::class, 'store'])->name('surveys.store')->middleware('permission:administrar');
+    Route::get('/surveys/{id}/report/fetch', [ReportController::class, 'fetchPaginated'])->name('surveys.report.fetch')->middleware('permission:administrar');
     Route::get('/surveys/{id}/report', [ReportController::class, 'index'])->name('surveys.report')->middleware('permission:administrar');
 
     // Dashboard de resultados. Convive con /report: el reporte es la

@@ -5,9 +5,11 @@ import { type User } from '@/types';
 export function UserInfo({
   user,
   showEmail = false,
+  variant = 'sidebar',
 }: {
   user: User | null;
   showEmail?: boolean;
+  variant?: 'sidebar' | 'dropdown';
 }) {
   const getInitials = useInitials();
 
@@ -37,10 +39,30 @@ export function UserInfo({
         </AvatarFallback>
       </Avatar>
 
-      <div className="grid flex-1 text-left text-sm leading-tight">
-        <span className="truncate font-medium">{user.names}</span>
+      <div
+        className={`grid flex-1 text-left text-sm leading-tight ${
+          variant === 'sidebar'
+            ? 'text-[#f4f8fb]'
+            : 'text-slate-900 dark:text-slate-100'
+        }`}
+      >
+        <span
+          className={`truncate font-semibold ${
+            variant === 'sidebar'
+              ? 'text-[#f4f8fb]'
+              : 'text-slate-900 dark:text-slate-100'
+          }`}
+        >
+          {user.names}
+        </span>
         {showEmail && (
-          <span className="text-muted-foreground truncate text-xs">
+          <span
+            className={`truncate text-xs ${
+              variant === 'sidebar'
+                ? 'text-[#a9c4d2]'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
             {user.email}
           </span>
         )}

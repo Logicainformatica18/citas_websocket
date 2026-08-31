@@ -102,7 +102,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
     <>
       <DropdownMenuLabel className="p-0 font-normal">
         <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-          <UserInfo user={user} showEmail={true} />
+          <UserInfo user={user} showEmail={true} variant="dropdown" />
         </div>
       </DropdownMenuLabel>
 
@@ -111,10 +111,10 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
       {/* 🌙 Alternar tema (3 modos) */}
       <DropdownMenuItem
         onClick={handleToggle}
-        className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        className="cursor-pointer text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
       >
         {icon}
-        {label}
+        <span>{label}</span>
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />
@@ -122,7 +122,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
       <DropdownMenuGroup>
         <DropdownMenuItem asChild>
           <Link
-            className="block w-full"
+            className="block w-full text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
             href={route('profile.edit')}
             as="button"
             prefetch
@@ -136,7 +136,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
 
       <DropdownMenuSeparator />
 <DropdownMenuItem
-  className="cursor-pointer text-red-600"
+  className="cursor-pointer text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
   onClick={() => {
     cleanup();
     window.location.href = route('logout');
