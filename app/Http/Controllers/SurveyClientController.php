@@ -2,19 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\MarcaEncuesta;
 use App\Models\Client;
 use App\Models\SelectionDetail;
 use App\Models\Survey;
 use App\Models\SurveyClient;
 use App\Models\SurveyDetail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Validation\ValidationException;
 
 class SurveyClientController extends Controller
 {
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $survey = Survey::findOrFail($id);
+
+        // Bloqueo por dispositivo.
+        //
+        // Si la cookie encuesta_{id}_ok está presente, la página se arma SIN
+        // las preguntas. No tiene sentido mandar el cuestionario a un
+        // navegador que no lo va a poder contestar: es tráfico de más y deja
+        // el contenido de la encuesta a la vista de alguien que ya terminó.
+        if (MarcaEncuesta::yaRespondio($request, (int) $survey->id)) {
+            return inertia('surveys/public', [
+                'survey'      => $survey,
+                'questions'   => [],
+                'yaRespondio' => true,
+            ]);
+        }
 
         // orderBy('orden') en lugar de created_at.
         //
@@ -31,14 +47,48 @@ class SurveyClientController extends Controller
             ->get();
 
         return inertia('surveys/public', [
-            'survey'    => $survey,
-            'questions' => $questions,
+            'survey'      => $survey,
+            'questions'   => $questions,
+            'yaRespondio' => false,
         ]);
     }
 
     public function store(Request $request, $id)
     {
         $survey = Survey::findOrFail($id);
+
+        // El mismo bloqueo que en show(), repetido acá a propósito.
+        //
+        // show() solo decide qué se dibuja. Un POST armado a mano contra
+        // /survey/{id}/answers no pasa por show() nunca, así que si el
+        // control viviera únicamente en la vista no existiría.
+        //
+        // LA EXCEPCIÓN DEL MISMO client_id
+        //
+        // completed_at se pone cuando están todas las OBLIGATORIAS, que no
+        // siempre son las últimas del cuestionario. Si el bloqueo fuera a
+        // secas, el POST que marca completo emitiría la cookie y el
+        // siguiente POST del MISMO encuestado —una pregunta opcional que
+        // todavía tiene delante— se comería un 403 a mitad del asistente.
+        //
+        // Por eso se deja pasar cuando el client_id que postea es el mismo
+        // que el de la cookie de sesión. Eso no abre la puerta a una segunda
+        // respuesta: con ese client_id, updateOrCreate SOBRESCRIBE las filas
+        // que ya existen contra el UNIQUE (client_id, survey_detail_id). Lo
+        // que se bloquea es empezar de nuevo, y eso necesita un client_id
+        // nuevo, que solo entrega ClientController y ahí no hay excepción.
+        //
+        // La cookie de sesión dura 30 días y la de bloqueo un año: pasado el
+        // mes, la excepción se cae sola y el bloqueo queda seco.
+        if (MarcaEncuesta::yaRespondio($request, (int) $survey->id)) {
+            $enCurso = MarcaEncuesta::clienteEnCurso($request, (int) $survey->id);
+
+            if ($enCurso === null || $enCurso !== (int) $request->input('client_id')) {
+                return response()->json([
+                    'message' => 'Ya registramos una respuesta desde este dispositivo.',
+                ], 403);
+            }
+        }
 
         $this->verificarDisponible($survey);
 
@@ -102,6 +152,10 @@ class SurveyClientController extends Controller
         // se actualiza en lugar de duplicar. Además, con el índice
         // UNIQUE (client_id, survey_detail_id) un create() lanzaría una
         // excepción 500 en vez de guardar.
+        //
+        // Es también lo que hace que retomar una encuesta abandonada no
+        // duplique nada: el client_id es el mismo y las preguntas que el
+        // encuestado ya había pasado se sobrescriben con el mismo valor.
         SurveyClient::updateOrCreate(
             [
                 'client_id'        => $data['client_id'],
@@ -110,9 +164,122 @@ class SurveyClientController extends Controller
             $response
         );
 
-        $this->marcarSiCompleto($survey, (int) $data['client_id']);
+        $completado = $this->marcarSiCompleto($survey, (int) $data['client_id']);
 
-        return response()->json(['message' => 'Respuesta guardada']);
+        // La marca de bloqueo se emite recién cuando el servidor confirmó que
+        // están todas las obligatorias. No cuando el front llega a la última
+        // pantalla: si se emitiera ahí, un salto adelante en el asistente
+        // dejaría bloqueado a alguien que no terminó.
+        if ($completado) {
+            Cookie::queue(MarcaEncuesta::cookieBloqueo((int) $survey->id));
+        }
+
+        return response()->json([
+            'message'    => 'Respuesta guardada',
+            'completado' => $completado,
+        ]);
+    }
+
+    /**
+     * Respuestas ya dadas por un client_id, para retomar una encuesta que
+     * quedó a la mitad.
+     *
+     * QUIÉN PUEDE LLAMARLO
+     *
+     * El client_id de la URL tiene que coincidir con el de la cookie
+     * encuesta_{id}_sesion. Sin esa condición sería un endpoint público que
+     * devuelve las respuestas de cualquier encuestado con solo probar ids
+     * consecutivos: son anónimas, pero igual son datos de la encuesta y no
+     * tienen por qué ser legibles desde afuera.
+     *
+     * El front manda el client_id que tiene en localStorage. Si las dos
+     * marcas no coinciden (cookies borradas, otro navegador) se contesta
+     * `existe: false` y el asistente arranca de cero. Es el mismo desenlace
+     * que tendría igual: sin cookie no hay sesión que retomar.
+     */
+    public function progress(Request $request, $id, $clientId)
+    {
+        $survey   = Survey::findOrFail($id);
+        $clientId = (int) $clientId;
+
+        // Un dispositivo que ya terminó no necesita retomar nada: se le
+        // contesta el bloqueo directamente.
+        if (MarcaEncuesta::yaRespondio($request, (int) $survey->id)) {
+            return response()->json([
+                'existe'     => false,
+                'completado' => true,
+                'respuestas' => [],
+            ]);
+        }
+
+        $enCurso = MarcaEncuesta::clienteEnCurso($request, (int) $survey->id);
+
+        if ($enCurso === null || $enCurso !== $clientId) {
+            return response()->json([
+                'existe'     => false,
+                'completado' => false,
+                'respuestas' => [],
+            ]);
+        }
+
+        $client = Client::find($clientId);
+
+        if (! $client) {
+            return response()->json([
+                'existe'     => false,
+                'completado' => false,
+                'respuestas' => [],
+            ]);
+        }
+
+        if ($client->completed_at !== null) {
+            // Terminó, pero no tiene la cookie de bloqueo (se le venció, o el
+            // POST que la emitía se perdió). Se la vuelve a emitir acá.
+            Cookie::queue(MarcaEncuesta::cookieBloqueo((int) $survey->id));
+
+            return response()->json([
+                'existe'     => false,
+                'completado' => true,
+                'respuestas' => [],
+            ]);
+        }
+
+        // Solo las respuestas de ESTA encuesta. Un client_id identifica a un
+        // encuestado, no a una encuesta, así que sin filtrar por survey_id se
+        // colarían respuestas de otro cuestionario.
+        $respuestas = SurveyClient::query()
+            ->join('survey_details as sd', 'sd.id', '=', 'survey_clients.survey_detail_id')
+            ->where('sd.survey_id', $survey->id)
+            ->where('survey_clients.client_id', $clientId)
+            ->get([
+                'survey_clients.survey_detail_id',
+                'survey_clients.answer',
+                'survey_clients.option',
+                'survey_clients.selection_detail_id',
+            ]);
+
+        $mapa = [];
+
+        foreach ($respuestas as $fila) {
+            $opcion = $fila->option;
+
+            if (! is_array($opcion)) {
+                $opcion = json_decode((string) $opcion, true) ?: [];
+            }
+
+            $mapa[(string) $fila->survey_detail_id] = [
+                'answer'              => $fila->answer,
+                'option'              => $opcion,
+                'selection_detail_id' => $fila->selection_detail_id,
+            ];
+        }
+
+        return response()->json([
+            'existe'     => true,
+            'completado' => false,
+            'client_id'  => $clientId,
+            'respuestas' => $mapa,
+        ]);
     }
 
     public function associated($id)
@@ -257,13 +424,27 @@ class SurveyClientController extends Controller
      * El reporte filtra por completed_at IS NOT NULL, así que sin esto NADIE
      * aparecería en los resultados: las 33 respuestas se guardarían y el
      * encuestado seguiría contando como abandono.
+     *
+     * Devuelve true si el encuestado está completo, INCLUSO si ya lo estaba
+     * de antes. Ese true es el que dispara la cookie de bloqueo y tiene que
+     * volver a emitirse aunque completed_at ya estuviera puesto: si no, un
+     * reintento sobre una encuesta ya terminada no repondría la marca.
+     *
+     * OJO: una encuesta SIN preguntas obligatorias nunca marca completed_at
+     * (corta en el `=== 0`). Viene así del sistema original, y como el
+     * bloqueo cuelga de completed_at, esa encuesta tampoco bloquearía el
+     * dispositivo. Todas las cargadas hoy tienen obligatorias.
      */
-    private function marcarSiCompleto(Survey $survey, int $clientId): void
+    private function marcarSiCompleto(Survey $survey, int $clientId): bool
     {
         $client = Client::find($clientId);
 
-        if (! $client || $client->completed_at !== null) {
-            return;
+        if (! $client) {
+            return false;
+        }
+
+        if ($client->completed_at !== null) {
+            return true;
         }
 
         $obligatorias = SurveyDetail::where('survey_id', $survey->id)
@@ -272,7 +453,7 @@ class SurveyClientController extends Controller
             ->count();
 
         if ($obligatorias === 0) {
-            return;
+            return false;
         }
 
         $respondidas = SurveyClient::query()
@@ -290,6 +471,10 @@ class SurveyClientController extends Controller
         if ($respondidas >= $obligatorias) {
             $client->completed_at = now();
             $client->save();
+
+            return true;
         }
+
+        return false;
     }
 }

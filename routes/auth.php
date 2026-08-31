@@ -5,7 +5,6 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
-use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
@@ -97,8 +96,25 @@ Route::middleware('auth')->group(function () {
     //     ->name('password.update');
 
     // 🚪 LOGOUT LOCAL
+    //
+    // Se renombra a 'logout.post'. Antes se llamaba 'logout', igual que el
+    // GET /logout de routes/web.php:117, y dos rutas con el mismo nombre
+    // hacen que `php artisan route:cache` aborte con LogicException: se
+    // rompía el deploy entero por esto.
+    //
+    // No cambia ninguna URL: las dos rutas viven en el URI 'logout' y se
+    // distinguen por verbo, así que `route('logout')` devuelve '/logout' de
+    // las dos formas. Lo único que cambiaba era a cuál de las dos apuntaba
+    // el nombre, y el nombre solo se usa para GENERAR la URL, no para
+    // despachar. El despacho siempre fue por URI + verbo.
+    //
+    // El nombre 'logout' queda en el GET, que es el que usa el menú de
+    // usuario (window.location.href = route('logout')) y el que hace el
+    // logout inteligente con SAML. El POST lo sigue alcanzando
+    // verify-email.tsx, que arma la URL con route('logout') pero manda
+    // method="post": llega igual porque el URI es el mismo.
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-        ->name('logout');
+        ->name('logout.post');
 });
 
 /*

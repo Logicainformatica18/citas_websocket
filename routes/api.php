@@ -6,39 +6,22 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+|
+| Los `use` de App\Http\Controllers\AI\DashboardAIController,
+| App\Http\Controllers\AI\AITrainingController y
+| App\Http\Controllers\CourseController se sacaron junto con sus rutas: las
+| tres clases se borraron en el commit d9d5424 y ya no existen en app/.
+|
+| Un `use` a una clase inexistente no rompe nada por sí solo —PHP no
+| autocarga al aliasear—, pero `php artisan route:list` sí reflexiona sobre
+| cada controlador y ahí tiraba ReflectionException, que además dejaba
+| ciego a `route:list` para TODAS las rutas del proyecto, no solo las rotas.
+|
 */
-use App\Http\Controllers\AI\DashboardAIController;
-use App\Http\Controllers\AI\AITrainingController;
-use App\Http\Controllers\CourseController;
 
-Route::prefix('ai')->group(function () {
-    Route::post('/training/start', [AITrainingController::class, 'startTraining']);
-    Route::post('/training/test', [AITrainingController::class, 'testSql']);
-    Route::post('/training/finalize', [AITrainingController::class, "finalizeTraining"]);
-});
-Route::prefix('ai')->group(function () {
-    Route::get('/suggestions', [DashboardAIController::class, 'suggestions']);
-      Route::post('/chat', [DashboardAIController::class, 'chat']);
-        // 🎙️ Voz → texto (transcripción)
-    Route::post('voice/transcribe', [DashboardAIController::class, 'transcribe']);
-
-    // 🗣️ Texto → voz (TTS)
-    Route::post('voice/speak', [DashboardAIController::class, 'speak']);
-
-    // 📎 Análisis de archivos
-    Route::post('file/analyze', [DashboardAIController::class, 'analyzeFile']);
-});
-Route::get('/courses/list', [CourseController::class, 'listAll']);
 require __DIR__.'/api/auth.php';
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    require __DIR__.'/api/users.php';
-    require __DIR__.'/api/dashboards.php';
-    require __DIR__.'/api/dashboard_widgets.php';
-    require __DIR__.'/api/dashboard_sections.php';
-
-    require __DIR__.'/api/ai_metrics.php';
-    require __DIR__.'/api/ai_sources.php';
     require __DIR__.'/api/misc.php';
 });

@@ -82,9 +82,24 @@ Route::get('/', function () {
 });
 
 // Rendición pública de encuestas
+//
+// El throttle de la creación del cliente pasó de 100,1440 a 30,1.
+//
+// 100,1440 es "100 por día por IP". En ISIL toda la oficina sale por la
+// misma IP corporativa, así que el contador es de la EMPRESA, no de la
+// persona: con 120 colaboradores respondiendo el mismo día, los últimos 20
+// se comen un 429 y no pueden ni empezar. Y el bloqueo dura 24 horas: al
+// día siguiente vuelven a chocar contra el mismo muro si el resto entra
+// primero. Con 30,1 el techo es 30 por MINUTO por IP: una oficina entera
+// entra sin toparse con el límite (30/min son 1800/hora) y un script que
+// quiera inflar `clients` sigue frenado. La ventana de un minuto además se
+// libera sola, así que un pico normal no deja a nadie afuera el resto del
+// día. Ver la nota de duplicados en SurveyClientController: el throttle
+// frena el spam, no la doble respuesta.
 Route::get('/survey/{id}', [SurveyClientController::class, 'show'])->name('public.survey.show');
-Route::post('/survey/{id}/client', [ClientController::class, 'store'])->name('public.survey.client.store')->middleware('throttle:100,1440');
+Route::post('/survey/{id}/client', [ClientController::class, 'store'])->name('public.survey.client.store')->middleware('throttle:30,1');
 Route::post('/survey/{id}/answers', [SurveyClientController::class, 'store'])->name('public.survey.answers.store');
+Route::get('/survey/{id}/answers/{client}', [SurveyClientController::class, 'progress'])->name('public.survey.answers.progress')->whereNumber('client');
 Route::get('/survey/selection-details/{id}/associated', [SurveyClientController::class, 'associated'])->name('public.survey.selection.associated');
 
 /*

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Textarea } from '@/components/ui/Textarea';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Props {
   name: string;
