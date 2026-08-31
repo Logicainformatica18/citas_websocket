@@ -19,6 +19,7 @@ use App\Http\Controllers\SelectionDetailController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\SurveyDetailController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SurveyDashboardController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\SurveyClientController;
 
@@ -212,6 +213,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/surveys', [SurveyController::class, 'index'])->name('surveys.index')->middleware('permission:administrar');
     Route::post('/surveys', [SurveyController::class, 'store'])->name('surveys.store')->middleware('permission:administrar');
     Route::get('/surveys/{id}/report', [ReportController::class, 'index'])->name('surveys.report')->middleware('permission:administrar');
+
+    // Dashboard de resultados. Convive con /report: el reporte es la
+    // planilla cruda (una fila por encuestado) y el dashboard es la
+    // lectura agregada. Los dos comparten los mismos filtros obligatorios
+    // (completed_at IS NOT NULL, answer <> 'no_respondido', visible='yes').
+    //
+    // `open-answers` va con whereNumber en los dos parámetros para que un
+    // id no numérico no llegue al controlador.
+    Route::get('/surveys/{id}/dashboard', [SurveyDashboardController::class, 'index'])->name('surveys.dashboard')->middleware('permission:administrar');
+    Route::get('/surveys/{id}/dashboard/open-answers/{questionId}', [SurveyDashboardController::class, 'openAnswers'])->name('surveys.dashboard.open-answers')->whereNumber('id')->whereNumber('questionId')->middleware('permission:administrar');
+
     Route::get('/surveys/{id}', [SurveyController::class, 'show'])->name('surveys.show')->middleware('permission:administrar');
     Route::put('/surveys/{id}', [SurveyController::class, 'update'])->name('surveys.update')->middleware('permission:administrar');
     Route::delete('/surveys/{id}', [SurveyController::class, 'destroy'])->name('surveys.destroy')->middleware('permission:administrar');
