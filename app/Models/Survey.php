@@ -9,9 +9,16 @@ class Survey extends Model
     protected $fillable = [
         'title', 'description', 'detail', 'front_page', 'visible',
         'email_confirmation', 'password', 'created_by', 'pollster_r',
-        'date_start', 'date_end', 'url', 'type', 'state',
+        'date_start', 'date_end', 'edition', 'url', 'type', 'state',
     ];
 
+    /**
+     * `password` es el código de acceso de la encuesta y está en texto plano.
+     * Las props de Inertia se serializan dentro del HTML de la página, así que
+     * sin este $hidden el código viajaría al navegador de cualquier encuestado.
+     * Ocultarlo no impide leerlo en PHP: ClientController::store() sigue
+     * comparando $survey->password sin problema.
+     */
     protected $hidden = ['password'];
 
     protected $casts = [
