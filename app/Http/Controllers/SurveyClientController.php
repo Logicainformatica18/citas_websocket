@@ -10,6 +10,8 @@ use App\Models\SurveyClient;
 use App\Models\SurveyDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class SurveyClientController extends Controller
@@ -161,15 +163,17 @@ class SurveyClientController extends Controller
         // Es también lo que hace que retomar una encuesta abandonada no
         // duplique nada: el client_id es el mismo y las preguntas que el
         // encuestado ya había pasado se sobrescriben con el mismo valor.
-        SurveyClient::updateOrCreate(
-            [
-                'client_id'        => $data['client_id'],
-                'survey_detail_id' => $question->id,
-            ],
-            $response
-        );
+        $completado = DB::transaction(function () use ($survey, $question, $data, $response) {
+            SurveyClient::updateOrCreate(
+                [
+                    'client_id'        => $data['client_id'],
+                    'survey_detail_id' => $question->id,
+                ],
+                $response
+            );
 
-        $completado = $this->marcarSiCompleto($survey, (int) $data['client_id']);
+            return $this->marcarSiCompleto($survey, (int) $data['client_id']);
+        });
 
         // La marca de bloqueo se emite recién cuando el servidor confirmó que
         // están todas las obligatorias. No cuando el front llega a la última
@@ -425,13 +429,14 @@ class SurveyClientController extends Controller
     }
 
     /**
-     * Marca clients.completed_at cuando el encuestado ya respondió todas las
-     * preguntas obligatorias y visibles de la encuesta.
+    * Marca clients.completed_at cuando el encuestado ya pasó por todas las
+    * preguntas visibles de la encuesta, incluidas las opcionales.
      *
      * Se hace acá y no en un endpoint aparte de "Finalizar" a propósito: si
-     * alguien responde las 30 obligatorias y se le corta la conexión en la
-     * última pantalla, igual queda registrado como completo. Un endpoint
-     * final dependería de que el navegador llegue a hacer ese último POST.
+    * cada pregunta se guarda y se le corta la conexión en la última pantalla,
+    * la encuesta solo queda completa cuando todas las preguntas visibles ya
+    * tienen su fila. Un endpoint final dependería de que el navegador llegue
+    * a hacer ese último POST.
      *
      * El reporte filtra por completed_at IS NOT NULL, así que sin esto NADIE
      * aparecería en los resultados: las 33 respuestas se guardarían y el
@@ -442,10 +447,8 @@ class SurveyClientController extends Controller
      * volver a emitirse aunque completed_at ya estuviera puesto: si no, un
      * reintento sobre una encuesta ya terminada no repondría la marca.
      *
-     * OJO: una encuesta SIN preguntas obligatorias nunca marca completed_at
-     * (corta en el `=== 0`). Viene así del sistema original, y como el
-     * bloqueo cuelga de completed_at, esa encuesta tampoco bloquearía el
-     * dispositivo. Todas las cargadas hoy tienen obligatorias.
+    * Una respuesta opcional vacía también cuenta como pasada: el POST crea la
+    * fila y permite distinguirla de una pregunta que todavía falta.
      */
     private function marcarSiCompleto(Survey $survey, int $clientId): bool
     {
@@ -459,29 +462,24 @@ class SurveyClientController extends Controller
             return true;
         }
 
-        $obligatorias = SurveyDetail::where('survey_id', $survey->id)
-            ->where('requerid', 'yes')
+        $preguntas = SurveyDetail::where('survey_id', $survey->id)
             ->where('visible', 'yes')
             ->count();
 
-        if ($obligatorias === 0) {
+        if ($preguntas === 0) {
             return false;
         }
 
-        $respondidas = SurveyClient::query()
+        $pasadas = SurveyClient::query()
             ->join('survey_details as sd', 'sd.id', '=', 'survey_clients.survey_detail_id')
             ->where('sd.survey_id', $survey->id)
-            ->where('sd.requerid', 'yes')
             ->where('sd.visible', 'yes')
             ->where('survey_clients.client_id', $clientId)
-            ->whereNotNull('survey_clients.answer')
-            ->where('survey_clients.answer', '<>', '')
-            ->where('survey_clients.answer', '<>', 'no_respondido')
             ->distinct()
             ->count('survey_clients.survey_detail_id');
 
-        if ($respondidas >= $obligatorias) {
-            $client->completed_at = now();
+        if ($pasadas >= $preguntas) {
+            $client->completed_at = Carbon::now();
             $client->save();
 
             return true;

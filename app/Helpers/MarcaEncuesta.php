@@ -92,7 +92,9 @@ final class MarcaEncuesta
             name: self::nombreBloqueo($surveyId),
             value: '1',
             minutes: self::VIGENCIA_BLOQUEO,
-            httpOnly: false,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
         );
     }
 
@@ -102,7 +104,9 @@ final class MarcaEncuesta
             name: self::nombreSesion($surveyId),
             value: (string) $clientId,
             minutes: self::VIGENCIA_SESION,
-            httpOnly: false,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
         );
     }
 }
