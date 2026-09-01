@@ -14,9 +14,14 @@ use Illuminate\Validation\ValidationException;
 
 class SurveyClientController extends Controller
 {
+    public function showBySlug(Request $request, $slug)
+    {
+        return $this->show($request, $slug);
+    }
+
     public function show(Request $request, $id)
     {
-        $survey = Survey::findOrFail($id);
+        $survey = $this->resolverEncuesta($id);
 
         // Bloqueo por dispositivo.
         //
@@ -55,7 +60,7 @@ class SurveyClientController extends Controller
 
     public function store(Request $request, $id)
     {
-        $survey = Survey::findOrFail($id);
+        $survey = $this->resolverEncuesta($id);
 
         // El mismo bloqueo que en show(), repetido acá a propósito.
         //
@@ -199,7 +204,7 @@ class SurveyClientController extends Controller
      */
     public function progress(Request $request, $id, $clientId)
     {
-        $survey   = Survey::findOrFail($id);
+        $survey   = $this->resolverEncuesta($id);
         $clientId = (int) $clientId;
 
         // Un dispositivo que ya terminó no necesita retomar nada: se le
@@ -289,6 +294,13 @@ class SurveyClientController extends Controller
                 ->orderBy('description')
                 ->get(),
         ]);
+    }
+
+    private function resolverEncuesta(string $id): Survey
+    {
+        return Survey::where('url', $id)
+            ->orWhere('id', (int) $id)
+            ->firstOrFail();
     }
 
     /* ====================================================================== */

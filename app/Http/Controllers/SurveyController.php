@@ -50,7 +50,7 @@ class SurveyController extends Controller
     public function update(Request $request, $id)
     {
         $survey = Survey::findOrFail($id);
-        $data = $this->validated($request);
+        $data = $this->validated($request, $survey->id);
         $data['created_by'] = Auth::id();
         $frontPage = $this->storeFrontPage($request);
 
@@ -150,9 +150,9 @@ class SurveyController extends Controller
             ->orderBy('surveys.id', 'desc');
     }
 
-    private function validated(Request $request): array
+    private function validated(Request $request, ?int $surveyId = null): array
     {
-        return $request->validate([
+        $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:255',
             'detail' => 'nullable|string',
@@ -163,10 +163,19 @@ class SurveyController extends Controller
             'pollster_r' => 'nullable|integer',
             'date_start' => 'nullable|date',
             'date_end' => 'nullable|date|after_or_equal:date_start',
-            'url' => 'nullable|string|max:255',
             'type' => 'nullable|string|max:255',
             'state' => 'required|in:public,private',
-        ], [
+        ];
+
+        $urlRule = 'nullable|string|max:100|regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/';
+        if ($surveyId !== null) {
+            $urlRule .= '|unique:surveys,url,' . $surveyId;
+        } else {
+            $urlRule .= '|unique:surveys,url';
+        }
+        $rules['url'] = $urlRule;
+
+        return $request->validate($rules, [
             'title.required' => 'El título es obligatorio.',
             'title.max' => 'El título no puede superar los 255 caracteres.',
             'visible.boolean' => 'El campo visible debe ser verdadero o falso.',
@@ -175,6 +184,8 @@ class SurveyController extends Controller
             'front_page.image' => 'El archivo debe ser una imagen.',
             'state.required' => 'Debes elegir si la encuesta es pública o privada.',
             'state.in' => 'El estado debe ser público o privado.',
+            'url.regex' => 'El enlace solo puede contener minúsculas, números y guiones.',
+            'url.unique' => 'Ya existe otra encuesta con ese enlace.',
         ]);
     }
 

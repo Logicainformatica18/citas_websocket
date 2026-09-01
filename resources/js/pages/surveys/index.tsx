@@ -96,6 +96,12 @@ function numero(valor?: number | null) {
     return valor.toLocaleString('es-PE');
 }
 
+function publicSurveyUrl(survey: Survey) {
+    const slug = survey.url?.trim();
+    const path = slug || String(survey.id);
+    return `${window.location.origin}/survey/${path}`;
+}
+
 export default function Surveys() {
     const { surveys: initial } = usePage<{ surveys: Pagination<Survey> }>().props;
 
@@ -486,19 +492,17 @@ export default function Surveys() {
                         <span>Ver preguntas</span>
                     </Link>
 
-                    {surveyDelMenu.url && (
-                        <a
-                            href={surveyDelMenu.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            role="menuitem"
-                            onClick={cerrarMenu}
-                            className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] text-[#516077] transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                        >
-                            <ExternalLink className="h-4 w-4" />
-                            <span>Ver encuesta</span>
-                        </a>
-                    )}
+                    <a
+                        href={publicSurveyUrl(surveyDelMenu)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        role="menuitem"
+                        onClick={cerrarMenu}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] text-[#516077] transition hover:bg-indigo-50 hover:text-indigo-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    >
+                        <ExternalLink className="h-4 w-4" />
+                        <span>Ver encuesta</span>
+                    </a>
 
                     <button
                         type="button"

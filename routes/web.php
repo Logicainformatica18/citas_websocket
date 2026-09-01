@@ -103,6 +103,8 @@ Route::post('/survey/{id}/answers', [SurveyClientController::class, 'store'])->n
 Route::get('/survey/{id}/answers/{client}', [SurveyClientController::class, 'progress'])->name('public.survey.answers.progress')->whereNumber('client');
 Route::get('/survey/selection-details/{id}/associated', [SurveyClientController::class, 'associated'])->name('public.survey.selection.associated');
 
+Route::fallback([SurveyClientController::class, 'showBySlug']);
+
 /*
 |--------------------------------------------------------------------------
 | SAML2
