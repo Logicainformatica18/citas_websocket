@@ -13,6 +13,6 @@ class SurveyClient extends Model
     ];
 
     protected $casts = [
-        'option' => 'array',
+        'option' => 'string',
     ];
 }

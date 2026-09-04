@@ -63,8 +63,8 @@ class SurveyDashboardController extends Controller
      */
     public const MINIMO_CONFIDENCIAL = 5;
 
-    /** Puntaje 1-5 a partir de "4-De acuerdo". */
-    private const PUNTAJE = "CAST(SUBSTRING_INDEX(sc.answer, '-', 1) AS UNSIGNED)";
+    /** Puntaje 1-5. Usa option cuando ya está normalizada y cae al legacy answer como fallback. */
+    private const PUNTAJE = "CAST(COALESCE(NULLIF(sc.option, ''), SUBSTRING_INDEX(sc.answer, '-', 1)) AS UNSIGNED)";
 
     public function index(Request $request, $id)
     {

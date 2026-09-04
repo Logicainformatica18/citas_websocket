@@ -71,6 +71,7 @@ class SurveyDetailController extends Controller
             'detail_2' => 'nullable|string|max:255',
             'detail_3' => 'nullable|string|max:255',
             'type' => 'required|in:short_answer,number,email,date,file,multiple_option,selection',
+            'role' => 'nullable|in:segmento,medicion',
             'option' => 'nullable|array|max:10',
             'option.*' => 'nullable|string|max:255',
             'correct' => 'nullable|string|max:255',
@@ -99,6 +100,7 @@ class SurveyDetailController extends Controller
         $data['enumeration'] = $data['enumeration'] ?? '0';
         $data['initialize'] = $data['initialize'] ?? 'not';
         $data['category'] = $data['category'] ?? 'all';
+        $data['role'] = $data['role'] ?? 'medicion';
         $data['evaluate'] = $data['evaluate'] ?? 'not';
         $data['visible'] = $data['visible'] ?? 'yes';
 

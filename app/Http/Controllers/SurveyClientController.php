@@ -336,32 +336,52 @@ class SurveyClientController extends Controller
             $opciones = json_decode($opciones, true) ?: [];
         }
 
-        $indice = $this->ubicarOpcion($opciones, $selected);   // 1-based, o null
+        $indice = $this->ubicarOpcion($opciones, $selected);
 
         if ($indice === null) {
-            return ['answer' => null, 'option' => []];
+            return ['answer' => null, 'option' => null];
         }
 
-        $texto      = $opciones[$indice - 1];
-        $normalizado = $indice . '-' . $texto;
+        $texto = $opciones[$indice - 1] ?? (string) $indice;
 
-        // Con evaluación, `answer` guarda el puntaje (2 acierto / 0 error) y
-        // la opción elegida queda en `option`. Sin evaluación, `answer`
-        // guarda la opción normalizada. Son dos semánticas distintas en la
-        // misma columna: viene así del sistema original.
         if ($question->evaluate === 'yes') {
             $acierto = (int) $question->correct === $indice;
 
             return [
                 'answer' => $acierto ? '2' : '0',
-                'option' => [$normalizado],
+                'option' => (string) $indice,
             ];
         }
 
         return [
-            'answer' => $normalizado,
-            'option' => [$normalizado],
+            'answer' => $texto,
+            'option' => (string) $indice,
         ];
+    }
+
+    public function normalizarRespuestaOpcion(?string $raw): array
+    {
+        $valor = trim((string) ($raw ?? ''));
+
+        if ($valor === '' || $valor === 'no_respondido') {
+            return ['option' => null, 'answer' => null];
+        }
+
+        if (preg_match('/^(\d+)\s*-\s*(.*)$/u', $valor, $matches)) {
+            $option = trim($matches[1]);
+            $answer = trim($matches[2]);
+
+            return [
+                'option' => $option,
+                'answer' => $answer === '' ? null : $answer,
+            ];
+        }
+
+        if (preg_match('/^\d+$/', $valor)) {
+            return ['option' => $valor, 'answer' => $valor];
+        }
+
+        return ['option' => null, 'answer' => $valor];
     }
 
     /**
@@ -380,7 +400,7 @@ class SurveyClientController extends Controller
         // contenga guiones sigue funcionando porque el limit es 2, pero si
         // el texto EMPIEZA con un número y un guion el parseo se confunde.
         // Por eso después se valida contra el array real.
-        if (preg_match('/^(\d+)-(.*)$/s', $selected, $m)) {
+        if (preg_match('/^(\d+)\s*-\s*(.*)$/u', $selected, $m)) {
             $pos = (int) $m[1];
             if (isset($opciones[$pos - 1])) {
                 return $pos;
