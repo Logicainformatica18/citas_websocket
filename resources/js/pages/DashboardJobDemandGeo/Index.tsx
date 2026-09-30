@@ -1,6 +1,8 @@
 import AppLayout from "@/layouts/app-layout";
 import { Head, usePage } from "@inertiajs/react";
 import { type BreadcrumbItem } from "@/types";
+import { useEffect } from "react";
+import { logVisible } from "@/lib/perf";
 
 /* COMPONENTES */
 import JobDemandGeoHeader from "./components/Header/JobDemandGeoHeader";
@@ -28,6 +30,11 @@ export default function JobDemandGeoIndex() {
         careers = [],
         filters = {},
     } = usePage().props as any;
+
+    // Medición (solo en desarrollo): tiempo hasta que los KPIs aparecen en pantalla.
+    useEffect(() => {
+        if (meta) logVisible("KPIs");
+    }, [meta]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

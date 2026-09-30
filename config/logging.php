@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -30,6 +31,18 @@ return [
     | your application ready for upcoming major versions of dependencies.
     |
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Registro de rendimiento
+    |--------------------------------------------------------------------------
+    |
+    | Activa App\Support\PerformanceTimer (PERFORMANCE_LOG=true en .env).
+    | Debe permanecer desactivado en producción.
+    |
+    */
+
+    'performance_log' => (bool) env('PERFORMANCE_LOG', false),
 
     'deprecations' => [
         'channel' => env('LOG_DEPRECATIONS_CHANNEL', 'null'),
@@ -71,6 +84,18 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+        ],
+
+        // Un registro JSON por petición medida con PerformanceTimer.
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => 'info',
+            'days' => 14,
+            'formatter' => JsonFormatter::class,
+            'formatter_with' => [
+                'appendNewline' => true,
+            ],
         ],
 
         'slack' => [

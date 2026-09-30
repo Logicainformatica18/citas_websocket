@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PerformanceTimer;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -27,11 +28,11 @@ class JobMarketStatusBuilder
         $range = self::getPeriodRange($year, $period);
 
         return [
-            'global'   => self::buildGlobal(),
-            'period'   => self::buildPeriod($range),
-            'scraping' => $mode === 'scraper'
+            'global'   => PerformanceTimer::section('job_market_status.global', fn () => self::buildGlobal()),
+            'period'   => PerformanceTimer::section('job_market_status.period', fn () => self::buildPeriod($range)),
+            'scraping' => PerformanceTimer::section('job_market_status.scraping', fn () => $mode === 'scraper'
                 ? self::buildFromScraper($entity)
-                : self::buildFromMarket(),
+                : self::buildFromMarket()),
         ];
     }
 

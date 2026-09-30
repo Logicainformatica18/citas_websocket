@@ -7,50 +7,44 @@ import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import L from "leaflet";
+import { logRequest } from "@/lib/perf";
 
-/* ================= HEATMAP LAYER ================= */
+/* ================= CONFIGURACIÓN DEL MAPA BASE ================= */
+
+// Mapa base oscuro de Esri (no requiere clave). Reemplaza a CARTO, que ahora exige API key.
+const TILE_URL =
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const TILE_ATTRIBUTION = "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ";
+const TILE_MAX_ZOOM = 16;
+
+const GRADIENT = {
+    0.1: "#1CBCE8",
+    0.3: "#7DD3FC",
+    0.5: "#FACC15",
+    0.7: "#FB923C",
+    1.0: "#EF4444",
+};
+
+/* ================= CAPA DE CALOR ================= */
 
 function GlobalHeatLayer({ data }: { data: any[] }) {
 
     const map = useMap();
     const layerRef = useRef<any>(null);
 
-    const gradient = {
-        0.1: "#1CBCE8",
-        0.3: "#7DD3FC",
-        0.5: "#FACC15",
-        0.7: "#FB923C",
-        1.0: "#EF4444",
-    };
-
+    // Crea la capa una sola vez y la elimina solo al desmontar el mapa
     useEffect(() => {
 
         if (!map) return;
 
-        if (!layerRef.current) {
-
-            // @ts-ignore
-            layerRef.current = L.heatLayer([], {
-                radius: 40,
-                blur: 25,
-                maxZoom: 8,
-                gradient,
-                minOpacity: 0.35,
-            }).addTo(map);
-
-        }
-
-        if (data?.length) {
-
-            const points = data.map((d) => [
-                d.lat,
-                d.lng,
-                d.intensity ?? 0.3,
-            ]);
-
-            layerRef.current.setLatLngs(points);
-
-        }
+        // @ts-ignore
+        layerRef.current = L.heatLayer([], {
+            radius: 40,
+            blur: 25,
+            maxZoom: 8,
+            gradient: GRADIENT,
+            minOpacity: 0.35,
+        }).addTo(map);
 
         return () => {
             if (layerRef.current) {
@@ -59,12 +53,27 @@ function GlobalHeatLayer({ data }: { data: any[] }) {
             }
         };
 
-    }, [map, data]);
+    }, [map]);
+
+    // Actualiza los puntos sin recrear la capa
+    useEffect(() => {
+
+        if (!layerRef.current) return;
+
+        const points = (data ?? []).map((d) => [
+            d.lat,
+            d.lng,
+            d.intensity ?? 0.3,
+        ]);
+
+        layerRef.current.setLatLngs(points);
+
+    }, [data]);
 
     return null;
 }
 
-/* ================= MAP EVENTS ================= */
+/* ================= EVENTOS DEL MAPA ================= */
 
 function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
 
@@ -87,6 +96,7 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
         map.on("moveend", handler);
 
         return () => {
+            clearTimeout(debounceRef.current);
             map.off("zoomend", handler);
             map.off("moveend", handler);
         };
@@ -96,7 +106,7 @@ function MapEvents({ onZoom }: { onZoom: (z: number) => void }) {
     return null;
 }
 
-/* ================= MAIN ================= */
+/* ================= PRINCIPAL ================= */
 
 export default function CityDemandHeatmap() {
 
@@ -105,14 +115,18 @@ export default function CityDemandHeatmap() {
 
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [zoom, setZoom] = useState(5);
 
     const mounted = useRef(false);
     const lastQuery = useRef("");
 
-    /* ================= FETCH ================= */
+    // Función estable para no volver a registrar los eventos del mapa en cada render
+    const handleZoom = useCallback((z: number) => setZoom(z), []);
 
-    const fetchData = useCallback(async () => {
+    /* ================= CARGA DE DATOS ================= */
+
+    const fetchData = useCallback(async (force = false) => {
 
         const queryKey = JSON.stringify({
             year: filters.year,
@@ -122,13 +136,17 @@ export default function CityDemandHeatmap() {
             zoom,
         });
 
-        if (queryKey === lastQuery.current) return;
+        if (!force && queryKey === lastQuery.current) return;
 
         lastQuery.current = queryKey;
+
+        // Medición (solo en desarrollo): duración de la petición del mapa.
+        const startedAt = performance.now();
 
         try {
 
             setLoading(true);
+            setError(null);
 
             const res = await axios.get(
                 "/dashboard/indicators/job-demand-geo/heatmap",
@@ -140,14 +158,26 @@ export default function CityDemandHeatmap() {
                         country: filters.country,
                         zoom,
                     },
+                    timeout: 15000,
                 }
             );
 
             setData(res.data?.results ?? []);
 
+            logRequest("Petición del mapa", startedAt, {
+                zoom,
+                puntos: res.data?.results?.length ?? 0,
+            });
+
         } catch (e) {
 
+            logRequest("Petición del mapa (error)", startedAt, { zoom });
+
             console.error("Error cargando heatmap", e);
+
+            // Permite reintentar la misma consulta
+            lastQuery.current = "";
+            setError("No se pudo cargar el mapa de calor.");
 
         } finally {
 
@@ -157,7 +187,7 @@ export default function CityDemandHeatmap() {
 
     }, [filters.year, filters.period, filters.region, filters.country, zoom]);
 
-    /* ================= LOAD AFTER PAGE ================= */
+    /* ================= CARGA DESPUÉS DE LA PÁGINA ================= */
 
     useEffect(() => {
 
@@ -165,11 +195,11 @@ export default function CityDemandHeatmap() {
 
             mounted.current = true;
 
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 fetchData();
             }, 200);
 
-            return;
+            return () => clearTimeout(timer);
         }
 
         fetchData();
@@ -182,7 +212,7 @@ export default function CityDemandHeatmap() {
 
             <CardContent className="p-6 flex flex-col gap-4">
 
-                {/* HEADER */}
+                {/* ENCABEZADO */}
 
                 <div className="flex items-center gap-3">
 
@@ -196,31 +226,48 @@ export default function CityDemandHeatmap() {
 
                 </div>
 
-                {/* MAP */}
+                {/* MAPA */}
 
                 <div className="relative w-full h-[460px] rounded-xl overflow-hidden">
 
                     <MapContainer
                         center={[-12.0464, -77.0428]}
                         zoom={zoom}
+                        maxZoom={TILE_MAX_ZOOM}
                         style={{ height: "100%", width: "100%" }}
                         scrollWheelZoom
                     >
 
                         <TileLayer
-                            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                            attribution="&copy; OpenStreetMap & CARTO"
+                            url={TILE_URL}
+                            attribution={TILE_ATTRIBUTION}
+                            maxZoom={TILE_MAX_ZOOM}
                         />
 
-                        <MapEvents onZoom={(z) => setZoom(z)} />
+                        <MapEvents onZoom={handleZoom} />
 
                         <GlobalHeatLayer data={data} />
 
                     </MapContainer>
 
+                    {/* Indicador de carga pequeño que no bloquea la interacción con el mapa */}
                     {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm">
+                        <div className="pointer-events-none absolute top-3 right-3 z-[1000] rounded-md bg-black/60 px-3 py-1.5 text-xs text-white">
                             Cargando mapa…
+                        </div>
+                    )}
+
+                    {/* Mensaje de error con opción de reintentar */}
+                    {error && !loading && (
+                        <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 rounded-md bg-red-600/90 px-3 py-1.5 text-xs text-white">
+                            <span>{error}</span>
+                            <button
+                                type="button"
+                                className="rounded bg-white/20 px-2 py-0.5 font-semibold hover:bg-white/30"
+                                onClick={() => fetchData(true)}
+                            >
+                                Reintentar
+                            </button>
                         </div>
                     )}
 
@@ -232,4 +279,3 @@ export default function CityDemandHeatmap() {
 
     );
 }
-
