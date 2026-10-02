@@ -62,6 +62,35 @@ public function index(int $dashboard)
 
 
 
+/**
+ * Ejecuta el SQL de un widget.
+ *
+ * Los SQL de ranking (COUNT DISTINCT, UNION) arman tablas temporales de millones
+ * de filas. Con el límite del servidor (16 MB) MySQL las baja a disco y la consulta
+ * pasa de segundos a minutos. Se amplía el límite solo para esta sesión.
+ *
+ * MySQL usa el menor entre tmp_table_size y max_heap_table_size, por eso se
+ * ajustan ambos. Los valores vienen de config/dashboard_widgets.php (.env).
+ */
+private function runWidgetSql(string $query): array
+{
+    foreach (config('dashboard_widgets.sql_session', []) as $variable => $bytes) {
+        // Solo se aceptan las dos variables conocidas y un entero positivo,
+        // porque el valor se interpola en la sentencia SET.
+        if (!in_array($variable, ['tmp_table_size', 'max_heap_table_size'], true)) {
+            continue;
+        }
+
+        $bytes = (int) $bytes;
+
+        if ($bytes > 0) {
+            DB::statement("SET SESSION {$variable} = {$bytes}");
+        }
+    }
+
+    return DB::select($query);
+}
+
 public function refresh(int $dashboardId, int $widgetId)
 {
     // 1️⃣ Buscar widget
@@ -103,8 +132,8 @@ public function refresh(int $dashboardId, int $widgetId)
         ], 400);
     }
 
-    // 4️⃣ Ejecutar SQL (🔥 AQUÍ ESTÁ LA MAGIA)
-    $rows = DB::select($query);
+    // 4️⃣ Ejecutar SQL
+    $rows = $this->runWidgetSql($query);
 
     $cleanRows = collect($rows)->map(function ($row) {
         $out = [];
@@ -262,7 +291,7 @@ public function storeFromTraining(Request $request, int $dashboard)
         $summary = trim($sqlTraining->summary ?? '');
 
         // 4️⃣ Ejecutar SQL
-        $rows = DB::select($query);
+        $rows = $this->runWidgetSql($query);
 
         $cleanRows = collect($rows)->map(function ($row) {
             return collect($row)->map(function ($v) {

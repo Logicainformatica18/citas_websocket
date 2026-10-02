@@ -37,7 +37,7 @@ export type Suggestion = {
 };
 
 export function useAiChatLogic() {
-const { updateDashboard, refreshDashboard } = useDashboard();
+const { updateDashboard, reloadWidgets } = useDashboard();
 
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -658,8 +658,9 @@ setMessages(prev => [
   { from: "ai", text: message },
 ]);
 
-// 🔥 CLAVE: refrescar dashboard para que aparezca el card
-await refreshDashboard();
+// El widget nuevo ya viene calculado: basta con recargar la lista para que aparezca
+// el card. No se recalculan los demás widgets.
+reloadWidgets();
 
         } catch (err: any) {
             console.error("💥 Error generando gráfico:", err);

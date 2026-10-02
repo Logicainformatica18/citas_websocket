@@ -31,11 +31,15 @@ updateDashboard: (
   /** 🔄 REFRESH DASHBOARD */
   refreshKey: number;
   isRefreshing: boolean;
-  refreshDashboard: () => void;
+  refreshDashboard: () => Promise<void>;
+  reloadWidgets: () => void;
   stopRefreshing: () => void;
 };
 
  
+
+/** Cuántos widgets se recalculan a la vez; más saturaría MySQL con SQL pesados. */
+const REFRESH_CONCURRENCY = 3;
 
 const DashboardContext = createContext<DashboardContextType | undefined>(
   undefined
@@ -92,12 +96,21 @@ const refreshDashboard = async () => {
 
     const widgets = res.data.widgets || [];
 
-    // 2️⃣ Recalcular uno por uno (MISMO refresh)
-    for (const w of widgets) {
-      await axios.post(
-        `/api/ai/dashboards/${activeDashboard.id}/widgets/${w.id}/refresh`
-      );
-    }
+    // 2️⃣ Recalcular en paralelo, de a REFRESH_CONCURRENCY a la vez. En serie, el
+    // tiempo total era la suma de todos los widgets; así queda cerca del más lento.
+    // allSettled: si un widget falla, los demás igual se recalculan.
+    const queue = [...widgets];
+    const worker = async () => {
+      while (queue.length > 0) {
+        const w = queue.shift();
+        await axios
+          .post(`/api/ai/dashboards/${activeDashboard.id}/widgets/${w.id}/refresh`)
+          .catch((err) => console.error(`Error recalculando widget ${w.id}`, err));
+      }
+    };
+    await Promise.allSettled(
+      Array.from({ length: Math.min(REFRESH_CONCURRENCY, widgets.length) }, worker)
+    );
 
     // 3️⃣ Forzar reload visual
     setRefreshKey((k) => k + 1);
@@ -106,6 +119,10 @@ const refreshDashboard = async () => {
     setIsRefreshing(false);
   }
 };
+
+  /** ===== 🔁 RECARGAR SIN RECALCULAR ===== */
+  // Vuelve a leer los widgets con los datos ya guardados, sin ejecutar sus SQL.
+  const reloadWidgets = () => setRefreshKey((k) => k + 1);
 
 
   const stopRefreshing = () => {
@@ -122,6 +139,7 @@ const refreshDashboard = async () => {
         refreshKey,
         isRefreshing,
         refreshDashboard,
+        reloadWidgets,
         stopRefreshing,
       }}
     >
