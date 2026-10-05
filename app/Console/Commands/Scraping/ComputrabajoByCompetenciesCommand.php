@@ -10,6 +10,7 @@ use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
+use App\Helpers\ComputrabajoHelper;
 use App\Helpers\RegionHelper;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 IMPORTANTE
 
@@ -42,8 +43,6 @@ class ComputrabajoByCompetenciesCommand extends Command
         've' => 'VES',
     ];
 
-    const DEFAULT_LAT = -12.046374;
-    const DEFAULT_LNG = -77.042793;
 
     public function handle()
     {
@@ -109,10 +108,10 @@ class ComputrabajoByCompetenciesCommand extends Command
                                     : null;
 
                                 $href = $offer->filter('h2 a')->attr('href');
-                                $jobUrl = "https://{$code}.computrabajo.com" . $href;
+                                $jobUrl = ComputrabajoHelper::canonicalUrl("https://{$code}.computrabajo.com" . $href);
 
                                 $city = $this->extractCityFromUrl($jobUrl);
-                                [$lat, $lng] = $this->getCoords($city, $country);
+                                [, $lat, $lng] = ComputrabajoHelper::coords($city, $country, $code);
 
                                 $modality = $this->detectModality($title . ' ' . $city);
 
@@ -130,7 +129,8 @@ class ComputrabajoByCompetenciesCommand extends Command
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                                 // DUPLICADOS
-                                $existing = JobOffer::where('source', 'Computrabajo')
+                                $existing = JobOffer::where('url', $jobUrl)->first()
+                                    ?? JobOffer::where('source', 'Computrabajo')
                                     ->where('title', $title)
                                     ->where('company', $company)
                                     ->where('search_query', $comp->name)
@@ -242,23 +242,6 @@ class ComputrabajoByCompetenciesCommand extends Command
         };
     }
 
-    protected function getCoords($city, $country)
-    {
-        try {
-            $resp = Http::timeout(10)->get('https://nominatim.openstreetmap.org/search', [
-                'q' => "{$city}, {$country}",
-                'format' => 'json',
-                'limit' => 1,
-            ]);
-
-            if ($resp->ok() && count($resp->json()) > 0) {
-                $geo = $resp->json()[0];
-                return [(float)$geo['lat'], (float)$geo['lon']];
-            }
-        } catch (\Throwable $e) {}
-
-        return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-    }
 
     protected function parseSalary($text, $code)
     {

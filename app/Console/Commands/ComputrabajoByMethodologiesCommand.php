@@ -11,6 +11,7 @@ use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
+use App\Helpers\ComputrabajoHelper;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
@@ -32,8 +33,6 @@ class ComputrabajoByMethodologiesCommand extends Command
         've' => 'Venezuela',
     ];
 
-    const DEFAULT_LAT = -12.046374;
-    const DEFAULT_LNG = -77.042793;
 
    public function handle()
 {
@@ -163,10 +162,10 @@ $connectionOk = true;
                                     : null;
 
                                 $href   = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com{$href}";
+                                $urlJob = ComputrabajoHelper::canonicalUrl("https://{$code}.computrabajo.com{$href}");
 
                                 $city = $this->extractCityFromUrl($urlJob);
-                                [$lat, $lng] = $this->getCoords($city, $country);
+                                [, $lat, $lng] = ComputrabajoHelper::coords($city, $country, $code);
 
                                 $modality = $this->mapModality($title . ' ' . $city);
 
@@ -175,7 +174,8 @@ $connectionOk = true;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                                 // 🔍 Duplicado
-                                $existingOffer = JobOffer::where('source', 'Computrabajo')
+                                $existingOffer = JobOffer::where('url', $urlJob)->first()
+                                    ?? JobOffer::where('source', 'Computrabajo')
                                     ->whereRaw('LOWER(title) = ?', [strtolower($title)])
                                     ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
                                     ->where('country', $country)
@@ -372,27 +372,4 @@ SourceStatusService::success(
 }
 
 
-    protected function getCoords($city, $country)
-    {
-        if (!$city || strtolower($city) === 'remote') {
-            return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-        }
-
-        try {
-            $res = Http::timeout(10)->get('https://nominatim.openstreetmap.org/search', [
-                'q' => "$city, $country",
-                'format' => 'json',
-                'limit' => 1,
-            ]);
-
-            if ($res->ok() && count($res->json()) > 0) {
-                $data = $res->json()[0];
-                return [(float) $data['lat'], (float) $data['lon']];
-            }
-        } catch (\Throwable $th) {
-            Log::warning("⚠️ Error Nominatim {$city}: " . $th->getMessage());
-        }
-
-        return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-    }
 }

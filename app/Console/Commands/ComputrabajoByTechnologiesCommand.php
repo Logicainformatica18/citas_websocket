@@ -10,7 +10,7 @@ use Carbon\Carbon;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
-use App\Models\City;
+use App\Helpers\ComputrabajoHelper;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
@@ -156,11 +156,11 @@ $connectionOk = true;
                                     : null;
 
                                 $href   = $offer->filter('h2 a')->attr('href');
-                                $urlJob = "https://{$code}.computrabajo.com{$href}";
+                                $urlJob = ComputrabajoHelper::canonicalUrl("https://{$code}.computrabajo.com{$href}");
 
                                 $city = $this->extractCityFromUrl($urlJob);
                                // El país siempre es el del dominio ({$code}.computrabajo.com)
-                               [$city, $lat, $lng] = $this->getCoords($city, $country, $code);
+                               [$city, $lat, $lng] = ComputrabajoHelper::coords($city, $country, $code);
                                $countryName = $country;
 
 // 🌎 Normaliza país (ANTES de usarlo)
@@ -184,7 +184,8 @@ $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                 $modalities[$modality] = ($modalities[$modality] ?? 0) + 1;
 
                                 // 🔍 Duplicado
-                                $existingOffer = JobOffer::where('source', 'Computrabajo')
+                                $existingOffer = JobOffer::where('url', $urlJob)->first()
+                                    ?? JobOffer::where('source', 'Computrabajo')
                                     ->whereRaw('LOWER(title) = ?', [strtolower($title)])
                                     ->whereRaw('LOWER(IFNULL(company, "")) = ?', [strtolower($company ?? '')])
                                     ->where('country', $countryName)
@@ -372,42 +373,4 @@ SourceStatusService::success(
     return 'no_precisa';
 }
 
-    /**
-     * Busca la ciudad solo dentro del país del dominio ($code = iso2).
-     * Si no la encuentra, devuelve coordenadas vacías en lugar de las de otro país.
-     */
-    protected function getCoords($city, $country, $code)
-    {
-        if (!$city || strtolower($city) === 'remote') {
-            return [$city, null, null];
-        }
-
-        try {
-            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
-                ->whereRaw('LOWER(iso2) = ?', [strtolower($code)])
-                ->first();
-
-            if ($found) {
-                return [$found->city, $found->lat, $found->lng];
-            }
-
-            $res = Http::withHeaders(['User-Agent' => 'LaravelJobScraper/1.0'])
-                ->timeout(10)
-                ->get('https://nominatim.openstreetmap.org/search', [
-                    'q' => "$city, $country",
-                    'countrycodes' => strtolower($code),
-                    'format' => 'json',
-                    'limit' => 1,
-                ]);
-
-            if ($res->ok() && count($res->json()) > 0) {
-                $data = $res->json()[0];
-                return [$city, (float) $data['lat'], (float) $data['lon']];
-            }
-        } catch (\Throwable $th) {
-            Log::warning("⚠️ Error Nominatim {$city}: " . $th->getMessage());
-        }
-
-        return [$city, null, null];
-    }
 }

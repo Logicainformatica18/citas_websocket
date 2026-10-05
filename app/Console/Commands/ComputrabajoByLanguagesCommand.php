@@ -12,6 +12,7 @@ use App\Models\JobOffer;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait; // 👈 importa el trait
+use App\Helpers\ComputrabajoHelper;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Models\MarketEntity;
@@ -45,19 +46,10 @@ class ComputrabajoByLanguagesCommand extends Command
         've' => 'VES',
     ];
 
-    const DEFAULT_LAT = -12.046374;
-    const DEFAULT_LNG = -77.042793;
 
 protected function normalizeUrl(string $url): string
 {
-    // quitar hash (#)
-    $url = explode('#', $url)[0];
-
-    // quitar query params (por si acaso)
-    $url = explode('?', $url)[0];
-
-    // limpiar slash final
-    return rtrim($url, '/');
+    return ComputrabajoHelper::canonicalUrl($url);
 }
     protected function scrapeJobDetail(string $url): array
 {
@@ -255,7 +247,7 @@ $urlJob = $this->normalizeUrl($urlJob);
 
                                 // 📍 ubicación
                                 $city = $this->extractCityFromUrl($urlJob);
-                                [$lat, $lng] = $this->getCoords($city, $country);
+                                [, $lat, $lng] = ComputrabajoHelper::coords($city, $country, $code);
 
                                 // 🧭 modalidad
                                 $text = strtolower($title . ' ' . $city);
@@ -490,31 +482,6 @@ SourceStatusService::success(
     }
 
 
-    protected function getCoords($city, $country)
-    {
-        if (!$city || strtolower($city) === 'remote') {
-            return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-        }
-
-        try {
-            $res = Http::withHeaders([
-                'User-Agent' => 'LaravelJobScraper/1.0'
-            ])->timeout(10)->get('https://nominatim.openstreetmap.org/search', [
-                        'q' => "$city, $country",
-                        'format' => 'json',
-                        'limit' => 1,
-                    ]);
-
-            if ($res->ok() && count($res->json()) > 0) {
-                $data = $res->json()[0];
-                return [(float) $data['lat'], (float) $data['lon']];
-            }
-        } catch (\Throwable $th) {
-            Log::warning("⚠️ Error Nominatim {$city}: " . $th->getMessage());
-        }
-
-        return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-    }
     protected function parseSalary(?string $text, ?string $countryCode): array
     {
         if (!$text)

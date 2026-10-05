@@ -11,6 +11,7 @@ use App\Models\CertificationMetric;
 use Symfony\Component\DomCrawler\Crawler;
 use Carbon\Carbon;
 use App\Console\Commands\Traits\JobFilterTrait;
+use App\Helpers\ComputrabajoHelper;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
@@ -49,8 +50,6 @@ class ComputrabajoByCertificationsCommand extends Command
         've' => 'VES',
     ];
 
-    const DEFAULT_LAT = -12.046374;
-    const DEFAULT_LNG = -77.042793;
 
    public function handle()
 {
@@ -253,18 +252,19 @@ class ComputrabajoByCertificationsCommand extends Command
                                 ->filter('h2 a')
                                 ->attr('href');
 
-                            $urlJob =
-                                "https://{$code}.computrabajo.com{$href}";
+                            $urlJob = ComputrabajoHelper::canonicalUrl(
+                                "https://{$code}.computrabajo.com{$href}"
+                            );
 
                             $city = $this->extractCityFromUrl(
                                 $urlJob
                             );
 
-                            [$lat, $lng] =
-                                $this->getCoords(
-                                    $city,
-                                    $country
-                                );
+                            [, $lat, $lng] = ComputrabajoHelper::coords(
+                                $city,
+                                $country,
+                                $code
+                            );
 
                             $modality =
                                 $this->mapModality(
@@ -522,10 +522,6 @@ class ComputrabajoByCertificationsCommand extends Command
         return 'Remote';
     }
 
-    protected function getCoords(string $city, string $country): array
-    {
-        return [self::DEFAULT_LAT, self::DEFAULT_LNG];
-    }
 
     protected function parseSalary(?string $text, string $countryCode): array
     {
