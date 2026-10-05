@@ -66,29 +66,55 @@ public function index(int $dashboard)
  * Ejecuta el SQL de un widget.
  *
  * Los SQL de ranking (COUNT DISTINCT, UNION) arman tablas temporales de millones
- * de filas. Con el límite del servidor (16 MB) MySQL las baja a disco y la consulta
- * pasa de segundos a minutos. Se amplía el límite solo para esta sesión.
+ * de filas. Si superan el límite, MySQL las baja a disco y la consulta tarda el
+ * doble o más. Se amplía el límite solo para esta sesión.
  *
- * MySQL usa el menor entre tmp_table_size y max_heap_table_size, por eso se
- * ajustan ambos. Los valores vienen de config/dashboard_widgets.php (.env).
+ * Con el motor TempTable (MySQL 8) el límite es tmp_table_size; con el motor
+ * MEMORY rige el menor entre tmp_table_size y max_heap_table_size. Se ajustan
+ * ambos para cubrir los dos casos. Los valores vienen de
+ * config/dashboard_widgets.php (.env).
+ *
+ * Los valores originales se restauran al terminar, aunque la consulta falle:
+ * en workers de colas u Octane la conexión se reutiliza y el cambio quedaría
+ * vigente para las consultas siguientes.
  */
 private function runWidgetSql(string $query): array
 {
-    foreach (config('dashboard_widgets.sql_session', []) as $variable => $bytes) {
-        // Solo se aceptan las dos variables conocidas y un entero positivo,
-        // porque el valor se interpola en la sentencia SET.
-        if (!in_array($variable, ['tmp_table_size', 'max_heap_table_size'], true)) {
-            continue;
-        }
+    // Solo se aceptan las dos variables conocidas y un entero positivo, porque
+    // el valor se interpola en la sentencia SET.
+    $nuevos = collect(config('dashboard_widgets.sql_session', []))
+        ->only(['tmp_table_size', 'max_heap_table_size'])
+        ->map(fn ($bytes) => (int) $bytes)
+        ->filter(fn (int $bytes) => $bytes > 0);
 
-        $bytes = (int) $bytes;
-
-        if ($bytes > 0) {
-            DB::statement("SET SESSION {$variable} = {$bytes}");
-        }
+    if ($nuevos->isEmpty()) {
+        return DB::select($query);
     }
 
-    return DB::select($query);
+    $originales = (array) DB::selectOne(
+        'SELECT ' . $nuevos->keys()->map(fn ($v) => "@@SESSION.{$v} AS {$v}")->implode(', ')
+    );
+
+    try {
+        foreach ($nuevos as $variable => $bytes) {
+            DB::statement("SET SESSION {$variable} = {$bytes}");
+        }
+
+        return DB::select($query);
+    } finally {
+        // Si la restauración falla (por ejemplo, se perdió la conexión) solo se
+        // registra, para no ocultar la excepción original de la consulta.
+        try {
+            foreach ($originales as $variable => $bytes) {
+                DB::statement("SET SESSION {$variable} = " . (int) $bytes);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('No se pudieron restaurar las variables de sesión del widget', [
+                'originales' => $originales,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
 }
 
 public function refresh(int $dashboardId, int $widgetId)
