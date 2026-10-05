@@ -96,8 +96,8 @@ class USAJOBSByCompetenciesCommand extends Command
 
                     $cityMatch = null;
                     if ($locationRaw) {
-                        $cityMatch = City::whereRaw("LOWER(city_ascii) = ?", [strtolower($locationRaw)])
-                            ->orWhereRaw("LOWER(city) = ?", [strtolower($locationRaw)])
+                        $cityMatch = City::where(fn ($q) => $q->whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)]))
+                            ->where('iso2', 'US')
                             ->first();
                     }
 

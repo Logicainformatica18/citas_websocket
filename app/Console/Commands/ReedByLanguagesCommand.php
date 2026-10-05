@@ -136,8 +136,8 @@ public function handle()
 
                     $locationRaw = $job['locationName'] ?? null;
 
-                    $cityMatch = City::where('city_ascii', $locationRaw)
-                        ->orWhere('city', $locationRaw)
+                    $cityMatch = City::where(fn ($q) => $q->where('city_ascii', $locationRaw)->orWhere('city', $locationRaw))
+                        ->where('iso2', $countryIso)
                         ->first();
 
                     if ($cityMatch) {

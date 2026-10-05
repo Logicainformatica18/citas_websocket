@@ -87,8 +87,8 @@ class ReedByCompetenciesCommand extends Command
 
                 // 🏙 UBICACIÓN → BÚSQUEDA CITY
                 $locationRaw = trim($job['locationName'] ?? '');
-                $cityMatch = City::whereRaw('LOWER(city_ascii) = ?', strtolower($locationRaw))
-                    ->orWhereRaw('LOWER(city) = ?', strtolower($locationRaw))
+                $cityMatch = City::where(fn ($q) => $q->whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)]))
+                    ->where('iso2', $countryIso)
                     ->first();
 
                 if ($cityMatch) {

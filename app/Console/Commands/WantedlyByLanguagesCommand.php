@@ -311,7 +311,9 @@ public function handle()
 
     protected function getCoordsFromCountry(?string $city, ?string $countryCode)
     {
-        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city ?? '')])->first();
+        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city ?? '')])
+            ->whereRaw('LOWER(iso2) = ?', [strtolower($countryCode ?? '')])
+            ->first();
         return $found ? [$found->city, $found->lat, $found->lng] : [$city, null, null];
     }
     protected function translateText(string $text, string $source, string $target): ?string

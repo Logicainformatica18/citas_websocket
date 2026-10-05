@@ -222,14 +222,11 @@ class ReedByCertificationsCommand extends Command
                             ?? null;
 
                         $cityMatch =
-                            City::where(
-                                'city_ascii',
-                                $locationRaw
+                            City::where(fn ($q) =>
+                                $q->where('city_ascii', $locationRaw)
+                                  ->orWhere('city', $locationRaw)
                             )
-                            ->orWhere(
-                                'city',
-                                $locationRaw
-                            )
+                            ->where('iso2', $countryIso)
                             ->first();
 
                         if ($cityMatch) {

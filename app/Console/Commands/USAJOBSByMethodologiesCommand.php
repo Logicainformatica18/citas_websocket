@@ -122,8 +122,8 @@ class USAJOBSByMethodologiesCommand extends Command
                     $locationRaw = $job['PositionLocation'][0]['LocationName'] ?? null;
 
                     $cityMatch = $locationRaw
-                        ? City::whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])
-                            ->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)])
+                        ? City::where(fn ($q) => $q->whereRaw('LOWER(city_ascii) = ?', [strtolower($locationRaw)])->orWhereRaw('LOWER(city) = ?', [strtolower($locationRaw)]))
+                            ->where('iso2', 'US')
                             ->first()
                         : null;
 

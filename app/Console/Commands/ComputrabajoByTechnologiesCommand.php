@@ -19,7 +19,7 @@ use App\Services\SourceStatusService;
 class ComputrabajoByTechnologiesCommand extends Command
 {
      use JobFilterTrait; // 👈 usa el trait aquí
-    protected $signature = 'computrabajo:technologies {--country=} {--pages=3}';
+    protected $signature = 'computrabajo:technologies {--country=} {--pages=3} {--tech=}';
     protected $description = '🌎 Scrapea Computrabajo por tecnología y registra métricas en technology_metrics con geolocalización.';
 
     protected $countryMap = [
@@ -33,9 +33,6 @@ class ComputrabajoByTechnologiesCommand extends Command
         've' => 'Venezuela',
           'cl' => 'Chile',
     ];
-
-    const DEFAULT_LAT = -12.046374;
-    const DEFAULT_LNG = -77.042793;
 
   public function handle()
 {
@@ -85,7 +82,9 @@ $startedAt = now();
             $q->select('course_technology.technology_id')
               ->from('course_technology')
               ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');
-        })->pluck('name', 'id');
+        })
+        ->when($this->option('tech'), fn ($q, $tech) => $q->whereIn('name', array_map('trim', explode(',', $tech))))
+        ->pluck('name', 'id');
 
         $this->info(
             "🌎 Scrapeando " . count($technologies) .
@@ -160,7 +159,9 @@ $connectionOk = true;
                                 $urlJob = "https://{$code}.computrabajo.com{$href}";
 
                                 $city = $this->extractCityFromUrl($urlJob);
-                               [$city, $lat, $lng, $countryName] = $this->getCoords($city, $country);
+                               // El país siempre es el del dominio ({$code}.computrabajo.com)
+                               [$city, $lat, $lng] = $this->getCoords($city, $country, $code);
+                               $countryName = $country;
 
 // 🌎 Normaliza país (ANTES de usarlo)
 $countryName = match (strtolower($countryName)) {
@@ -371,35 +372,42 @@ SourceStatusService::success(
     return 'no_precisa';
 }
 
-    protected function getCoords($city, $country)
+    /**
+     * Busca la ciudad solo dentro del país del dominio ($code = iso2).
+     * Si no la encuentra, devuelve coordenadas vacías en lugar de las de otro país.
+     */
+    protected function getCoords($city, $country, $code)
     {
         if (!$city || strtolower($city) === 'remote') {
-            return [$city, self::DEFAULT_LAT, self::DEFAULT_LNG, $country];
+            return [$city, null, null];
         }
 
         try {
-            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->first();
+            $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])
+                ->whereRaw('LOWER(iso2) = ?', [strtolower($code)])
+                ->first();
 
             if ($found) {
-                return [$found->city, $found->lat, $found->lng, $found->country];
+                return [$found->city, $found->lat, $found->lng];
             }
 
             $res = Http::withHeaders(['User-Agent' => 'LaravelJobScraper/1.0'])
                 ->timeout(10)
                 ->get('https://nominatim.openstreetmap.org/search', [
                     'q' => "$city, $country",
+                    'countrycodes' => strtolower($code),
                     'format' => 'json',
                     'limit' => 1,
                 ]);
 
             if ($res->ok() && count($res->json()) > 0) {
                 $data = $res->json()[0];
-                return [$city, (float) $data['lat'], (float) $data['lon'], $country];
+                return [$city, (float) $data['lat'], (float) $data['lon']];
             }
         } catch (\Throwable $th) {
             Log::warning("⚠️ Error Nominatim {$city}: " . $th->getMessage());
         }
 
-        return [$city, self::DEFAULT_LAT, self::DEFAULT_LNG, $country];
+        return [$city, null, null];
     }
 }

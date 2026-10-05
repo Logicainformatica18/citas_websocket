@@ -254,6 +254,7 @@ class WantedlyByCompetenciesCommand extends Command
     protected function getCoordsFromCountry(?string $city, string $iso)
     {
         $found = City::whereRaw("LOWER(city_ascii)=?", [strtolower($city)])
+            ->whereRaw('LOWER(iso2) = ?', [strtolower($iso)])
             ->first();
 
         if ($found) {

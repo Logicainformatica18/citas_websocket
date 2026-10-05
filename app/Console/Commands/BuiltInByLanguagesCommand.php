@@ -76,8 +76,9 @@ class BuiltInByLanguagesCommand extends Command
                 }
 
                 // 🌍 Geolocalización básica
-                $cityMatch = City::whereRaw("LOWER(city_ascii)=?", [strtolower($location)])
-                    ->orWhereRaw("LOWER(city)=?", [strtolower($location)])
+                // BuiltIn solo publica ofertas de EE. UU.
+                $cityMatch = City::where(fn ($q) => $q->whereRaw("LOWER(city_ascii)=?", [strtolower($location)])->orWhereRaw("LOWER(city)=?", [strtolower($location)]))
+                    ->where('iso2', 'US')
                     ->first();
 
                 if ($cityMatch) {

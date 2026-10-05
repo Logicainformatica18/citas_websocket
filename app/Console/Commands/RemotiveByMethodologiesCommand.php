@@ -274,7 +274,9 @@ class RemotiveByMethodologiesCommand extends Command
             return [null, null, null];
         }
 
-        $found = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->first();
+        // Remotive no entrega iso2: solo se acepta la ciudad si su nombre existe en un único país
+        $matches = City::whereRaw('LOWER(city_ascii) = ?', [strtolower($city)])->get();
+        $found = $matches->pluck('iso2')->unique()->count() === 1 ? $matches->first() : null;
 
         if ($found) {
             $this->stats['mapped']++;
