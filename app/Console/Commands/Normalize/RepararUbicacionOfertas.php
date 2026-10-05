@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Normalize;
 
+use App\Helpers\ComputrabajoHelper;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,8 @@ use RuntimeException;
  * - Solo se tocan URL cuyo subdominio figura en DOMINIOS; el resto se ignora.
  * - La ciudad se busca solo dentro del país del dominio. Si no se encuentra,
  *   las coordenadas quedan vacías en lugar de tomar las de otro país.
+ * - Con --geocodificar, las que siguen sin coordenadas se consultan en Nominatim,
+ *   también restringido al país (countrycodes) y a una petición por segundo.
  * - Antes de escribir se guarda un respaldo JSON; si un solo registro cambió
  *   entre la lectura y la escritura, no se modifica nada.
  */
@@ -29,6 +32,8 @@ class RepararUbicacionOfertas extends Command
                             {--dry-run : Muestra qué ofertas cambiarían, sin escribir nada}
                             {--rollback : Restaura la ubicación anterior desde un respaldo}
                             {--backup= : Archivo de respaldo a restaurar con --rollback (por defecto, el más reciente)}
+                            {--geocodificar : Para las ofertas sin coordenadas, consulta Nominatim restringido al país (1 petición/s)}
+                            {--limite=0 : Con --geocodificar, máximo de ofertas sin coordenadas a geocodificar (0 = todas)}
                             {--force : No pide confirmación antes de escribir}';
 
     protected $description = 'Corrige país, región y coordenadas de las ofertas de Computrabajo según el dominio de su URL';
@@ -73,6 +78,10 @@ class RepararUbicacionOfertas extends Command
     private function aplicar(): int
     {
         $cambios = $this->calcularCambios();
+
+        if ($this->option('geocodificar')) {
+            $cambios = $this->geocodificar($cambios);
+        }
 
         if ($cambios->isEmpty()) {
             $this->info('Todas las ofertas de Computrabajo tienen el país de su dominio. No hay nada que hacer.');
@@ -130,6 +139,7 @@ class RepararUbicacionOfertas extends Command
                     'url'     => $o->url,
                     'city'    => $o->city,
                     'dominio' => "{$sub}.computrabajo.com",
+                    'iso2'    => $iso2,
                     'antes'   => collect(self::CAMPOS)->mapWithKeys(fn ($c) => [$c => $o->{$c}])->all(),
                     'despues' => [
                         'country'           => $pais,
@@ -141,6 +151,56 @@ class RepararUbicacionOfertas extends Command
                 ]);
             }
         }
+
+        return $cambios;
+    }
+
+    /**
+     * Completa con Nominatim las coordenadas que el catálogo cities no resolvió.
+     * Se consulta una vez por ciudad y país; si no hay resultado, siguen vacías.
+     */
+    private function geocodificar(Collection $cambios): Collection
+    {
+        $pendientes = $cambios->filter(fn ($c) => $c['despues']['latitude'] === null
+            && trim((string) $c['city']) !== ''
+            && strtolower((string) $c['city']) !== 'remote');
+
+        if (($limite = (int) $this->option('limite')) > 0) {
+            $pendientes = $pendientes->take($limite);
+        }
+
+        $ciudades = $pendientes->unique(fn ($c) => $c['iso2'] . '|' . mb_strtolower($c['city']));
+        $this->info("Geocodificando {$pendientes->count()} oferta(s) sin coordenadas: {$ciudades->count()} consulta(s) a Nominatim (~{$ciudades->count()} s)…");
+
+        $resultados = [];
+        $this->withProgressBar($ciudades, function ($c) use (&$resultados) {
+            $resultados[$c['iso2'] . '|' . mb_strtolower($c['city'])] = ComputrabajoHelper::geocode($c['city'], $c['despues']['country'], $c['iso2']);
+        });
+        $this->newLine(2);
+
+        $ids = $pendientes->pluck('id')->flip();
+
+        $cambios = $cambios->map(function ($c) use ($ids, $resultados) {
+            if (!$ids->has($c['id'])) {
+                return $c;
+            }
+
+            $geo = $resultados[$c['iso2'] . '|' . mb_strtolower($c['city'])] ?? null;
+            $c['despues']['latitude']  = $geo['lat'] ?? null;
+            $c['despues']['longitude'] = $geo['lng'] ?? null;
+            $c['geocodificado']        = $geo['display_name'] ?? null;
+
+            return $c;
+        });
+
+        $this->table(
+            ['Oferta', 'Ciudad', 'País nuevo', 'Lat', 'Lng', 'Resultado de Nominatim'],
+            $cambios->filter(fn ($c) => $ids->has($c['id']))->map(fn ($c) => [
+                $c['id'], $c['city'], $c['despues']['country'],
+                $c['despues']['latitude'] ?? '—', $c['despues']['longitude'] ?? '—',
+                $c['geocodificado'] ? mb_strimwidth($c['geocodificado'], 0, 70, '…') : 'no encontrada',
+            ])->values()->all()
+        );
 
         return $cambios;
     }
