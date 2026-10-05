@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AITraining;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http; // también te falta este para las llamadas a OpenAI
 use Illuminate\Support\Facades\Log;
@@ -335,8 +336,12 @@ course_methodology.course_id → courses.id
 
 📌 Relación Geográfica:
 
-job_offers.city → cities.city
-job_offers.country → cities.country
+job_offers NO tiene city_id, country_id ni region_id: la ubicación es texto en la misma tabla.
+País → job_offers.country (filtrar directamente, sin usar cities)
+Ciudad → job_offers.city (texto libre con variantes; usar LIKE)
+Macrorregión → job_offers.region ('Latinoamérica', 'Europa', 'Norteamérica', ...)
+cities es solo un catálogo de coordenadas (sin columna name); unir únicamente si se piden lat/lng o población:
+cities.city = job_offers.city AND cities.country = job_offers.country
 
 📌 Relación Tendencias:
 
@@ -344,6 +349,18 @@ entity_trends.market_entity_id → market_entities.id
 macro_trend_entity_trend.macro_trend_id → macro_trends.id
 macro_trend_entity_trend.entity_trend_id → entity_trends.id
 ";
+
+            // Valores reales de job_offers.country (mezclan español e inglés)
+            $countryList = Cache::remember('vera_sql_countries', now()->addHours(24), fn () =>
+                DB::table('job_offers')
+                    ->select('country')
+                    ->distinct()
+                    ->whereNotNull('country')
+                    ->where('country', '<>', '')
+                    ->orderBy('country')
+                    ->pluck('country')
+                    ->implode(', ')
+            );
 
 
             // ============================================================
@@ -558,6 +575,55 @@ usa:
 YEAR(job_offers.published_at) = YEAR(CURDATE())
 
 Si el usuario no menciona año, no agregues filtro de fecha.
+
+================================
+UBICACIÓN DE LAS OFERTAS (PAÍS, CIUDAD, REGIÓN)
+================================
+
+job_offers NO tiene city_id, country_id ni region_id. La ubicación se guarda como texto en la misma tabla:
+- job_offers.country  → país
+- job_offers.city     → ciudad (texto libre; puede tener variantes: 'Bogotá', 'Bogota Dc')
+- job_offers.region   → macrorregión ('Latinoamérica', 'Europa', 'Norteamérica', 'Asia', 'Oceanía', 'África')
+
+Reglas:
+1. Para filtrar por país usa siempre job_offers.country = 'País'. No uses la tabla cities.
+   El valor debe escribirse EXACTAMENTE como aparece en la lista de países válidos (mezcla español e inglés).
+2. Para filtrar por ciudad usa job_offers.city LIKE '%Ciudad%' (el LIKE cubre las variantes), de preferencia junto con job_offers.country.
+3. Para continentes o macrorregiones usa job_offers.region.
+4. La tabla cities es solo un catálogo de coordenadas; no tiene columna "name" ni se une por id.
+   Úsala únicamente si se piden lat/lng o población, uniendo cities.city = job_offers.city AND cities.country = job_offers.country.
+
+Países válidos en job_offers.country:
+{$countryList}
+
+Ejemplo: "Top 5 lenguajes con más ofertas en Colombia"
+
+SELECT me.name AS lenguaje, COUNT(DISTINCT lj.job_offer_id) AS total_ofertas
+FROM language_job lj
+JOIN market_entities me ON me.id = lj.market_entity_id
+JOIN job_offers jo ON jo.id = lj.job_offer_id
+WHERE jo.country = 'Colombia'
+GROUP BY me.id, me.name
+ORDER BY total_ofertas DESC
+LIMIT 5
+
+Ejemplo: "Tecnologías más pedidas en Medellín"
+
+SELECT me.name AS tecnologia, COUNT(DISTINCT tj.job_offer_id) AS total_ofertas
+FROM technology_job tj
+JOIN market_entities me ON me.id = tj.market_entity_id
+JOIN job_offers jo ON jo.id = tj.job_offer_id
+WHERE jo.country = 'Colombia' AND jo.city LIKE '%Medell%'
+GROUP BY me.id, me.name
+ORDER BY total_ofertas DESC
+LIMIT 10
+
+================================
+ESQUEMA REAL (tabla(columnas)) — usa SOLO estas columnas
+================================
+
+{$schemaText}
+
 ================================
 OBJETIVO
 ================================
@@ -565,14 +631,6 @@ OBJETIVO
 Generar consultas SQL limpias y correctas para analizar carreras, tecnologías, lenguajes y mercado laboral del Observatorio ISIL.
 PROMPT;
 
-
-
-// \Log::channel('daily')->info('🧠 [VERA] FULL PROMPT (startTraining)', [
-//     'user_prompt' => $prompt,
-//     'schema_text' => mb_substr($schemaText, 0, 8000), // 🔍 parte o todo el esquema real
-
-//     'system_prompt_full' => $systemPrompt, // 🔥 el texto completo que se envía a GPT
-// ]);
 
 
             // ============================================================

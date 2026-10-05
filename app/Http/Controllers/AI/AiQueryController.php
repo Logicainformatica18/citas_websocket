@@ -87,6 +87,14 @@ Cuando se mencione un elemento específico:
   - competencies.name
 
 ⚠️ NO uses tablas *_metrics para conteos actuales salvo que el usuario lo pida explícitamente.
+
+4️⃣ UBICACIÓN (PAÍS, CIUDAD, REGIÓN)
+job_offers NO tiene city_id, country_id ni region_id; la ubicación es texto en la misma tabla:
+- País → job_offers.country = 'País' (no uses la tabla cities)
+- Ciudad → job_offers.city LIKE '%Ciudad%' (texto libre con variantes), de preferencia junto con job_offers.country
+- Macrorregión → job_offers.region ('Latinoamérica', 'Europa', 'Norteamérica', 'Asia', 'Oceanía', 'África')
+- cities es solo un catálogo de coordenadas (sin columna name); únela solo si se piden lat/lng o población:
+  cities.city = job_offers.city AND cities.country = job_offers.country
 HINTS;
 
 
