@@ -347,9 +347,6 @@ class ComputrabajoByCertificationsCommand extends Command
                                         $countryNorm
                                     ),
 
-                                'state_code' =>
-                                    strtoupper($code),
-
                                 'city' =>
                                     $city,
 

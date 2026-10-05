@@ -19,6 +19,7 @@ class JobOffer extends Model
         'company',
         'country',
         'region',
+        'state_code',
         'city',
         'latitude',
         'longitude',
@@ -29,6 +30,8 @@ class JobOffer extends Model
         'certifications',    // 🆕 Certificados detectados (AWS, Scrum, ITIL...)
         'requirements',      // 🆕 Texto con requisitos extraídos
         'skills',            // 🆕 Habilidades clave (Python, React, SQL...)
+        'description',
+        'benefits',
         'salary_min',
         'salary_max',
         'currency',

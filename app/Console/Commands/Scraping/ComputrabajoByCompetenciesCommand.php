@@ -154,7 +154,6 @@ class ComputrabajoByCompetenciesCommand extends Command
                                     'company'      => $company,
                                     'country'      => $countryFormatted,
                                     'region'       => RegionHelper::fromCountry($countryFormatted),
-                                    'state_code'   => strtoupper($code),
                                     'city'         => $city,
                                     'latitude'     => $lat,
                                     'longitude'    => $lng,

@@ -205,7 +205,6 @@ $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                     'company'      => $company,
                                     'country'      => $countryName,
                                     'region'       => RegionHelper::fromCountry($countryName),
-                                    'state_code'   => strtoupper($code),
                                     'city'         => $city,
                                     'latitude'     => $lat,
                                     'longitude'    => $lng,

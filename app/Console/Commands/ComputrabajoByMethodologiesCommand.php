@@ -205,7 +205,6 @@ $connectionOk = true;
                                     'company'      => $company,
                                     'country'      => $countryNormalized,
                                     'region'       => RegionHelper::fromCountry($countryNormalized),
-                                    'state_code'   => strtoupper($code),
                                     'city'         => $city,
                                     'latitude'     => $lat,
                                     'longitude'    => $lng,

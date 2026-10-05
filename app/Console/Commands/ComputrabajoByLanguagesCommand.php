@@ -314,7 +314,6 @@ $urlJob = $this->normalizeUrl($urlJob);
                                     'company' => $company,
                                     'country' => $countryNorm,
                                     'region' => RegionHelper::fromCountry($countryNorm),
-                                    'state_code' => strtoupper($code),
                                     'city' => $city,
                                     'latitude' => $lat,
                                     'longitude' => $lng,
