@@ -11,6 +11,9 @@ use RuntimeException;
  * Reemplaza el SQL de widgets lentos por su versión optimizada, definida en
  * database/sql/widgets/manifest.php.
  *
+ * Con --desactivar-reintentos desactiva, en vez de eso, los entrenamientos IA de
+ * los reintentos que hizo la IA con la misma pregunta (sin eliminar nada).
+ *
  * Los registros se ubican por columnas de negocio y nunca por id, porque los id
  * cambian entre entornos. Antes de escribir se valida todo; si un solo elemento
  * no cuadra, no se modifica nada.
@@ -20,13 +23,19 @@ class OptimizarSqlWidgets extends Command
     protected $signature = 'observatorio:optimizar-sql-widgets
                             {--dry-run : Muestra qué registros encontró y qué SQL reemplazaría, sin escribir nada}
                             {--rollback : Restaura el SQL anterior desde un respaldo}
-                            {--backup= : Archivo de respaldo a restaurar con --rollback (por defecto, el más reciente)}';
+                            {--backup= : Archivo de respaldo a restaurar con --rollback (por defecto, el más reciente)}
+                            {--desactivar-reintentos : Desactiva los entrenamientos de los reintentos de la IA con la misma pregunta}
+                            {--force : No pide confirmación al desactivar reintentos}';
 
-    protected $description = 'Aplica (o revierte) los SQL optimizados de los widgets del dashboard IA';
+    protected $description = 'Aplica (o revierte) los SQL optimizados de los widgets del dashboard IA y desactiva los reintentos de la IA';
 
     private const CARPETA_SQL = 'database/sql/widgets';
 
     private const PREFIJO_RESPALDO = 'sql-widgets-';
+
+    /** Tipos de respaldo: reemplazo de SQL o desactivación de reintentos. */
+    private const TIPO_SQL        = 'sql';
+    private const TIPO_REINTENTOS = 'reintentos';
 
     private const ORIGINAL   = 'ORIGINAL';
     private const OPTIMIZADO = 'OPTIMIZADO';
@@ -36,7 +45,15 @@ class OptimizarSqlWidgets extends Command
     public function handle(): int
     {
         try {
-            return $this->option('rollback') ? $this->revertir() : $this->aplicar();
+            if ($this->option('rollback') && $this->option('desactivar-reintentos')) {
+                throw new RuntimeException('Use --rollback o --desactivar-reintentos, no ambas a la vez.');
+            }
+
+            return match (true) {
+                (bool) $this->option('rollback')              => $this->revertir(),
+                (bool) $this->option('desactivar-reintentos') => $this->desactivarReintentos(),
+                default                                         => $this->aplicar(),
+            };
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
             $this->line('No se modificó ningún registro.');
@@ -115,11 +132,15 @@ class OptimizarSqlWidgets extends Command
         $respaldo   = json_decode(File::get($archivo), true);
         $manifiesto = $this->manifiesto();
 
-        if (!is_array($respaldo) || empty($respaldo['elementos'])) {
+        if (!is_array($respaldo) || (empty($respaldo['elementos']) && empty($respaldo['reintentos']))) {
             throw new RuntimeException("El respaldo {$archivo} no tiene el formato esperado.");
         }
 
         $this->info('Respaldo: ' . basename($archivo) . " (creado el {$respaldo['creado_en']})");
+
+        if (($respaldo['tipo'] ?? self::TIPO_SQL) === self::TIPO_REINTENTOS) {
+            return $this->revertirReintentos($respaldo);
+        }
 
         $elementos = [];
         foreach ($respaldo['elementos'] as $r) {
@@ -190,6 +211,216 @@ class OptimizarSqlWidgets extends Command
         });
 
         $this->info(count($pendientes) . ' elemento(s) restaurado(s) desde el respaldo.');
+
+        return self::SUCCESS;
+    }
+
+    /* =====================================================
+       REINTENTOS DE LA IA
+    ===================================================== */
+
+    /**
+     * Desactiva (is_active = 0) los entrenamientos IA ligados a los reintentos.
+     *
+     * Un reintento es otro registro de sqltrainings con la misma pregunta que el
+     * entrenamiento vigente del widget. No se elimina nada: desactivar basta para
+     * que no aparezcan en las sugerencias del chat y es reversible con --rollback.
+     */
+    private function desactivarReintentos(): int
+    {
+        $filas = collect();
+
+        foreach ($this->manifiesto() as $clave => $def) {
+            $filas = $filas->merge($this->buscarReintentos($this->resolver($clave, $def)));
+        }
+
+        if ($filas->isEmpty()) {
+            $this->info('No hay reintentos para las preguntas del manifiesto.');
+
+            return self::SUCCESS;
+        }
+
+        $this->table(
+            ['Clave', 'SQL (id)', 'Estado SQL', 'Entrenamiento IA (id)', 'Etapa', 'Activo', 'Acción'],
+            $filas->map(fn ($f) => [
+                $f['clave'], $f['sql_training_id'], $f['test_status'],
+                $f['ai_training_id'] ?? '—', $f['training_stage'] ?? '—',
+                $f['is_active'] === null ? '—' : ($f['is_active'] ? 'sí' : 'no'),
+                $f['accion'],
+            ])->all()
+        );
+
+        $afectados = $filas->where('accion', 'DESACTIVAR')->values();
+
+        if ($afectados->isEmpty()) {
+            $this->info('No hay entrenamientos que desactivar.');
+
+            return self::SUCCESS;
+        }
+
+        if ($this->option('dry-run')) {
+            $this->warn("Simulación (--dry-run): se desactivarían {$afectados->count()} entrenamiento(s) IA. No se escribió nada.");
+
+            return self::SUCCESS;
+        }
+
+        if (!$this->option('force') && !$this->confirm("¿Desactivar {$afectados->count()} entrenamiento(s) IA?", false)) {
+            $this->line('Operación cancelada. No se modificó ningún registro.');
+
+            return self::SUCCESS;
+        }
+
+        $archivo = $this->escribirRespaldo(self::TIPO_REINTENTOS, [
+            'reintentos' => $afectados->map(fn ($f) => [
+                'clave'              => $f['clave'],
+                'query_text'         => $f['query_text'],
+                'sql_training_id'    => $f['sql_training_id'],
+                'ai_training_id'     => $f['ai_training_id'],
+                'is_active_anterior' => $f['is_active'],
+            ])->all(),
+        ]);
+        $this->info("Respaldo guardado en {$archivo}");
+
+        $total = DB::transaction(fn () => DB::table('aitrainings')
+            ->whereIn('id', $afectados->pluck('ai_training_id'))
+            ->where('is_active', 1)
+            ->update(['is_active' => 0, 'updated_at' => now()]));
+
+        $this->info("{$total} entrenamiento(s) IA desactivado(s).");
+        $this->line('Para revertir: php artisan observatorio:optimizar-sql-widgets --rollback --backup=' . basename($archivo));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Lista los reintentos de la pregunta del widget y decide qué hacer con cada
+     * entrenamiento IA. Nunca se tocan los que estén en etapa final ni los que
+     * use algún widget, aunque cuelguen de un reintento.
+     */
+    private function buscarReintentos(array $e): array
+    {
+        $pregunta = (string) DB::table('sqltrainings')->where('id', $e['training_id'])->value('query_text');
+
+        $reintentos = DB::table('sqltrainings')
+            ->whereRaw('LOWER(TRIM(query_text)) = ?', [mb_strtolower(trim($pregunta))])
+            ->where('id', '!=', $e['training_id'])
+            ->orderBy('created_at')
+            ->get(['id', 'test_status']);
+
+        if ($reintentos->isEmpty()) {
+            return [];
+        }
+
+        $aiTrainings = DB::table('aitrainings')
+            ->whereIn('sql_training_id', $reintentos->pluck('id'))
+            ->get(['id', 'sql_training_id', 'training_stage', 'is_active'])
+            ->groupBy('sql_training_id');
+
+        $aiUsadosPorWidgets = DB::table('dashboard_widgets')
+            ->whereIn('ai_training_id', $aiTrainings->flatten()->pluck('id'))
+            ->pluck('ai_training_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $sqlUsadosPorWidgets = DB::table('dashboard_widgets')
+            ->whereIn(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(data_source, '$.sql_training_id'))"), $reintentos->pluck('id')->map(fn ($id) => (string) $id))
+            ->pluck(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(data_source, '$.sql_training_id'))"))
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $filas = [];
+        foreach ($reintentos as $s) {
+            $base = [
+                'clave'           => $e['clave'],
+                'query_text'      => $pregunta,
+                'sql_training_id' => (int) $s->id,
+                'test_status'     => $s->test_status,
+            ];
+
+            $ligados = $aiTrainings->get($s->id, collect());
+
+            if ($ligados->isEmpty()) {
+                $filas[] = $base + ['ai_training_id' => null, 'training_stage' => null, 'is_active' => null, 'accion' => 'SIN ENTRENAMIENTO IA'];
+                continue;
+            }
+
+            foreach ($ligados as $a) {
+                $accion = match (true) {
+                    in_array((int) $a->id, $aiUsadosPorWidgets, true)
+                        || in_array((int) $s->id, $sqlUsadosPorWidgets, true) => 'SE CONSERVA: lo usa un widget',
+                    $a->training_stage === 'final'                           => 'SE CONSERVA: etapa final',
+                    !$a->is_active                                           => 'YA INACTIVO',
+                    default                                                  => 'DESACTIVAR',
+                };
+
+                $filas[] = $base + [
+                    'ai_training_id' => (int) $a->id,
+                    'training_stage' => $a->training_stage,
+                    'is_active'      => (int) $a->is_active,
+                    'accion'         => $accion,
+                ];
+            }
+        }
+
+        return $filas;
+    }
+
+    /**
+     * Reactiva los entrenamientos IA de un respaldo de reintentos. Antes verifica
+     * que cada uno siga ligado al mismo SQL y a la misma pregunta.
+     */
+    private function revertirReintentos(array $respaldo): int
+    {
+        $pendientes = [];
+        $filas      = [];
+
+        foreach ($respaldo['reintentos'] as $r) {
+            $actual = DB::table('aitrainings as a')
+                ->join('sqltrainings as s', 's.id', '=', 'a.sql_training_id')
+                ->where('a.id', $r['ai_training_id'])
+                ->first(['a.id', 'a.is_active', 'a.sql_training_id', 's.query_text']);
+
+            if (!$actual
+                || (int) $actual->sql_training_id !== (int) $r['sql_training_id']
+                || mb_strtolower(trim($actual->query_text)) !== mb_strtolower(trim($r['query_text']))) {
+                throw new RuntimeException(
+                    "El entrenamiento IA {$r['ai_training_id']} ya no está ligado al SQL {$r['sql_training_id']} "
+                    . "con la pregunta «{$r['query_text']}». Revíselo antes de revertir."
+                );
+            }
+
+            $yaRestaurado = (int) $actual->is_active === (int) $r['is_active_anterior'];
+            $filas[]      = [$r['clave'], $r['sql_training_id'], $r['ai_training_id'], $yaRestaurado ? 'YA RESTAURADO' : 'REACTIVAR'];
+
+            if (!$yaRestaurado) {
+                $pendientes[] = $r;
+            }
+        }
+
+        $this->table(['Clave', 'SQL (id)', 'Entrenamiento IA (id)', 'Acción'], $filas);
+
+        if ($pendientes === []) {
+            $this->info('Los registros ya tienen el estado del respaldo. No hay nada que hacer.');
+
+            return self::SUCCESS;
+        }
+
+        if ($this->option('dry-run')) {
+            $this->warn('Simulación (--dry-run): se reactivarían ' . count($pendientes) . ' entrenamiento(s) IA. No se escribió nada.');
+
+            return self::SUCCESS;
+        }
+
+        DB::transaction(function () use ($pendientes) {
+            foreach ($pendientes as $r) {
+                DB::table('aitrainings')->where('id', $r['ai_training_id'])->update([
+                    'is_active'  => (int) $r['is_active_anterior'],
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->info(count($pendientes) . ' entrenamiento(s) IA reactivado(s) desde el respaldo.');
 
         return self::SUCCESS;
     }
@@ -306,16 +537,8 @@ class OptimizarSqlWidgets extends Command
 
     private function guardarRespaldo(array $elementos): string
     {
-        $carpeta = storage_path('app' . DIRECTORY_SEPARATOR . 'backups');
-        File::ensureDirectoryExists($carpeta);
-
-        $archivo = $carpeta . DIRECTORY_SEPARATOR . self::PREFIJO_RESPALDO . now()->format('Ymd_His') . '.json';
-
-        $contenido = [
-            'creado_en'     => now()->toDateTimeString(),
-            'entorno'       => app()->environment(),
-            'base_de_datos' => DB::connection()->getDatabaseName(),
-            'elementos'     => array_values(array_map(fn ($e) => [
+        return $this->escribirRespaldo(self::TIPO_SQL, [
+            'elementos' => array_values(array_map(fn ($e) => [
                 'clave'                 => $e['clave'],
                 'dashboard_slug'        => $e['dashboard_slug'],
                 'widget_title'          => $e['widget_title'],
@@ -324,7 +547,22 @@ class OptimizarSqlWidgets extends Command
                 'widget_sql_anterior'   => $e['sql_widget'],
                 'training_sql_anterior' => $e['sql_training'],
             ], $elementos)),
-        ];
+        ]);
+    }
+
+    private function escribirRespaldo(string $tipo, array $datos): string
+    {
+        $carpeta = storage_path('app' . DIRECTORY_SEPARATOR . 'backups');
+        File::ensureDirectoryExists($carpeta);
+
+        $archivo = $carpeta . DIRECTORY_SEPARATOR . self::PREFIJO_RESPALDO . now()->format('Ymd_His') . '.json';
+
+        $contenido = [
+            'tipo'          => $tipo,
+            'creado_en'     => now()->toDateTimeString(),
+            'entorno'       => app()->environment(),
+            'base_de_datos' => DB::connection()->getDatabaseName(),
+        ] + $datos;
 
         File::put($archivo, json_encode($contenido, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
