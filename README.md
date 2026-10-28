@@ -60,20 +60,15 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 
 ### Scripts SQL para la base real
 
-Están en `docs/sql/` (MySQL 8.0.16 o superior). Ejecutarlos con el cliente `mysql` **sin `--force`**, para que se detengan en el primer error, y después de un respaldo de la base.
+Están en `docs/sql/` (MySQL 8). Cada script está dividido en bloques comentados: primero verificaciones de solo lectura con el resultado esperado, luego los cambios. Ejecutar los bloques en orden y detenerse ante el primer error o ante una verificación que no dé lo esperado. Cada `ALTER TABLE` es atómico en MySQL 8: si falla, no aplica nada de esa sentencia.
 
 | Orden | Script | Qué hace |
 |---|---|---|
-| 1 | `01_integracion_silabos_up.sql` | Verifica que existan `syllabus`, `courses`, `jobs`, `failed_jobs`, `careers`, `career_course` y `migrations` (no las crea). Agrega a `syllabus` las columnas, la clave foránea y los índices de la integración, y a `courses` la columna `code` única. Registra las dos migraciones en `migrations` con el batch siguiente al máximo, para que `php artisan migrate` no las repita. |
+| 1 | `01_integracion_silabos_up.sql` | Verifica que existan `syllabus`, `courses`, `jobs`, `failed_jobs`, `careers`, `career_course` y `migrations` (no las crea). Agrega a `syllabus` las columnas y los índices de la integración, y a `courses` la columna `code` única. No crea claves foráneas: al borrar un curso, la aplicación deja `syllabus.course_id` en NULL. Registra las dos migraciones en `migrations` con el batch siguiente al máximo, para que `php artisan migrate` no las repita. |
 | 2 | `02_asignar_codigos.sql` | 103 `UPDATE` explícitos de `courses.code`, revisables uno por uno. Seguro de correr dos veces: solo toca cursos sin código, con el mismo id y nombre, y si el código no lo tiene otro curso. |
 | 3 | — | Desplegar el código, configurar el `.env` y reiniciar el worker de la cola. |
 
-```sh
-mysql -h HOST -P PUERTO -u USUARIO -p BASE < docs/sql/01_integracion_silabos_up.sql
-mysql -h HOST -P PUERTO -u USUARIO -p BASE < docs/sql/02_asignar_codigos.sql
-```
-
-Para revertir: `docs/sql/01_integracion_silabos_down.sql`. Deshace exactamente el paso 1 y borra sus filas de `migrations`. **No borra sílabos:** si ya hay sílabos recibidos de silabos_v2, se detiene antes de cambiar nada (no caben en el esquema anterior). Al quitar `courses.code` se pierden los códigos asignados; el script muestra cuáles y tiene un respaldo opcional comentado.
+Para revertir: `docs/sql/01_integracion_silabos_down.sql`. Deshace exactamente el paso 1 y borra sus filas de `migrations`. **No borra sílabos:** su primera verificación debe dar 0; si hay sílabos recibidos de silabos_v2, no se sigue (no caben en el esquema anterior). Al quitar `courses.code` se pierden los códigos asignados; el script los lista y se pueden volver a asignar con `02_asignar_codigos.sql`.
 
 En silabos_v2 hay que aplicar su propio `docs/sql/01_integracion_silabos_up.sql` (ver su README). Conviene aplicar primero el del observatorio y activar el envío (`OBSERVATORIO_ENABLED=true`) al final.
 
