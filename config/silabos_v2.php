@@ -14,10 +14,9 @@ return [
     // Si está vacía, el endpoint rechaza todas las peticiones.
     'ingest_key' => env('SILABOS_INGEST_API_KEY'),
 
-    // Dónde se ordenan los periodos sin fecha (TBD, TBD_EE) al desempatar
-    // sílabos de la misma versión: 'last' (más reciente que cualquier periodo) o 'first'.
-    // PENDIENTE DE CONFIRMAR por el equipo; 'last' es provisional.
-    'tbd_position' => env('SILABOS_TBD_POSITION', 'last'),
+    // Dónde se ordenan los periodos sin fecha (TBD, TBD_EE) al desempatar sílabos de la
+    // misma versión: 'first' (anteriores a cualquier periodo, decisión del equipo) o 'last'.
+    'tbd_position' => env('SILABOS_TBD_POSITION', 'first'),
 
     // Lanzar el análisis con IA del curso (AnalyzeCourseJob) tras cada ingesta.
     // Usa OpenAI (gpt-4o-mini y gpt-5 con búsqueda web), por eso está apagado por defecto.
@@ -29,8 +28,9 @@ return [
     | (cursos de la carrera en el observatorio que también son sílabos aprobados de la carrera
     | en silabos_v2); detalle en docs/mapeo-carreras-silabos.md.
     |
-    | Un sílabo sin ninguna carrera de esta lista se guarda como 'ignored' y no se procesa.
-    | DEBE COINCIDIR con services.observatorio.carreras de silabos_v2.
+    | Es la única lista: silabos_v2 manda todos los sílabos con todas sus carreras.
+    | Un sílabo sin ninguna carrera de esta lista se guarda como 'ignored' y no se procesa;
+    | uno con varias se vincula solo a las de esta lista.
     */
     'career_map' => [
         'isil:CADT' => 'arquitectura-de-datos',                      // ARQUITECTURA DE DATOS (25/31 cursos)
