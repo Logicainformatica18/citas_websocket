@@ -97,7 +97,11 @@ class SyllabusIngestService
         return [(int) $s->external_version, (int) $s->periodo_orden, (int) $s->external_id];
     }
 
-    /** Hash del contenido calculado aquí, con las claves ordenadas, para no depender del emisor. */
+    /**
+     * Hash de contenido.secciones calculado aquí, con las claves ordenadas, para no depender
+     * del emisor. No incluye texto_plano (repite el nombre del curso): un cambio solo de nombre
+     * no es "contenido distinto", aunque sí se reprocesa (ver isUnchanged).
+     */
     public function contentHash(array $content): string
     {
         return hash('sha256', json_encode($this->sortKeys($content), JSON_UNESCAPED_UNICODE));
@@ -121,16 +125,20 @@ class SyllabusIngestService
             'approved_at' => Carbon::parse($p['aprobado_at']),
             'approved_at_source' => $p['aprobado_at_fuente'],
             'content' => $content,
-            'content_hash' => $this->contentHash($content),
+            'content_hash' => $this->contentHash($content['secciones'] ?? []),
             'raw_text' => $content['texto_plano'],
         ];
     }
 
-    /** Mismo contenido y misma posición en la familia: no hay nada que reprocesar (salvo que haya fallado). */
+    /** Mismos datos y misma posición en la familia: no hay nada que reprocesar (salvo que haya fallado). */
     private function isUnchanged(Syllabus $existing, array $attributes): bool
     {
         return $existing->status !== 'failed'
             && $existing->content_hash === $attributes['content_hash']
+            && $existing->raw_text === $attributes['raw_text']
+            && $existing->course_code === $attributes['course_code']
+            && $existing->course_name === $attributes['course_name']
+            && $existing->careers == $attributes['careers']
             && (int) $existing->external_version === (int) $attributes['external_version']
             && $existing->periodo === $attributes['periodo']
             && $existing->codigo_familia === $attributes['codigo_familia'];
