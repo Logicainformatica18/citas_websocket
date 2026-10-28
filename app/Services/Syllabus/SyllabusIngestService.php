@@ -2,6 +2,7 @@
 
 namespace App\Services\Syllabus;
 
+use App\Models\Course;
 use App\Models\Syllabus;
 use App\Support\PeriodoOrden;
 use Illuminate\Support\Carbon;
@@ -19,7 +20,10 @@ use Illuminate\Support\Facades\Log;
  *   solo desempatan; aprobado_at es informativo y no interviene.
  * - Si el sílabo que llega no es el vigente se guarda ya como 'superseded' y no se procesa.
  * - Si no trae ninguna carrera de config('silabos_v2.career_map') se guarda como 'ignored':
- *   no se procesa, no llama a OpenAI y no cuenta en su familia (defensa; silabos_v2 ya filtra).
+ *   no se procesa, no llama a OpenAI y no cuenta en su familia. silabos_v2 manda todos los
+ *   sílabos con todas sus carreras: el filtro por carrera se decide solo aquí.
+ * - Si es el vigente pero ningún curso tiene su código (courses.code) se guarda como
+ *   'pending_link', sin llamar a OpenAI, hasta que se vincule en "Vinculación de cursos".
  */
 class SyllabusIngestService
 {
@@ -27,6 +31,7 @@ class SyllabusIngestService
     public const RESULT_UNCHANGED = 'unchanged';
     public const RESULT_SUPERSEDED = 'superseded';
     public const RESULT_IGNORED = 'ignored';
+    public const RESULT_PENDING_LINK = 'pending_link';
 
     /**
      * @return array{0: Syllabus, 1: string, 2: ?int}  la fila, uno de los RESULT_* y el id
@@ -82,8 +87,11 @@ class SyllabusIngestService
 
             $current = $this->currentOf($family);
 
-            Syllabus::whereIn('id', $family->where('id', '!=', $current->id)->whereNull('superseded_at')->pluck('id'))
-                ->update(['superseded_at' => now(), 'superseded_by' => $current->id]);
+            $older = $family->where('id', '!=', $current->id)->whereNull('superseded_at')->pluck('id');
+            Syllabus::whereIn('id', $older)->update(['superseded_at' => now(), 'superseded_by' => $current->id]);
+            // Un reemplazado ya no espera vinculación.
+            Syllabus::whereIn('id', $older)->where('status', Syllabus::STATUS_PENDING_LINK)
+                ->update(['status' => 'superseded']);
 
             if ($current->id !== $syllabus->id) {
                 // Una versión menor (reintento, carga inicial): se guarda reemplazada y no se procesa.
@@ -92,6 +100,13 @@ class SyllabusIngestService
                 // Si el entrante era el vigente y bajó de versión, el ganador vuelve a ser vigente
                 // y debe regenerar los pivotes del curso.
                 return [$syllabus, self::RESULT_SUPERSEDED, $this->reactivateCurrent($family)];
+            }
+
+            if (!Course::where('code', $syllabus->course_code)->exists()) {
+                $syllabus->update(['status' => Syllabus::STATUS_PENDING_LINK]);
+                Log::info("🔗 Sílabo {$syllabus->id} pendiente de vinculación: ningún curso tiene el código {$syllabus->course_code}.");
+
+                return [$syllabus, self::RESULT_PENDING_LINK, null];
             }
 
             return [$syllabus, self::RESULT_QUEUED, $syllabus->id];
@@ -173,10 +188,13 @@ class SyllabusIngestService
         ];
     }
 
-    /** Mismos datos y misma posición en la familia: no hay nada que reprocesar (salvo que haya fallado). */
+    /**
+     * Mismos datos y misma posición en la familia: no hay nada que reprocesar. Salvo que haya
+     * fallado o esté pendiente de vinculación (su curso puede haber recibido el código después).
+     */
     private function isUnchanged(Syllabus $existing, array $attributes): bool
     {
-        return $existing->status !== 'failed'
+        return !in_array($existing->status, ['failed', Syllabus::STATUS_PENDING_LINK], true)
             && $existing->content_hash === $attributes['content_hash']
             && $existing->raw_text === $attributes['raw_text']
             && $existing->course_code === $attributes['course_code']

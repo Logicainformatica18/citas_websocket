@@ -30,6 +30,18 @@ class SyllabusExtractionService
      */
     public function process(Syllabus $syllabus): void
     {
+        // Los de silabos_v2 se enlazan solo por código y antes de llamar a OpenAI:
+        // si el código no tiene curso, el sílabo queda pendiente de vinculación sin gastar la llamada.
+        $course = null;
+        if ($syllabus->isFromSilabosV2()) {
+            $course = $this->resolveCourseByCode($syllabus);
+            if (!$course) {
+                $syllabus->update(['status' => Syllabus::STATUS_PENDING_LINK]);
+                Log::info("🔗 Sílabo {$syllabus->id} pendiente de vinculación: ningún curso tiene el código {$syllabus->course_code}.");
+                return;
+            }
+        }
+
         $decoded = $this->extract((string) $syllabus->raw_text);
 
         // En los sílabos de silabos_v2 el nombre del curso es dato, no lo que infiere la IA.
@@ -48,9 +60,7 @@ class SyllabusExtractionService
             'metodologias' => $decoded['metodologias'] ?? []
         ]);
 
-        $course = $syllabus->isFromSilabosV2()
-            ? $this->resolveCourseByCode($syllabus)
-            : $this->resolveCourseByName((string) ($decoded['curso'] ?? ''));
+        $course ??= $this->resolveCourseByName((string) ($decoded['curso'] ?? ''));
 
         $syllabus->update(['course_id' => $course->id]);
 
@@ -165,32 +175,12 @@ $text
     }
 
     /**
-     * Sílabos de silabos_v2: primero por código; si no, un curso existente del mismo nombre
-     * que todavía no tenga código (se le asigna); si no, uno nuevo con nombre y código.
+     * Sílabos de silabos_v2: solo por código exacto (courses.code = código en silabos_v2).
+     * Nunca por nombre ni creando cursos; si no hay curso, null (pendiente de vinculación).
      */
-    public function resolveCourseByCode(Syllabus $syllabus): Course
+    public function resolveCourseByCode(Syllabus $syllabus): ?Course
     {
-        if ($course = Course::where('code', $syllabus->course_code)->first()) {
-            return $course;
-        }
-
-        $normalizedName = Str::title(Str::ascii(trim((string) $syllabus->course_name)));
-        $normalizedKey = $this->normalizeName($normalizedName);
-
-        $byName = Course::whereNull('code')->get()->first(
-            fn ($c) => $this->normalizeName($c->name) === $normalizedKey
-        );
-
-        if ($byName) {
-            $byName->update(['code' => $syllabus->course_code]);
-            Log::info("🔗 Curso '{$byName->name}' enlazado al código {$syllabus->course_code}");
-            return $byName;
-        }
-
-        $course = Course::create(['name' => $normalizedName, 'code' => $syllabus->course_code]);
-        Log::info("🆕 Curso creado: {$normalizedName} ({$syllabus->course_code})");
-
-        return $course;
+        return Course::where('code', $syllabus->course_code)->first();
     }
 
     /** Regenera completamente los pivotes del curso con lo que define el sílabo. */
@@ -297,7 +287,7 @@ $text
         }
     }
 
-    /** Vincula el curso a las carreras mapeadas en config('silabos_v2.career_map'), sin quitar las existentes. */
+    /** Vincula el curso solo a las carreras mapeadas en config('silabos_v2.career_map'), sin quitar las existentes. */
     private function attachCareers(Syllabus $syllabus, Course $course): void
     {
         $map = config('silabos_v2.career_map', []);
@@ -310,10 +300,11 @@ $text
 
             if ($id) {
                 $careerIds[] = $id;
-            } else {
-                Log::channel('silabos_revision')->info('Carrera sin mapeo', [
-                    'motivo' => $slug ? 'slug_inexistente' : 'sin_mapeo',
+            } elseif ($slug) {
+                // Las carreras sin mapeo son normales (silabos_v2 manda todas); un slug que no existe, no.
+                Log::channel('silabos_revision')->warning('Carrera mapeada a un slug inexistente', [
                     'carrera' => $key,
+                    'slug' => $slug,
                     'nombre' => $career['nombre'] ?? null,
                     'syllabus_id' => $syllabus->id,
                     'curso' => $course->name,

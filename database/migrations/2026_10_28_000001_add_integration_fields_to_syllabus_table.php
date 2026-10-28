@@ -20,8 +20,9 @@ return new class extends Migration
             $table->string('path')->nullable()->change();
 
             // 'superseded': llegó por API pero ya hay una versión vigente mayor; no se procesa.
-            // 'ignored': llegó por API sin ninguna carrera mapeada; no se procesa.
-            $table->enum('status', ['pending', 'processing', 'processed', 'failed', 'superseded', 'ignored'])
+            // 'ignored': llegó por API sin ninguna carrera mapeada (o se decidió no vincularlo); no se procesa.
+            // 'pending_link': su código no corresponde a ningún curso; espera la vinculación manual.
+            $table->enum('status', ['pending', 'processing', 'processed', 'failed', 'superseded', 'ignored', 'pending_link'])
                 ->default('pending')
                 ->change();
 

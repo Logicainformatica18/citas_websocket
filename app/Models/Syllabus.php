@@ -13,6 +13,9 @@ class Syllabus extends Model
     public const SOURCE_UPLOAD = 'upload';
     public const SOURCE_SILABOS_V2 = 'silabos_v2';
 
+    /** Llegó de silabos_v2 con un código que no tiene ningún curso: espera la vinculación manual. */
+    public const STATUS_PENDING_LINK = 'pending_link';
+
     protected $table = 'syllabus';
 
     protected $fillable = [
@@ -66,6 +69,11 @@ class Syllabus extends Model
     public function scopeCurrent(Builder $query): Builder
     {
         return $query->whereNull('superseded_at');
+    }
+
+    public function scopePendingLink(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_PENDING_LINK);
     }
 
     public function isFromSilabosV2(): bool

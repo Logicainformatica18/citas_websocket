@@ -34,6 +34,9 @@ class SyllabusIngestTest extends TestCase
         @unlink($this->reviewLog);
         config(['logging.channels.silabos_revision.path' => $this->reviewLog]);
 
+        // El curso ya tiene el código del sílabo de prueba: la ingesta enlaza solo por código.
+        Course::create(['name' => 'Desarrollo Web', 'code' => 'IS-101']);
+
         Event::fake([SyllabusProcessed::class]);
         $this->fakeOpenAi(['PHP', 'SQL'], [['nombre' => 'Laravel', 'tipo' => 'framework']], ['Scrum']);
     }
@@ -114,14 +117,56 @@ class SyllabusIngestTest extends TestCase
         Event::assertDispatched(SyllabusProcessed::class);
     }
 
-    public function test_enlaza_un_curso_existente_por_nombre_y_le_asigna_el_codigo(): void
+    // ── Vinculación por código ──────────────────────────────────
+
+    public function test_codigo_sin_curso_queda_pendiente_de_vinculacion_sin_llamar_a_openai(): void
     {
-        $existing = Course::create(['name' => 'Desarrollo Web']);
+        // Hay un curso con el mismo nombre pero sin código: no se enlaza por nombre ni se crea otro.
+        Course::query()->update(['code' => null]);
 
-        $this->ingest($this->payload())->assertStatus(202);
+        $this->ingest($this->payload())->assertStatus(200)->assertJson(['status' => 'pending_link']);
 
-        $this->assertSame('IS-101', $existing->fresh()->code);
+        $syllabus = Syllabus::sole();
+        $this->assertSame('pending_link', $syllabus->status);
+        $this->assertNull($syllabus->course_id);
+        $this->assertNull($syllabus->structured_data);
         $this->assertSame(1, Course::count());
+        $this->assertNull(Course::sole()->code);
+        Http::assertNothingSent();
+    }
+
+    public function test_un_pendiente_reenviado_se_procesa_si_su_codigo_ya_tiene_curso(): void
+    {
+        Course::query()->update(['code' => null]);
+        $this->ingest($this->payload())->assertJson(['status' => 'pending_link']);
+
+        Course::query()->update(['code' => 'IS-101']);
+        $this->ingest($this->payload())->assertStatus(202)->assertJson(['status' => 'queued']);
+
+        $this->assertSame('processed', Syllabus::sole()->status);
+    }
+
+    public function test_un_pendiente_reemplazado_por_una_version_nueva_deja_de_estar_pendiente(): void
+    {
+        Course::query()->update(['code' => null]);
+        $this->ingest($this->payload(id: 1, version: 1))->assertJson(['status' => 'pending_link']);
+        $this->ingest($this->payload(id: 2, version: 2))->assertJson(['status' => 'pending_link']);
+
+        $this->assertSame('superseded', Syllabus::where('external_id', 1)->value('status'));
+        $this->assertSame(1, Syllabus::pendingLink()->count());
+    }
+
+    public function test_si_el_curso_pierde_el_codigo_mientras_espera_en_la_cola_queda_pendiente(): void
+    {
+        Queue::fake();
+        $this->ingest($this->payload())->assertStatus(202);
+        Course::query()->update(['code' => null]);
+
+        (new ProcessIngestedSyllabusJob(Syllabus::sole()->id))
+            ->handle(app(\App\Services\Syllabus\SyllabusExtractionService::class));
+
+        $this->assertSame('pending_link', Syllabus::sole()->status);
+        Http::assertNothingSent();
     }
 
     public function test_si_la_extraccion_falla_no_queda_processed(): void
@@ -144,7 +189,8 @@ class SyllabusIngestTest extends TestCase
         }
 
         $this->assertSame('failed', $syllabus->fresh()->status);
-        $this->assertSame(0, Course::count());
+        $this->assertSame(1, Course::count());
+        $this->assertSame(0, Course::sole()->languages()->count());
     }
 
     // ── Idempotencia y versiones ────────────────────────────────
@@ -284,7 +330,7 @@ class SyllabusIngestTest extends TestCase
         $syllabus = Syllabus::sole();
         $this->assertSame('ignored', $syllabus->status);
         $this->assertNull($syllabus->structured_data);
-        $this->assertSame(0, Course::count());
+        $this->assertSame(1, Course::count());
         Http::assertNothingSent();
         $this->assertStringContainsString('Sílabo ignorado: ninguna carrera mapeada', $this->reviewLogContents());
     }
@@ -363,7 +409,7 @@ class SyllabusIngestTest extends TestCase
         app(\App\Services\Syllabus\SyllabusExtractionService::class)->process($pdf);
 
         $pdf->refresh();
-        $course = Course::sole();
+        $course = Course::where('name', '!=', 'Desarrollo Web')->sole();
         $this->assertSame('processed', $pdf->status);
         $this->assertSame('upload', $pdf->source);
         $this->assertSame('Programacion Orientada A Objetos', $course->name);
@@ -373,7 +419,7 @@ class SyllabusIngestTest extends TestCase
 
     // ── Carreras ────────────────────────────────────────────────
 
-    public function test_vincula_solo_las_carreras_mapeadas_y_registra_las_demas(): void
+    public function test_vincula_solo_las_carreras_mapeadas(): void
     {
         $career = Career::create(['name' => 'Ciberseguridad', 'slug' => 'ciberseguridad']);
         config(['silabos_v2.career_map' => ['isil:CSEG' => 'ciberseguridad']]);
@@ -386,7 +432,8 @@ class SyllabusIngestTest extends TestCase
         $this->ingest($payload)->assertStatus(202);
 
         $this->assertSame([$career->id], Course::sole()->careers->pluck('id')->all());
-        $this->assertStringContainsString('isil:CMAR', $this->reviewLogContents());
+        // Una carrera sin mapeo es lo normal (silabos_v2 manda todas): no va al log de revisión.
+        $this->assertStringNotContainsString('isil:CMAR', $this->reviewLogContents());
     }
 
     // ── Helpers ─────────────────────────────────────────────────
