@@ -97,4 +97,14 @@ class CourseCodeFormTest extends TestCase
 
         $this->assertSame('30653', $course->fresh()->code);
     }
+
+    public function test_borrar_un_curso_deja_sus_silabos_sin_curso(): void
+    {
+        $course = Course::create(['name' => 'Redes I', 'code' => '30653']);
+        $syllabus = \App\Models\Syllabus::create(['source' => 'silabos_v2', 'status' => 'processed', 'course_id' => $course->id]);
+
+        $this->actingAs($this->admin)->deleteJson("/courses/{$course->id}")->assertOk();
+
+        $this->assertNull($syllabus->fresh()->course_id);
+    }
 }

@@ -299,6 +299,8 @@ public function update(Request $request, $id)
     public function destroy($id)
     {
         $course = Course::findOrFail($id);
+        // syllabus.course_id no tiene clave foránea: los sílabos enlazados quedan sin curso.
+        \App\Models\Syllabus::where('course_id', $course->id)->update(['course_id' => null]);
         $course->delete();
 
         return response()->json(['message' => '✅ Curso eliminado']);

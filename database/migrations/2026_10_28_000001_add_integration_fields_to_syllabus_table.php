@@ -36,8 +36,9 @@ return new class extends Migration
             $table->unsignedTinyInteger('tipo_plantilla')->nullable()->after('periodo_orden');
             $table->string('course_code', 50)->nullable()->after('tipo_plantilla');
             $table->string('course_name')->nullable()->after('course_code');
-            $table->foreignId('course_id')->nullable()->after('course_name')
-                ->constrained('courses')->nullOnDelete();
+            // Sin clave foránea (se aplica igual en la base real con docs/sql): al borrar un curso,
+            // CourseController::destroy deja course_id en NULL.
+            $table->unsignedBigInteger('course_id')->nullable()->after('course_name');
             $table->json('careers')->nullable()->after('course_id');
             $table->timestamp('approved_at')->nullable()->after('careers');
             $table->string('approved_at_source', 30)->nullable()->after('approved_at');
@@ -49,6 +50,7 @@ return new class extends Migration
             $table->unique(['source', 'external_model', 'external_id'], 'syllabus_external_unique');
             $table->index(['source', 'external_model', 'codigo_familia'], 'syllabus_family_index');
             $table->index('superseded_at');
+            $table->index('course_id');
         });
     }
 
@@ -58,11 +60,11 @@ return new class extends Migration
             $table->dropUnique('syllabus_external_unique');
             $table->dropIndex('syllabus_family_index');
             $table->dropIndex(['superseded_at']);
-            $table->dropConstrainedForeignId('course_id');
+            $table->dropIndex(['course_id']);
             $table->dropColumn([
                 'source', 'external_model', 'external_id', 'codigo_familia', 'external_version',
                 'periodo', 'periodo_orden', 'tipo_plantilla', 'course_code', 'course_name',
-                'careers', 'approved_at', 'approved_at_source', 'content', 'content_hash',
+                'course_id', 'careers', 'approved_at', 'approved_at_source', 'content', 'content_hash',
                 'superseded_at', 'superseded_by',
             ]);
         });
