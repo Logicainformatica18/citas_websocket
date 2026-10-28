@@ -77,22 +77,23 @@ class SilabosCommandsTest extends TestCase
     public function test_reporte_por_carrera(): void
     {
         config(['silabos_v2.career_map' => ['isil:CADT' => 'arquitectura-de-datos']]);
-        Career::create(['name' => 'Arquitectura de datos', 'slug' => 'arquitectura-de-datos']);
+
+        $career = Career::create(['name' => 'Arquitectura de datos', 'slug' => 'arquitectura-de-datos']);
+        $course = Course::create(['name' => 'Curso B-1', 'code' => 'B-1']);
+        $course->careers()->attach($career->id);
 
         $this->syllabus('A-1', 'processed', [['codigo' => 'CADT', 'nombre' => 'ARQUITECTURA DE DATOS']]);
         $this->syllabus('A-2', Syllabus::STATUS_PENDING_LINK, [['codigo' => 'CADT', 'nombre' => 'ARQUITECTURA DE DATOS']]);
         $this->syllabus('A-3', 'ignored', [['codigo' => 'CMAR', 'nombre' => 'MARKETING']]);
         $this->syllabus('A-4', 'processed', [['codigo' => 'CADT', 'nombre' => 'ARQUITECTURA DE DATOS']], superseded: true);
+        // Condición (b): sin carrera mapeada, entra porque su curso está en la carrera.
+        $this->syllabus('B-1', 'processed', [['codigo' => 'CMAR', 'nombre' => 'MARKETING']])
+            ->update(['course_id' => $course->id]);
 
+        $columns = ['Procesados (a) carrera del sílabo', 'Procesados (b) curso en la carrera', 'Ignorados', 'Pend. vinculación', 'Otros (en cola / error)'];
         $this->artisan('silabos:reporte-carreras')
-            ->expectsTable(
-                ['Carrera', 'silabos_v2', 'Procesados', 'Ignorados', 'Pend. vinculación', 'Otros (en cola / error)'],
-                [['Arquitectura de datos', 'isil:CADT', 1, 0, 1, 0]]
-            )
-            ->expectsTable(
-                ['silabos_v2', 'Nombre', 'Procesados', 'Ignorados', 'Pend. vinculación', 'Otros (en cola / error)'],
-                [['isil:CMAR', 'MARKETING', 0, 1, 0, 0]]
-            )
+            ->expectsTable(['Carrera', 'silabos_v2', ...$columns], [['Arquitectura de datos', 'isil:CADT', 1, 1, 0, 1, 0]])
+            ->expectsTable(['silabos_v2', 'Nombre', ...$columns], [['isil:CMAR', 'MARKETING', 0, 0, 1, 0, 0]])
             ->assertSuccessful();
     }
 

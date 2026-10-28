@@ -19,9 +19,12 @@ use Illuminate\Support\Facades\Log;
  * - Vigente: el mayor por (external_version, periodo_orden, external_id). El periodo y el id
  *   solo desempatan; aprobado_at es informativo y no interviene.
  * - Si el sílabo que llega no es el vigente se guarda ya como 'superseded' y no se procesa.
- * - Si no trae ninguna carrera de config('silabos_v2.career_map') se guarda como 'ignored':
- *   no se procesa, no llama a OpenAI y no cuenta en su familia. silabos_v2 manda todos los
- *   sílabos con todas sus carreras: el filtro por carrera se decide solo aquí.
+ * - Se procesa si cumple al menos una condición (silabos_v2 manda todos los sílabos con todas
+ *   sus carreras; el filtro se decide solo aquí):
+ *     a) trae al menos una carrera de config('silabos_v2.career_map'), o
+ *     b) su código corresponde a un curso que ya pertenece a una carrera mapeada.
+ *   Si no cumple ninguna se guarda como 'ignored': no se procesa, no llama a OpenAI y no
+ *   cuenta en su familia.
  * - Si es el vigente pero ningún curso tiene su código (courses.code) se guarda como
  *   'pending_link', sin llamar a OpenAI, hasta que se vincule en "Vinculación de cursos".
  */
@@ -70,9 +73,9 @@ class SyllabusIngestService
 
             $family = $family->reject(fn ($s) => $s->id === $syllabus->id);
 
-            if (!$this->hasMappedCareer($attributes)) {
+            if (!self::hasMappedCareer($attributes) && !self::courseInMappedCareer($attributes['course_code'])) {
                 $syllabus->update(['status' => 'ignored']);
-                Log::channel('silabos_revision')->info('Sílabo ignorado: ninguna carrera mapeada', [
+                Log::channel('silabos_revision')->info('Sílabo ignorado: ninguna carrera mapeada y su curso no está en una carrera mapeada', [
                     'entrante' => $this->describe($syllabus),
                     'carreras' => $attributes['careers'],
                 ]);
@@ -131,7 +134,18 @@ class SyllabusIngestService
         return $current->id;
     }
 
-    private function hasMappedCareer(array $attributes): bool
+    /** Condición (b): el código ya es de un curso que pertenece a una carrera mapeada. */
+    public static function courseInMappedCareer(?string $code): bool
+    {
+        $slugs = array_values(config('silabos_v2.career_map', []));
+
+        return $code !== null && $slugs && Course::where('code', $code)
+            ->whereHas('careers', fn ($q) => $q->whereIn('slug', $slugs))
+            ->exists();
+    }
+
+    /** Condición (a): trae al menos una carrera de career_map. */
+    public static function hasMappedCareer(array $attributes): bool
     {
         $map = config('silabos_v2.career_map', []);
 
@@ -189,12 +203,19 @@ class SyllabusIngestService
     }
 
     /**
-     * Mismos datos y misma posición en la familia: no hay nada que reprocesar. Salvo que haya
-     * fallado o esté pendiente de vinculación (su curso puede haber recibido el código después).
+     * Mismos datos y misma posición en la familia: no hay nada que reprocesar. Salvo que:
+     *  - haya fallado;
+     *  - esté pendiente de vinculación (su curso puede haber recibido el código después);
+     *  - se haya ignorado por no tener carrera mapeada (su curso puede haber entrado después a
+     *    una carrera mapeada, condición b). Uno ignorado con "No vincular" sí trae una carrera
+     *    mapeada y se respeta.
      */
     private function isUnchanged(Syllabus $existing, array $attributes): bool
     {
-        return !in_array($existing->status, ['failed', Syllabus::STATUS_PENDING_LINK], true)
+        $autoIgnored = $existing->status === 'ignored' && !self::hasMappedCareer($attributes);
+
+        return !$autoIgnored
+            && !in_array($existing->status, ['failed', Syllabus::STATUS_PENDING_LINK], true)
             && $existing->content_hash === $attributes['content_hash']
             && $existing->raw_text === $attributes['raw_text']
             && $existing->course_code === $attributes['course_code']

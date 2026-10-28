@@ -370,6 +370,47 @@ class SyllabusIngestTest extends TestCase
         $this->assertSame(['Rust'], Course::sole()->languages->pluck('name')->all());
     }
 
+    // ── Condición (b): el curso ya pertenece a una carrera mapeada ──
+
+    public function test_sin_carrera_mapeada_se_procesa_si_su_curso_ya_esta_en_una_carrera_mapeada(): void
+    {
+        $career = Career::create(['name' => 'Arquitectura de datos', 'slug' => 'arquitectura-de-datos']);
+        Course::sole()->careers()->attach($career->id);
+
+        $payload = $this->payload();
+        $payload['carreras'] = [['codigo' => 'CMAR', 'nombre' => 'MARKETING']];
+        $this->ingest($payload)->assertStatus(202)->assertJson(['status' => 'queued']);
+
+        $this->assertSame('processed', Syllabus::sole()->status);
+        $this->assertEqualsCanonicalizing(['PHP', 'SQL'], Course::sole()->languages->pluck('name')->all());
+        // No agrega carreras que no están mapeadas.
+        $this->assertSame([$career->id], Course::sole()->careers->pluck('id')->all());
+    }
+
+    public function test_un_ignorado_por_carrera_se_reevalua_si_su_curso_entra_a_una_carrera_mapeada(): void
+    {
+        $payload = $this->payload();
+        $payload['carreras'] = [['codigo' => 'CMAR', 'nombre' => 'MARKETING']];
+        $this->ingest($payload)->assertJson(['status' => 'ignored']);
+
+        $career = Career::create(['name' => 'Arquitectura de datos', 'slug' => 'arquitectura-de-datos']);
+        Course::sole()->careers()->attach($career->id);
+        $this->ingest($payload)->assertStatus(202)->assertJson(['status' => 'queued']);
+
+        $this->assertSame('processed', Syllabus::sole()->status);
+    }
+
+    public function test_un_silabo_marcado_no_vincular_no_se_reevalua_al_reenviarse(): void
+    {
+        Course::query()->update(['code' => null]);
+        $this->ingest($this->payload())->assertJson(['status' => 'pending_link']);
+        app(\App\Services\Syllabus\CourseLinkService::class)->ignore(Syllabus::sole());
+
+        $this->ingest($this->payload())->assertJson(['status' => 'unchanged']);
+
+        $this->assertSame('ignored', Syllabus::sole()->status);
+    }
+
     // ── Convivencia con la carga por PDF ────────────────────────
 
     public function test_la_ingesta_reemplaza_los_pdf_del_mismo_curso(): void
