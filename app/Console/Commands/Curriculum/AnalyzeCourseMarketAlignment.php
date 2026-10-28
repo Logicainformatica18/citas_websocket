@@ -813,14 +813,22 @@ PROMPT;
         // ─────────────────────────────────────────────────────────────
         // 3. Sílabo
         // ─────────────────────────────────────────────────────────────
+        // Solo sílabos vigentes (los reemplazados por una versión posterior o por un sílabo
+        // de silabos_v2 tienen superseded_at). Gana el enlazado por course_id; si no hay,
+        // se mantiene la coincidencia por nombre de los PDF subidos.
         $syllabus = DB::table('syllabus as s')
             ->select('s.*')
             ->where('s.status', 'processed')
-            ->whereRaw("
-                LOWER(?) COLLATE utf8mb4_general_ci =
-                LOWER(JSON_UNQUOTE(JSON_EXTRACT(s.structured_data, '$.curso')))
-                COLLATE utf8mb4_general_ci
-            ", [$course->name])
+            ->whereNull('s.superseded_at')
+            ->where(function ($q) use ($course) {
+                $q->where('s.course_id', $course->id)
+                  ->orWhereRaw("
+                    LOWER(?) COLLATE utf8mb4_general_ci =
+                    LOWER(JSON_UNQUOTE(JSON_EXTRACT(s.structured_data, '$.curso')))
+                    COLLATE utf8mb4_general_ci
+                ", [$course->name]);
+            })
+            ->orderByRaw('(s.course_id = ?) DESC', [$course->id])
             ->orderByDesc('s.created_at')
             ->first();
 
