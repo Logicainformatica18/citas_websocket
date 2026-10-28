@@ -64,8 +64,11 @@ public function store(Request $request)
     /* =========================
        Validación
     ========================= */
+    $this->normalizeCode($request);
     $request->validate([
         'name' => 'required|string|max:255',
+        // Código del curso en silabos_v2: único y exacto (la ingesta enlaza solo por código)
+        'code' => 'nullable|string|max:50|unique:courses,code' . (isset($course) ? ',' . $course->id : ''),
 
         'languages' => 'array',
         'languages.*' => 'integer|exists:languages,id',
@@ -86,7 +89,7 @@ public function store(Request $request)
     /* =========================
        Crear curso
     ========================= */
-    $course = Course::create($request->only(['name']));
+    $course = Course::create($request->only(['name', 'code']));
 
     /* =========================
        Sync relaciones simples
@@ -225,8 +228,11 @@ public function update(Request $request, $id)
     /* =========================
        Validación
     ========================= */
+    $this->normalizeCode($request);
     $request->validate([
         'name' => 'required|string|max:255',
+        // Código del curso en silabos_v2: único y exacto (la ingesta enlaza solo por código)
+        'code' => 'nullable|string|max:50|unique:courses,code' . (isset($course) ? ',' . $course->id : ''),
 
         'languages' => 'array',
         'languages.*' => 'integer|exists:languages,id',
@@ -247,7 +253,7 @@ public function update(Request $request, $id)
     /* =========================
        Update base
     ========================= */
-    $course->update($request->only(['name']));
+    $course->update($request->only(['name', 'code']));
 
     /* =========================
        Sync relaciones simples
@@ -297,4 +303,13 @@ public function update(Request $request, $id)
 
         return response()->json(['message' => '✅ Curso eliminado']);
     }
+
+/** El código vacío se guarda como NULL (sin código); si no, tal cual, sin espacios alrededor. */
+private function normalizeCode(Request $request): void
+{
+    if ($request->has('code')) {
+        $code = trim((string) $request->input('code'));
+        $request->merge(['code' => $code === '' ? null : $code]);
+    }
+}
 }

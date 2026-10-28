@@ -21,6 +21,7 @@ type Certification = {
 type Course = {
     id?: number;
     name: string;
+    code?: string | null; // código del curso en silabos_v2
     languages: SimpleItem[];
     technologies: SimpleItem[];
     methodologies: SimpleItem[];
@@ -53,6 +54,7 @@ export default function CourseModal({
 
  const [form, setForm] = useState({
     name: '',
+    code: '',
     languageIds: [] as number[],
     technologyIds: [] as number[],
     methodologyIds: [] as number[],
@@ -70,6 +72,7 @@ export default function CourseModal({
     if (itemToEdit) {
         setForm({
             name: itemToEdit.name,
+            code: itemToEdit.code ?? '',
             languageIds: itemToEdit.languages.map((l) => l.id),
             technologyIds: itemToEdit.technologies.map((t) => t.id),
             methodologyIds: itemToEdit.methodologies.map((m) => m.id),
@@ -82,6 +85,7 @@ export default function CourseModal({
     } else {
         setForm({
             name: '',
+            code: '',
             languageIds: [],
             technologyIds: [],
             methodologyIds: [],
@@ -94,9 +98,21 @@ export default function CourseModal({
     const toggleArrayValue = (arr: number[], id: number) =>
         arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
+    const originalCode = itemToEdit?.code ?? '';
+    const codeChanged = !!itemToEdit?.id && originalCode !== '' && form.code.trim() !== originalCode;
+
     const handleSubmit = async () => {
         if (!form.name.trim()) {
             alert('El nombre es obligatorio');
+            return;
+        }
+        if (
+            codeChanged &&
+            !confirm(
+                `¿Cambiar el código ${originalCode} por ${form.code.trim() || '(ninguno)'}? ` +
+                    `Los sílabos de silabos_v2 con el código ${originalCode} dejarán de enlazarse a este curso.`,
+            )
+        ) {
             return;
         }
 
@@ -104,6 +120,7 @@ export default function CourseModal({
         try {
          const payload = {
     name: form.name,
+    code: form.code.trim() || null,
     languages: form.languageIds,
     technologies: form.technologyIds,
     methodologies: form.methodologyIds,
@@ -120,9 +137,10 @@ export default function CourseModal({
 
             onSaved(res.data.course);
             onClose();
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error al guardar curso', e);
-            alert('No se pudo guardar el curso.');
+            const errors = e?.response?.data?.errors;
+            alert(errors ? (Object.values(errors).flat()[0] as string) : 'No se pudo guardar el curso.');
         } finally {
             setLoading(false);
         }
@@ -166,6 +184,36 @@ export default function CourseModal({
                             disabled={loading}
                         />
                     </div>
+
+                    {/* Código en silabos_v2 */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Código en silabos_v2</label>
+                        <input
+                            type="text"
+                            value={form.code}
+                            maxLength={50}
+                            placeholder="Ej. 30653 (vacío si no tiene)"
+                            onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            disabled={loading}
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Debe ser exactamente el código del curso en silabos_v2. Los sílabos aprobados se enlazan solo por este código.
+                        </p>
+                        {codeChanged && (
+                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                Cambiar el código desvincula este curso de los sílabos con el código {originalCode}.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Aviso de sobrescritura: con código, los sílabos de silabos_v2 regeneran los pivotes */}
+                    {form.code.trim() !== '' && (
+                        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                            Este curso recibe sílabos aprobados de silabos_v2. Los lenguajes, tecnologías y metodologías
+                            que guardes aquí se sobrescribirán cuando llegue la próxima versión aprobada de su sílabo.
+                        </div>
+                    )}
 
                     {/* Lenguajes */}
                     <div>
