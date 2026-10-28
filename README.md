@@ -45,9 +45,9 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
    | `SILABOS_ANALYZE_AFTER_INGEST` | `true` para lanzar `AnalyzeCourseJob` (análisis con IA, con costo en OpenAI) tras cada ingesta. Por defecto `false`. |
 
 3. Revisar el mapeo de carreras en `config/silabos_v2.php` → `career_map`.
-   - Solo están activas las coincidencias exactas por nombre normalizado.
-   - Los candidatos están comentados.
-   - El listado completo está en `docs/mapeo-carreras-silabos.md`.
+   - Tiene solo las 9 carreras que usa el observatorio; 2 están pendientes de confirmar.
+   - Debe coincidir con `services.observatorio.carreras` de silabos_v2.
+   - La propuesta, con los cursos en común, está en `docs/mapeo-carreras-silabos.md`.
 
 ### `POST /api/silabos/ingest`
 
@@ -58,6 +58,7 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 | `202 {"id", "status": "queued"}` | Guardado y encolado para extracción. |
 | `200 {"id", "status": "unchanged"}` | Ya existía con el mismo contenido, nombre, carreras, versión y periodo. No se reprocesa. |
 | `200 {"id", "status": "superseded", "superseded_by"}` | Guardado, pero ya hay una versión vigente mayor. No se procesa ni toca los pivotes. |
+| `200 {"id", "status": "ignored"}` | Guardado, pero ninguna de sus carreras está en `career_map`. No se procesa ni llama a OpenAI, y no cuenta en su familia. |
 | `401` | Falta `X-Api-Key`, la clave es incorrecta o no está configurada. |
 | `422 {"message", "errors"}` | Payload inválido. |
 
@@ -119,6 +120,11 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
   - Si no existe, se toma un curso sin código con el mismo nombre normalizado y se le asigna el código.
   - Si tampoco hay uno así, se crea.
 - **Carreras:** se vinculan solo las que figuran en `career_map`, sin quitar las existentes.
+  - Un sílabo sin ninguna carrera mapeada se guarda como `ignored`. Si era el vigente de su familia, el siguiente vuelve a serlo y se procesa.
+  - silabos_v2 ya filtra por carrera antes de enviar; esto es solo una defensa.
+- **Botón "Sincronizar" de la página de carreras:** solo agrega o quita filas de `career_course` (curso ↔ carrera). No toca los cursos ni sus pivotes de lenguajes, tecnologías y metodologías.
+  - Si se quita un curso de una carrera mapeada, la próxima ingesta de ese sílabo lo vuelve a vincular.
+  - La ingesta nunca desvincula carreras.
 
 ### Revisión manual
 
@@ -127,7 +133,8 @@ En `storage/logs/silabos-revision.log` quedan registrados:
 - los empates de versión con contenido distinto (el hash se calcula sobre `contenido.secciones`);
 - las versiones que bajan en un periodo posterior;
 - los periodos con formato desconocido;
-- las carreras sin mapeo.
+- las carreras sin mapeo;
+- los sílabos ignorados por no tener ninguna carrera mapeada.
 
 ### Tiempo real
 
