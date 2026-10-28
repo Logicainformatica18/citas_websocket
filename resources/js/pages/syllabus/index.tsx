@@ -3,6 +3,7 @@ import { type BreadcrumbItem } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import Echo from '@/lib/echo';
 import { Trash2, Plus, FileText } from 'lucide-react';
 import SyllabusModal from './SyllabusModal';
 
@@ -12,9 +13,13 @@ type Tecnologia = { nombre: string; tipo?: string | null };
 
 type Upload = {
   id: number;
-  filename: string;
-  path: string;
-  status: 'pending' | 'processing' | 'processed' | 'failed';
+  filename: string | null;
+  path: string | null;
+  status: 'pending' | 'processing' | 'processed' | 'failed' | 'superseded';
+  source?: 'upload' | 'silabos_v2';
+  course_name?: string | null;
+  external_version?: number | null;
+  superseded_at?: string | null;
   detected_course?: string | null;
   structured_data?: {
     curso?: string;
@@ -43,6 +48,19 @@ export default function SyllabusIndex() {
     setItems(initialPagination.data);
     setPagination(initialPagination);
   }, [initialPagination]);
+
+  // Sílabo procesado (PDF o recibido desde silabos_v2): refresca el estado de la fila.
+  useEffect(() => {
+    const channel = Echo.channel('observatory');
+
+    channel.listen('.syllabus.processed', (e: { data: Partial<Upload> & { id: number } }) => {
+      setItems((prev) => prev.map((s) => (s.id === e.data.id ? { ...s, ...e.data } : s)));
+    });
+
+    return () => {
+      Echo.leave('observatory');
+    };
+  }, []);
 
  const fetchPage = async (url: string) => {
   try {
@@ -92,8 +110,8 @@ const handleSearch = async (value: string) => {
     console.error("Error buscando", e);
   }
 };
-  const removeOne = async (id: number, filename: string) => {
-    if (!confirm(`¿Eliminar el sílabo "${filename}"?`)) return;
+  const removeOne = async (id: number, filename: string | null) => {
+    if (!confirm(`¿Eliminar el sílabo "${filename ?? id}"?`)) return;
     try {
       await axios.delete(`/syllabus/${id}`);
       setItems((prev) => prev.filter((i) => i.id !== id));
@@ -259,18 +277,27 @@ return (
 
                 {/* VER PDF */}
                 <td className="px-4 py-2">
-                  <a
-                    href={`/${item.path}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#1CBCE8] hover:underline font-medium text-sm"
-                  >
-                    Ver PDF
-                  </a>
+                  {item.path ? (
+                    <a
+                      href={`/${item.path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#1CBCE8] hover:underline font-medium text-sm"
+                    >
+                      Ver PDF
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-500">silabos_v2</span>
+                  )}
                 </td>
 
                 {/* FILENAME */}
-                <td className="px-4 py-2">{item.filename}</td>
+                <td className="px-4 py-2">
+                  {item.filename ?? `${item.course_name ?? '-'} (v${item.external_version ?? 0})`}
+                  {item.superseded_at && (
+                    <span className="ml-2 text-xs text-gray-500">reemplazado</span>
+                  )}
+                </td>
 
                 {/* ESTADO → CHIP ISIL */}
                 <td className="px-4 py-2">
@@ -283,6 +310,8 @@ return (
                           ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
                           : item.status === "processed"
                           ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
+                          : item.status === "superseded"
+                          ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                           : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
                       }
                     `}
