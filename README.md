@@ -29,7 +29,7 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 
 ### Puesta en marcha
 
-1. Ejecutar solo las migraciones nuevas. Hay migraciones antiguas pendientes cuyas tablas ya existen, así que **no** se debe usar un `migrate` a secas:
+1. Aplicar los cambios de esquema. **En la base real se aplican con los scripts SQL de `docs/sql/`, no con migraciones** (ver "Scripts SQL para la base real" más abajo). Las migraciones equivalentes se mantienen para los tests y el desarrollo local; ahí, solo con `--path`, porque hay migraciones antiguas pendientes cuyas tablas ya existen:
 
    ```sh
    php artisan migrate --path=database/migrations/2026_10_28_000001_add_integration_fields_to_syllabus_table.php
@@ -48,14 +48,34 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
    - Tiene solo las 9 carreras que usa el observatorio; 2 están pendientes de confirmar.
    - Es la única lista: silabos_v2 envía todos los sílabos aprobados con todas sus carreras y el observatorio decide.
    - La propuesta, con los cursos en común, está en `docs/mapeo-carreras-silabos.md`.
-4. Asignar los códigos de curso (`courses.code` = código del curso en silabos_v2):
+4. Asignar los códigos de curso (`courses.code` = código del curso en silabos_v2). En la base real, con `docs/sql/02_asignar_codigos.sql`. Equivale a:
    ```sh
    php artisan silabos:asignar-codigos --dry-run   # ver qué haría
    php artisan silabos:asignar-codigos             # aplicar
    ```
-   - Toma `docs/correspondencia-cursos.csv` y solo las filas `exacto` sin aviso en `observacion`.
+   - Toma `docs/correspondencia-cursos.csv` y solo las filas `exacto` sin aviso en `observacion` (103 cursos).
    - Nunca sobrescribe un código ni repite uno ya asignado.
-   - El resto se vincula a mano en **Académico → Vinculación de cursos**.
+   - El comando, además, envía a procesar los sílabos que estuvieran pendientes con esos códigos; el script SQL no.
+   - El resto se vincula a mano en **Académico → Vinculación de cursos**, o con el campo "Código en silabos_v2" del formulario de cursos.
+
+### Scripts SQL para la base real
+
+Están en `docs/sql/` (MySQL 8.0.16 o superior). Ejecutarlos con el cliente `mysql` **sin `--force`**, para que se detengan en el primer error, y después de un respaldo de la base.
+
+| Orden | Script | Qué hace |
+|---|---|---|
+| 1 | `01_integracion_silabos_up.sql` | Verifica que existan `syllabus`, `courses`, `jobs`, `failed_jobs`, `careers`, `career_course` y `migrations` (no las crea). Agrega a `syllabus` las columnas, la clave foránea y los índices de la integración, y a `courses` la columna `code` única. Registra las dos migraciones en `migrations` con el batch siguiente al máximo, para que `php artisan migrate` no las repita. |
+| 2 | `02_asignar_codigos.sql` | 103 `UPDATE` explícitos de `courses.code`, revisables uno por uno. Seguro de correr dos veces: solo toca cursos sin código, con el mismo id y nombre, y si el código no lo tiene otro curso. |
+| 3 | — | Desplegar el código, configurar el `.env` y reiniciar el worker de la cola. |
+
+```sh
+mysql -h HOST -P PUERTO -u USUARIO -p BASE < docs/sql/01_integracion_silabos_up.sql
+mysql -h HOST -P PUERTO -u USUARIO -p BASE < docs/sql/02_asignar_codigos.sql
+```
+
+Para revertir: `docs/sql/01_integracion_silabos_down.sql`. Deshace exactamente el paso 1 y borra sus filas de `migrations`. **No borra sílabos:** si ya hay sílabos recibidos de silabos_v2, se detiene antes de cambiar nada (no caben en el esquema anterior). Al quitar `courses.code` se pierden los códigos asignados; el script muestra cuáles y tiene un respaldo opcional comentado.
+
+En silabos_v2 hay que aplicar su propio `docs/sql/01_integracion_silabos_up.sql` (ver su README). Conviene aplicar primero el del observatorio y activar el envío (`OBSERVATORIO_ENABLED=true`) al final.
 
 ### `POST /api/silabos/ingest`
 
@@ -66,7 +86,7 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 | `202 {"id", "status": "queued"}` | Guardado y encolado para extracción. |
 | `200 {"id", "status": "unchanged"}` | Ya existía con el mismo contenido, nombre, carreras, versión y periodo. No se reprocesa. |
 | `200 {"id", "status": "superseded", "superseded_by"}` | Guardado, pero ya hay una versión vigente mayor. No se procesa ni toca los pivotes. |
-| `200 {"id", "status": "ignored"}` | Guardado, pero ninguna de sus carreras está en `career_map`. No se procesa ni llama a OpenAI, y no cuenta en su familia. |
+| `200 {"id", "status": "ignored"}` | Guardado, pero no cumple la condición (a) ni la (b) (ver "Qué sílabos se procesan"). No se procesa ni llama a OpenAI, y no cuenta en su familia. |
 | `200 {"id", "status": "pending_link"}` | Guardado y vigente, pero ningún curso tiene su código. No se procesa ni llama a OpenAI hasta vincularlo. |
 | `401` | Falta `X-Api-Key`, la clave es incorrecta o no está configurada. |
 | `422 {"message", "errors"}` | Payload inválido. |
@@ -134,12 +154,24 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
   - para cada uno, un select con buscador de los cursos que aún no tienen código, con la sugerencia preseleccionada y su porcentaje de similitud (el mismo cálculo del reporte de correspondencia; desde 60 %);
   - **Guardar** asigna el código al curso y procesa el sílabo. Si el código ya está en otro curso, o el curso ya tiene otro código, lo impide con un mensaje;
   - **No vincular** deja el sílabo como `ignored`. Si llega una versión nueva del mismo código, vuelve a quedar pendiente.
-- **Carreras:** se vinculan solo las que figuran en `career_map`, sin quitar las existentes.
-  - Un sílabo sin ninguna carrera mapeada se guarda como `ignored`. Si era el vigente de su familia, el siguiente vuelve a serlo y se procesa.
-- **Reporte por carrera:** `php artisan silabos:reporte-carreras [--modelo=isil]` muestra, por carrera, los sílabos vigentes procesados, ignorados y pendientes de vinculación; aparte, las carreras de silabos_v2 sin mapeo.
+- **Qué sílabos se procesan.** Uno que cumpla al menos una condición:
+  - **(a)** trae al menos una carrera de `career_map`;
+  - **(b)** no trae ninguna, pero su código corresponde a un curso que ya pertenece a una carrera mapeada.
+
+  Si no cumple ninguna se guarda como `ignored`. Si era el vigente de su familia, el siguiente vuelve a serlo y se procesa. Si se reenvía después de que su curso entró a una carrera mapeada, se vuelve a evaluar. Los marcados con "No vincular" no se reevalúan.
+- **Carreras:** el curso se vincula solo a las carreras del sílabo que figuran en `career_map`, sin quitar las existentes. Con la condición (b) no se agrega ninguna: el curso conserva las que ya tenía.
+- **Reporte por carrera:** `php artisan silabos:reporte-carreras [--modelo=isil]` muestra, por carrera, los sílabos vigentes procesados por la condición (a) y por la (b), los ignorados y los pendientes de vinculación. Los de la (b) cuentan en las carreras mapeadas de su curso. Aparte, las carreras de silabos_v2 sin mapeo.
+- **Formulario de cursos** (`/courses`): tiene el campo "Código en silabos_v2", único y opcional; vacío se guarda como sin código.
+  - Si el curso tiene código, avisa que los lenguajes, tecnologías y metodologías que se guarden ahí se sobrescribirán con la próxima versión aprobada de su sílabo.
+  - Al cambiar un código existente pide confirmación, porque el curso deja de enlazarse a los sílabos del código anterior.
 - **Botón "Sincronizar" de la página de carreras:** solo agrega o quita filas de `career_course` (curso ↔ carrera). No toca los cursos ni sus pivotes de lenguajes, tecnologías y metodologías.
   - Si se quita un curso de una carrera mapeada, la próxima ingesta de ese sílabo lo vuelve a vincular.
   - La ingesta nunca desvincula carreras.
+  - Quitar un curso de su única carrera mapeada puede hacer que sus sílabos sin carrera mapeada dejen de cumplir la condición (b) y se ignoren en la próxima ingesta.
+- **`POST /careers/{id}/sync-courses`** (permiso `administrar`): **reemplaza** todos los cursos de la carrera por la lista enviada; los que no vienen quedan desvinculados. El modal "Sincronizar" no la usa (usa `attach-course` y `detach-course`), pero la ruta existe.
+  - Quitar así cursos de una carrera mapeada se revierte en parte con la próxima ingesta: se vuelven a vincular los cursos cuyos sílabos traen esa carrera (condición a).
+  - Los que entraban solo por la condición (b) no se vuelven a vincular, porque la (b) depende justamente de esa relación.
+  - Usarla con cuidado en las 9 carreras mapeadas.
 
 ### Revisión manual
 
