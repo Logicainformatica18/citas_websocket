@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
  *  202 queued      guardado y encolado para extracción
  *  200 unchanged   ya estaba con el mismo contenido; no se reprocesa
  *  200 superseded  guardado, pero hay una versión vigente mayor; no se procesa
+ *  200 ignored     guardado, pero ninguna de sus carreras está mapeada; no se procesa
  */
 class SyllabusIngestController extends Controller
 {

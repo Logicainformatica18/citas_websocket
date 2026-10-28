@@ -18,12 +18,15 @@ use Illuminate\Support\Facades\Log;
  * - Vigente: el mayor por (external_version, periodo_orden, external_id). El periodo y el id
  *   solo desempatan; aprobado_at es informativo y no interviene.
  * - Si el sílabo que llega no es el vigente se guarda ya como 'superseded' y no se procesa.
+ * - Si no trae ninguna carrera de config('silabos_v2.career_map') se guarda como 'ignored':
+ *   no se procesa, no llama a OpenAI y no cuenta en su familia (defensa; silabos_v2 ya filtra).
  */
 class SyllabusIngestService
 {
     public const RESULT_QUEUED = 'queued';
     public const RESULT_UNCHANGED = 'unchanged';
     public const RESULT_SUPERSEDED = 'superseded';
+    public const RESULT_IGNORED = 'ignored';
 
     /**
      * @return array{0: Syllabus, 1: string, 2: ?int}  la fila, uno de los RESULT_* y el id
@@ -35,11 +38,13 @@ class SyllabusIngestService
             $attributes = $this->attributesFrom($payload);
 
             // Bloquea la familia para que dos ingestas simultáneas no elijan vigentes distintos.
+            // Los ignorados (sin carrera mapeada) no compiten por ser el vigente.
             $family = Syllabus::where('source', Syllabus::SOURCE_SILABOS_V2)
                 ->where('external_model', $attributes['external_model'])
                 ->where('codigo_familia', $attributes['codigo_familia'])
                 ->lockForUpdate()
-                ->get();
+                ->get()
+                ->where('status', '!=', 'ignored');
 
             $syllabus = Syllabus::where('source', Syllabus::SOURCE_SILABOS_V2)
                 ->where('external_model', $attributes['external_model'])
@@ -58,7 +63,20 @@ class SyllabusIngestService
                 'superseded_by' => null,
             ])->save();
 
-            $family = $family->reject(fn ($s) => $s->id === $syllabus->id)->push($syllabus);
+            $family = $family->reject(fn ($s) => $s->id === $syllabus->id);
+
+            if (!$this->hasMappedCareer($attributes)) {
+                $syllabus->update(['status' => 'ignored']);
+                Log::channel('silabos_revision')->info('Sílabo ignorado: ninguna carrera mapeada', [
+                    'entrante' => $this->describe($syllabus),
+                    'carreras' => $attributes['careers'],
+                ]);
+
+                // Si era el vigente, el siguiente de la familia vuelve a serlo.
+                return [$syllabus, self::RESULT_IGNORED, $this->reactivateCurrent($family)];
+            }
+
+            $family->push($syllabus);
 
             $this->logReviewCases($syllabus, $family);
 
@@ -73,17 +91,42 @@ class SyllabusIngestService
 
                 // Si el entrante era el vigente y bajó de versión, el ganador vuelve a ser vigente
                 // y debe regenerar los pivotes del curso.
-                $reactivated = null;
-                if ($current->superseded_at) {
-                    $current->update(['superseded_at' => null, 'superseded_by' => null, 'status' => 'pending']);
-                    $reactivated = $current->id;
-                }
-
-                return [$syllabus, self::RESULT_SUPERSEDED, $reactivated];
+                return [$syllabus, self::RESULT_SUPERSEDED, $this->reactivateCurrent($family)];
             }
 
             return [$syllabus, self::RESULT_QUEUED, $syllabus->id];
         });
+    }
+
+    /** Si el mayor de la familia estaba reemplazado, vuelve a ser vigente; devuelve su id para procesarlo. */
+    private function reactivateCurrent(Collection $family): ?int
+    {
+        // Puede ser uno guardado como 'superseded' que nunca se procesó: pasa a 'pending' y se procesa.
+        if ($family->isEmpty()) {
+            return null;
+        }
+
+        $current = $this->currentOf($family);
+        if (!$current->superseded_at) {
+            return null;
+        }
+
+        $current->update(['superseded_at' => null, 'superseded_by' => null, 'status' => 'pending']);
+
+        return $current->id;
+    }
+
+    private function hasMappedCareer(array $attributes): bool
+    {
+        $map = config('silabos_v2.career_map', []);
+
+        foreach ($attributes['careers'] as $career) {
+            if (isset($map[$attributes['external_model'] . ':' . ($career['codigo'] ?? '')])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** El vigente es el mayor por (versión, periodo, id externo). */

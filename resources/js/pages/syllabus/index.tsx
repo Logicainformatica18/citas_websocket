@@ -15,7 +15,7 @@ type Upload = {
   id: number;
   filename: string | null;
   path: string | null;
-  status: 'pending' | 'processing' | 'processed' | 'failed' | 'superseded';
+  status: 'pending' | 'processing' | 'processed' | 'failed' | 'superseded' | 'ignored';
   source?: 'upload' | 'silabos_v2';
   course_name?: string | null;
   external_version?: number | null;
@@ -310,7 +310,7 @@ return (
                           ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
                           : item.status === "processed"
                           ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
-                          : item.status === "superseded"
+                          : item.status === "superseded" || item.status === "ignored"
                           ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                           : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
                       }

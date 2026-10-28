@@ -24,7 +24,11 @@ class SyllabusIngestTest extends TestCase
     {
         parent::setUp();
 
-        config(['silabos_v2.ingest_key' => self::KEY, 'silabos_v2.tbd_position' => 'last']);
+        config([
+            'silabos_v2.ingest_key' => self::KEY,
+            'silabos_v2.tbd_position' => 'last',
+            'silabos_v2.career_map' => ['isil:CADT' => 'arquitectura-de-datos', 'scl:CADT' => 'arquitectura-de-datos'],
+        ]);
 
         $this->reviewLog = storage_path('framework/testing/silabos-revision-' . getmypid() . '.log');
         @unlink($this->reviewLog);
@@ -268,6 +272,58 @@ class SyllabusIngestTest extends TestCase
         $this->assertSame(['Go'], Course::sole()->languages->pluck('name')->all());
     }
 
+    // ── Carreras no mapeadas ────────────────────────────────────
+
+    public function test_sin_carrera_mapeada_se_guarda_ignorado_sin_llamar_a_openai(): void
+    {
+        $payload = $this->payload();
+        $payload['carreras'] = [['codigo' => 'CMAR', 'nombre' => 'MARKETING']];
+
+        $this->ingest($payload)->assertStatus(200)->assertJson(['status' => 'ignored']);
+
+        $syllabus = Syllabus::sole();
+        $this->assertSame('ignored', $syllabus->status);
+        $this->assertNull($syllabus->structured_data);
+        $this->assertSame(0, Course::count());
+        Http::assertNothingSent();
+        $this->assertStringContainsString('Sílabo ignorado: ninguna carrera mapeada', $this->reviewLogContents());
+    }
+
+    public function test_sin_carreras_tambien_se_ignora(): void
+    {
+        $payload = $this->payload();
+        $payload['carreras'] = [];
+
+        $this->ingest($payload)->assertJson(['status' => 'ignored']);
+        Http::assertNothingSent();
+    }
+
+    public function test_un_ignorado_no_reemplaza_al_vigente(): void
+    {
+        $this->ingest($this->payload(id: 80, version: 1))->assertStatus(202);
+
+        $payload = $this->payload(id: 81, version: 5);
+        $payload['carreras'] = [['codigo' => 'CMAR', 'nombre' => 'MARKETING']];
+        $this->ingest($payload)->assertJson(['status' => 'ignored']);
+
+        $this->assertNull(Syllabus::where('external_id', 80)->value('superseded_at'));
+    }
+
+    public function test_si_el_vigente_pierde_sus_carreras_el_anterior_vuelve_a_ser_vigente(): void
+    {
+        $this->ingest($this->payload(id: 90, version: 1))->assertStatus(202);
+        $this->ingest($this->payload(id: 91, version: 2))->assertStatus(202);
+
+        $this->fakeOpenAi(['Rust'], [], []);
+        $payload = $this->payload(id: 91, version: 2, contenido: 'Contenido nuevo del sílabo, ahora sin carreras del observatorio.');
+        $payload['carreras'] = [['codigo' => 'CMAR', 'nombre' => 'MARKETING']];
+        $this->ingest($payload)->assertJson(['status' => 'ignored']);
+
+        $this->assertNull(Syllabus::where('external_id', 90)->value('superseded_at'));
+        $this->assertSame('processed', Syllabus::where('external_id', 90)->value('status'));
+        $this->assertSame(['Rust'], Course::sole()->languages->pluck('name')->all());
+    }
+
     // ── Convivencia con la carga por PDF ────────────────────────
 
     public function test_la_ingesta_reemplaza_los_pdf_del_mismo_curso(): void
@@ -362,7 +418,7 @@ class SyllabusIngestTest extends TestCase
                 'tipo_plantilla' => 1,
                 'periodo' => $periodo,
             ],
-            'carreras' => [],
+            'carreras' => [['codigo' => 'CADT', 'nombre' => 'ARQUITECTURA DE DATOS']],
             'aprobado_at' => $aprobadoAt,
             'aprobado_at_fuente' => 'finalizar_revision',
             'contenido' => [
