@@ -86,6 +86,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Casos de la ingesta de silabos_v2 que requieren revisión manual
+        // (empates de versión con contenido distinto, versiones que bajan, carreras sin mapeo).
+        'silabos_revision' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/silabos-revision.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
         // Un registro JSON por petición medida con PerformanceTimer.
         'performance' => [
             'driver' => 'daily',

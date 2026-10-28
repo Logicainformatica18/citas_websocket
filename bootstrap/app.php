@@ -71,6 +71,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'apikey' => App\Http\Middleware\ApiKeyAuth::class,
+            'ingest.key' => App\Http\Middleware\VerifyIngestKey::class,
         ]);
 
         /**

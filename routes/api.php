@@ -29,6 +29,11 @@ Route::prefix('ai')->group(function () {
     Route::post('file/analyze', [DashboardAIController::class, 'analyzeFile']);
 });
 Route::get('/courses/list', [CourseController::class, 'listAll']);
+
+// Ingesta de sílabos aprobados desde silabos_v2 (servidor a servidor, autenticado con X-Api-Key).
+Route::post('/silabos/ingest', [\App\Http\Controllers\Api\SyllabusIngestController::class, 'store'])
+    ->middleware(['ingest.key', 'throttle:120,1'])
+    ->name('api.silabos.ingest');
 require __DIR__.'/api/auth.php';
 
 Route::middleware('auth:sanctum')->group(function () {
