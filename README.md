@@ -41,13 +41,21 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
    | Variable | Descripción |
    |---|---|
    | `SILABOS_INGEST_API_KEY` | Clave compartida con silabos_v2, que la envía en `X-Api-Key`. Si está vacía, el endpoint rechaza todo. Generar con `php -r "echo bin2hex(random_bytes(32));"`. |
-   | `SILABOS_TBD_POSITION` | `last` o `first`: dónde se ordenan los periodos `TBD`/`TBD_EE` al desempatar versiones. **Valor provisional `last`, pendiente de confirmar.** |
+   | `SILABOS_TBD_POSITION` | `first` (por defecto) o `last`: dónde se ordenan los periodos `TBD`/`TBD_EE` al desempatar versiones. `first`: se tratan como anteriores a cualquier periodo. |
    | `SILABOS_ANALYZE_AFTER_INGEST` | `true` para lanzar `AnalyzeCourseJob` (análisis con IA, con costo en OpenAI) tras cada ingesta. Por defecto `false`. |
 
 3. Revisar el mapeo de carreras en `config/silabos_v2.php` → `career_map`.
    - Tiene solo las 9 carreras que usa el observatorio; 2 están pendientes de confirmar.
-   - Debe coincidir con `services.observatorio.carreras` de silabos_v2.
+   - Es la única lista: silabos_v2 envía todos los sílabos aprobados con todas sus carreras y el observatorio decide.
    - La propuesta, con los cursos en común, está en `docs/mapeo-carreras-silabos.md`.
+4. Asignar los códigos de curso (`courses.code` = código del curso en silabos_v2):
+   ```sh
+   php artisan silabos:asignar-codigos --dry-run   # ver qué haría
+   php artisan silabos:asignar-codigos             # aplicar
+   ```
+   - Toma `docs/correspondencia-cursos.csv` y solo las filas `exacto` sin aviso en `observacion`.
+   - Nunca sobrescribe un código ni repite uno ya asignado.
+   - El resto se vincula a mano en **Académico → Vinculación de cursos**.
 
 ### `POST /api/silabos/ingest`
 
@@ -59,6 +67,7 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 | `200 {"id", "status": "unchanged"}` | Ya existía con el mismo contenido, nombre, carreras, versión y periodo. No se reprocesa. |
 | `200 {"id", "status": "superseded", "superseded_by"}` | Guardado, pero ya hay una versión vigente mayor. No se procesa ni toca los pivotes. |
 | `200 {"id", "status": "ignored"}` | Guardado, pero ninguna de sus carreras está en `career_map`. No se procesa ni llama a OpenAI, y no cuenta en su familia. |
+| `200 {"id", "status": "pending_link"}` | Guardado y vigente, pero ningún curso tiene su código. No se procesa ni llama a OpenAI hasta vincularlo. |
 | `401` | Falta `X-Api-Key`, la clave es incorrecta o no está configurada. |
 | `422 {"message", "errors"}` | Payload inválido. |
 
@@ -108,7 +117,7 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 - **Identidad del sílabo:** `(modelo, silabo_id)`. Si llega otra vez, se actualiza la misma fila y nunca se duplica.
 - **Familia de versiones:** `(modelo, codigo_familia)`. Un sílabo ISIL nunca reemplaza a uno SCL.
 - **Vigente:** el mayor por `(version, periodo, silabo_id)`. La versión manda, y el periodo y el id solo desempatan.
-  - Los periodos se normalizan: `202510` queda igual, `2025` pasa a `202500` y `TBD` va al final o al principio según `SILABOS_TBD_POSITION`.
+  - Los periodos se normalizan: `202510` queda igual, `2025` pasa a `202500` y `TBD` va al principio (o al final, según `SILABOS_TBD_POSITION`).
   - `aprobado_at` no interviene.
 - **Los no vigentes** quedan con `superseded_at` y `superseded_by`.
   - Si una versión menor llega después (por un reintento o por la carga inicial), se guarda ya reemplazada y no toca los pivotes.
@@ -116,12 +125,18 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
   - los PDF del mismo curso quedan reemplazados;
   - un PDF que se suba después para ese curso se guarda, pero no pisa sus pivotes.
 - **El análisis con IA** (`curriculum:analyze-course`) usa solo sílabos vigentes y prefiere el enlazado por `course_id`.
-- **Curso:** se busca por `courses.code` (= `curso.codigo`).
-  - Si no existe, se toma un curso sin código con el mismo nombre normalizado y se le asigna el código.
-  - Si tampoco hay uno así, se crea.
+- **Curso:** se busca solo por `courses.code` (= `curso.codigo`, comparado exactamente). Nunca por nombre y nunca se crean cursos.
+  - Si ningún curso tiene ese código, el sílabo queda `pending_link` (pendiente de vinculación), sin llamar a OpenAI.
+  - Si vuelve a llegar cuando el código ya tiene curso, se procesa normalmente.
+  - Los PDF subidos a mano siguen enlazándose por nombre, como antes.
+- **Vinculación de cursos** (menú Académico, permiso `administrar`, con un contador de pendientes):
+  - lista los sílabos `pending_link` con su código, nombre y carreras de silabos_v2 (las mapeadas resaltadas);
+  - para cada uno, un select con buscador de los cursos que aún no tienen código, con la sugerencia preseleccionada y su porcentaje de similitud (el mismo cálculo del reporte de correspondencia; desde 60 %);
+  - **Guardar** asigna el código al curso y procesa el sílabo. Si el código ya está en otro curso, o el curso ya tiene otro código, lo impide con un mensaje;
+  - **No vincular** deja el sílabo como `ignored`. Si llega una versión nueva del mismo código, vuelve a quedar pendiente.
 - **Carreras:** se vinculan solo las que figuran en `career_map`, sin quitar las existentes.
   - Un sílabo sin ninguna carrera mapeada se guarda como `ignored`. Si era el vigente de su familia, el siguiente vuelve a serlo y se procesa.
-  - silabos_v2 ya filtra por carrera antes de enviar; esto es solo una defensa.
+- **Reporte por carrera:** `php artisan silabos:reporte-carreras [--modelo=isil]` muestra, por carrera, los sílabos vigentes procesados, ignorados y pendientes de vinculación; aparte, las carreras de silabos_v2 sin mapeo.
 - **Botón "Sincronizar" de la página de carreras:** solo agrega o quita filas de `career_course` (curso ↔ carrera). No toca los cursos ni sus pivotes de lenguajes, tecnologías y metodologías.
   - Si se quita un curso de una carrera mapeada, la próxima ingesta de ese sílabo lo vuelve a vincular.
   - La ingesta nunca desvincula carreras.
@@ -133,8 +148,9 @@ En `storage/logs/silabos-revision.log` quedan registrados:
 - los empates de versión con contenido distinto (el hash se calcula sobre `contenido.secciones`);
 - las versiones que bajan en un periodo posterior;
 - los periodos con formato desconocido;
-- las carreras sin mapeo;
-- los sílabos ignorados por no tener ninguna carrera mapeada.
+- las carreras mapeadas a un slug que no existe;
+- los sílabos ignorados por no tener ninguna carrera mapeada;
+- los sílabos marcados como "No vincular".
 
 ### Tiempo real
 
