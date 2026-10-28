@@ -54,6 +54,11 @@ public function share(Request $request): array
         'permissions' => $user
             ? $user->getAllPermissions()->pluck('name')->toArray()
             : [],
+        // Contador del menú "Vinculación de cursos" (solo para quien puede administrar).
+        // Solo usa 'status': un pendiente que se reemplaza pasa a 'superseded'.
+        'pendingCourseLinks' => fn () => $user?->can('administrar')
+            ? \App\Models\Syllabus::pendingLink()->count()
+            : 0,
         'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
     ];
 }

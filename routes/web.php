@@ -17,6 +17,7 @@ use App\Http\Controllers\AI\WorkModeAIController;
 use App\Http\Controllers\AI\TechnologiesAIController;
 use App\Http\Controllers\AI\RolesAIController;
 use App\Http\Controllers\CareerController;
+use App\Http\Controllers\CourseLinkController;
 use App\Http\Controllers\CareerCourseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
@@ -793,6 +794,12 @@ Route::get(
         // Relaciones
         Route::post('/{careerId}/attach-course', [CareerController::class, 'attachCourse'])->middleware('permission:administrar');
         Route::delete('/{careerId}/detach-course/{courseId}', [CareerController::class, 'detachCourse'])->middleware('permission:administrar');
+    });
+
+    // 🔗 Vinculación de cursos: sílabos de silabos_v2 cuyo código no tiene curso
+    Route::prefix('course-linking')->middleware('permission:administrar')->group(function () {
+        Route::get('/', [CourseLinkController::class, 'index'])->name('course-linking.index');
+        Route::post('/{syllabus}', [CourseLinkController::class, 'store'])->name('course-linking.store');
     });
     Route::prefix('market-entities')->group(function () {
 

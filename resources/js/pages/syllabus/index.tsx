@@ -15,7 +15,7 @@ type Upload = {
   id: number;
   filename: string | null;
   path: string | null;
-  status: 'pending' | 'processing' | 'processed' | 'failed' | 'superseded' | 'ignored';
+  status: 'pending' | 'processing' | 'processed' | 'failed' | 'superseded' | 'ignored' | 'pending_link';
   source?: 'upload' | 'silabos_v2';
   course_name?: string | null;
   external_version?: number | null;
@@ -312,11 +312,19 @@ return (
                           ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
                           : item.status === "superseded" || item.status === "ignored"
                           ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                          : item.status === "pending_link"
+                          ? "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200"
                           : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
                       }
                     `}
                   >
-                    {item.status}
+                    {item.status === "pending_link" ? (
+                      <a href="/course-linking" className="underline" title="Vincular en Vinculación de cursos">
+                        pendiente de vinculación
+                      </a>
+                    ) : (
+                      item.status
+                    )}
                   </span>
                 </td>
 

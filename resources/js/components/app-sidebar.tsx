@@ -36,6 +36,7 @@ import {
     FileSearch,
     ListChecks,
     ChevronDown,
+    Link2,
 } from "lucide-react";
 
 
@@ -51,8 +52,9 @@ const colorAlign = "text-sky-500 dark:text-sky-400";          // celeste ISIL
 export function AppSidebar() {
     type PageProps = {
         permissions: string[];
+        pendingCourseLinks?: number;
     };
-    const { permissions } = usePage<PageProps>().props;
+    const { permissions, pendingCourseLinks = 0 } = usePage<PageProps>().props;
     const has = (perm: string) => permissions.includes(perm);
 
     const isAdmin = has("administrar");
@@ -205,6 +207,12 @@ export function AppSidebar() {
                         icon={<GraduationCap className={colorAlign} />}
                         label="Cursos ISIL"
                     />
+                    <MenuItem
+                        href="/course-linking"
+                        icon={<Link2 className={colorAlign} />}
+                        label="Vinculación de cursos"
+                        badge={pendingCourseLinks}
+                    />
                 </CollapsibleSection>
 
                 {/* ================= HABILIDADES ================= */}
@@ -313,10 +321,12 @@ function MenuItem({
     href,
     icon,
     label,
+    badge,
 }: {
     href: string;
     icon: React.ReactNode;
     label: string;
+    badge?: number;
 }) {
     return (
         <SidebarMenu>
@@ -332,6 +342,14 @@ function MenuItem({
                     >
                         {icon}
                         <span className="font-medium text-sm">{label}</span>
+                        {!!badge && (
+                            <span
+                                title={`${badge} pendiente(s)`}
+                                className="ml-auto min-w-5 rounded-full bg-amber-500 px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
+                            >
+                                {badge}
+                            </span>
+                        )}
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
