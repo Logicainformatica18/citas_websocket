@@ -66,6 +66,16 @@ return [
             'restful' => 'REST',
             'restfulapi' => 'REST',
 
+            // Pares que existen duplicados en el catálogo y en market_entities (no se fusionan):
+            // canónico = el de más ofertas laborales al 2026-10-29, salvo Unity (decisión del usuario).
+            'microsoftazure' => 'Azure',                       // 4 407 ofertas frente a 3 950
+            'photoshop' => 'Adobe Photoshop',                  // 111 frente a 26
+            'microsoftsqlserver' => 'SQL Server',              // 4 625 frente a 32
+            'microsoftpowerbi' => 'Power BI',                  // 4 092 frente a 4
+            'basesdedatosnosql' => 'NOSQL',                    // 3 700 frente a 3 583
+            'unity3d' => 'Unity',                              // "Unity 3D" y "Unity3D"
+            'virtualbox' => 'Virtual Box',                     // "VirtualBox"; 3 276 frente a 12
+
             // No existen todavía (ni en market_entities): fijan la escritura con la que se crean.
             'bigdata' => 'Big Data',
             'iot' => 'IoT',

@@ -31,6 +31,9 @@ class CatalogResolver
     /** @var array<string, array<string, Model>> tipo → clave normalizada → fila */
     private array $index = [];
 
+    /** @var array<string, array<string, Model>> tipo → nombre exacto → fila */
+    private array $exact = [];
+
     /** @var array<string, TechnologyCategory>|null */
     private ?array $categories = null;
 
@@ -48,11 +51,13 @@ class CatalogResolver
         $index = &$this->index($type);
 
         // El alias va primero: también redirige nombres que existen duplicados en la base.
+        // Se busca el canónico por nombre exacto antes que por clave, porque duplicados como
+        // "Virtual Box" y "VirtualBox" comparten la clave y el alias decide cuál se usa.
         $canonical = config("catalogo.alias.$type.$key");
         if ($canonical !== null) {
             $canonicalKey = CatalogName::key($canonical);
-            if (isset($index[$canonicalKey])) {
-                $model = $index[$canonicalKey];
+            $model = $this->exact[$type][$canonical] ?? $index[$canonicalKey] ?? null;
+            if ($model) {
                 if ($model->name !== $name) {
                     $this->record($type, $name, $model, 'alias');
                 }
@@ -71,6 +76,7 @@ class CatalogResolver
         // firstOrCreate y no create: otro worker pudo crearlo después de armar el índice.
         $model = (self::TYPES[$type])::firstOrCreate(['name' => $name]);
         $index[$key] = $model;
+        $this->exact[$type][$model->name] = $model;
         $this->record($type, (string) $received, $model, $model->wasRecentlyCreated ? 'creado' : 'normalizado');
 
         if ($model->wasRecentlyCreated) {
@@ -137,7 +143,8 @@ class CatalogResolver
 
     /**
      * Índice clave → fila. Si dos filas comparten clave (p. ej. "Unity 3D" y "Unity3D")
-     * gana la ligada a market_entities y, si no, la de id menor.
+     * gana la ligada a market_entities y, si no, la de id menor; un alias puede elegir
+     * otra por nombre exacto (ver resolve()).
      */
     private function &index(string $type): array
     {
@@ -147,7 +154,9 @@ class CatalogResolver
 
             // Filas completas: quien las usa puede leer y guardar otras columnas (category_id).
             $this->index[$type] = [];
+            $this->exact[$type] = [];
             foreach ($class::query()->orderBy('id')->get() as $row) {
+                $this->exact[$type][$row->name] ??= $row;
                 $key = CatalogName::key($row->name);
                 $current = $this->index[$type][$key] ?? null;
                 if (!$current || ($hasMarket && !$current->market_entity_id && $row->market_entity_id)) {

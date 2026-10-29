@@ -146,11 +146,45 @@ class CatalogTest extends TestCase
 
     public function test_entre_duplicados_gana_el_ligado_al_mercado(): void
     {
-        Technology::create(['name' => 'Unity3D']);
-        $linked = Technology::create(['name' => 'Unity 3D']);
+        Technology::create(['name' => 'JupyterLab']);
+        $linked = Technology::create(['name' => 'Jupyter Lab']);
         DB::table('technologies')->where('id', $linked->id)->update(['market_entity_id' => 7]);
 
-        $this->assertSame($linked->id, (new CatalogResolver())->resolve('technologies', 'unity 3d')->id);
+        $this->assertSame($linked->id, (new CatalogResolver())->resolve('technologies', 'jupyter lab')->id);
+    }
+
+    public function test_el_alias_elige_por_nombre_exacto_entre_duplicados_con_la_misma_clave(): void
+    {
+        // Las dos ligadas al mercado: sin alias ganaría la de id menor ("VirtualBox").
+        $junta = Technology::create(['name' => 'VirtualBox']);
+        $separada = Technology::create(['name' => 'Virtual Box']);
+        DB::table('technologies')->whereIn('id', [$junta->id, $separada->id])->update(['market_entity_id' => 9]);
+        $unity = Technology::create(['name' => 'Unity']);
+        Technology::create(['name' => 'Unity3D']);
+        Technology::create(['name' => 'Unity 3D']);
+        $resolver = new CatalogResolver();
+
+        $this->assertSame($separada->id, $resolver->resolve('technologies', 'VirtualBox')->id);
+        $this->assertSame($separada->id, $resolver->resolve('technologies', 'virtual box')->id);
+        $this->assertSame($unity->id, $resolver->resolve('technologies', 'Unity3D')->id);
+        $this->assertSame($unity->id, $resolver->resolve('technologies', 'Unity 3D')->id);
+        $this->assertSame(5, Technology::count());
+        $this->assertSame(['alias', 'alias', 'alias', 'alias'], array_column($resolver->report()['technologies'], 'via'));
+    }
+
+    public function test_los_duplicados_del_catalogo_van_al_de_mas_ofertas(): void
+    {
+        foreach (['Azure', 'Microsoft Azure', 'Adobe Photoshop', 'Photoshop', 'SQL Server', 'Microsoft SQL Server',
+                     'Power BI', 'Microsoft Power BI', 'NOSQL', 'Bases de datos NoSQL'] as $name) {
+            Technology::create(['name' => $name]);
+        }
+        $resolver = new CatalogResolver();
+
+        foreach (['Microsoft Azure' => 'Azure', 'Photoshop' => 'Adobe Photoshop', 'Microsoft SQL Server' => 'SQL Server',
+                     'Microsoft Power BI' => 'Power BI', 'Bases de datos NoSQL' => 'NOSQL'] as $received => $canonical) {
+            $this->assertSame($canonical, $resolver->resolve('technologies', $received)->name);
+        }
+        $this->assertSame(10, Technology::count());
     }
 
     public function test_lenguajes_y_metodologias_usan_sus_propios_alias(): void
