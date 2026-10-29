@@ -295,6 +295,17 @@ class SyllabusIngestTest extends TestCase
         $this->assertStringContainsString('Versión que baja en un periodo posterior', $this->reviewLogContents());
     }
 
+    public function test_un_tbd_con_la_version_mayor_no_es_una_version_que_baja(): void
+    {
+        config(['silabos_v2.tbd_position' => 'first']);
+
+        $this->ingest($this->payload(id: 3799, version: 1, periodo: 'TBD'))->assertStatus(202);
+        $this->ingest($this->payload(id: 1650, version: 0, periodo: '202420'))
+            ->assertJson(['status' => 'superseded']);
+
+        $this->assertStringNotContainsString('Versión que baja', $this->reviewLogContents());
+    }
+
     public function test_isil_no_reemplaza_a_scl_aunque_compartan_codigo_familia(): void
     {
         $this->ingest($this->payload(id: 60, version: 1, modelo: 'scl'))->assertStatus(202);

@@ -252,7 +252,9 @@ class SyllabusIngestService
 
             $periodCmp = (int) $incoming->periodo_orden <=> (int) $other->periodo_orden;
             $versionCmp = (int) $incoming->external_version <=> (int) $other->external_version;
-            if ($periodCmp !== 0 && $versionCmp !== 0 && $periodCmp !== $versionCmp) {
+            // Un TBD cuenta como el periodo más antiguo; que tenga la versión mayor es lo normal, no un error.
+            $higher = $versionCmp > 0 ? $incoming : $other;
+            if ($periodCmp !== 0 && $versionCmp !== 0 && $periodCmp !== $versionCmp && !PeriodoOrden::isTbd($higher->periodo)) {
                 $log->warning('Versión que baja en un periodo posterior', $context($other));
             }
         }

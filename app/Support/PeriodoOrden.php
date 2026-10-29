@@ -36,6 +36,11 @@ class PeriodoOrden
         return 0;
     }
 
+    public static function isTbd(?string $periodo): bool
+    {
+        return str_starts_with(strtoupper(trim((string) $periodo)), 'TBD');
+    }
+
     public static function isKnownFormat(?string $periodo): bool
     {
         return (bool) preg_match('/^(\d{6}|\d{4}|TBD.*)$/i', trim((string) $periodo));
