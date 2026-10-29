@@ -6,11 +6,9 @@ use App\Events\SyllabusProcessed;
 use App\Jobs\AnalyzeCourseJob;
 use App\Models\Career;
 use App\Models\Course;
-use App\Models\Language;
-use App\Models\Methodology;
 use App\Models\Syllabus;
-use App\Models\Technology;
-use App\Models\TechnologyCategory;
+use App\Services\Catalog\CatalogPrompt;
+use App\Services\Catalog\CatalogResolver;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -68,7 +66,8 @@ class SyllabusExtractionService
             return;
         }
 
-        $this->syncCourseRelations($course, $decoded);
+        $catalogo = $this->syncCourseRelations($course, $decoded);
+        $syllabus->update(['structured_data' => $decoded + ['catalogo' => $catalogo]]);
 
         if ($syllabus->isFromSilabosV2()) {
             $this->supersedeUploadsOfCourse($syllabus, $course);
@@ -84,9 +83,14 @@ class SyllabusExtractionService
         }
     }
 
-    /** Llama a OpenAI con el mismo prompt que usaba ProcessSyllabusJob. */
+    /**
+     * Llama a OpenAI con el prompt que usaba ProcessSyllabusJob, más el catálogo existente
+     * (CatalogPrompt) y la convención de nombres de market_entities.
+     */
     public function extract(string $text): array
     {
+     $catalogo = app(CatalogPrompt::class)->text();
+
      $prompt = "
 Extrae del siguiente sílabo la información en formato JSON estricto.
 
@@ -96,14 +100,23 @@ Reglas:
   no solo los de programación. Esto abarca HTML, CSS, SQL, XML, JSON, etc.
 - 'tecnologias' incluyen frameworks, librerías, herramientas de software, modelos, motores,
   estructuras de datos, algoritmos, conceptos o tecnologías relevantes como 'Inteligencia Artificial'.
-  Para cada elemento incluye su tipo (framework, library, tool, cloud, database, engine, model, concept, etc.),
-  siguiendo una de las categorías existentes en la tabla technology_categories.
+  Para cada elemento incluye su tipo, que debe ser una de las categorías de tecnología del catálogo.
 - Si el texto menciona algoritmos heurísticos, árboles de decisión, grafos,
   búsqueda inteligente o toma de decisiones automatizada, incluye 'Inteligencia Artificial'
   como tecnología con tipo 'model' o 'concept'.
 - 'metodologias' deben ser metodologías de desarrollo de software (Scrum, Kanban, XP, Cascada, RUP, Agile, DevOps).
 - Ignora metodologías de enseñanza o aprendizaje (aprendizaje cooperativo, adaptativo, basado en problemas, método de casos, etc.).
+- Nombres: si un lenguaje, tecnología o metodología del sílabo es la misma cosa que un elemento
+  del catálogo de abajo, usa EXACTAMENTE el nombre del catálogo, aunque esté en español
+  (por ejemplo 'Inteligencia Artificial', 'Cascada', 'Bases de datos relacionales').
+  No uses un elemento más específico ni más general: 'Machine Learning' no es 'Azure Machine Learning'.
+- Si no está en el catálogo, usa el nombre oficial del producto o estándar, normalmente en inglés
+  y con su escritura habitual (por ejemplo 'Power BI', 'Node.js', 'Big Data', 'IoT', 'Machine Learning').
+  No traduzcas nombres de productos.
 - Devuelve SOLO el JSON solicitado, sin texto adicional ni comentarios.
+
+Catálogo existente:
+$catalogo
 
 Formato JSON:
 {
@@ -183,16 +196,23 @@ $text
         return Course::where('code', $syllabus->course_code)->first();
     }
 
-    /** Regenera completamente los pivotes del curso con lo que define el sílabo. */
-    public function syncCourseRelations(Course $course, array $decoded): void
+    /**
+     * Regenera completamente los pivotes del curso con lo que define el sílabo.
+     * Los nombres pasan por CatalogResolver (normalización y alias de config/catalogo.php);
+     * devuelve lo que no fue coincidencia exacta, para structured_data['catalogo'].
+     */
+    public function syncCourseRelations(Course $course, array $decoded): array
     {
+        $catalog = new CatalogResolver();
+
         // 🧠 1. Lenguajes — se reemplazan completamente (el sílabo define los nuevos)
         $languageIds = [];
         foreach ($decoded['lenguajes'] ?? [] as $langName) {
-            if (trim((string) $langName) === '') continue;
-            $languageIds[] = Language::firstOrCreate(['name' => trim($langName)])->id;
+            if ($language = $catalog->resolve('languages', is_string($langName) ? $langName : null)) {
+                $languageIds[] = $language->id;
+            }
         }
-        $course->languages()->sync($languageIds);
+        $course->languages()->sync(array_unique($languageIds));
 
         // 🧠 2. Tecnologías — también se regeneran, porque cambian con los sílabos
         $techIds = [];
@@ -205,30 +225,32 @@ $text
                 $type = null;
             }
 
-            if ($name === '') continue;
-
-            $tech = Technology::firstOrCreate(['name' => $name]);
+            $tech = $catalog->resolve('technologies', $name);
+            if (!$tech) continue;
 
             // 🧩 Si la IA devolvió un tipo y la tecnología no tiene categoría, se asigna
-            if ($type && !$tech->category_id) {
-                $category = TechnologyCategory::firstOrCreate(['name' => $type]);
+            // (solo categorías existentes; una desconocida va a 'other').
+            if ($type && !$tech->category_id && ($category = $catalog->resolveCategory($type))) {
                 $tech->category_id = $category->id;
                 $tech->save();
             }
 
             $techIds[] = $tech->id;
         }
-        $course->technologies()->sync($techIds);
+        $course->technologies()->sync(array_unique($techIds));
 
         // 🧠 3. Metodologías — igual, se reemplazan para reflejar solo las vigentes
         $methIds = [];
         foreach ($decoded['metodologias'] ?? [] as $methName) {
-            if (trim((string) $methName) === '') continue;
-            $methIds[] = Methodology::firstOrCreate(['name' => trim($methName)])->id;
+            if ($methodology = $catalog->resolve('methodologies', is_string($methName) ? $methName : null)) {
+                $methIds[] = $methodology->id;
+            }
         }
-        $course->methodologies()->sync($methIds);
+        $course->methodologies()->sync(array_unique($methIds));
 
         Log::info("✅ Curso '{$course->name}' actualizado (relaciones regeneradas completamente).");
+
+        return $catalog->report();
     }
 
     /**

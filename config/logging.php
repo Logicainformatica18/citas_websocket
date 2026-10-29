@@ -95,6 +95,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Entidades del catálogo creadas por la extracción de sílabos y categorías
+        // desconocidas asignadas a 'other' (ver `php artisan catalogo:nuevas`).
+        'catalogo' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/catalogo.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
         // Un registro JSON por petición medida con PerformanceTimer.
         'performance' => [
             'driver' => 'daily',
