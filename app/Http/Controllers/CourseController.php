@@ -21,8 +21,10 @@ class CourseController extends Controller
     'methodologies',
     'certifications' // 👈 NUEVO
 ])
+->tap(fn ($q) => $this->filterByCode($q, $request))
 ->orderBy('id', 'desc')
-->paginate(10);
+->paginate(10)
+->withQueryString();
 
 $certifications = Certification::orderBy('name')->get();
 
@@ -180,9 +182,12 @@ $selectedCertifications = $course->certifications->map(fn ($c) => [
 public function search(Request $request)
 {
     $query = Course::with(['languages', 'technologies', 'methodologies'])
+        // El término busca en el nombre y en el código de silabos_v2
         ->when($request->filled('name'), function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->name . '%');
+            $term = '%' . trim($request->name) . '%';
+            $q->where(fn ($sub) => $sub->where('name', 'like', $term)->orWhere('code', 'like', $term));
         })
+        ->tap(fn ($q) => $this->filterByCode($q, $request))
         ->when($request->filled('language_id'), function ($q) use ($request) {
             $q->whereHas('languages', function ($sub) use ($request) {
                 $sub->where('languages.id', $request->language_id);
@@ -205,7 +210,8 @@ public function search(Request $request)
 })
 
         ->orderBy('name', 'asc')
-        ->paginate(10);
+        ->paginate(10)
+        ->withQueryString();
 
     // Si se pide JSON (por API/AJAX)
     if ($request->wantsJson()) {
@@ -217,7 +223,7 @@ public function search(Request $request)
     // Si se usa con Inertia
     return Inertia::render('courses/index', [
         'courses' => $query,
-        'filters' => $request->only(['name', 'language_id', 'technology_id', 'methodology_id']),
+        'filters' => $request->only(['name', 'language_id', 'technology_id', 'methodology_id', 'codigo']),
     ]);
 }
 
@@ -305,6 +311,16 @@ public function update(Request $request, $id)
 
         return response()->json(['message' => '✅ Curso eliminado']);
     }
+
+/** Filtro ?codigo=con (solo cursos con código de silabos_v2) | sin (solo sin código); otro valor = todos. */
+private function filterByCode($query, Request $request): void
+{
+    match ($request->input('codigo')) {
+        'con' => $query->whereNotNull('code'),
+        'sin' => $query->whereNull('code'),
+        default => null,
+    };
+}
 
 /** El código vacío se guarda como NULL (sin código); si no, tal cual, sin espacios alrededor. */
 private function normalizeCode(Request $request): void

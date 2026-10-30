@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Paintbrush, Trash2, Search, BookOpen } from 'lucide-react';
@@ -24,12 +24,17 @@ type Certification = {
 type Course = {
   id: number;
   name: string;
+  code?: string | null; // código del curso en silabos_v2
+
   languages: SimpleItem[];
   technologies: SimpleItem[];
   methodologies: SimpleItem[];
   certifications: Certification[]; // 👈 NUEVO
 };
 
+
+// Filtro por código de silabos_v2: '' = todos, 'con' = solo con código, 'sin' = solo sin código
+type CodeFilter = '' | 'con' | 'sin';
 
 type Pagination<T> = {
   data: T[];
@@ -61,36 +66,27 @@ const {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Course | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [codeFilter, setCodeFilter] = useState<CodeFilter>('');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // URL del listado según el buscador (nombre o código) y el filtro de código
+  const listUrl = (page = 1) => {
+    const params = new URLSearchParams();
+    const term = searchTerm.trim();
+    if (term) params.set('name', term);
+    if (codeFilter) params.set('codigo', codeFilter);
+    if (page > 1) params.set('page', String(page));
+    return `${term ? '/courses/search' : '/courses/fetch'}?${params}`;
+  };
 
   // 🔍 Búsqueda en tiempo real con delay
   useEffect(() => {
     if (typingTimeout) clearTimeout(typingTimeout);
 
-    const timeout = setTimeout(async () => {
-      if (searchTerm.trim() === '') {
-        fetchPage('/courses');
-        return;
-      }
-
-      try {
-        const res = await axios.get('/courses/search', { params: { name: searchTerm } });
-        const pager = res.data?.courses ?? res.data;
-        setItems(pager?.data ?? []);
-        setPagination({
-          data: pager?.data ?? [],
-          current_page: pager?.current_page ?? 1,
-          last_page: pager?.last_page ?? 1,
-          next_page_url: pager?.next_page_url ?? null,
-          prev_page_url: pager?.prev_page_url ?? null,
-        });
-      } catch (error) {
-        console.error(error);
-      }
-    }, 600);
+    const timeout = setTimeout(() => fetchPage(listUrl()), 600);
 
     setTypingTimeout(timeout);
-  }, [searchTerm]);
+  }, [searchTerm, codeFilter]);
 
   useEffect(() => {
     setItems(initialPagination.data);
@@ -181,22 +177,41 @@ const {
         </div>
       </div>
 
-      {/* BUSCADOR */}
-      <div className="relative mb-6 w-full md:w-1/2">
-        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
-        <input
-          type="text"
-          placeholder="Buscar curso..."
+      {/* BUSCADOR + FILTRO DE CÓDIGO */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="relative w-full md:w-1/2">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <input
+            type="text"
+            placeholder="Buscar curso por nombre o código..."
+            className="
+              w-full pl-9 pr-3 py-2 rounded-md
+              border border-gray-300 dark:border-gray-700
+              bg-white dark:bg-gray-800
+              text-gray-900 dark:text-gray-100
+              focus:ring-2 focus:ring-[#1CBCE8] outline-none
+            "
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <select
+          aria-label="Filtrar por código"
           className="
-            w-full pl-9 pr-3 py-2 rounded-md
+            px-3 py-2 rounded-md text-sm
             border border-gray-300 dark:border-gray-700
             bg-white dark:bg-gray-800
             text-gray-900 dark:text-gray-100
             focus:ring-2 focus:ring-[#1CBCE8] outline-none
           "
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+          value={codeFilter}
+          onChange={(e) => setCodeFilter(e.target.value as CodeFilter)}
+        >
+          <option value="">Todos los cursos</option>
+          <option value="con">Con código</option>
+          <option value="sin">Sin código</option>
+        </select>
       </div>
 
       {/* TABLA ISIL */}
@@ -217,6 +232,7 @@ const {
               </th>
               <th className="px-4 py-2 text-left">Acciones</th>
               <th className="px-4 py-2 text-left">ID</th>
+              <th className="px-4 py-2 text-left">Código</th>
               <th className="px-4 py-2 text-left">Nombre</th>
               <th className="px-4 py-2 text-left">Lenguajes</th>
               <th className="px-4 py-2 text-left">Tecnologías</th>
@@ -267,6 +283,21 @@ const {
 
                 {/* ID */}
                 <td className="px-4 py-2">{item.id}</td>
+
+                {/* CÓDIGO (silabos_v2) */}
+                <td className="px-4 py-2 whitespace-nowrap">
+                  {item.code ? (
+                    <span className="font-mono">{item.code}</span>
+                  ) : (
+                    <Link
+                      href="/course-linking"
+                      title="Vincular en la página Vinculación de cursos"
+                      className="px-2 py-0.5 rounded text-xs border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    >
+                      Sin código
+                    </Link>
+                  )}
+                </td>
 
                 {/* NOMBRE */}
                 <td className="px-4 py-2 font-semibold">{item.name}</td>
@@ -352,7 +383,7 @@ const {
             {items.length === 0 && (
               <tr>
                 <td
-               colSpan={8}
+               colSpan={9}
                   className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
                 >
                   No hay cursos para mostrar.
@@ -376,7 +407,7 @@ const {
         pages.push(
           <button
             key={p}
-            onClick={() => fetchPage(`/courses/fetch?page=${p}`)}
+            onClick={() => fetchPage(listUrl(p))}
             className={`px-3 py-1 rounded-md text-sm font-medium transition
               ${
                 current === p
