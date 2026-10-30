@@ -194,7 +194,9 @@ class SyllabusIngestService
             'course_code' => $p['curso']['codigo'],
             'course_name' => $p['curso']['nombre'],
             'careers' => array_values($p['carreras'] ?? []),
-            'approved_at' => Carbon::parse($p['aprobado_at']),
+            // Se guarda en la zona de la aplicación: la columna no guarda el desfase y Eloquent
+            // escribe la hora tal como viene, así que "+00:00" quedaría 5 horas adelantado.
+            'approved_at' => Carbon::parse($p['aprobado_at'])->setTimezone(config('app.timezone')),
             'approved_at_source' => $p['aprobado_at_fuente'],
             'content' => $content,
             'content_hash' => $this->contentHash($content['secciones'] ?? []),

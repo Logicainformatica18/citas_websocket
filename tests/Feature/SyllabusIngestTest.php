@@ -488,6 +488,26 @@ class SyllabusIngestTest extends TestCase
         $this->assertStringNotContainsString('isil:CMAR', $this->reviewLogContents());
     }
 
+    // ── Fecha de aprobación ─────────────────────────────────────
+
+    public function test_aprobado_at_se_guarda_en_la_zona_horaria_de_la_aplicacion(): void
+    {
+        config(['app.timezone' => 'America/Lima']);
+        date_default_timezone_set('America/Lima');
+        Queue::fake();
+
+        // El mismo instante con desfases distintos queda guardado igual, en hora de Lima.
+        $this->ingest($this->payload(id: 1, aprobadoAt: '2026-10-30T00:11:46+00:00'))->assertSuccessful();
+        $this->ingest($this->payload(id: 2, aprobadoAt: '2026-10-29T19:11:46-05:00'))->assertSuccessful();
+        $this->ingest($this->payload(id: 3, aprobadoAt: '2026-10-29T20:11:46-04:00'))->assertSuccessful();
+
+        $this->assertSame(
+            ['2026-10-29 19:11:46', '2026-10-29 19:11:46', '2026-10-29 19:11:46'],
+            Syllabus::orderBy('external_id')->toBase()->pluck('approved_at')->all()
+        );
+        $this->assertSame('2026-10-29T19:11:46-05:00', Syllabus::firstWhere('external_id', 1)->approved_at->toIso8601String());
+    }
+
     // ── Helpers ─────────────────────────────────────────────────
 
     private function ingest(array $payload, ?string $key = self::KEY)
