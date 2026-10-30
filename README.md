@@ -43,6 +43,8 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
    | `SILABOS_INGEST_API_KEY` | Clave compartida con silabos_v2, que la envía en `X-Api-Key`. Si está vacía, el endpoint rechaza todo. Generar con `php -r "echo bin2hex(random_bytes(32));"`. |
    | `SILABOS_TBD_POSITION` | `first` (por defecto) o `last`: dónde se ordenan los periodos `TBD`/`TBD_EE` al desempatar versiones. `first`: se tratan como anteriores a cualquier periodo. |
    | `SILABOS_ANALYZE_AFTER_INGEST` | `true` para lanzar `AnalyzeCourseJob` (análisis con IA, con costo en OpenAI) tras cada ingesta. Por defecto `false`. |
+   | `CATALOGO_PROMPT_MAX_TECNOLOGIAS` | Cuántas tecnologías del catálogo se pasan a la IA en el prompt de extracción. `0` (por defecto) = todas (~2 000 tokens). |
+   | `CATALOGO_PROMPT_CACHE_SEGUNDOS` | Segundos que un worker reutiliza la lista del catálogo antes de volver a leerla. Por defecto `300`. |
 
 3. Revisar el mapeo de carreras en `config/silabos_v2.php` → `career_map`.
    - Tiene solo las 9 carreras que usa el observatorio; 2 están pendientes de confirmar.
