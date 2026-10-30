@@ -95,6 +95,7 @@ class CareerController extends Controller
             'courses' => $career->courses->map(fn ($c) => [
                 'id'           => $c->id,
                 'name'         => $c->name,
+                'code'         => $c->code, // código de silabos_v2
                 'semester'     => $c->pivot->semester,
                 'is_mandatory' => $c->pivot->is_mandatory,
             ]),

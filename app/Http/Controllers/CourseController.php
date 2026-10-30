@@ -52,8 +52,8 @@ $certifications = Certification::orderBy('name')->get();
     }
 public function listAll()
 {
-     // ⚡ Solo necesitamos id y name, sin paginación pesada
-    $courses = \App\Models\Course::select('id', 'name')
+     // ⚡ Solo necesitamos id, name y el código de silabos_v2, sin paginación pesada
+    $courses = \App\Models\Course::select('id', 'name', 'code')
         ->orderBy('name', 'asc')
         ->get();
 
