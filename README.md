@@ -62,6 +62,8 @@ La carga antigua por PDF (`/silabos`) sigue funcionando igual.
 
 ### Scripts SQL para la base real
 
+**Para producción, usar `docs/produccion/` y su guía `PASOS_PRODUCCION.md`:** verificación previa de las dos bases, scripts sin `USE`, alternativa de códigos por nombre, respaldo y reversión de la carga, y el orden completo de despliegue. Lo de esta sección es la versión usada en local.
+
 Están en `docs/sql/` (MySQL 8). Cada script está dividido en bloques comentados: primero verificaciones de solo lectura con el resultado esperado, luego los cambios. Ejecutar los bloques en orden y detenerse ante el primer error o ante una verificación que no dé lo esperado. Cada `ALTER TABLE` es atómico en MySQL 8: si falla, no aplica nada de esa sentencia.
 
 | Orden | Script | Qué hace |
