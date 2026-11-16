@@ -1,7 +1,7 @@
 # Plan de los rankings del Observatorio (Lenguajes, Tecnologías, Certificaciones)
 
 Documento para retomar el trabajo en una sesión nueva. Estado al **2026-11-16**.
-Rama de trabajo: `observer`. **Nada de esto está commiteado todavía** (ver "Estado del repositorio").
+Rama de trabajo: `observer`. Todo está commiteado (ver "Estado del repositorio").
 
 ---
 
@@ -216,9 +216,18 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 
 ## 7. Estado del repositorio
 
-Todo está **sin commitear** en la rama `observer` (archivos nuevos en `app/Services/Ranking`, `app/Console/Commands/Ranking`,
-`app/Http/Controllers/Dashboard/Concerns`, `app/Support/Xlsx`, `config/entity_rankings.php`, migraciones
-`2026_11_12_00000[1-6]`, `resources/js/components/ranking`, `docs/produccion/ranking_*`, `docs/produccion/herramientas`
-y modificaciones en controladores, modelos, 26 scrapers, rutas, `RunAllJobs.php` y páginas). Conviene commitear por
-partes antes de la Fase B (Lenguajes / refactor genérico / Tecnologías), excluyendo `DiscoverLanguageGapsCommand.php`
-y `MAPEO_OBSERVATORIO.md`, que no son de este trabajo.
+Todo el trabajo está commiteado en la rama `observer` (2026-11-16), en cuatro commits:
+
+| Commit | Contenido |
+|---|---|
+| `b048f75` | Optimización y Fase A del Ranking de Lenguajes (tablas de resumen, evolución, activos, botón, scrapers, migraciones 000001-000004) |
+| `d84a4dd` | Servicio genérico `EntityRankingService`, comando/Job/trait genéricos, export en streaming y componentes compartidos |
+| `439803e` | Fase 2 del Ranking de Tecnologías (incluidos entidades, carreras y export; migraciones 000005-000006) |
+| `e927c61` | `docs/produccion`: scripts SQL, README, CSV de entidades, `PLAN_RANKINGS.md` y herramientas |
+
+**El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
+`d84a4dd` (no se podían reconstruir los estados intermedios del trabajo). **A partir de `d84a4dd` todo es coherente.**
+No conviene desplegar ni hacer checkout de `b048f75` aislado.
+
+Fuera de estos commits quedan, a propósito, `app/Console/Commands/getTrends/DiscoverLanguageGapsCommand.php`
+(cambios locales que no son de este trabajo) y `MAPEO_OBSERVATORIO.md`.
