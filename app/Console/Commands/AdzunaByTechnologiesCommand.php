@@ -94,7 +94,7 @@ $startedAt = now();
            TECNOLOGÍAS DESDE market_entities
         ========================================= */
 
-        $baseQuery = MarketEntity::where('entity_type','technology')
+        $baseQuery = MarketEntity::active()->where('entity_type', 'technology')
             ->orderBy('id');
 
         $lastTechnologyId = TechnologyMetric::where('source','Adzuna')

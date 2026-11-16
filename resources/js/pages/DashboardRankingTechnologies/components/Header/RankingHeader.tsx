@@ -9,6 +9,7 @@ import {
 import { router, usePage } from "@inertiajs/react";
 import { WeightConfig } from "./WeightConfigModal";
 import { JobMarketStatusModal } from "./JobMarketStatusModal";
+import { RankingRefreshControl } from "@/components/ranking/RankingRefreshControl";
 import axios from "axios";
 import Swal from "sweetalert2";
 interface HeaderProps {
@@ -18,6 +19,8 @@ interface HeaderProps {
     periodo_label: string;
     vacantes_analizadas: number;
     reportes_analizados: number;
+    has_data?: boolean;
+    calculated_at_label?: string | null; // hora de Perú
   };
   onOpenWeekly: () => void;
   weights: WeightConfig;
@@ -31,7 +34,7 @@ export function Header({
   onEditWeights,
 
 }: HeaderProps) {
-  const { filters, jobMarketStatus, scrapingStatus } = usePage().props as any;
+  const { filters, jobMarketStatus, scrapingStatus, canRefreshRanking } = usePage().props as any;
 
   const [openMarketModal, setOpenMarketModal] = useState(false);
   const [runningIA, setRunningIA] = useState(false);
@@ -275,6 +278,15 @@ px-4 sm:px-6 lg:px-8
         ver detalle
       </span>
     </button>
+
+    {/* ÚLTIMA ACTUALIZACIÓN + RECALCULAR (componente compartido con Lenguajes) */}
+    <RankingRefreshControl
+      basePath="/dashboard/ranking/technologies"
+      calculatedAtLabel={meta.calculated_at_label}
+      canRefresh={!!canRefreshRanking}
+      year={meta.year}
+      period={meta.period}
+    />
 
   </div>
 

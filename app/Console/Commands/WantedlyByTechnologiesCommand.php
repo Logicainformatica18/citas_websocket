@@ -63,7 +63,7 @@ class WantedlyByTechnologiesCommand extends Command
             ->orderByDesc('created_at')
             ->value('technology_id');
 
-        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $baseQuery = Technology::active()->whereIn('technologies.id', function ($q) {
                 $q->select('ct.technology_id')
                   ->from('course_technology as ct')
                   ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id');

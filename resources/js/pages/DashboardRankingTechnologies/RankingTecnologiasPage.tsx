@@ -46,6 +46,7 @@ type PageProps = {
   meta: {
     year: number;
     period: string;
+    has_data?: boolean;
   };
   weights: {
     laborWeight: number;
@@ -296,6 +297,19 @@ const loadTechnologyReports = (
 
               {/* ================= FILTROS ================= */}
               <RankingFilters />
+
+              {/* Primera vez: el ranking del periodo aún no se ha calculado */}
+              {meta.has_data === false && (
+                <div className="rounded-2xl border border-dashed border-teal-400/60 bg-teal-50/60 p-6 text-center dark:bg-[#102C3C]">
+                  <p className="text-base font-semibold text-[#0A2540] dark:text-slate-100">
+                    El ranking de este periodo todavía no está disponible
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    Se calcula automáticamente todos los días a las 7:00 a. m. (hora de Perú).
+                    Si eres administrador, puedes generarlo ahora con «Recalcular ranking».
+                  </p>
+                </div>
+              )}
 
               {/* ================= RANKING ================= */}
              <RankingList

@@ -10,13 +10,18 @@ use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
 use Illuminate\Support\Facades\Artisan;
-use App\Exports\TechnologyEvolutionExport;
-use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\EntityEvolutionExport;
+use App\Http\Controllers\Dashboard\Concerns\RefreshesEntityRanking;
+use App\Services\Ranking\EntityRankingService;
+use App\Services\TechnologyRankingService;
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 
 class RankingTecnologiasController extends Controller
 {
+    use RefreshesEntityRanking;
+
     /* ==================================================
        GUARDAR PONDERACIONES (TECNOLOGÍAS)
     ================================================== */
@@ -88,210 +93,67 @@ class RankingTecnologiasController extends Controller
     /* ==================================================
        RANKING PRINCIPAL
     ================================================== */
+/* ==================================================
+   RANKING PRINCIPAL – TECNOLOGÍAS
+   Lee SOLO de las tablas de resumen (technology_rankings / technology_ranking_meta),
+   que llena `ranking:refresh-technologies`. No calcula nada en vivo (antes tardaba
+   15-32 s y superaba el max_execution_time).
+
+   Cambios de cálculo respecto de la versión en vivo:
+   - el máximo de tendencias para normalizar sale solo de tecnologías (antes podía
+     venir de otra entidad: IDC, un "lenguaje", con 163 reportes);
+   - reportes_analizados cuenta solo reportes de tecnologías;
+   - el filtro ranking_type se quitó: se leía pero nunca se aplicaba y la interfaz
+     no ofrece cómo elegirlo.
+================================================== */
 public function index(Request $request)
 {
-    /* ==================================================
-       0. CONTEXTO BASE
-    ================================================== */
-    $year   = (int) $request->get('year', 2026);
-    $period = $request->get('period', 's1');
- $semester = $period === 's1' ? 1 : 2;
-$search = $request->get('search');
-    $range = $this->getPeriodRange($period, $year);
+    $rankingService = $this->rankingService();
 
-    /* ==================================================
-       0.1 FILTROS (INERTIA SAFE)
-    ================================================== */
+    $year   = (int) $request->get('year', 2026);
+    $period = $request->get('period', 's1') === 's2' ? 's2' : 's1';
+    $search = $request->get('search');
+
     $careers = $request->filled('career')
-        ? (array) $request->career
+        ? array_values(array_filter((array) $request->career))
         : [];
 
-    $rankingType = $request->get('ranking_type', 'all');
-    if (!in_array($rankingType, ['all', 'technology', 'trend'])) {
-        $rankingType = 'all';
-    }
-
-    /* ==================================================
-       0.2 PONDERACIONES
-    ================================================== */
-    try {
-        $weights = Prueba::getActive('technologies');
-    } catch (\Throwable $e) {
-        $weights = null;
-    }
-
-    $laborWeight = (float) ($weights?->labor_weight ?? 0.7);
-    $trendWeight = (float) ($weights?->trend_weight ?? 0.3);
-
-    /* ==================================================
-       0.3 CATÁLOGOS
-    ================================================== */
     $availableCareers = DB::table('careers')
         ->where('active', 1)
         ->orderBy('name')
         ->get(['id', 'name', 'slug']);
 
-    /* ==================================================
-       1. DEMANDA LABORAL (technology_job)
-    ================================================== */
-    $laborSub = DB::table('technology_job as tj')
-        ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->groupBy('tj.market_entity_id')
-        ->select(
-            'tj.market_entity_id',
-            DB::raw('COUNT(DISTINCT tj.job_offer_id) as offers')
-        );
+    [$laborWeight, $trendWeight] = $rankingService->activeWeights();
 
-    $maxLabor = max(
-        DB::query()->fromSub($laborSub, 'x')->max('offers'),
-        1
-    );
+    $meta = $rankingService->meta($year, $period);
 
-    /* ==================================================
-       2. TENDENCIAS REALES (entity_trends)
-    ================================================== */
-   $trendSub = DB::table('entity_trends as et')
-    ->where('et.year', $year)
-    ->whereIn(
-        'et.quarter',
-        $semester === 1
-            ? [1, 2]
-            : [3, 4]
-    )
-    ->groupBy('et.market_entity_id')
-        ->select(
-            'et.market_entity_id',
-            DB::raw('COUNT(et.id) as trend_reports'),
-            DB::raw('AVG(et.trend_score) as avg_trend_score')
-        );
+    // Sin cálculo previo: paginador vacío y mensaje amigable en el frontend.
+    $ranking = $meta
+        ? $rankingService->paginate($year, $period, $laborWeight, $trendWeight, $careers, $search)
+        : new LengthAwarePaginator([], 0, 10);
 
-    $maxTrendReports = max(
-        DB::query()->fromSub($trendSub, 't')->max('trend_reports'),
-        1
-    );
+    $calculatedAt = $meta
+        ? Carbon::parse($meta->calculated_at)->timezone('America/Lima')
+        : null;
 
-    /* ==================================================
-       3. QUERY BASE (market_entities)
-    ================================================== */
-    $query = DB::table('market_entities as me')
-        ->leftJoinSub($laborSub, 'labor', 'labor.market_entity_id', '=', 'me.id')
-        ->leftJoinSub($trendSub, 'trends', 'trends.market_entity_id', '=', 'me.id')
-        ->where('me.entity_type', 'technology');
-if ($search) {
-    $query->where('me.name', 'LIKE', "%{$search}%");
-}
-    /* ==================================================
-       4. FILTRO POR CARRERA (career_market_entity)
-    ================================================== */
-    if (!empty($careers)) {
-        $query->whereExists(function ($q) use ($careers) {
-            $q->select(DB::raw(1))
-              ->from('career_market_entity as cme')
-              ->join('careers as c', 'c.id', '=', 'cme.career_id')
-              ->whereColumn('cme.market_entity_id', 'me.id')
-              ->whereIn('c.slug', $careers);
-        });
-    }
-
-    /* ==================================================
-       5. SELECT + SCORES (NORMALIZADOS CORRECTOS)
-    ================================================== */
-    $ranking = $query->select(
-        DB::raw("'technology' as entity_type"),
-        'me.id',
-        'me.name',
-        'me.has_isil',
-        'me.has_trend',
-
-        DB::raw("
-            CASE
-                WHEN me.has_isil = 1 AND me.has_trend = 1 THEN 'isil+trend'
-                WHEN me.has_isil = 1 THEN 'isil'
-                WHEN me.has_trend = 1 THEN 'trend'
-                ELSE 'market'
-            END as classification
-        "),
-
-        DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-        DB::raw('COALESCE(trends.trend_reports,0) as trend_reports'),
-
-        // 🔵 SCORE LABORAL (log)
-        DB::raw("
-            ROUND(
-                (LOG(COALESCE(labor.offers,0)+1)
-                 / LOG({$maxLabor}+1)) * 100,
-            1) as labor_score
-        "),
-
-        // 🟣 SCORE TENDENCIAS (log, NO global)
-        DB::raw("
-            ROUND(
-                (LOG(COALESCE(trends.trend_reports,0)+1)
-                 / LOG({$maxTrendReports}+1)) * 100,
-            1) as trend_score
-        "),
-
-        // ⭐ SCORE FINAL
-        DB::raw("
-            ROUND(
-                (
-                    (
-                        (LOG(COALESCE(labor.offers,0)+1)
-                         / LOG({$maxLabor}+1)) * 100 * {$laborWeight}
-                    )
-                  +
-                    (
-                        (LOG(COALESCE(trends.trend_reports,0)+1)
-                         / LOG({$maxTrendReports}+1)) * 100 * {$trendWeight}
-                    )
-                ),
-            1) as final_score
-        ")
-    )
-    ->orderByDesc('final_score')
-    ->paginate(10)
-    ->withQueryString();
-
-    /* ==================================================
-       6. METADATA
-    ================================================== */
-    $totalVacantesAnalizadas = DB::table('technology_job as tj')
-        ->join('job_offers as j', 'j.id', '=', 'tj.job_offer_id')
-        ->whereBetween('j.published_at', [$range['start'], $range['end']])
-        ->distinct('tj.job_offer_id')
-        ->count('tj.job_offer_id');
-
-    $totalReports = DB::table('entity_trends')
-        ->where('year', $year)
-        ->whereIn(
-    'quarter',
-    $semester == 1
-        ? [1, 2]
-        : [3, 4]
-)
-        ->count();
-
-    /* ==================================================
-       7. RENDER
-    ================================================== */
     return Inertia::render(
         'DashboardRankingTechnologies/RankingTecnologiasPage',
         [
-            'ranking' => $ranking,
+            'ranking' => $ranking->withQueryString(),
 
             'filters' => [
                 'year'   => $year,
-                'period'=> $period,
-                'career'=> $careers,
-                  'search' => $search,
-                'ranking_type' => $rankingType !== 'all' ? $rankingType : null,
+                'period' => $period,
+                'career' => $careers,
+                'search' => $search,
             ],
 
             'availableCareers' => $availableCareers,
 
             'scrapingStatus' => ScrapingStatusService::getByEntity('technologies'),
             'jobMarketStatus'=> JobMarketStatusController::get($year, $period),
+
+            'canRefreshRanking' => (bool) $request->user()?->can('administrar'),
 
             'weights' => [
                 'laborWeight' => round($laborWeight * 100, 1),
@@ -300,17 +162,30 @@ if ($search) {
 
             'meta' => [
                 'year'   => $year,
-                'period'=> $period,
+                'period' => $period,
                 'periodo_label' =>
                     $period === 's1'
                         ? "Semestre 1 – Enero a Junio {$year}"
                         : "Semestre 2 – Julio a Diciembre {$year}",
-                'vacantes_analizadas' => $totalVacantesAnalizadas,
-                'reportes_analizados' => $totalReports,
-                'actualizado' => now()->toDateTimeString(),
+                'vacantes_analizadas' => (int) ($meta->vacantes_analizadas ?? 0),
+                'reportes_analizados' => (int) ($meta->reportes_analizados ?? 0),
+                'has_data' => $meta !== null,
+                // Fecha del último cálculo, en hora de Perú
+                'calculated_at' => $calculatedAt?->toIso8601String(),
+                'calculated_at_label' => $calculatedAt?->locale('es')->translatedFormat('d/m/Y h:i a'),
+                'actualizado' => $calculatedAt?->toDateTimeString(),
             ],
         ]
     );
+}
+
+/* ==================================================
+   BOTÓN "RECALCULAR RANKING": refresh() y refreshStatus() vienen del trait
+   RefreshesEntityRanking (compartido con Lenguajes).
+================================================== */
+protected function rankingService(): EntityRankingService
+{
+    return app(TechnologyRankingService::class);
 }
 
 
@@ -618,319 +493,54 @@ public function jobsByLanguage(Request $request, int $languageId)
             'end'   => "$year-12-31",
         ];
     }
- public function weeklyScores(Request $request)
+/* ==================================================
+   EVOLUCIÓN (MODAL): fotos del ranking semestral en cada corte
+   Lee SOLO de technology_ranking_weekly(_meta), que llena ranking:refresh-technologies.
+================================================== */
+public function weeklyScores(Request $request)
 {
     try {
+        $year = (int) $request->get('year', now()->year);
+        $filter = $request->get('filter', 'weekly');
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = max(1, min((int) $request->get('per_page', 6), 20));
 
-        /*
-        ==================================================
-        PARAMS
-        ==================================================
-        */
-
-        $year = (int) $request->get(
-            'year',
-            now()->year
-        );
-
-        $filter = $request->get(
-            'filter',
-            'weekly'
-        );
-
-        $page = (int) $request->get(
-            'page',
-            1
-        );
-
-        $perPage = min(
-            (int) $request->get(
-                'per_page',
-                6
-            ),
-            20
-        );
-
-        /*
-        ==================================================
-        VALID FILTER
-        ==================================================
-        */
-
-        if (!in_array($filter, [
-            'weekly',
-            'biweekly',
-            'monthly',
-        ])) {
-
+        if (! in_array($filter, EntityRankingService::WINDOW_TYPES, true)) {
             $filter = 'weekly';
         }
 
-        /*
-        ==================================================
-        QUERY CACHE
-        ==================================================
-        */
-
-        $rows = DB::table(
-            'technology_evolution_cache as tec'
-        )
-
-        ->join(
-            'market_entities as me',
-            'me.id',
-            '=',
-            'tec.market_entity_id'
-        )
-
-        ->where(
-            'tec.year',
-            $year
-        )
-
-        ->where(
-            'tec.period_type',
-            $filter
-        )
-
-        ->select(
-
-            'tec.*',
-
-            'me.name'
-        )
-
-        ->orderByDesc(
-            'tec.start_date'
-        )
-
-        ->orderBy(
-            'tec.ranking_position'
-        )
-
-        ->get();
-
-        /*
-        ==================================================
-        GROUP PERIODS
-        ==================================================
-        */
-
-        $periods = $rows
-
-            ->groupBy(function ($item) {
-
-                return
-                    $item->period_type .
-                    '_' .
-                    $item->start_date;
-            })
-
-            ->map(function ($items) {
-
-                $first = $items->first();
-
-                return [
-
-                    /*
-                    ======================================
-                    INFO
-                    ======================================
-                    */
-
-                    'period' =>
-                        $first->period_label,
-
-                    'label' =>
-                        $first->period_label,
-
-                    'start_date' =>
-                        $first->start_date,
-
-                    'end_date' =>
-                        $first->end_date,
-
-                    /*
-                    ======================================
-                    SCORE PROMEDIO
-                    ======================================
-                    */
-
-                    'period_score' => round(
-
-                        $items->avg(
-                            'final_score'
-                        ),
-
-                        1
-                    ),
-
-                    /*
-                    ======================================
-                    TOTAL JOBS
-                    ======================================
-                    */
-
-                    'total_jobs' =>
-
-                        $items->sum(
-                            'jobs'
-                        ),
-
-                    /*
-                    ======================================
-                    TOP TECNOLOGÍAS
-                    ======================================
-                    */
-
-                    'top' => $items
-
-                        ->sortBy(
-                            'ranking_position'
-                        )
-
-                        ->take(5)
-
-                        ->values()
-
-                        ->map(function ($item) {
-
-                            return [
-
-                                'id' =>
-                                    $item->market_entity_id,
-
-                                'name' =>
-                                    $item->name,
-
-                                'jobs' =>
-                                    $item->jobs,
-
-                                'trend_reports' =>
-                                    $item->trend_reports,
-
-                                'labor_score' =>
-                                    (float)
-                                    $item->labor_score,
-
-                                'trend_score' =>
-                                    (float)
-                                    $item->trend_score,
-
-                                'final_score' =>
-                                    (float)
-                                    $item->final_score,
-
-                                'ranking_position' =>
-                                    $item->ranking_position,
-                            ];
-                        }),
-                ];
-            })
-
-            ->sortByDesc(
-                'start_date'
-            )
-
-            ->values();
-
-        /*
-        ==================================================
-        PAGINATION
-        ==================================================
-        */
-
-        $total = $periods->count();
-
-        $paged = $periods
-
-            ->forPage(
-                $page,
-                $perPage
-            )
-
-            ->values();
-
-        /*
-        ==================================================
-        RESPONSE
-        ==================================================
-        */
+        $result = $this->rankingService()->windowsPage($year, $filter, $page, $perPage);
 
         return response()->json([
-
-            'success' => true,
-
-            'filter' => $filter,
-
-            'year' => $year,
-
-            'data' => $paged,
-
-            'pagination' => [
-
-                'current_page' => $page,
-
-                'per_page' => $perPage,
-
-                'total' => $total,
-
-                'last_page' => max(
-                    1,
-                    ceil($total / $perPage)
-                ),
-            ],
+            'success'    => true,
+            'filter'     => $filter,
+            'year'       => $year,
+            'data'       => $result['data'],
+            'pagination' => $result['pagination'],
+        ]);
+    } catch (\Throwable $e) {
+        Log::error('[TECHNOLOGY_EVOLUTION_ERROR]', [
+            'message' => $e->getMessage(),
+            'line'    => $e->getLine(),
+            'file'    => $e->getFile(),
         ]);
 
-    } catch (\Throwable $e) {
-
-        Log::error(
-            '[EVOLUTION_CACHE_ERROR]',
-            [
-
-                'message' =>
-                    $e->getMessage(),
-
-                'line' =>
-                    $e->getLine(),
-
-                'file' =>
-                    $e->getFile(),
-
-                'trace' =>
-                    $e->getTraceAsString(),
-            ]
-        );
-
         return response()->json([
-
             'success' => false,
-
-            'message' =>
-                $e->getMessage(),
-
+            'message' => 'No se pudo cargar la evolución.',
         ], 500);
     }
 }
- 
+
+/* Export en streaming: ~450 tecnologías × 45 semanas sin agotar memoria */
 public function exportTechnologyEvolution(Request $request)
 {
     $year = (int) $request->get('year', 2026);
+    $filter = $request->get('filter', 'weekly');
+    $filter = in_array($filter, EntityRankingService::WINDOW_TYPES, true) ? $filter : 'weekly';
 
-    $filter = $request->get(
-        'filter',
-        'weekly'
-    );
-
-    return Excel::download(
-
-        new TechnologyEvolutionExport(
-            $year,
-            $filter
-        ),
-
-        "technology_evolution_{$filter}.xlsx"
-    );
+    return (new EntityEvolutionExport($this->rankingService(), $year, $filter, 'Tecnología'))
+        ->download("technology_evolution_{$filter}.xlsx");
 }
 
 }

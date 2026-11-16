@@ -82,7 +82,7 @@ class ReedByTechnologiesCommand extends Command
             ->orderByDesc('created_at')
             ->value('technology_id');
 
-        $baseQuery = Technology::whereIn('technologies.id', function ($q) {
+        $baseQuery = Technology::active()->whereIn('technologies.id', function ($q) {
                 $q->select('course_technology.technology_id')
                   ->from('course_technology')
                   ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');

@@ -9,11 +9,19 @@ use Carbon\Carbon;
 
 class BackfillTechnologyHistoryCommand extends Command
 {
-    protected $signature = 'technologies:backfill-all {year=2026}';
-    protected $description = 'Reconstruye el historial acumulado asignando rangos reales de fechas para que el frontend pinte del 01 al 07, 08 al 14, etc.';
+    protected $signature = 'technologies:backfill-all {year=2026} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
+    protected $description = '[RETIRADO] Reconstruía technology_evolution_cache. La evolución ahora la calcula ranking:refresh-technologies.';
 
     public function handle()
     {
+        // RETIRADO: ver TakeTechnologySnapshotCommand. ranking:refresh-technologies recalcula
+        // toda la evolución (semanas ISO, quincenas y meses) en cada ejecución.
+        if (! $this->option('legacy')) {
+            $this->warn('technologies:backfill-all está RETIRADO: la evolución la calcula ranking:refresh-technologies. No se hizo nada.');
+
+            return self::SUCCESS;
+        }
+
         $year = (int) $this->argument('year');
         $this->info("=== INICIANDO RECONSTRUCCIÓN INTEGRAL (MÉTODO ACUMULADO CON RANGOS VISUALES) ===");
 

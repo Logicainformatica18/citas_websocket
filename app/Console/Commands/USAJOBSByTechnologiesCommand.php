@@ -48,7 +48,7 @@ class USAJOBSByTechnologiesCommand extends Command
 
     try {
 
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
+        $technologies = Technology::active()->whereIn('technologies.id', function ($q) {
                 $q->select('ct.technology_id')
                   ->from('course_technology as ct')
                   ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id');

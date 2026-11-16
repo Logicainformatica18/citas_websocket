@@ -65,9 +65,7 @@ export default function RankingFilters() {
   const clearAllFilters = () => {
     router.get(
       "/dashboard/ranking/technologies",
-      {
-        ranking_type: "all",
-      },
+      {},
       {
         preserveState: true,
         replace: true,

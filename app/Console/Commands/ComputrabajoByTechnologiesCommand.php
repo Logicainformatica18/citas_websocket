@@ -78,7 +78,7 @@ $startedAt = now();
 
 
         // 🔹 Tecnologías reales (vinculadas a carreras)
-        $technologies = Technology::whereIn('technologies.id', function ($q) {
+        $technologies = Technology::active()->whereIn('technologies.id', function ($q) {
             $q->select('course_technology.technology_id')
               ->from('course_technology')
               ->join('career_course', 'career_course.course_id', '=', 'course_technology.course_id');

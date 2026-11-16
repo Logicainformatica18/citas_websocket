@@ -538,6 +538,19 @@ Route::get(
             [RankingTecnologiasController::class, 'index']
         )->name('dashboard.ranking.technologies');
 
+        // 🔄 Recalcular las tablas de resumen del ranking (solo administradores)
+        Route::post(
+            '/refresh',
+            [RankingTecnologiasController::class, 'refresh']
+        )->middleware(['permission:administrar', 'throttle:3,1'])
+         ->name('dashboard.ranking.technologies.refresh');
+
+        Route::get(
+            '/refresh-status',
+            [RankingTecnologiasController::class, 'refreshStatus']
+        )->middleware(['permission:administrar', 'throttle:60,1'])
+         ->name('dashboard.ranking.technologies.refresh-status');
+
         Route::get(
             '/{technology}/jobs',
             [RankingTecnologiasController::class, 'jobsByTechnology']

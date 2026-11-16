@@ -14,12 +14,21 @@ class TakeTechnologySnapshotCommand extends Command
      * Ya no dependemos obligatoriamente de pasarle un parámetro manual en el CRON.
      * Si no se pasa nada, el comando calcula automáticamente qué fotos tocan hoy.
      */
-    protected $signature = 'technologies:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly}';
+    protected $signature = 'technologies:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
 
-    protected $description = 'Calcula de forma automática o manual las fotos históricas necesarias (Semanal, Quincenal, Mensual).';
+    protected $description = '[RETIRADO] Fotos acumuladas en technology_evolution_cache. La evolución ahora la calcula ranking:refresh-technologies.';
 
     public function handle()
     {
+        // RETIRADO: el modal y el export leen technology_ranking_weekly, que llena
+        // ranking:refresh-technologies. Este comando guardaba el acumulado del semestre
+        // con start_date = end_date = hoy. Sin --legacy no hace nada (para que el cron no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('technologies:take-snapshot está RETIRADO: la evolución la calcula ranking:refresh-technologies. No se hizo nada. Desactiva su cron.');
+
+            return self::SUCCESS;
+        }
+
         $filterOption = $this->option('filter');
         $now = Carbon::now();
         $year = $now->year;

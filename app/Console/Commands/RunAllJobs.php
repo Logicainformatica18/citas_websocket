@@ -235,6 +235,8 @@ class RunAllJobs extends Command
 'computrabajo:clean-all',
 // Recalcula el resumen del Ranking de Lenguajes con los datos ya importados y normalizados
 'ranking:refresh-languages',
+// Ídem para el Ranking de Tecnologías
+'ranking:refresh-technologies',
 ];
 
         $total = count($commands);

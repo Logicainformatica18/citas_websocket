@@ -146,8 +146,12 @@ class TechnologyController extends Controller
     public function toggle($id)
     {
         $tech = Technology::findOrFail($id);
-        $tech->enabled = !$tech->enabled;
-        $tech->save();
+
+        DB::transaction(fn () => $this->setActive(
+            $tech,
+            ! $tech->enabled,
+            'Desactivada desde la administración de tecnologías'
+        ));
 
         return response()->json([
             'message' => 'Estado actualizado',
@@ -157,16 +161,35 @@ class TechnologyController extends Controller
 
     /**
      * 🗑️ Eliminar
+     *
+     * Ya no borra físicamente: borrar la fila de `technologies` eliminaba en cascada sus
+     * ofertas de technology_job, pero dejaba la entidad en market_entities y los scrapers
+     * la volvían a crear. Ahora se desactiva la tecnología y su entidad
+     * (market_entities.is_active = 0): desaparece del ranking, la evolución, el export y
+     * los scrapers, y se conserva el historial.
      */
     public function destroy($id)
     {
         return DB::transaction(function () use ($id) {
             $technology = Technology::findOrFail($id);
-            $technology->delete();
+            $this->setActive($technology, false, 'Eliminada desde la administración de tecnologías');
 
             return response()->json([
-                'message' => 'Tecnología eliminada correctamente.',
+                'message' => 'Tecnología eliminada (desactivada) correctamente.',
             ]);
         });
+    }
+
+    /** Activa o desactiva la tecnología y la entidad de market_entities vinculada. */
+    private function setActive(Technology $technology, bool $active, string $reason): void
+    {
+        $technology->enabled = $active;
+        $technology->save();
+
+        $entity = $technology->marketEntity;
+
+        if ($entity) {
+            $active ? $entity->activate() : $entity->deactivate($reason);
+        }
     }
 }
