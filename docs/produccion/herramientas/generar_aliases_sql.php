@@ -52,7 +52,10 @@ foreach ($spec as $slug => $rules) {
         echo "    UNION ALL SELECT {$v}\n";
     }
     echo "  ) r\n";
-    echo " WHERE me.entity_type = {$q($type)} AND me.slug = {$q($slug)};\n\n";
+    echo " WHERE me.entity_type = {$q($type)} AND me.slug = {$q($slug)}\n";
+    // Sin advertencias 1062 al re-ejecutar: solo las reglas que aún no existen
+    echo "   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind\n";
+    echo "                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);\n\n";
 }
 
 echo "SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas {$total})') AS resultado\n";

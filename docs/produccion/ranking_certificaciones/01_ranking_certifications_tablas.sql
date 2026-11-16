@@ -23,7 +23,7 @@
 --
 -- RE-EJECUCIÓN
 --   Idempotente (CREATE TABLE IF NOT EXISTS; Note 1050 si ya existen).
---   Sin advertencias (los booleanos se declaran como TINYINT, sin ancho).
+--   Warning 1681 (TINYINT(1)) es esperado: es el booleano de Laravel.
 --
 -- REVERSIÓN
 --   03_ranking_certifications_rollback.sql
@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS `certification_rankings` (
 
   -- Copia de market_entities al momento del cálculo
   `name`             VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `has_isil`         TINYINT           NOT NULL DEFAULT 0,
-  `has_trend`        TINYINT           NOT NULL DEFAULT 0,
+  `has_isil`         TINYINT(1)        NOT NULL DEFAULT 0,
+  `has_trend`        TINYINT(1)        NOT NULL DEFAULT 0,
   `classification`   VARCHAR(20)  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
 
   -- Métricas crudas
@@ -165,8 +165,8 @@ CREATE TABLE IF NOT EXISTS `certification_ranking_weekly_meta` (
   `end_date`          DATE              NOT NULL,
   `cutoff_date`       DATE              NOT NULL,             -- end_date, o hoy si está en curso
   `semester`          CHAR(7)      CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_semester_start` TINYINT           NOT NULL DEFAULT 0,   -- 1 = primera foto de un semestre (el acumulado se reinicia)
-  `is_partial`        TINYINT           NOT NULL DEFAULT 0,   -- 1 = ventana en curso
+  `is_semester_start` TINYINT(1)        NOT NULL DEFAULT 0,   -- 1 = primera foto de un semestre (el acumulado se reinicia)
+  `is_partial`        TINYINT(1)        NOT NULL DEFAULT 0,   -- 1 = ventana en curso
   `unique_offers`     INT UNSIGNED      NOT NULL DEFAULT 0,   -- vacantes únicas acumuladas del semestre al corte
   `new_unique_offers` INT UNSIGNED      NOT NULL DEFAULT 0,   -- vacantes únicas publicadas dentro de la ventana
   `max_labor`         INT UNSIGNED      NOT NULL DEFAULT 1,

@@ -1,5 +1,10 @@
 # Ranking de Lenguajes: despliegue en producción
 
+> **Producción:** al DBA se le entrega solo `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql`, que consolida los
+> scripts necesarios de esta carpeta (ver `PLAN_RANKINGS.md`, sección 6). Los scripts de aquí siguen siendo la fuente
+> del consolidado y sirven para aplicar o revertir partes sueltas. **La limpieza de asociaciones queda fuera del
+> despliegue.**
+
 La página `/dashboard/ranking/languages` ya no calcula el ranking en vivo (35-60 s, superaba el límite de 30 s).
 Lee de las tablas de resumen `language_rankings` y `language_ranking_meta`, que llena el comando
 `php artisan ranking:refresh-languages`.
@@ -116,6 +121,12 @@ fin y errores. Si un periodo falla se revierte solo ese y conserva sus datos ant
 - Auditoría (solo lectura): `php artisan entities:match-audit --type=languages --semester=2026-s2`.
 
 ## Fase C: limpieza de language_job (2026-11-16)
+
+> **Producción: la limpieza de asociaciones NO forma parte del despliegue** (decisión del 2026-11-16).
+> No se ejecutan `entities:clean-associations` ni los scripts `13`, `14` y `15`. Se conservan en el
+> repositorio por si se decide aplicarla más adelante (probados en local, con respaldo y reversión).
+> Consecuencia: las asociaciones históricas no confirmadas siguen contando en el ranking; desde el despliegue,
+> los scrapers solo agregan asociaciones que el matcher confirma.
 
 | # | Script / comando | Qué hace | Tiempo (local) | Bloqueo |
 |---|---|---|---|---|

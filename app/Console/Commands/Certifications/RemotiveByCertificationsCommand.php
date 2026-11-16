@@ -15,6 +15,7 @@ use App\Helpers\RegionMapper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class RemotiveByCertificationsCommand extends Command
 {
@@ -62,7 +63,8 @@ class RemotiveByCertificationsCommand extends Command
         $certifications = Certification::active()->select(
             'id',
             'name',
-            'keywords'
+            'keywords',
+            'market_entity_id'
         )->get();
 
         if ($certifications->isEmpty()) {
@@ -80,23 +82,8 @@ class RemotiveByCertificationsCommand extends Command
 
         foreach ($certifications as $cert) {
 
-            if (empty($cert->keywords)) {
-
-                $this->warn(
-                    "⚠️ {$cert->name} sin keywords, se omite"
-                );
-
-                continue;
-            }
-
-            // 🔑 keywords limpias
-            $keywords = collect(
-                explode(',', strtolower($cert->keywords))
-            )
-            ->map(fn ($k) => trim($k))
-            ->filter(fn ($k) => strlen($k) >= 2)
-            ->values()
-            ->all();
+            // keywords es JSON: antes se partía como texto y se buscaba '["…'
+            $keywords = SearchTerms::forCertification($cert->keywords, $cert->name, $cert->market_entity_id);
 
             if (empty($keywords)) {
 
@@ -196,22 +183,8 @@ class RemotiveByCertificationsCommand extends Command
                             $title . ' ' . $desc
                         );
 
-                        $matched = false;
-
-                        foreach ($keywords as $kw) {
-
-                            if (
-                                str_contains(
-                                    $text,
-                                    $kw
-                                )
-                            ) {
-
-                                $matched = true;
-
-                                break;
-                            }
-                        }
+                        // Matcher (antes: subcadena de keywords)
+                        $matched = OfferEntityLinker::for('certifications')->confirms($cert->id, $title, $job['description'] ?? '');
 
                         if (!$matched) {
                             continue;
@@ -295,7 +268,7 @@ class RemotiveByCertificationsCommand extends Command
                                 )
                             ) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id, false, $job['description'] ?? null);
                             }
 
                             $totalDuplicates++;
@@ -402,7 +375,7 @@ class RemotiveByCertificationsCommand extends Command
                             )
                         ) {
 
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $cert->id);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $cert->id, false, $job['description'] ?? null);
                         }
 
                         $totalNew++;

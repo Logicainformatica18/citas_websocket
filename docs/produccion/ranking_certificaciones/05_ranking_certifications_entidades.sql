@@ -10,7 +10,7 @@
 --   3. Crea la fila de `certifications` (catálogo que usan los scrapers) de cada
 --      certificación activa que no la tenía: sin ella ningún scraper la buscaba.
 --      Las filas sin keywords reciben el nombre (los scrapers las usan para buscar).
---   4. Copia a certification_job las asociaciones de las tecnologías
+--   4. (Desactivado por defecto: ver la sección 4) Copia a certification_job las asociaciones de las tecnologías
 --      desactivadas "CompTIA A+" y "Cyberops" (technology_job no se toca). La
 --      limpieza con el matcher descarta después las que el texto no confirma.
 --   Cada cambio queda en _respaldo_certificaciones_2026_11 para 06.
@@ -137,7 +137,13 @@ SELECT CONCAT('Filas de certifications con keywords = [nombre]: ', ROW_COUNT()) 
 
 -- ---------------------------------------------------------------------
 -- 4. Asociaciones de las tecnologías CompTIA A+ y Cyberops → certification_job
+--    DESACTIVADO POR DEFECTO (@copiar_desde_tecnologias = 0): casi todas esas
+--    asociaciones son falsas (en local el matcher confirmó 16 de 13 701) y solo
+--    la limpieza (entities:clean-associations + 10) las descartaría. Sin limpieza,
+--    copiarlas pondría a CyberOps y CompTIA A+ en el top con miles de ofertas
+--    falsas. Poner 1 solo si después se ejecuta la limpieza de certificaciones.
 -- ---------------------------------------------------------------------
+SET @copiar_desde_tecnologias = 0;
 DROP TEMPORARY TABLE IF EXISTS `_tec_a_cert`;
 CREATE TEMPORARY TABLE `_tec_a_cert` (tec VARCHAR(191) PRIMARY KEY, cert VARCHAR(191) NOT NULL)
   DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -150,7 +156,8 @@ SELECT c.id, mc.id, tj.job_offer_id, '[migrado de technology_job 2026-11]', NOW(
   JOIN technology_job tj ON tj.market_entity_id = mt.id
   JOIN market_entities mc ON mc.entity_type = 'certification' AND mc.slug = x.cert AND mc.is_active = 1
   JOIN certifications c ON c.market_entity_id = mc.id AND c.enabled = 1
- WHERE NOT EXISTS (SELECT 1 FROM certification_job cj WHERE cj.certification_id = c.id AND cj.job_offer_id = tj.job_offer_id);
+ WHERE @copiar_desde_tecnologias = 1
+   AND NOT EXISTS (SELECT 1 FROM certification_job cj WHERE cj.certification_id = c.id AND cj.job_offer_id = tj.job_offer_id);
 SELECT CONCAT('Asociaciones copiadas desde technology_job: ', ROW_COUNT()) AS resultado;
 
 COMMIT;

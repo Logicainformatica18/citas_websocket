@@ -1,5 +1,10 @@
 # Ranking de Tecnologías: despliegue en producción
 
+> **Producción:** al DBA se le entrega solo `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql`, que consolida los
+> scripts necesarios de esta carpeta (ver `PLAN_RANKINGS.md`, sección 6). Los scripts de aquí siguen siendo la fuente
+> del consolidado y sirven para aplicar o revertir partes sueltas. **La limpieza de asociaciones queda fuera del
+> despliegue.**
+
 La página `/dashboard/ranking/technologies` ya no calcula en vivo (tardaba 15-32 s y superaba el límite de 30 s).
 Lee de `technology_rankings` / `technology_ranking_meta` y la evolución de `technology_ranking_weekly(_meta)`,
 que llena `php artisan ranking:refresh-technologies`. Usa el mismo servicio genérico que Lenguajes
@@ -58,6 +63,14 @@ corría los viernes y sábados por la noche (hora del servidor). Sin `--legacy` 
 - Logs: `storage/logs/laravel.log`, prefijo `[TECHNOLOGY_RANKING]`.
 
 ## Fases 3 y 4: matcher y limpieza de technology_job (2026-11-16)
+
+> **Producción: la limpieza de asociaciones NO forma parte del despliegue** (decisión del 2026-11-16).
+> No se ejecutan `entities:clean-associations` ni los scripts `12`, `13` y `14`. Se conservan en el
+> repositorio por si se decide aplicarla más adelante (probados en local, con respaldo y reversión).
+> Consecuencia: las asociaciones históricas no confirmadas siguen contando en el ranking; desde el despliegue,
+> los scrapers solo agregan asociaciones que el matcher confirma.
+
+> Los scripts `10` (reglas) y `11` (su reversión) sí forman parte del despliegue.
 
 | # | Script / comando | Qué hace | Tiempo (local) | Bloqueo |
 |---|---|---|---|---|

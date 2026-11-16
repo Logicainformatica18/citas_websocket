@@ -14,6 +14,7 @@ use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class RemoteOkByCertificationsCommand extends Command
 {
@@ -52,7 +53,8 @@ class RemoteOkByCertificationsCommand extends Command
         $certifications = Certification::active()->select(
             'id',
             'name',
-            'keywords'
+            'keywords',
+            'market_entity_id'
         )->get();
 
         if ($certifications->isEmpty()) {
@@ -118,24 +120,8 @@ class RemoteOkByCertificationsCommand extends Command
 
         foreach ($certifications as $cert) {
 
-            if (empty($cert->keywords)) {
-
-                $this->warn(
-                    "⚠️ {$cert->name} sin keywords"
-                );
-
-                continue;
-            }
-
-            // 🔑 keywords flexibles
-            $keywords = collect(
-                explode(',', strtolower($cert->keywords))
-            )
-            ->map(fn ($k) => trim($k))
-            ->flatMap(fn ($k) => explode(' ', $k))
-            ->filter(fn ($k) => strlen($k) >= 3)
-            ->unique()
-            ->values();
+            // keywords es JSON: antes se partía como texto y por palabras sueltas ("aws", "certified")
+            $keywords = collect(SearchTerms::forCertification($cert->keywords, $cert->name, $cert->market_entity_id));
 
             if ($keywords->isEmpty()) {
 
@@ -177,13 +163,8 @@ class RemoteOkByCertificationsCommand extends Command
                         ($job['description'] ?? '')
                     );
 
-                    // 🧠 match flexible
-                    $matched = $keywords->first(
-                        fn ($kw) =>
-                            str_contains($text, $kw)
-                    );
-
-                    if (!$matched) {
+                    // Matcher
+                    if (! OfferEntityLinker::for('certifications')->confirms($cert->id, $job['position'] ?? '', OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []))) {
                         continue;
                     }
 
@@ -230,7 +211,7 @@ class RemoteOkByCertificationsCommand extends Command
                             )
                         ) {
 
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id, false, OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []));
                         }
 
                         continue;
@@ -311,7 +292,7 @@ class RemoteOkByCertificationsCommand extends Command
                         )
                     ) {
 
-                        OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $cert->id);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $cert->id, false, OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []));
                     }
 
                     $new++;

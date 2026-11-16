@@ -15,6 +15,7 @@ use App\Helpers\CountryNormalizer;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class JobicyByCertificationsCommand extends Command
 {
@@ -146,16 +147,10 @@ class JobicyByCertificationsCommand extends Command
                 "\n🎯 Procesando: {$certName}"
             );
 
-            $jobs = $allJobs->filter(function ($job) use ($certName) {
-
-                return str_contains(
-                    strtolower(
-                        ($job['jobTitle'] ?? '') . ' ' .
-                        ($job['jobDescription'] ?? '')
-                    ),
-                    strtolower($certName)
-                );
-            });
+            // Matcher (antes: el nombre completo como subcadena; no reconocía siglas como CISSP o AZ-400)
+            $jobs = $allJobs->filter(fn ($job) => OfferEntityLinker::for('certifications')->confirms(
+                $certId, $job['jobTitle'] ?? '', OfferEntityLinker::body($job['jobExcerpt'] ?? '', $job['jobDescription'] ?? '')
+            ));
 
             $totalFound = $jobs->count();
             $totalNew   = 0;
@@ -188,7 +183,7 @@ class JobicyByCertificationsCommand extends Command
 
                         if ($existing) {
 
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, OfferEntityLinker::body($job['jobExcerpt'] ?? '', $job['jobDescription'] ?? ''));
                         }
 
                         continue;
@@ -279,7 +274,7 @@ class JobicyByCertificationsCommand extends Command
                                 : now(),
                     ]);
 
-                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
+                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId, false, OfferEntityLinker::body($job['jobExcerpt'] ?? '', $job['jobDescription'] ?? ''));
 
                     $totalNew++;
 

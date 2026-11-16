@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
   `updated_at`       TIMESTAMP NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mea_rule` (`market_entity_id`, `kind`, `pattern`, `case_sensitive`),
-  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SELECT 'market_entity_aliases lista' AS resultado;
 
@@ -68,7 +68,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'SQL', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'sql';
+ WHERE me.entity_type = 'language' AND me.slug = 'sql'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- java
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -79,7 +81,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'Java', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'Java Script', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'java';
+ WHERE me.entity_type = 'language' AND me.slug = 'java'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- javascript
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -92,7 +96,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'ECMAScript', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'JS', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'javascript';
+ WHERE me.entity_type = 'language' AND me.slug = 'javascript'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- typescript
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -102,7 +108,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'TypeScript', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'typescript';
+ WHERE me.entity_type = 'language' AND me.slug = 'typescript'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- python
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -112,7 +120,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Python', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'python';
+ WHERE me.entity_type = 'language' AND me.slug = 'python'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- c
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -124,7 +134,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'C Sharp', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CSharp', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'c';
+ WHERE me.entity_type = 'language' AND me.slug = 'c'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- c-plus-plus
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -136,7 +148,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'C plus plus', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'cpp', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'c-plus-plus';
+ WHERE me.entity_type = 'language' AND me.slug = 'c-plus-plus'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- php
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -146,7 +160,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'PHP', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'php';
+ WHERE me.entity_type = 'language' AND me.slug = 'php'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- css
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -157,7 +173,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'CSS', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CSS3', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'css';
+ WHERE me.entity_type = 'language' AND me.slug = 'css'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- html
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -168,7 +186,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'HTML', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'HTML5', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'html';
+ WHERE me.entity_type = 'language' AND me.slug = 'html'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- kotlin
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -178,7 +198,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Kotlin', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'kotlin';
+ WHERE me.entity_type = 'language' AND me.slug = 'kotlin'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- matlab
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -188,7 +210,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'MATLAB', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'matlab';
+ WHERE me.entity_type = 'language' AND me.slug = 'matlab'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- json
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -198,7 +222,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'JSON', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'json';
+ WHERE me.entity_type = 'language' AND me.slug = 'json'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- xml
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -208,7 +234,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'XML', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'xml';
+ WHERE me.entity_type = 'language' AND me.slug = 'xml'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- scala
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -227,7 +255,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'big data', 0, 0, 0, 40
     UNION ALL SELECT 'context', 'Hadoop', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'scala';
+ WHERE me.entity_type = 'language' AND me.slug = 'scala'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- perl
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -237,7 +267,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Perl', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'perl';
+ WHERE me.entity_type = 'language' AND me.slug = 'perl'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cobol
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -247,7 +279,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'COBOL', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'cobol';
+ WHERE me.entity_type = 'language' AND me.slug = 'cobol'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- lua
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -257,7 +291,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Lua', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'lua';
+ WHERE me.entity_type = 'language' AND me.slug = 'lua'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- vba
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -268,7 +304,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'VBA', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Visual Basic for Applications', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'vba';
+ WHERE me.entity_type = 'language' AND me.slug = 'vba'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- fsharp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -279,7 +317,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'F#', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'FSharp', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'fsharp';
+ WHERE me.entity_type = 'language' AND me.slug = 'fsharp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- rust
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -292,7 +332,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'alias', 'Rustlang', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'Rust Belt', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'rust';
+ WHERE me.entity_type = 'language' AND me.slug = 'rust'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- r
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -339,7 +381,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'programming', 0, 0, 0, NULL
     UNION ALL SELECT 'context', 'programación', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'r';
+ WHERE me.entity_type = 'language' AND me.slug = 'r'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- go
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -424,7 +468,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'IA', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'AI', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'go';
+ WHERE me.entity_type = 'language' AND me.slug = 'go'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- swift
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -477,7 +523,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'language', 0, 0, 0, 120
     UNION ALL SELECT 'context', 'lenguaje', 0, 0, 0, 120
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'swift';
+ WHERE me.entity_type = 'language' AND me.slug = 'swift'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- dax
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -510,7 +558,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'data modeling', 0, 0, 0, 150
     UNION ALL SELECT 'context', 'data model', 0, 0, 0, 150
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'dax';
+ WHERE me.entity_type = 'language' AND me.slug = 'dax'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- ruby
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -546,7 +596,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'language', 0, 0, 0, 120
     UNION ALL SELECT 'context', 'lenguaje', 0, 0, 0, 120
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'ruby';
+ WHERE me.entity_type = 'language' AND me.slug = 'ruby'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- shell
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -567,7 +619,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'Unix', 0, 0, 0, 60
     UNION ALL SELECT 'negative', 'PowerShell', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'shell';
+ WHERE me.entity_type = 'language' AND me.slug = 'shell'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- ada
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -608,7 +662,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed lenguajes]', 
     UNION ALL SELECT 'context', 'language', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'lenguaje', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'language' AND me.slug = 'ada';
+ WHERE me.entity_type = 'language' AND me.slug = 'ada'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas 298)') AS resultado
   FROM market_entity_aliases a JOIN market_entities me ON me.id = a.market_entity_id
@@ -636,12 +692,21 @@ UPDATE languages l
  WHERE me.slug IN ('perl', 'ruby', 'vba', 'lua', 'cobol', 'fsharp') AND l.market_entity_id IS NULL;
 SELECT CONCAT('Filas de languages existentes vinculadas: ', ROW_COUNT()) AS resultado;
 
--- Re-aplicación después de 12: reactivar las filas que este script creó antes
+-- Re-aplicación después de 12 (que deshabilita, no borra): rehabilitar la fila de cada uno de
+-- estos lenguajes si está deshabilitada, su entidad está activa y no tiene otra fila habilitada.
+-- Se registra como 'creada' para que 12 la vuelva a deshabilitar.
+INSERT IGNORE INTO `_respaldo_lenguajes_2026_11` (tabla, fila_id, columna, valor_anterior)
+SELECT 'languages', l.id, 'creada', NULL
+  FROM languages l
+  JOIN market_entities me ON me.id = l.market_entity_id AND me.entity_type = 'language' AND me.is_active = 1
+ WHERE me.slug IN ('perl', 'ruby', 'vba', 'lua', 'cobol', 'fsharp') AND l.enabled = 0
+   AND NOT EXISTS (SELECT 1 FROM (SELECT market_entity_id FROM languages WHERE enabled = 1) e WHERE e.market_entity_id = me.id);
 UPDATE languages l
-  JOIN `_respaldo_lenguajes_2026_11` r ON r.tabla = 'languages' AND r.fila_id = l.id AND r.columna = 'creada'
+  JOIN market_entities me ON me.id = l.market_entity_id AND me.entity_type = 'language' AND me.is_active = 1
    SET l.enabled = 1, l.updated_at = NOW()
- WHERE l.enabled = 0;
-SELECT CONCAT('Filas creadas antes por 11, reactivadas: ', ROW_COUNT()) AS resultado;
+ WHERE me.slug IN ('perl', 'ruby', 'vba', 'lua', 'cobol', 'fsharp') AND l.enabled = 0
+   AND NOT EXISTS (SELECT 1 FROM (SELECT market_entity_id FROM languages WHERE enabled = 1) e WHERE e.market_entity_id = me.id);
+SELECT CONCAT('Filas de languages rehabilitadas: ', ROW_COUNT()) AS resultado;
 
 INSERT INTO languages (name, enabled, market_entity_id, created_at, updated_at)
 SELECT me.name, 1, me.id, NOW(), NOW()

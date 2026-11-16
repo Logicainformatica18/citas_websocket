@@ -20,6 +20,7 @@ use App\Services\ScraperRunService;
 use Illuminate\Support\Str;
 
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class AdzunaByCertificationsCommand extends Command
 {
@@ -137,7 +138,11 @@ class AdzunaByCertificationsCommand extends Command
 
         foreach ($entities as $entityId => $entityName) {
 
-            $this->warn("\n💡 Certification: {$entityName}");
+            $this->warn("
+💡 Certification: {$entityName}");
+
+            // Término principal de búsqueda (keywords decodificadas o nombre/alias)
+            $searchTerm = SearchTerms::primary(SearchTerms::forEntity($entityId, $entityName));
 
             $totalFound     = 0;
             $totalNew       = 0;
@@ -151,7 +156,7 @@ class AdzunaByCertificationsCommand extends Command
                 $url = "{$baseUrl}/{$country}/search/{$page}"
                     . "?app_id={$appId}&app_key={$appKey}"
                     . "&results_per_page=100"
-                    . "&what=" . urlencode($entityName);
+                    . "&what=" . urlencode($searchTerm);
 
                 try {
 
@@ -205,11 +210,8 @@ class AdzunaByCertificationsCommand extends Command
 
                     $desc = strtolower($job['description'] ?? '');
 
-                    // ✅ validación exacta
-                    if (!preg_match(
-                        '/\b' . preg_quote($entityName, '/') . '\b/i',
-                        $desc
-                    )) {
+                    // Matcher (antes: el nombre completo exacto en el extracto, casi nunca coincidía)
+                    if (! OfferEntityLinker::for('certifications')->confirmsEntity($entityId, $job['title'] ?? '', $job['description'] ?? '')) {
                         continue;
                     }
 
@@ -228,7 +230,7 @@ class AdzunaByCertificationsCommand extends Command
 
                         if ($existing) {
 
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true, $job['description'] ?? null);
                         }
 
                         $totalDuplicate++;
@@ -337,7 +339,7 @@ class AdzunaByCertificationsCommand extends Command
                     ]);
 
                     // ✅ attach certification
-                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true);
+                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true, $job['description'] ?? null);
 
                     $totalNew++;
 

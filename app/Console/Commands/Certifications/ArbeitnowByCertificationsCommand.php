@@ -16,6 +16,7 @@ use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
  use App\Services\SourceStatusService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class ArbeitnowByCertificationsCommand extends Command
 {
@@ -104,6 +105,8 @@ class ArbeitnowByCertificationsCommand extends Command
             "🏅 Iniciando Arbeitnow para {$entities->count()} certifications"
         );
 
+        $feed = null;
+
         foreach ($entities as $entity) {
 
             $entityId   = $entity->id;
@@ -117,122 +120,36 @@ class ArbeitnowByCertificationsCommand extends Command
             $countries  = [];
             $modalities = [];
 
-            /* =====================================================
-               🔎 SEARCH TERMS
-            ===================================================== */
-
-            $searchTerms = array_unique(array_filter([
-
-                $entityName,
-
-                $entity->vendor
-                    ? "{$entity->vendor} certification"
-                    : null,
-            ]));
-
-            $jobsCollected = collect();
-
-            foreach ($searchTerms as $term) {
-
-                try {
-
-                    $response = Http::retry(3, 2000)
-                        ->timeout(25)
-                        ->get($baseUrl, [
-                            'search' => $term
-                        ]);
-
-                } catch (\Throwable $e) {
-
-                    SourceStatusService::connectionFailed(
-                        $source,
-                        "Search failed: {$term}"
-                    );
-
-                    Log::error($e);
-
-                    continue;
-                }
-
-                if ($response->failed()) {
-
-                    SourceStatusService::connectionFailed(
-                        $source,
-                        "HTTP failed: {$term}"
-                    );
-
-                    continue;
-                }
-
-                $connectionOk = true;
-
-                $results = $response->json('data') ?? [];
-
-                $jobsCollected = $jobsCollected->merge($results);
-            }
-
-            /* =====================================================
-               🔁 FALLBACK GLOBAL
-            ===================================================== */
-
-            if ($jobsCollected->isEmpty()) {
-
-                try {
-
-                    $fallback = Http::retry(3, 2000)
-                        ->timeout(25)
-                        ->get($baseUrl);
-
-                    if ($fallback->failed()) {
-
-                        SourceStatusService::connectionFailed(
-                            $source,
-                            "Fallback API failed"
-                        );
-
-                        continue;
+            // Arbeitnow ignora "search" (devolvía el mismo feed en 79-141 llamadas): el feed se descarga
+            // una vez por corrida y cada oferta se confirma con el matcher.
+            if ($feed === null) {
+                $feed = [];
+                for ($feedPage = 1; $feedPage <= 5; $feedPage++) {
+                    try {
+                        $response = Http::retry(3, 2000)->timeout(25)->get($baseUrl, ['page' => $feedPage]);
+                    } catch (\Throwable $e) {
+                        SourceStatusService::connectionFailed($source, "Feed exception (página {$feedPage})");
+                        Log::error($e);
+                        break;
                     }
-
+                    if ($response->failed()) {
+                        SourceStatusService::connectionFailed($source, "HTTP failed (página {$feedPage})");
+                        break;
+                    }
                     $connectionOk = true;
-
-                    $jobsCollected = collect(
-                        $fallback->json('data') ?? []
-                    );
-
-                    $this->stats['fallback'] +=
-                        $jobsCollected->count();
-
-                } catch (\Throwable $e) {
-
-                    SourceStatusService::connectionFailed(
-                        $source,
-                        "Fallback exception"
-                    );
-
-                    Log::error($e);
-
-                    continue;
+                    $chunk = $response->json('data') ?? [];
+                    if (empty($chunk)) {
+                        break;
+                    }
+                    array_push($feed, ...$chunk);
                 }
             }
 
-            /* =====================================================
-               🔍 VALIDACIÓN FINAL
-            ===================================================== */
-
-            $jobs = $jobsCollected
+            $jobs = collect($feed)
                 ->unique('slug')
-                ->filter(function ($job) use ($entityName) {
-
-                    $text = strtolower(strip_tags(
-                        ($job['title'] ?? '') . ' ' .
-                        ($job['description'] ?? '')
-                    ));
-
-                    return preg_match(
-                        '/\b' . preg_quote($entityName, '/') . '\b/i',
-                        $text
-                    );
-                })
+                ->filter(fn ($job) => OfferEntityLinker::for('certifications')->confirmsEntity(
+                    $entityId, $job['title'] ?? '', OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? [])
+                ))
                 ->values();
 
             $totalFound = $jobs->count();
@@ -268,7 +185,7 @@ class ArbeitnowByCertificationsCommand extends Command
 
                     if ($existing) {
 
-                        OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true, OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []));
                     }
 
                     continue;
@@ -370,7 +287,7 @@ class ArbeitnowByCertificationsCommand extends Command
                 ]);
 
                 // ✅ attach market entity
-                OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true);
+                OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true, OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []));
 
                 $totalNew++;
 

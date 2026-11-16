@@ -157,6 +157,28 @@ Bloque 4 (Certificaciones completo):
 - No se infiere el nivel: "AWS Solutions Architect" sin Associate/Professional no cuenta para ninguna.
 - `certification_job` admite `certification_id` NULL (filas escritas por entidad): la plantilla de limpieza lo respeta.
 
+Bloque 5 (vacantes de Certificaciones y despliegue consolidado, 2026-11-16):
+- **`App\Services\Matching\SearchTerms`**: decodifica `certifications.keywords` (JSON, arreglo o el formato antiguo con
+  comas); si está vacío o es inválido usa el nombre y los alias fuertes de `market_entity_aliases`. El primer término es
+  el principal (el que se envía a las APIs que admiten uno solo por llamada).
+- Los 10 scrapers de certificaciones buscan con esos términos y confirman con el matcher antes de crear la oferta
+  (no quedan ofertas sin asociar); `attachIfConfirmed()` recibe también el texto de la API (reed, Jooble, Remotive…
+  no lo guardaban y la confirmación fallaba). Arbeitnow descarga el feed una vez (5 llamadas en lugar de 79-141);
+  Greenhouse pide `content=true`; Adzuna y Computrabajo dejan de exigir el nombre completo exacto en el texto.
+- Ningún scraper de lenguajes ni de tecnologías tenía el bug (allí `keywords` es solo el nombre de un parámetro).
+- `ranking_certificaciones/12` (y su reversión `13`): keywords de búsqueda para las 79 activas (sigla o código y
+  nombre oficial). `05` deja desactivada la copia de asociaciones desde tecnologías (`@copiar_desde_tecnologias = 0`).
+- **Despliegue consolidado**: `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (+ `DESPLIEGUE_RANKINGS_ROLLBACK.sql`), generado
+  por `herramientas/generar_despliegue_consolidado.py`. Para que no tenga DELETE/TRUNCATE/DROP: la evolución antigua de
+  Lenguajes se renombra; las reglas se insertan con `NOT EXISTS` (sin borrado previo); la FK de
+  `market_entity_aliases` ya no es `ON DELETE CASCADE` (las entidades no se borran); certificaciones usa tablas
+  derivadas en lugar de temporales; Transformers no se desactiva para reactivarse después.
+- Probado en local simulando producción: base devuelta al estado previo con los rollbacks (incluida la limpieza),
+  despliegue ejecutado dos veces (1ª: 122 s; 2ª: 15 s, sin cambios ni errores, solo Warning 1681), reversión
+  consolidada (6 s) y nuevo despliegue doble; esquema igual al previo salvo las tablas de la limpieza y la FK; los tres
+  `ranking:refresh-*` y las páginas (HTTP 200).
+- **Ponderaciones de Certificaciones (recomendación, NO aplicada)**: ver la sección 3.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
@@ -167,8 +189,7 @@ Bloque 4 (Certificaciones completo):
 - (Resuelto en el Bloque 3) Greenhouse guardaba en `requirements` el HTML escapado; ahora usa `OfferEntityLinker::plain()`.
 - Adzuna busca la oferta existente por `external_id` sin filtrar la fuente.
 - `tests/Unit/ExampleTest` falla con SQLite: `market_entities` (y otras tablas base) no se crean en ninguna migración.
-- **Scrapers de certificaciones: leen `certifications.keywords` (JSON) sin decodificar** (GetOnBoard, RemoteOk, Remotive…)
-  y buscan literalmente `["…"]`; encuentran poco. Corregirlo exige cambiar cómo cada uno lee la columna.
+- (Resuelto en el Bloque 5) Los scrapers de certificaciones leían `keywords` (JSON) sin decodificar.
 - Rutas de Certificaciones a métodos inexistentes (error 500): `/trending` → `trendingCertifications`,
   `/trend/{trend}/jobs` → `jobsByTechnologyTrend`. (Las de Lenguajes, ya anotadas, siguen igual.)
 - `app/Exports/CertificationsWeeklyExport.php` y `certification_evolution_cache` quedan sin uso (no se borran).
@@ -191,6 +212,22 @@ Bloque 4 (Certificaciones completo):
 - Todo el criterio de una vez (ver Bloque 4 en "Decisiones tomadas sin consulta"). `certification_job` 45 214 → 726.
   Página: cálculo en vivo → ~0,04 s.
 - Scripts DBA: `ranking_certificaciones/01-11` (ver su README).
+
+### Certificaciones: vacantes y ponderaciones (2026-11-16)
+- Con los scrapers corregidos (corrida local de prueba): 20 certificaciones con vacantes en 2026-s2 (antes ~12), 112
+  asociaciones, máximo 29 (CCIE). Siguen siendo pocas: 103 ofertas analizadas en el semestre.
+- **Recomendación (no aplicada): 0,5 laboral / 0,5 tendencia mientras `vacantes_analizadas` del semestre sea menor
+  que ~1 000; volver a 0,7 / 0,3 cuando haya más datos.** Con tan pocas ofertas, 1 vacante vale 20 puntos laborales
+  (escala logarítmica sobre un máximo de 29) y el componente laboral es ruido; la tendencia sale de 5 833 reportes.
+  Efecto real limitado: el top 10 es el mismo con 0,7/0,3, 0,5/0,5 y 0,4/0,6 (solo cambia el orden del 8 al 10),
+  porque la tendencia está comprimida (93 de media, desviación 11). Lo que más moverá el ranking es acumular
+  vacantes con los scrapers corregidos, no los pesos.
+
+### Estado de la base local
+- Después de la prueba de despliegue, la base local quedó como quedará producción: **sin limpieza** (language_job
+  267 926 filas, technology_job 2 159 517, certification_job 45 262) y con el despliegue consolidado aplicado. Las
+  fotos doradas `*_post_limpieza` ya no corresponden a estos datos: para comparar de nuevo hay que recapturarlas o
+  volver a aplicar la limpieza local (scripts 13-14 / 12-13 / 09-10).
 
 ### Verificación final
 - Foto de la semana actual = ranking principal: Lenguajes 26/26, Tecnologías 313/313, Certificaciones 79/79.
@@ -302,40 +339,49 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 
 ## 6. Producción: pasos pendientes (en orden)
 
-0. **Respaldo completo de la base** (o, como mínimo, de `language_job`, `technology_job`, `certification_job`,
-   `market_entities`, `languages`, `technologies`, `certifications`, `market_entity_career`, `job_offers`, `scraper_runs`).
-   No correr `jobs:run-all` ni scrapers durante los pasos 1-6.
-1. **DBA, Lenguajes** (`ranking_lenguajes/`): `01` → `02` → `05` → `06` → `09` → `11` → `13`.
-2. **DBA, Tecnologías** (`ranking_tecnologias/`): `05` → `01` → `02` → `08` → `06` → `10` → `12`.
-3. **DBA, Certificaciones** (`ranking_certificaciones/`): `01` → `02` → `05` → `07` → `09`.
-4. **Desplegar el código** y en el servidor: `php artisan optimize:clear` y `php artisan queue:restart`.
-5. **Limpieza** (la decide la aplicación, la aplica el DBA; los scripts usan DELIMITER → cliente `mysql`):
-   ```sh
-   php artisan entities:clean-associations --type=languages --dry-run      # informe (opcional)
-   php artisan entities:clean-associations --type=languages                # → DBA: ranking_lenguajes/14
-   php artisan entities:clean-associations --type=technologies             # → DBA: ranking_tecnologias/13
-   php artisan entities:clean-associations --type=certifications           # → DBA: ranking_certificaciones/10
-   ```
-6. Recalcular:
+> **Al DBA se le entrega UN SOLO archivo: `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql`.**
+> Consolida, en orden, los scripts necesarios de `ranking_lenguajes/`, `ranking_tecnologias/` y
+> `ranking_certificaciones/` (tablas, índices, is_active, entidades, carreras, reglas del matcher, filas de catálogo y
+> keywords de certificaciones). No contiene DELETE, TRUNCATE ni DROP; no usa DELIMITER ni procedimientos (sirve en
+> mysql, Workbench y HeidiSQL); es idempotente. Se genera con
+> `python docs/produccion/herramientas/generar_despliegue_consolidado.py` (no editarlo a mano).
+> La reversión, `DESPLIEGUE_RANKINGS_ROLLBACK.sql`, **no se entrega** salvo que haga falta.
+>
+> **La limpieza de asociaciones queda fuera del despliegue**: no se ejecutan `entities:clean-associations` ni
+> `ranking_lenguajes/13-15`, `ranking_tecnologias/12-14`, `ranking_certificaciones/09-11` (siguen en el repositorio,
+> probados, por si se decide aplicarlos). Lo que se pierde por no limpiar:
+> - las asociaciones históricas no confirmadas siguen contando (el 2026-s2 de producción se parecerá al de antes de la
+>   limpieza: R, JSON, XML, DAX arriba en Lenguajes; Docker, conda, Terraform en Tecnologías);
+> - las ofertas de las entidades duplicadas (41 de tecnologías, 12 de certificaciones) NO se reasignan a su principal:
+>   quedan en el duplicado, que está inactivo y no cuenta;
+> - las asociaciones de las tecnologías CompTIA A+ y Cyberops no se copian a certificaciones (sin limpieza serían
+>   ~13 700 falsas).
+> Desde el despliegue, los scrapers solo agregan asociaciones confirmadas por el matcher.
+> Los scripts por indicador siguen siendo la fuente; sus README describen cada uno.
+
+0. **Respaldo de la base.** No correr `jobs:run-all` ni scrapers mientras se ejecuta el archivo.
+1. **DBA:** ejecutar `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (1-3 minutos) y revisar las consultas de verificación del
+   final (cada una indica el resultado esperado).
+2. **Desplegar el código** y en el servidor: `php artisan optimize:clear` y `php artisan queue:restart`.
+3. Recalcular:
    ```sh
    php artisan ranking:refresh-languages
    php artisan ranking:refresh-technologies
    php artisan ranking:refresh-certifications
    php artisan schedule:list   # 0 7 * * * para los tres
    ```
-7. Verificación (solo lectura): `ranking_lenguajes/04` y `08`, `ranking_tecnologias/04`, `ranking_certificaciones/04`.
-8. **Crons a quitar** (no están en el repo; crontab del servidor o panel de tareas): `languages:take-snapshot`,
+4. **Crons a quitar** (no están en el repo; crontab del servidor o panel de tareas): `languages:take-snapshot`,
    `technologies:take-snapshot`, `certifications:take-snapshot` y los `*:backfill-all` si estuvieran programados (sin
    `--legacy` ya no hacen nada). Revisar también que `greenhouse:technologies` no esté programado fuera del repo.
-9. Comprobar el cron `* * * * * php artisan schedule:run` y el worker `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
-10. **Adzuna**: `adzuna:languages` recorre las entidades de lenguaje activas, no las filas de `languages`: hoy 26 × 17
-    países = 442 llamadas por ciclo completo (antes de la Fase A eran 28 entidades → 476). Las filas nuevas de
-    `languages` agregan llamadas en Jooble (8 por lenguaje). Revisar en el panel de desarrollador de Adzuna el límite del
-    plan (por minuto, día y mes) frente al consumo real de `adzuna:languages`, `:technologies` y `:certifications`
-    (17 países cada uno); si no alcanza, bajar países o la frecuencia.
-11. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+5. Comprobar el cron `* * * * * php artisan schedule:run` y el worker `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
+6. **Adzuna**: `adzuna:languages` recorre las entidades de lenguaje activas (26 × 17 países = 442 llamadas por ciclo
+   completo; antes de la Fase A eran 476). `adzuna:certifications` hace 79 × 17 = 1 343 por ciclo completo (una por
+   certificación y país, con el término principal de `keywords`). Ambos retoman desde la última entidad procesada, así
+   que una corrida puede hacer menos. Revisar en el panel de desarrollador de Adzuna el límite del plan (minuto, día y
+   mes) frente al consumo real; si no alcanza, bajar países o la frecuencia.
+7. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
 
-Reversión por indicador: ver el README de cada carpeta (cada script tiene su rollback, probado en local).
+Reversión: `DESPLIEGUE_RANKINGS_ROLLBACK.sql` (desplegar antes el código anterior).
 
 ---
 

@@ -13,6 +13,7 @@ use App\Helpers\RegionHelper;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class GetOnBoardByCertificationsCommand extends Command
 {
@@ -65,8 +66,7 @@ class GetOnBoardByCertificationsCommand extends Command
     try {
 
         $certifications = Certification::active()
-            ->whereNotNull('keywords')
-            ->get(['id', 'name', 'keywords']);
+            ->get(['id', 'name', 'keywords', 'market_entity_id']);
 
         $this->info(
             "🏅 GetOnBoard | {$certifications->count()} certificaciones | {$pages} páginas"
@@ -78,10 +78,8 @@ class GetOnBoardByCertificationsCommand extends Command
             $certName = $cert->name;
 
             // 🔑 keywords
-            $keywords = collect($cert->keywords)
-                ->map(fn ($k) => strtolower(trim($k)))
-                ->filter()
-                ->values();
+            // keywords es JSON: antes se leía sin decodificar y se buscaba el literal ["…"]
+            $keywords = collect(SearchTerms::forCertification($cert->keywords, $certName, $cert->market_entity_id));
 
             if ($keywords->isEmpty()) {
 
@@ -109,7 +107,7 @@ class GetOnBoardByCertificationsCommand extends Command
             for ($page = 1; $page <= $pages; $page++) {
 
                 $url =
-                    "{$baseUrl}?page={$page}&per_page=100";
+                    "{$baseUrl}?page={$page}&per_page=100&query=" . urlencode($keywords->first());
 
                 try {
 
@@ -214,13 +212,11 @@ class GetOnBoardByCertificationsCommand extends Command
                             )
                         );
 
-                        // 🔎 matching keywords
-                        $matches = $keywords->filter(
-                            fn ($k) =>
-                                str_contains($text, $k)
-                        );
-
-                        if ($matches->isEmpty()) {
+                        // Matcher (antes: keywords sin decodificar, nunca coincidían)
+                        if (! OfferEntityLinker::for('certifications')->confirms($certId, $attr['title'] ?? '', OfferEntityLinker::body(
+                            $attr['description_headline'] ?? '', $attr['description'] ?? '', $attr['functions'] ?? '',
+                            $attr['desirable'] ?? '', $attr['projects'] ?? ''
+                        ))) {
                             continue;
                         }
 
@@ -259,7 +255,7 @@ class GetOnBoardByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, OfferEntityLinker::body($job['attributes']['description'] ?? '', $job['attributes']['functions'] ?? '', $job['attributes']['desirable'] ?? ''));
                             }
 
                             continue;
@@ -313,7 +309,7 @@ class GetOnBoardByCertificationsCommand extends Command
                                     : now(),
                         ]);
 
-                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId, false, OfferEntityLinker::body($job['attributes']['description'] ?? '', $job['attributes']['functions'] ?? '', $job['attributes']['desirable'] ?? ''));
 
                         $totalNew++;
 

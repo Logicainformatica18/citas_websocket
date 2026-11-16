@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class ReedByCertificationsCommand extends Command
 {
@@ -102,7 +103,7 @@ class ReedByCertificationsCommand extends Command
                         ->timeout(25)
                         ->get($baseUrl, [
                             'keywords'      =>
-                                $certificationName,
+                                SearchTerms::primary(SearchTerms::forCatalog($certificationId, $certificationName)),
 
                             'resultsToTake' =>
                                 100,
@@ -167,6 +168,11 @@ class ReedByCertificationsCommand extends Command
 
                 foreach ($jobs as $job) {
 
+                    // Matcher antes de crear la oferta (no se guardan ofertas que no se asociarían)
+                    if (! OfferEntityLinker::for('certifications')->confirms($certificationId, $job['jobTitle'] ?? '', $job['jobDescription'] ?? '')) {
+                        continue;
+                    }
+
                     try {
 
                         $externalId =
@@ -192,7 +198,7 @@ class ReedByCertificationsCommand extends Command
                                 )
                             ) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certificationId);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certificationId, false, $job['jobDescription'] ?? null);
                             }
 
                             $this->stats['skipped']++;
@@ -337,7 +343,7 @@ class ReedByCertificationsCommand extends Command
                             )
                         ) {
 
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $certificationId);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $certificationId, false, $job['jobDescription'] ?? null);
                         }
 
                         $totalNew++;

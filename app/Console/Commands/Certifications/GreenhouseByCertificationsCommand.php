@@ -14,6 +14,7 @@ use App\Helpers\CountryNormalizer;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class GreenhouseByCertificationsCommand extends Command
 {
@@ -85,9 +86,11 @@ class GreenhouseByCertificationsCommand extends Command
 
             try {
 
+                // content=true: la descripción completa viene en la misma llamada (sin costo extra);
+                // sin ella el matcher solo veía el título.
                 $response = Http::retry(3, 2000)
                     ->timeout(20)
-                    ->get($url);
+                    ->get($url, ['content' => 'true']);
 
             } catch (\Throwable $e) {
 
@@ -187,26 +190,8 @@ class GreenhouseByCertificationsCommand extends Command
                             $title . ' ' . $content
                         );
 
-                        // 🔎 match keywords
-                        $matched = false;
-
-                        foreach ($keywords as $kw) {
-
-                            if (
-                                $kw &&
-                                str_contains(
-                                    $text,
-                                    strtolower($kw)
-                                )
-                            ) {
-
-                                $matched = true;
-
-                                break;
-                            }
-                        }
-
-                        if (!$matched) {
+                        // Matcher (antes: subcadena de keywords, p. ej. "aws" coincidía con cualquier oferta de AWS)
+                        if (! OfferEntityLinker::for('certifications')->confirms($certId, $title, $content)) {
                             continue;
                         }
 
@@ -286,7 +271,7 @@ class GreenhouseByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, $content);
                             }
 
                             $found[] = $externalId;
@@ -360,7 +345,7 @@ class GreenhouseByCertificationsCommand extends Command
                                 $region,
                         ]);
 
-                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId, false, $content);
 
                         $new[]   = $externalId;
                         $found[] = $externalId;

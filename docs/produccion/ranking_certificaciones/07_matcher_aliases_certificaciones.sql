@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
   `updated_at`       TIMESTAMP NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mea_rule` (`market_entity_id`, `kind`, `pattern`, `case_sensitive`),
-  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 START TRANSACTION;
@@ -63,7 +63,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CLF-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CLF-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-cloud-practitioner';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-cloud-practitioner'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-solutions-architect-–-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -77,7 +79,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SAA-C02', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SAA-C03', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-solutions-architect-–-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-solutions-architect-–-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-solutions-architect-–-professional
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -90,7 +94,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SAP-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SAP-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-solutions-architect-–-professional';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-solutions-architect-–-professional'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-developer-–-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -103,7 +109,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DVA-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DVA-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-developer-–-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-developer-–-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-sysops-administrator-–-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -117,7 +125,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SOA-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SOA-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-sysops-administrator-–-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-sysops-administrator-–-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-devops-engineer-–-professional
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -130,7 +140,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DOP-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DOP-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-devops-engineer-–-professional';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-devops-engineer-–-professional'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-security-–-specialty
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -143,7 +155,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SCS-C01', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SCS-C02', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-security-–-specialty';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-security-–-specialty'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-advanced-networking-–-specialty
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -155,7 +169,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AWS Advanced Networking', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ANS-C01', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-advanced-networking-–-specialty';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-advanced-networking-–-specialty'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-machine-learning-–-specialty
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -168,7 +184,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AWS Certified Machine Learning', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MLS-C01', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-machine-learning-–-specialty';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-machine-learning-–-specialty'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-certified-database-specialty
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -180,7 +198,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AWS Database Specialty', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DBS-C01', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-database-specialty';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-database-specialty'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-certified-data-analytics-specialty
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -192,7 +212,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AWS Data Analytics Specialty', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DAS-C01', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-data-analytics-specialty';
+ WHERE me.entity_type = 'certification' AND me.slug = 'aws-certified-data-analytics-specialty'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-fundamentals-(az-900)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -204,7 +226,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AZ900', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Fundamentals', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-fundamentals-(az-900)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-fundamentals-(az-900)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-administrator-(az-104)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -217,7 +241,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Azure Administrator Associate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Certified Azure Administrator', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-administrator-(az-104)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-administrator-(az-104)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-solutions-architect-(az-305)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -232,7 +258,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Azure Solutions Architect Expert', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Certified Azure Solutions Architect', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-solutions-architect-(az-305)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-solutions-architect-(az-305)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-developer-(az-204)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -244,7 +272,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AZ204', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Developer Associate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-developer-(az-204)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-developer-(az-204)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-devops-engineer-(az-400)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -256,7 +286,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AZ400', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure DevOps Engineer Expert', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-devops-engineer-(az-400)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-devops-engineer-(az-400)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-security-engineer-(az-500)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -268,7 +300,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AZ500', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Security Engineer Associate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-security-engineer-(az-500)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-security-engineer-(az-500)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-data-engineer-(dp-203)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -280,7 +314,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DP203', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Data Engineer Associate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-data-engineer-(dp-203)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-data-engineer-(dp-203)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure-ai-engineer-(ai-102)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -292,7 +328,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AI102', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure AI Engineer Associate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-ai-engineer-(ai-102)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-azure-ai-engineer-(ai-102)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-certified-azure-ai-fundamentals-ai-900
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -304,7 +342,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'AI900', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure AI Fundamentals', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-ai-fundamentals-ai-900';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-ai-fundamentals-ai-900'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-certified-azure-data-fundamentals-dp-900
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -316,7 +356,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DP900', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Data Fundamentals', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-data-fundamentals-dp-900';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-data-fundamentals-dp-900'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-certified-azure-data-scientist-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -328,7 +370,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DP100', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure Data Scientist Associate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-data-scientist-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'microsoft-certified-azure-data-scientist-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-associate-cloud-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -339,7 +383,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Associate Cloud Engineer', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Google ACE', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-associate-cloud-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-associate-cloud-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-cloud-digital-leader
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -349,7 +395,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Cloud Digital Leader', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-cloud-digital-leader';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-cloud-digital-leader'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-cloud-architect
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -377,7 +425,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-architect';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-architect'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-cloud-devops-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -402,7 +452,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-devops-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-devops-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-cloud-network-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -427,7 +479,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-network-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-network-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-cloud-security-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -452,7 +506,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-security-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-cloud-security-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-data-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -480,7 +536,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 40
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-data-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-data-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-professional-machine-learning-engineer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -507,7 +565,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 40
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-machine-learning-engineer';
+ WHERE me.entity_type = 'certification' AND me.slug = 'google-professional-machine-learning-engineer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-kubernetes-administrator-(cka)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -518,7 +578,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Kubernetes Administrator', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CKA', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-administrator-(cka)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-administrator-(cka)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-kubernetes-application-developer-(ckad)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -529,7 +591,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Kubernetes Application Developer', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CKAD', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-application-developer-(ckad)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-application-developer-(ckad)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-kubernetes-security-specialist-(cks)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -540,7 +604,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Kubernetes Security Specialist', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CKS', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-security-specialist-(cks)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-kubernetes-security-specialist-(cks)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- docker-certified-associate-(dca)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -552,7 +618,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DCA', 1, 0, 1, NULL
     UNION ALL SELECT 'context', 'Docker', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'docker-certified-associate-(dca)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'docker-certified-associate-(dca)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hashicorp-terraform-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -563,7 +631,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Terraform Associate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'HashiCorp Certified Terraform', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'hashicorp-terraform-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'hashicorp-terraform-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hashicorp-vault-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -574,7 +644,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Vault Associate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'HashiCorp Certified Vault', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'hashicorp-vault-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'hashicorp-vault-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- databricks-data-engineer-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -586,7 +658,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Databricks Data Engineer Associate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Databricks Certified Data Engineer', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'databricks-data-engineer-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'databricks-data-engineer-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- linux-foundation-certified-sysadmin-(lfcs)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -598,7 +672,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Linux Foundation Certified SysAdmin', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'LFCS', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'linux-foundation-certified-sysadmin-(lfcs)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'linux-foundation-certified-sysadmin-(lfcs)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- linux-foundation-certified-engineer-(lfce)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -609,7 +685,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Linux Foundation Certified Engineer', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'LFCE', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'linux-foundation-certified-engineer-(lfce)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'linux-foundation-certified-engineer-(lfce)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cissp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -620,7 +698,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CISSP', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Certified Information Systems Security Professional', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cissp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cissp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cism
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -631,7 +711,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CISM', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Certified Information Security Manager', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cism';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cism'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-information-systems-auditor-cisa
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -664,7 +746,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-systems-auditor-cisa';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-systems-auditor-cisa'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-cloud-security-professional-ccsp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -675,7 +759,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Cloud Security Professional', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CCSP', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-cloud-security-professional-ccsp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-cloud-security-professional-ccsp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-cloud-security-specialist-ccss
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -685,7 +771,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Certified Cloud Security Specialist', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-cloud-security-specialist-ccss';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-cloud-security-specialist-ccss'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-ethical-hacker-(ceh)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -696,7 +784,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Ethical Hacker', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CEH', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-ethical-hacker-(ceh)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-ethical-hacker-(ceh)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-information-privacy-professional-cipp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -707,7 +797,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Information Privacy Professional', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CIPP', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-privacy-professional-cipp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-privacy-professional-cipp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-information-privacy-technologist-cipt
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -718,7 +810,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Information Privacy Technologist', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CIPT', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-privacy-technologist-cipt';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-information-privacy-technologist-cipt'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comptia-security+
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -730,7 +824,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Security+', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Sec+', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'comptia-security+';
+ WHERE me.entity_type = 'certification' AND me.slug = 'comptia-security+'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comptia-network+
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -741,7 +837,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CompTIA Network+', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Network+', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'comptia-network+';
+ WHERE me.entity_type = 'certification' AND me.slug = 'comptia-network+'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comptia-cysa+
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -753,7 +851,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CySA+', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CySA', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'comptia-cysa+';
+ WHERE me.entity_type = 'certification' AND me.slug = 'comptia-cysa+'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comptia-pentest+
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -764,7 +864,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CompTIA PenTest+', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'PenTest+', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'comptia-pentest+';
+ WHERE me.entity_type = 'certification' AND me.slug = 'comptia-pentest+'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comptia-a-plus
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -777,7 +879,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'A+ certified', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'A+ certificate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'comptia-a-plus';
+ WHERE me.entity_type = 'certification' AND me.slug = 'comptia-a-plus'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-ccna
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -790,7 +894,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'negative', 'CCNA CyberOps', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'CCNA Cyber Ops', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cisco-ccna';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cisco-ccna'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-ccnp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -801,7 +907,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CCNP', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cisco Certified Network Professional', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cisco-ccnp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cisco-ccnp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-certified-internetwork-expert-ccie
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -812,7 +920,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CCIE', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cisco Certified Internetwork Expert', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-internetwork-expert-ccie';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-internetwork-expert-ccie'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-certified-cyberops-associate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -825,7 +935,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'CCNA Cyber Ops', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cisco CyberOps', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-cyberops-associate';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-cyberops-associate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-certified-devnet-professional
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -836,7 +948,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'DevNet Professional', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cisco Certified DevNet Professional', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-devnet-professional';
+ WHERE me.entity_type = 'certification' AND me.slug = 'cisco-certified-devnet-professional'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- project-management-professional-pmp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -847,7 +961,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'PMP', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Project Management Professional', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'project-management-professional-pmp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'project-management-professional-pmp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- pmi-acp-(agile-certified-practitioner)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -859,7 +975,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'PMI ACP', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Agile Certified Practitioner', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'pmi-acp-(agile-certified-practitioner)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'pmi-acp-(agile-certified-practitioner)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-scrum-master-(csm)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -879,7 +997,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'SAFe', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kanban', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-scrum-master-(csm)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-scrum-master-(csm)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- professional-scrum-master-(psm-i)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -900,7 +1020,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'CSM', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'SAFe', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'professional-scrum-master-(psm-i)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'professional-scrum-master-(psm-i)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- safe-agilist-(sa)
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -913,7 +1035,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SAFe SA', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Certified SAFe Agilist', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'safe-agilist-(sa)';
+ WHERE me.entity_type = 'certification' AND me.slug = 'safe-agilist-(sa)'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- safe-devops-practitioner
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -924,7 +1048,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'SAFe DevOps Practitioner', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SAFe DevOps', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'safe-devops-practitioner';
+ WHERE me.entity_type = 'certification' AND me.slug = 'safe-devops-practitioner'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- itil-4-foundation
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -955,7 +1081,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'context', 'examen', 0, 0, 0, 40
     UNION ALL SELECT 'context', 'accreditation', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'itil-4-foundation';
+ WHERE me.entity_type = 'certification' AND me.slug = 'itil-4-foundation'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-data-management-professional-cdmp
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -966,7 +1094,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Data Management Professional', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CDMP', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-data-management-professional-cdmp';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-data-management-professional-cdmp'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- certified-data-scientist-dasca
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -977,7 +1107,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed certificacion
     UNION ALL SELECT 'alias', 'Certified Data Scientist DASCA', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DASCA', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'certification' AND me.slug = 'certified-data-scientist-dasca';
+ WHERE me.entity_type = 'certification' AND me.slug = 'certified-data-scientist-dasca'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas 333)') AS resultado
   FROM market_entity_aliases a JOIN market_entities me ON me.id = a.market_entity_id

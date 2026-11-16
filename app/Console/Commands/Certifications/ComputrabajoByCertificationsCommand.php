@@ -21,6 +21,7 @@ use App\Models\MarketEntityMetric;
 
 
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class ComputrabajoByCertificationsCommand extends Command
 {
@@ -127,11 +128,8 @@ class ComputrabajoByCertificationsCommand extends Command
             $entityName = $entity->name;
 
             // 🔎 keyword
-            $keyword = strtolower(
-                $entity->vendor
-                    ? "{$entity->vendor} certification"
-                    : $entityName
-            );
+            // Término principal (antes "{vendor} certification", demasiado genérico)
+            $keyword = strtolower(SearchTerms::primary(SearchTerms::forEntity($entityId, $entityName)));
 
             $this->warn("\n💡 Certification: {$entityName}");
             $this->line("🔎 Keyword: {$keyword}");
@@ -233,13 +231,9 @@ class ComputrabajoByCertificationsCommand extends Command
                                 return;
                             }
 
-                            // 🔍 validación exacta
-                            if (!preg_match(
-                                '/\b' . preg_quote($entityName, '/') . '\b/i',
-                                strtolower($title)
-                            )) {
-                                return;
-                            }
+                            // Matcher: título; si no basta, la descripción del detalle (más abajo)
+                            $byTitle = OfferEntityLinker::for('certifications')->confirmsEntity($entityId, $title);
+                            $detailText = null;
 
                             $company =
                                 $offer->filter('p.fc_base a')->count()
@@ -257,6 +251,14 @@ class ComputrabajoByCertificationsCommand extends Command
                             $urlJob = ComputrabajoHelper::canonicalUrl(
                                 "https://{$code}.computrabajo.com{$href}"
                             );
+
+                            if (! $byTitle) {
+                                $known = JobOffer::where('source', 'Computrabajo')->where('url', $urlJob)->first();
+                                $detailText = $known ? $known->description : ComputrabajoHelper::fetchDescription($urlJob);
+                                if (! OfferEntityLinker::for('certifications')->confirmsEntity($entityId, $title, $detailText)) {
+                                    return;
+                                }
+                            }
 
                             $city = $this->extractCityFromUrl(
                                 $urlJob
@@ -309,7 +311,7 @@ class ComputrabajoByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true, $detailText);
 
                                 return;
                             }
@@ -372,13 +374,15 @@ class ComputrabajoByCertificationsCommand extends Command
 
                                 'currency' =>
                                     $currency,
+                                'description' =>
+                                    $detailText,
 
                                 'published_at' =>
                                     now(),
                             ]);
 
                             // ✅ attach market entity
-                            OfferEntityLinker::for('certifications')->attachIfConfirmed($job, $entityId, true);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($job, $entityId, true, $detailText);
 
                             $totalNew++;
 

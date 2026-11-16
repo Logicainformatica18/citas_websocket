@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
   `updated_at`       TIMESTAMP NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_mea_rule` (`market_entity_id`, `kind`, `pattern`, `case_sensitive`),
-  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_mea_entity` FOREIGN KEY (`market_entity_id`) REFERENCES `market_entities` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 START TRANSACTION;
@@ -64,6 +64,7 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Simple Storage Service', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Amazon Simple Storage Service', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'S3', 1, 0, 1, NULL
+    UNION ALL SELECT 'alias', 's3', 1, 0, 1, NULL
     UNION ALL SELECT 'context', 'AWS', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Amazon Web Services', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Amazon', 0, 0, 0, 80
@@ -79,7 +80,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'storage', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'almacenamiento', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-s3';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-s3'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-s3-glacier
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -93,7 +96,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Glacier', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Glacier', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-s3-glacier';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-s3-glacier'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-sns
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -117,7 +122,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'IAM', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'SQS', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sns';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sns'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-sqs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -143,7 +150,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'queue', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'colas', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sqs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sqs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-ec2
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -157,7 +166,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Elastic Compute Cloud', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Elastic Computing Cloud', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ec2';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ec2'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-ec2-auto-scaling
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -169,7 +180,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS EC2 Auto Scaling', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'EC2 Auto Scaling', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ec2-auto-scaling';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ec2-auto-scaling'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-cloudfront
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -181,7 +194,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS CloudFront', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CloudFront', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cloudfront';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cloudfront'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-vpc
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -210,7 +225,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Azure', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'GCP', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-vpc';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-vpc'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-elasticache
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -222,7 +239,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS ElastiCache', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ElastiCache', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-elasticache';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-elasticache'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-redshift
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -234,7 +253,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Redshift', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Redshift', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-redshift';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-redshift'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-rds
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -261,7 +282,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'database', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'base de datos', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-rds';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-rds'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-sagemaker
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -273,7 +296,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS SageMaker', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'SageMaker', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sagemaker';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-sagemaker'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- elastic-load-balancing
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -295,7 +320,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'CloudFormation', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'IAM', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'elastic-load-balancing';
+ WHERE me.entity_type = 'technology' AND me.slug = 'elastic-load-balancing'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- iis
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -307,7 +334,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Internet Information Services', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Internet Information Server', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'iis';
+ WHERE me.entity_type = 'technology' AND me.slug = 'iis'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- identity-and-access-management-iam
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -318,7 +347,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Identity and Access Management', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'IAM', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'identity-and-access-management-iam';
+ WHERE me.entity_type = 'technology' AND me.slug = 'identity-and-access-management-iam'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- power-bi
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -330,7 +361,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'PowerBI', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Power BI', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'power-bi';
+ WHERE me.entity_type = 'technology' AND me.slug = 'power-bi'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- sql-server
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -343,7 +376,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'MS SQL', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MSSQL', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'sql-server';
+ WHERE me.entity_type = 'technology' AND me.slug = 'sql-server'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- adobe-photoshop
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -354,7 +389,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Adobe Photoshop', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Photoshop', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'adobe-photoshop';
+ WHERE me.entity_type = 'technology' AND me.slug = 'adobe-photoshop'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-adwords
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -366,7 +403,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AdWords', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Google Ads', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-adwords';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-adwords'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-analytics
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -378,7 +417,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Google Analytics 4', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'GA4', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-analytics';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-analytics'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- virtualbox
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -389,7 +430,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'VirtualBox', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Virtual Box', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'virtualbox';
+ WHERE me.entity_type = 'technology' AND me.slug = 'virtualbox'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hdfs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -400,7 +443,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'HDFS', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Hadoop Distributed File System', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'hdfs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'hdfs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- metasploit
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -411,7 +456,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Metasploit', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Metasploit Framework', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'metasploit';
+ WHERE me.entity_type = 'technology' AND me.slug = 'metasploit'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-azure
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -423,7 +470,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'MS Azure', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-azure';
+ WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-azure'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-cloud-platform
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -435,7 +484,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Google Cloud', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'GCP', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-cloud-platform';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-cloud-platform'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- unity
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -468,7 +519,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'mobile', 0, 0, 0, 100
     UNION ALL SELECT 'context', 'Godot', 0, 0, 0, 100
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'unity';
+ WHERE me.entity_type = 'technology' AND me.slug = 'unity'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- windows-server
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -480,7 +533,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Windows Server 2019', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Windows Server 2022', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'windows-server';
+ WHERE me.entity_type = 'technology' AND me.slug = 'windows-server'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- reactjs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -494,7 +549,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'React Native', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'React to', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'reactjs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'reactjs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- rest
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -525,7 +582,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'OpenAPI', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Swagger', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'rest';
+ WHERE me.entity_type = 'technology' AND me.slug = 'rest'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- soap
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -551,7 +610,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'integration', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'integración', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'soap';
+ WHERE me.entity_type = 'technology' AND me.slug = 'soap'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- ajax
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -569,7 +630,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'XMLHttpRequest', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'PHP', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'ajax';
+ WHERE me.entity_type = 'technology' AND me.slug = 'ajax'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- express
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -600,7 +663,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'APIs', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'npm', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'express';
+ WHERE me.entity_type = 'technology' AND me.slug = 'express'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- excel
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -615,7 +680,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'negative', 'Excel in', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'Excel as', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'excel';
+ WHERE me.entity_type = 'technology' AND me.slug = 'excel'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- docker
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -628,7 +695,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'docker-compose', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'dock worker', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'docker';
+ WHERE me.entity_type = 'technology' AND me.slug = 'docker'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- apache
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -644,7 +713,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'negative', 'Apache (?:Solr|Lucene|Zookeeper|ZooKeeper|Ignite|Druid|Pulsar|Hudi|Arrow|Parquet|Avro|Groovy|Struts|Wicket|Ant|POI)', 1, 1, 0, NULL
     UNION ALL SELECT 'negative', 'Apache (?:Cordova|Helicopter|OFBiz|ActiveMQ|Sqoop|Oozie|HBase|Phoenix|Atlas|Ranger|Kylin)', 1, 1, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'apache';
+ WHERE me.entity_type = 'technology' AND me.slug = 'apache'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- teams
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -655,7 +726,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Microsoft Teams', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MS Teams', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'teams';
+ WHERE me.entity_type = 'technology' AND me.slug = 'teams'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- monday
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -666,7 +739,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'monday.com', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Monday.com', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'monday';
+ WHERE me.entity_type = 'technology' AND me.slug = 'monday'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- pure
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -677,7 +752,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Pure Storage', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Pure Data', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'pure';
+ WHERE me.entity_type = 'technology' AND me.slug = 'pure'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- foundation
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -689,7 +766,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Foundation CSS', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Foundation for Sites', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'foundation';
+ WHERE me.entity_type = 'technology' AND me.slug = 'foundation'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- maze
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -707,7 +786,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'prototipo', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'testing', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'maze';
+ WHERE me.entity_type = 'technology' AND me.slug = 'maze'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- eraser
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -717,7 +798,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Eraser.io', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'eraser';
+ WHERE me.entity_type = 'technology' AND me.slug = 'eraser'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- translate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -728,7 +811,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Translate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Translate', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'translate';
+ WHERE me.entity_type = 'technology' AND me.slug = 'translate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- transcribe
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -739,7 +824,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Transcribe', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Transcribe', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'transcribe';
+ WHERE me.entity_type = 'technology' AND me.slug = 'transcribe'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- polly
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -750,7 +837,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Polly', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Polly', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'polly';
+ WHERE me.entity_type = 'technology' AND me.slug = 'polly'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- comprehend
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -761,7 +850,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Comprehend', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Comprehend', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'comprehend';
+ WHERE me.entity_type = 'technology' AND me.slug = 'comprehend'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- custom-labels
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -772,7 +863,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Rekognition Custom Labels', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Amazon Rekognition Custom Labels', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'custom-labels';
+ WHERE me.entity_type = 'technology' AND me.slug = 'custom-labels'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-forecast
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -783,7 +876,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Forecast', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Forecast', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-forecast';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-forecast'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-lex
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -794,7 +889,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Lex', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS Lex', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-lex';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-lex'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-mq
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -805,7 +902,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon MQ', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS MQ', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-mq';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-mq'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-aurora
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -819,7 +918,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Aurora MySQL', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Aurora Serverless', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-aurora';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-aurora'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-ecs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -847,7 +948,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Fargate', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'EKS', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ecs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-ecs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-efs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -870,7 +973,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'CloudFormation', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'IAM', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-efs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-efs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-mechanical-turk
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -882,7 +987,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Mechanical Turk', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MTurk', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-mechanical-turk';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-mechanical-turk'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-web-service
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -894,7 +1001,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Web Service', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AWS', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-web-service';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-web-service'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-lambda
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -906,7 +1015,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Lambda', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Lambda functions', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-lambda';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-lambda'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-iam
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -917,7 +1028,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS IAM', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Amazon IAM', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-iam';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-iam'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-key-management-service-aws-kms
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -929,7 +1042,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Key Management Service', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Key Management Service', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-key-management-service-aws-kms';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-key-management-service-aws-kms'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-elastic-block-store
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -953,7 +1068,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'CloudFormation', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'IAM', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-elastic-block-store';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-elastic-block-store'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-step-functions
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -964,7 +1081,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Step Functions', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Step Functions', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-step-functions';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-step-functions'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-elastic-beanstalk
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -975,7 +1094,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Elastic Beanstalk', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Elastic Beanstalk', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-elastic-beanstalk';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-elastic-beanstalk'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aws-appsync
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -986,7 +1107,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS AppSync', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AppSync', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aws-appsync';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aws-appsync'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cost-explorer
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -997,7 +1120,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Cost Explorer', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cost Explorer', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'cost-explorer';
+ WHERE me.entity_type = 'technology' AND me.slug = 'cost-explorer'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-dynamodb
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1008,7 +1133,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon DynamoDB', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DynamoDB', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-dynamodb';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-dynamodb'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-cloudwatch
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1019,7 +1146,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon CloudWatch', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'CloudWatch', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cloudwatch';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cloudwatch'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-cognito
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1031,7 +1160,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Cognito', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Cognito', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cognito';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-cognito'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-eventbridge
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1042,7 +1173,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon EventBridge', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'EventBridge', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-eventbridge';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-eventbridge'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-kinesis
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1054,7 +1187,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AWS Kinesis', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Kinesis', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-kinesis';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-kinesis'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amazon-rekognition
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1065,7 +1200,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Amazon Rekognition', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Rekognition', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amazon-rekognition';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amazon-rekognition'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-sentinel
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1076,7 +1213,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure Sentinel', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Sentinel', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-sentinel';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-sentinel'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-synapse-analytics
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1088,7 +1227,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure Synapse', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Synapse Analytics', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-synapse-analytics';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-synapse-analytics'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-data-factory
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1105,7 +1246,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'ETL', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'pipelines', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-data-factory';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-data-factory'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-machine-learning
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1116,7 +1259,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure Machine Learning', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure ML', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-machine-learning';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-machine-learning'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-logic-apps
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1127,7 +1272,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure Logic Apps', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Logic Apps', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-logic-apps';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-logic-apps'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- azure-blob
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1139,7 +1286,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure Blob Storage', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Blob Storage', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'azure-blob';
+ WHERE me.entity_type = 'technology' AND me.slug = 'azure-blob'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- sql-azure
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1151,7 +1300,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Azure SQL', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Azure SQL Database', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'sql-azure';
+ WHERE me.entity_type = 'technology' AND me.slug = 'sql-azure'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cli-command-line-interface
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1173,7 +1324,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Git', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'command', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'cli-command-line-interface';
+ WHERE me.entity_type = 'technology' AND me.slug = 'cli-command-line-interface'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- file-server-resource-manager-fsrm
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1184,7 +1337,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'File Server Resource Manager', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'FSRM', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'file-server-resource-manager-fsrm';
+ WHERE me.entity_type = 'technology' AND me.slug = 'file-server-resource-manager-fsrm'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- apache-spark
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1211,7 +1366,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'SQL', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Airflow', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'apache-spark';
+ WHERE me.entity_type = 'technology' AND me.slug = 'apache-spark'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- apache-kafka
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1222,7 +1379,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Apache Kafka', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Kafka', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'apache-kafka';
+ WHERE me.entity_type = 'technology' AND me.slug = 'apache-kafka'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- apache-flink
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1233,7 +1392,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Apache Flink', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Flink', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'apache-flink';
+ WHERE me.entity_type = 'technology' AND me.slug = 'apache-flink'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- apache-tomcat
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1244,7 +1405,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Apache Tomcat', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Tomcat', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'apache-tomcat';
+ WHERE me.entity_type = 'technology' AND me.slug = 'apache-tomcat'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hadoop-mapreduce
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1255,7 +1418,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Hadoop MapReduce', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MapReduce', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'hadoop-mapreduce';
+ WHERE me.entity_type = 'technology' AND me.slug = 'hadoop-mapreduce'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- yarn
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1266,7 +1431,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'YARN', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Hadoop YARN', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'yarn';
+ WHERE me.entity_type = 'technology' AND me.slug = 'yarn'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- elastic-stack
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1276,9 +1443,11 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Elastic Stack', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ELK Stack', 0, 0, 0, NULL
-    UNION ALL SELECT 'alias', 'ELK', 1, 0, 0, NULL
+    UNION ALL SELECT 'alias', 'ELK', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'elastic-stack';
+ WHERE me.entity_type = 'technology' AND me.slug = 'elastic-stack'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- kubernetes
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1290,7 +1459,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'K8s', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'k8s', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'kubernetes';
+ WHERE me.entity_type = 'technology' AND me.slug = 'kubernetes'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- argo-cd
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1301,7 +1472,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Argo CD', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ArgoCD', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'argo-cd';
+ WHERE me.entity_type = 'technology' AND me.slug = 'argo-cd'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hashicorp-vault
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1310,14 +1483,23 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
   JOIN (
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'HashiCorp Vault', 0, 0, 0, NULL
+    UNION ALL SELECT 'alias', 'Hashi Vault', 0, 0, 0, NULL
+    UNION ALL SELECT 'alias', 'Vault HashiCorp', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Vault', 1, 0, 1, NULL
     UNION ALL SELECT 'context', 'HashiCorp', 0, 0, 0, 60
+    UNION ALL SELECT 'context', 'secret', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'secrets', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Terraform', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Consul', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kubernetes', 0, 0, 0, 60
+    UNION ALL SELECT 'context', 'PAM', 0, 0, 0, 60
+    UNION ALL SELECT 'context', 'CyberArk', 0, 0, 0, 60
+    UNION ALL SELECT 'context', 'IAM', 0, 0, 0, 60
+    UNION ALL SELECT 'context', 'PKI', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'hashicorp-vault';
+ WHERE me.entity_type = 'technology' AND me.slug = 'hashicorp-vault'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- open-policy-agent
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1333,7 +1515,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Rego', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Gatekeeper', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'open-policy-agent';
+ WHERE me.entity_type = 'technology' AND me.slug = 'open-policy-agent'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- rabbit-mq
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1344,7 +1528,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'RabbitMQ', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Rabbit MQ', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'rabbit-mq';
+ WHERE me.entity_type = 'technology' AND me.slug = 'rabbit-mq'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- mongodb
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1356,7 +1542,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Mongo DB', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Mongo', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'mongodb';
+ WHERE me.entity_type = 'technology' AND me.slug = 'mongodb'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- power-apps
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1367,7 +1555,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Power Apps', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'PowerApps', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'power-apps';
+ WHERE me.entity_type = 'technology' AND me.slug = 'power-apps'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- power-automate
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1378,7 +1568,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Power Automate', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Flow', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'power-automate';
+ WHERE me.entity_type = 'technology' AND me.slug = 'power-automate'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-adsense
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1389,7 +1581,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Google AdSense', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AdSense', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-adsense';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-adsense'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- facebook-ads
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1400,7 +1594,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Facebook Ads', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Meta Ads', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'facebook-ads';
+ WHERE me.entity_type = 'technology' AND me.slug = 'facebook-ads'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- adobe-illustrator
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1417,7 +1613,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Creative Cloud', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'After Effects', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'adobe-illustrator';
+ WHERE me.entity_type = 'technology' AND me.slug = 'adobe-illustrator'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- blender
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1439,7 +1637,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'rendering', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Substance', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'blender';
+ WHERE me.entity_type = 'technology' AND me.slug = 'blender'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- maya
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1461,7 +1661,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Houdini', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Autodesk', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'maya';
+ WHERE me.entity_type = 'technology' AND me.slug = 'maya'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- autodesk-3ds-max
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1474,7 +1676,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', '3D Studio Max', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', '3DS Max', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'autodesk-3ds-max';
+ WHERE me.entity_type = 'technology' AND me.slug = 'autodesk-3ds-max'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- unreal-engine
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1487,7 +1691,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'UE5', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'UE4', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'unreal-engine';
+ WHERE me.entity_type = 'technology' AND me.slug = 'unreal-engine'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- visual-studio-code
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1499,7 +1705,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'VS Code', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'VSCode', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'visual-studio-code';
+ WHERE me.entity_type = 'technology' AND me.slug = 'visual-studio-code'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- intellij-idea
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1510,7 +1718,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'IntelliJ IDEA', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'IntelliJ', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'intellij-idea';
+ WHERE me.entity_type = 'technology' AND me.slug = 'intellij-idea'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- xcode
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1520,7 +1730,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Xcode', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'xcode';
+ WHERE me.entity_type = 'technology' AND me.slug = 'xcode'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- jupyter-notebook
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1532,7 +1744,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Jupyter Notebooks', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Jupyter', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'jupyter-notebook';
+ WHERE me.entity_type = 'technology' AND me.slug = 'jupyter-notebook'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- jupyter-lab
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1543,7 +1757,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'JupyterLab', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Jupyter Lab', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'jupyter-lab';
+ WHERE me.entity_type = 'technology' AND me.slug = 'jupyter-lab'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-colab
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1554,7 +1770,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Google Colab', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Colab', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-colab';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-colab'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- tailwind-css
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1566,7 +1784,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'TailwindCSS', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Tailwind', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'tailwind-css';
+ WHERE me.entity_type = 'technology' AND me.slug = 'tailwind-css'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- entity-framework
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1577,7 +1797,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Entity Framework', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'EF Core', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'entity-framework';
+ WHERE me.entity_type = 'technology' AND me.slug = 'entity-framework'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- nodejs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1597,7 +1819,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'React', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'API', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'nodejs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'nodejs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- angularjs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1609,7 +1833,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'AngularJS', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Angular', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'angularjs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'angularjs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- swiftui
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1619,7 +1845,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'SwiftUI', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'swiftui';
+ WHERE me.entity_type = 'technology' AND me.slug = 'swiftui'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- jetpack-compose
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1629,7 +1857,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Jetpack Compose', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'jetpack-compose';
+ WHERE me.entity_type = 'technology' AND me.slug = 'jetpack-compose'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- core-data
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1639,7 +1869,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Core Data', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'core-data';
+ WHERE me.entity_type = 'technology' AND me.slug = 'core-data'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- scikit-learn
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1651,7 +1883,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'sklearn', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'scikit learn', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'scikit-learn';
+ WHERE me.entity_type = 'technology' AND me.slug = 'scikit-learn'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- dall-e
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1664,7 +1898,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'DALL·E', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DALLE', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'dall-e';
+ WHERE me.entity_type = 'technology' AND me.slug = 'dall-e'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-gemini
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1685,7 +1921,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'generative', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'generativa', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-gemini';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-gemini'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- gpt
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1697,7 +1935,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'ChatGPT', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'OpenAI GPT', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'gpt';
+ WHERE me.entity_type = 'technology' AND me.slug = 'gpt'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- bert
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1707,7 +1947,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'BERT', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'bert';
+ WHERE me.entity_type = 'technology' AND me.slug = 'bert'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- glove
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1717,7 +1959,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'GloVe', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'glove';
+ WHERE me.entity_type = 'technology' AND me.slug = 'glove'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- copilot
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1729,7 +1973,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Microsoft Copilot', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Copilot', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'copilot';
+ WHERE me.entity_type = 'technology' AND me.slug = 'copilot'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- perplexity
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1740,7 +1986,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Perplexity', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Perplexity AI', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'perplexity';
+ WHERE me.entity_type = 'technology' AND me.slug = 'perplexity'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-ios
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1752,7 +2000,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'IOS XE', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'IOS-XE', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'cisco-ios';
+ WHERE me.entity_type = 'technology' AND me.slug = 'cisco-ios'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cisco-dna-center
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1763,7 +2013,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Cisco DNA Center', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'DNA Center', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'cisco-dna-center';
+ WHERE me.entity_type = 'technology' AND me.slug = 'cisco-dna-center'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- ad-fs
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1775,7 +2027,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'ADFS', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Active Directory Federation Services', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'ad-fs';
+ WHERE me.entity_type = 'technology' AND me.slug = 'ad-fs'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- exchange-server-2019
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1787,7 +2041,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Exchange Server', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Microsoft Exchange', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'exchange-server-2019';
+ WHERE me.entity_type = 'technology' AND me.slug = 'exchange-server-2019'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-outlook
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1798,7 +2054,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Microsoft Outlook', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Outlook', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-outlook';
+ WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-outlook'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- outlook-web-app
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1814,7 +2072,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'email', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'correo', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'outlook-web-app';
+ WHERE me.entity_type = 'technology' AND me.slug = 'outlook-web-app'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- windows-server-app-fabric
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1825,7 +2085,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Windows Server AppFabric', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'AppFabric', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'windows-server-app-fabric';
+ WHERE me.entity_type = 'technology' AND me.slug = 'windows-server-app-fabric'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- samba
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1844,7 +2106,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'servidor de archivos', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Unix', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'samba';
+ WHERE me.entity_type = 'technology' AND me.slug = 'samba'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- nas
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1865,7 +2129,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'QNAP', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'iSCSI', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'nas';
+ WHERE me.entity_type = 'technology' AND me.slug = 'nas'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- san
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1885,7 +2151,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'VMware', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'LUN', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'san';
+ WHERE me.entity_type = 'technology' AND me.slug = 'san'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- veeam-backup
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1896,7 +2164,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Veeam Backup', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Veeam', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'veeam-backup';
+ WHERE me.entity_type = 'technology' AND me.slug = 'veeam-backup'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- proxmox-ve
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1907,7 +2177,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Proxmox VE', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Proxmox', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'proxmox-ve';
+ WHERE me.entity_type = 'technology' AND me.slug = 'proxmox-ve'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- vmware-esxi
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1918,7 +2190,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'VMware ESXi', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ESXi', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'vmware-esxi';
+ WHERE me.entity_type = 'technology' AND me.slug = 'vmware-esxi'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- vcenter-server
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1929,7 +2203,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'vCenter Server', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'vCenter', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'vcenter-server';
+ WHERE me.entity_type = 'technology' AND me.slug = 'vcenter-server'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- vmware-vsphere
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1940,7 +2216,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'VMware vSphere', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'vSphere', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'vmware-vsphere';
+ WHERE me.entity_type = 'technology' AND me.slug = 'vmware-vsphere'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- vmware-nsx
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1951,7 +2229,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'VMware NSX', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'NSX', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'vmware-nsx';
+ WHERE me.entity_type = 'technology' AND me.slug = 'vmware-nsx'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- click-up
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1962,7 +2242,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'ClickUp', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Click Up', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'click-up';
+ WHERE me.entity_type = 'technology' AND me.slug = 'click-up'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- obsidian
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1977,7 +2259,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Markdown', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'knowledge', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'obsidian';
+ WHERE me.entity_type = 'technology' AND me.slug = 'obsidian'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- atlas-ti
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1989,7 +2273,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'ATLAS.ti', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Atlas Ti', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'atlas-ti';
+ WHERE me.entity_type = 'technology' AND me.slug = 'atlas-ti'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- uipath
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -1999,7 +2285,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'UiPath', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'uipath';
+ WHERE me.entity_type = 'technology' AND me.slug = 'uipath'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- amplitude
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2017,7 +2305,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Segment', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Looker', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'amplitude';
+ WHERE me.entity_type = 'technology' AND me.slug = 'amplitude'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- aspera
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2028,7 +2318,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'IBM Aspera', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Aspera', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'aspera';
+ WHERE me.entity_type = 'technology' AND me.slug = 'aspera'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- tableau
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2040,7 +2332,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'negative', 'Tableau de', 0, 0, 0, NULL
     UNION ALL SELECT 'negative', 'Tableaux', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'tableau';
+ WHERE me.entity_type = 'technology' AND me.slug = 'tableau'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- snowflake
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2050,7 +2344,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Snowflake', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'snowflake';
+ WHERE me.entity_type = 'technology' AND me.slug = 'snowflake'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- postman
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2070,7 +2366,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'JSON', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'QA', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'postman';
+ WHERE me.entity_type = 'technology' AND me.slug = 'postman'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- puppet
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2087,7 +2385,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'SaltStack', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Linux', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'puppet';
+ WHERE me.entity_type = 'technology' AND me.slug = 'puppet'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- pip
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2105,7 +2405,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'virtualenv', 0, 0, 0, 40
     UNION ALL SELECT 'context', 'venv', 0, 0, 0, 40
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'pip';
+ WHERE me.entity_type = 'technology' AND me.slug = 'pip'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- conda
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2116,7 +2418,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'conda', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Anaconda', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'conda';
+ WHERE me.entity_type = 'technology' AND me.slug = 'conda'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- bootstrap
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2139,7 +2443,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Angular', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Sass', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'bootstrap';
+ WHERE me.entity_type = 'technology' AND me.slug = 'bootstrap'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- web-api
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2155,7 +2461,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Microsoft', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Entity Framework', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'web-api';
+ WHERE me.entity_type = 'technology' AND me.slug = 'web-api'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- api-fetch
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2166,7 +2474,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Fetch API', 1, 0, 0, NULL
     UNION ALL SELECT 'alias', 'API Fetch', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'api-fetch';
+ WHERE me.entity_type = 'technology' AND me.slug = 'api-fetch'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- retrofit
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2182,7 +2492,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Gson', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Jetpack', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'retrofit';
+ WHERE me.entity_type = 'technology' AND me.slug = 'retrofit'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- soar
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2208,7 +2520,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'cybersecurity', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kali', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'soar';
+ WHERE me.entity_type = 'technology' AND me.slug = 'soar'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- volatility
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2239,7 +2553,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'DFIR', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'malware', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'volatility';
+ WHERE me.entity_type = 'technology' AND me.slug = 'volatility'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- hydra
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2273,7 +2589,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'Nmap', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Metasploit', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'hydra';
+ WHERE me.entity_type = 'technology' AND me.slug = 'hydra'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- owasp-zed-attack-proxy
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2303,7 +2621,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'cybersecurity', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kali', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'owasp-zed-attack-proxy';
+ WHERE me.entity_type = 'technology' AND me.slug = 'owasp-zed-attack-proxy'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- norton
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2336,7 +2656,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'cybersecurity', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kali', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'norton';
+ WHERE me.entity_type = 'technology' AND me.slug = 'norton'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- globus
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2352,7 +2674,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'cluster', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'supercomputing', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'globus';
+ WHERE me.entity_type = 'technology' AND me.slug = 'globus'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- cockpit
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2371,7 +2695,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'CentOS', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'web console', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'cockpit';
+ WHERE me.entity_type = 'technology' AND me.slug = 'cockpit'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- raspberry
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2391,7 +2717,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'GPIO', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'Python', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'raspberry';
+ WHERE me.entity_type = 'technology' AND me.slug = 'raspberry'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- wds
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2409,7 +2737,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'SCCM', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'imaging', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'wds';
+ WHERE me.entity_type = 'technology' AND me.slug = 'wds'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- jsps
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2422,7 +2752,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'JavaServer Pages', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'JSPS', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'jsps';
+ WHERE me.entity_type = 'technology' AND me.slug = 'jsps'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-report
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2436,7 +2768,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'SQL Server Reporting Services', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Reporting Services', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-report';
+ WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-report'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- microsoft-excel-solver
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2446,7 +2780,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Excel Solver', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-excel-solver';
+ WHERE me.entity_type = 'technology' AND me.slug = 'microsoft-excel-solver'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- kali-linux
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2473,7 +2809,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'cybersecurity', 0, 0, 0, 60
     UNION ALL SELECT 'context', 'Kali', 0, 0, 0, 60
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'kali-linux';
+ WHERE me.entity_type = 'technology' AND me.slug = 'kali-linux'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- google-maps-sdk-ios
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2483,7 +2821,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Google Maps SDK', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'google-maps-sdk-ios';
+ WHERE me.entity_type = 'technology' AND me.slug = 'google-maps-sdk-ios'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- ethercap
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2494,7 +2834,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Ettercap', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'ethercap', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'ethercap';
+ WHERE me.entity_type = 'technology' AND me.slug = 'ethercap'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- posenet
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2504,7 +2846,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'PoseNet', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'posenet';
+ WHERE me.entity_type = 'technology' AND me.slug = 'posenet'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- trend-vision-one
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2515,7 +2859,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Trend Vision One', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'Trend Micro Vision One', 0, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'trend-vision-one';
+ WHERE me.entity_type = 'technology' AND me.slug = 'trend-vision-one'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- standard-assets
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2525,7 +2871,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Standard Assets', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'standard-assets';
+ WHERE me.entity_type = 'technology' AND me.slug = 'standard-assets'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- sprite-mask
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2535,7 +2883,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Sprite Mask', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'sprite-mask';
+ WHERE me.entity_type = 'technology' AND me.slug = 'sprite-mask'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- sprite-shape
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2545,7 +2895,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Sprite Shape', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'sprite-shape';
+ WHERE me.entity_type = 'technology' AND me.slug = 'sprite-shape'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- shader-graph
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2555,7 +2907,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     SELECT 'alias' AS kind, CAST('' AS CHAR(191)) AS pattern, 0 AS cs, 0 AS rx, 0 AS weak, CAST(NULL AS UNSIGNED) AS win FROM DUAL WHERE FALSE
     UNION ALL SELECT 'alias', 'Shader Graph', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'shader-graph';
+ WHERE me.entity_type = 'technology' AND me.slug = 'shader-graph'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- transformers
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2582,7 +2936,9 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'context', 'machine learning', 0, 0, 0, 80
     UNION ALL SELECT 'context', 'deep learning', 0, 0, 0, 80
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'transformers';
+ WHERE me.entity_type = 'technology' AND me.slug = 'transformers'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
 -- material-design
 INSERT IGNORE INTO market_entity_aliases (market_entity_id, kind, pattern, case_sensitive, is_regex, is_weak, window_chars, notes, created_at, updated_at)
@@ -2594,9 +2950,11 @@ SELECT me.id, r.kind, r.pattern, r.cs, r.rx, r.weak, r.win, '[seed tecnologias]'
     UNION ALL SELECT 'alias', 'Material UI', 0, 0, 0, NULL
     UNION ALL SELECT 'alias', 'MUI', 1, 0, 0, NULL
   ) r
- WHERE me.entity_type = 'technology' AND me.slug = 'material-design';
+ WHERE me.entity_type = 'technology' AND me.slug = 'material-design'
+   AND NOT EXISTS (SELECT 1 FROM market_entity_aliases x WHERE x.market_entity_id = me.id AND x.kind = r.kind
+                   AND x.pattern = r.pattern COLLATE utf8mb4_bin AND x.case_sensitive = r.cs);
 
-SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas 968)') AS resultado
+SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas 976)') AS resultado
   FROM market_entity_aliases a JOIN market_entities me ON me.id = a.market_entity_id
  WHERE me.entity_type = 'technology' AND a.notes = '[seed tecnologias]';
 -- ====================== FIN DEL BLOQUE GENERADO =======================

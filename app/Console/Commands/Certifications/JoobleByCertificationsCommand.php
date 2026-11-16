@@ -16,6 +16,7 @@ use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 use App\Services\Matching\OfferEntityLinker;
+use App\Services\Matching\SearchTerms;
 
 class JoobleByCertificationsCommand extends Command
 {
@@ -104,7 +105,7 @@ class JoobleByCertificationsCommand extends Command
 
                 $payload = [
                     "keywords" =>
-                        $certificationName,
+                        SearchTerms::primary(SearchTerms::forCatalog($certId, $certificationName)),
 
                     "location" =>
                         $joobleCountry,
@@ -166,6 +167,11 @@ class JoobleByCertificationsCommand extends Command
                 ->pluck('id', 'external_id');
 
                 foreach ($jobs as $job) {
+
+                    // Matcher antes de crear la oferta (no se guardan ofertas que no se asociarían)
+                    if (! OfferEntityLinker::for('certifications')->confirms($certId, $job['title'] ?? '', $job['snippet'] ?? '')) {
+                        continue;
+                    }
 
                     try {
 
@@ -296,7 +302,7 @@ class JoobleByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, $job['snippet'] ?? null);
                             }
 
                             $totalDuplicates++;
@@ -393,7 +399,7 @@ class JoobleByCertificationsCommand extends Command
                                 $region,
                         ]);
 
-                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId, false, $job['snippet'] ?? null);
 
                         $totalNew++;
 
