@@ -13,12 +13,22 @@ class TakeLanguageSnapshotCommand extends Command
     /**
      * Firma del comando modificado para lenguajes.
      */
-    protected $signature = 'languages:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly}';
+    protected $signature = 'languages:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
 
-    protected $description = 'Calcula de forma automática o manual las fotos históricas necesarias para Lenguajes (Semanal, Quincenal, Mensual).';
+    protected $description = '[RETIRADO] Fotos acumuladas en language_evolution_cache. La evolución ahora la calcula ranking:refresh-languages.';
 
     public function handle()
     {
+        // RETIRADO: el modal y el export leen language_ranking_weekly, que llena
+        // ranking:refresh-languages. Este comando guardaba el acumulado del semestre
+        // con start_date = end_date = hoy. Se conserva el archivo por si hay que
+        // consultarlo; sin --legacy no hace nada (para que el cron no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('languages:take-snapshot está RETIRADO: la evolución la calcula ranking:refresh-languages. No se hizo nada. Desactiva su cron.');
+
+            return self::SUCCESS;
+        }
+
         $filterOption = $this->option('filter');
         $now = Carbon::now();
         $year = $now->year;

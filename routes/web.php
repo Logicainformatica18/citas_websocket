@@ -588,6 +588,19 @@ Route::get(
         [RankingLenguajesController::class, 'index']
     )->name('dashboard.ranking.languages');
 
+    // 🔄 Recalcular la tabla de resumen del ranking (solo administradores)
+    Route::post(
+        '/refresh',
+        [RankingLenguajesController::class, 'refresh']
+    )->middleware(['permission:administrar', 'throttle:3,1'])
+     ->name('dashboard.ranking.languages.refresh');
+
+    Route::get(
+        '/refresh-status',
+        [RankingLenguajesController::class, 'refreshStatus']
+    )->middleware(['permission:administrar', 'throttle:60,1'])
+     ->name('dashboard.ranking.languages.refresh-status');
+
     Route::post(
         '/weights',
         [RankingLenguajesController::class, 'storeWeights']

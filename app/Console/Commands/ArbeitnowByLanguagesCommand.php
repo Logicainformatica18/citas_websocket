@@ -83,7 +83,7 @@ SourceStatusService::start(
 $startedAt = now();
         try {
 
-           $baseQuery = MarketEntity::where('entity_type','language')
+           $baseQuery = MarketEntity::active()->where('entity_type', 'language')
     ->orderBy('id');
 
 $lastLanguageId = MarketEntityMetric::where('source','Arbeitnow')

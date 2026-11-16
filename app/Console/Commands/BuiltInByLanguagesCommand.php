@@ -24,7 +24,7 @@ class BuiltInByLanguagesCommand extends Command
 
     public function handle()
     {
-        $languages = Language::whereIn('languages.id', function ($q) {
+        $languages = Language::active()->whereIn('languages.id', function ($q) {
                 $q->select('course_language.language_id')
                 ->from('course_language')
                 ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');

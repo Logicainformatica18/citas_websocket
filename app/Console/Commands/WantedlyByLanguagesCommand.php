@@ -63,7 +63,7 @@ public function handle()
             ->orderByDesc('created_at')
             ->value('language_id');
 
-        $baseQuery = Language::whereIn('languages.id', function ($q) {
+        $baseQuery = Language::active()->whereIn('languages.id', function ($q) {
                 $q->select('cl.language_id')
                   ->from('course_language as cl')
                   ->join('career_course as cc', 'cc.course_id', '=', 'cl.course_id');

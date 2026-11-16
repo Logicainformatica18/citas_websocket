@@ -67,7 +67,7 @@ SourceStatusService::progress($source, 0, 0, 0);
     ->orderByDesc('created_at')
     ->value('language_id');
 
-    $baseQuery = Language::whereIn('languages.id', function ($q) {
+    $baseQuery = Language::active()->whereIn('languages.id', function ($q) {
         $q->select('course_language.language_id')
           ->from('course_language')
           ->join('career_course', 'career_course.course_id', '=', 'course_language.course_id');

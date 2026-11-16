@@ -43,7 +43,7 @@ class JobsDataFeedsByLanguagesCommand extends Command
         // 🔥 RESUME (cache)
         $lastLanguageId = Cache::get('jobsdatafeeds_last_language');
 
-        $languagesQuery = Language::orderBy('id');
+        $languagesQuery = Language::active()->orderBy('id');
 
         if ($lastLanguageId) {
             $languagesQuery->where('id', '>', $lastLanguageId);
@@ -52,7 +52,7 @@ class JobsDataFeedsByLanguagesCommand extends Command
         $languages = $languagesQuery->pluck('name', 'id');
 
         if ($languages->isEmpty()) {
-            $languages = Language::orderBy('id')->pluck('name', 'id');
+            $languages = Language::active()->orderBy('id')->pluck('name', 'id');
         }
 
         $this->info("🚀 JobsDataFeeds PRO | País {$country}");
@@ -213,7 +213,7 @@ protected function detectLanguagesFromText(string $text): array
         'sql' => ['sql','postgres','mysql'],
     ];
 
-    $languages = Language::pluck('id', 'name')->mapWithKeys(fn($id, $name) => [strtolower($name) => $id]);
+    $languages = Language::active()->pluck('id', 'name')->mapWithKeys(fn($id, $name) => [strtolower($name) => $id]);
 
     $detected = [];
 

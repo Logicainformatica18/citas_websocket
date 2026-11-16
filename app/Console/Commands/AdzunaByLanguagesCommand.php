@@ -87,7 +87,7 @@ $startedAt = now();
         $pages = (int) $this->option('pages');
 
         // 🔹 ahora usamos market_entities
-        $baseQuery = MarketEntity::where('entity_type','language')->orderBy('id');
+        $baseQuery = MarketEntity::active()->where('entity_type', 'language')->orderBy('id');
 
     $lastLanguageId = MarketEntityMetric::where('source','Adzuna')
     ->orderByDesc('created_at')

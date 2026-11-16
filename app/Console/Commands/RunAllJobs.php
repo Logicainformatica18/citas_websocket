@@ -233,6 +233,8 @@ class RunAllJobs extends Command
 // //asigna el valor en market_entity_id sincronizando languaje, metodology, technology JOBS
 'market:fix-null-entities',
 'computrabajo:clean-all',
+// Recalcula el resumen del Ranking de Lenguajes con los datos ya importados y normalizados
+'ranking:refresh-languages',
 ];
 
         $total = count($commands);

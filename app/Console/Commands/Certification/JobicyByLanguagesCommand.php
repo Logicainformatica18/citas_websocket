@@ -75,7 +75,7 @@ class JobicyByLanguagesCommand extends Command
             ->orderByDesc('created_at')
             ->value('language_id');
 
-        $baseQuery = Language::whereIn('languages.id', function ($q) {
+        $baseQuery = Language::active()->whereIn('languages.id', function ($q) {
             $q->select('course_language.language_id')
                 ->from('course_language')
                 ->join(

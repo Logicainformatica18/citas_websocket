@@ -121,25 +121,48 @@ class LanguageController extends Controller
     /**
      * 🗑️ Eliminar lenguaje
      */
+    /**
+     * Ya no borra físicamente: borrar la fila de `languages` eliminaba en cascada sus
+     * ofertas de language_job, pero dejaba la entidad en market_entities, y los
+     * scrapers la volvían a crear (caso IDC). Ahora se desactiva el lenguaje y su
+     * entidad (market_entities.is_active = 0): desaparece del ranking, de la
+     * evolución, del export y de los scrapers, y se conserva el historial.
+     */
     public function destroy($id)
     {
         return DB::transaction(function () use ($id) {
             $language = Language::findOrFail($id);
-            $language->delete();
+            $this->setActive($language, false, 'Eliminado desde la administración de lenguajes');
 
-            return response()->json(['message' => '🗑️ Lenguaje eliminado correctamente.']);
+            return response()->json(['message' => '🗑️ Lenguaje eliminado (desactivado) correctamente.']);
         });
     }
 
     /**
-     * 🔄 Activar / desactivar
+     * 🔄 Activar / desactivar (también la entidad de market_entities vinculada)
      */
     public function toggle($id, Request $request)
     {
         $lang = Language::findOrFail($id);
-        $lang->enabled = $request->enabled;
-        $lang->save();
+
+        DB::transaction(fn () => $this->setActive(
+            $lang,
+            $request->boolean('enabled'),
+            'Desactivado desde la administración de lenguajes'
+        ));
 
         return response()->json(['success' => true]);
+    }
+
+    private function setActive(Language $language, bool $active, string $reason): void
+    {
+        $language->enabled = $active;
+        $language->save();
+
+        $entity = $language->marketEntity;
+
+        if ($entity) {
+            $active ? $entity->activate() : $entity->deactivate($reason);
+        }
     }
 }

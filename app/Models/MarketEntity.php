@@ -20,12 +20,45 @@ class MarketEntity extends Model
         'level',
         'has_isil',
         'has_trend',
+        'is_active',
+        'inactive_reason',
+        'inactive_at',
     ];
 
     protected $casts = [
         'has_isil'  => 'boolean',
         'has_trend' => 'boolean',
+        'is_active' => 'boolean',
+        'inactive_at' => 'datetime',
     ];
+
+    /**
+     * Entidades activas. is_active es la única fuente de verdad: los rankings, la
+     * evolución, los exports y los scrapers ignoran las inactivas (p. ej. IDC, OECD).
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('market_entities.is_active', 1);
+    }
+
+    /** Desactiva la entidad sin borrar sus datos históricos. */
+    public function deactivate(string $reason): void
+    {
+        $this->forceFill([
+            'is_active' => false,
+            'inactive_reason' => $reason,
+            'inactive_at' => now(),
+        ])->save();
+    }
+
+    public function activate(): void
+    {
+        $this->forceFill([
+            'is_active' => true,
+            'inactive_reason' => null,
+            'inactive_at' => null,
+        ])->save();
+    }
 
     /* =========================================
        RELACIONES

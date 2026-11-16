@@ -34,7 +34,7 @@ class SelectaByLanguagesCommand extends Command
 
     try {
 
-        $languages = Language::orderBy('id')->get();
+        $languages = Language::active()->orderBy('id')->get();
 
         $this->info("🟢 Selecta → {$languages->count()} lenguajes");
 

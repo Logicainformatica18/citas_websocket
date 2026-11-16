@@ -68,7 +68,7 @@ public function handle()
         $totalSkippedAll  = 0;
 
         // 🔁 MISMA lógica (NO optimizada)
-        $languages = Language::pluck('name', 'id');
+        $languages = Language::active()->pluck('name', 'id');
 
         $this->info("🌎 Jooble ({$joobleCountry})...");
 

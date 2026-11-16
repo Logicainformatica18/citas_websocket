@@ -132,7 +132,7 @@ $startedAt = now();
             ->orderByDesc('created_at')
             ->value('market_entity_id');
 
-        $baseQuery = MarketEntity::where('entity_type', 'language')
+        $baseQuery = MarketEntity::active()->where('entity_type', 'language')
             ->orderBy('id');
 
         $languagesQuery = clone $baseQuery;

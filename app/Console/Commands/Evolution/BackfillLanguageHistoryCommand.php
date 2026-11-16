@@ -10,11 +10,19 @@ use Carbon\Carbon;
 
 class BackfillLanguageHistoryCommand extends Command
 {
-    protected $signature = 'languages:backfill-all {year=2026}';
-    protected $description = 'Reconstruye el historial de Lenguajes (Semanal, Quincenal y Mensual) guardando la foto exacta acumulada de cada fecha de corte.';
+    protected $signature = 'languages:backfill-all {year=2026} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
+    protected $description = '[RETIRADO] Reconstruía language_evolution_cache. La evolución ahora la calcula ranking:refresh-languages.';
 
     public function handle()
     {
+        // RETIRADO: ver TakeLanguageSnapshotCommand. ranking:refresh-languages recalcula
+        // toda la evolución (semanas ISO, quincenas y meses) en cada ejecución.
+        if (! $this->option('legacy')) {
+            $this->warn('languages:backfill-all está RETIRADO: la evolución la calcula ranking:refresh-languages. No se hizo nada.');
+
+            return self::SUCCESS;
+        }
+
         $year = (int) $this->argument('year');
 
         /* ==================================================

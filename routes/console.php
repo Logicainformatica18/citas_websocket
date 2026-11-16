@@ -2,7 +2,11 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Ranking de Lenguajes: respaldo diario. jobs:run-all también lo ejecuta al final.
+Schedule::command('ranking:refresh-languages')->dailyAt('07:00')->timezone('America/Lima')->withoutOverlapping();

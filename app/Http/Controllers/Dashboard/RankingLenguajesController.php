@@ -9,14 +9,21 @@ use Inertia\Inertia;
 use App\Models\Prueba;
 use App\Services\ScrapingStatusService;
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
+use App\Http\Controllers\Dashboard\Concerns\RefreshesEntityRanking;
+use App\Services\LanguageRankingService;
+use App\Services\Ranking\EntityRankingService;
+use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 use Illuminate\Support\Facades\Artisan;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\LanguagesEvolutionExport;
+use App\Exports\EntityEvolutionExport;
 use Illuminate\Support\Facades\Log;
 
 class RankingLenguajesController extends Controller
 {
+    use RefreshesEntityRanking;
+
 public function run(Request $request)
 {
     try {
@@ -118,197 +125,44 @@ public function run(Request $request)
 //     ]);
 // }
 
-public function index(Request $request)
+/* ==================================================
+   RANKING PRINCIPAL – LANGUAGES
+   Lee SOLO de las tablas de resumen (language_rankings / language_ranking_meta),
+   que llena `ranking:refresh-languages`. No calcula nada en vivo.
+================================================== */
+public function index(Request $request, LanguageRankingService $rankingService)
 {
-    /* ==================================================
-       0. CONTEXTO BASE (IGUAL A CERTIFICACIONES)
-    ================================================== */
     $career = $request->input('career');
-$search = $request->get('search');
-$career = $career
-    ? (is_array($career) ? $career : [$career])
-    : [];
+    $search = $request->get('search');
+    $career = $career
+        ? (is_array($career) ? $career : [$career])
+        : [];
 
     $year   = (int) $request->get('year', 2026);
-    $period = $request->get('period', 's1');
-    $range  = $this->getPeriodRange($period, $year);
-$availableCareers = DB::table('careers')
-    ->where('active', 1)
-    ->orderBy('name')
-    ->get(['id', 'name', 'slug']);
+    $period = $request->get('period', 's1') === 's2' ? 's2' : 's1';
 
-    try {
-        $weights = Prueba::getActive('languages');
-    } catch (\Throwable $e) {
-        $weights = null;
-    }
+    $availableCareers = DB::table('careers')
+        ->where('active', 1)
+        ->orderBy('name')
+        ->get(['id', 'name', 'slug']);
 
-    $laborWeight = (float) ($weights?->labor_weight ?? 0.7);
-    $trendWeight = (float) ($weights?->trend_weight ?? 0.3);
+    [$laborWeight, $trendWeight] = $rankingService->activeWeights();
 
-    /* ==================================================
-       1. SUBQUERY LABORAL (language_job → market_entity)
-    ================================================== */
-    $laborSub = DB::table('language_job as lj')
-        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
-        ->whereBetween('j.published_at', [
-            $range['start'],
-            $range['end'],
-        ])
-        ->select(
-            'lj.market_entity_id',
-            DB::raw('COUNT(DISTINCT lj.job_offer_id) as offers')
-        )
-        ->groupBy('lj.market_entity_id');
+    $meta = $rankingService->meta($year, $period);
 
-    /* ==================================================
-       2. SUBQUERY TENDENCIAS (entity_trends)
-    ================================================== */
-$semester = $period === 's1' ? 1 : 2;
+    // Sin cálculo previo: paginador vacío y mensaje amigable en el frontend.
+    $ranking = $meta
+        ? $rankingService->paginate($year, $period, $laborWeight, $trendWeight, $career, $search)
+        : new LengthAwarePaginator([], 0, 10);
 
-$reportsSub = DB::table('entity_trends as et')
-    ->join('market_entities as me', function ($j) {
-        $j->on('me.id', '=', 'et.market_entity_id')
-          ->where('me.entity_type', 'language');
-    })
-    ->where('et.year', $year)
-->whereIn(
-    'et.quarter',
-    $semester === 1
-        ? [1, 2]
-        : [3, 4]
-)->select(
-            'me.id as language_id',
-            DB::raw('COUNT(DISTINCT et.id) as report_mentions')
-        )
-        ->groupBy('me.id');
+    $calculatedAt = $meta
+        ? Carbon::parse($meta->calculated_at)->timezone('America/Lima')
+        : null;
 
-    /* ==================================================
-       3. NORMALIZADORES
-    ================================================== */
-    $maxLabor = max(
-        DB::query()->fromSub($laborSub, 'x')->max('offers'),
-        1
-    );
-
-    $maxTrend = max(
-        DB::query()->fromSub($reportsSub, 'r')->max('report_mentions'),
-        1
-    );
-
-    $totalReports = max(
-        DB::table('entity_trends as et')
-            ->join('market_entities as me', function ($j) {
-                $j->on('me.id', '=', 'et.market_entity_id')
-                  ->where('me.entity_type', 'language');
-            })
-            ->where('et.year', $year)
-->whereIn(
-    'et.quarter',
-    $semester === 1
-        ? [1, 2]
-        : [3, 4]
-)
-->count('et.id'),
-        1
-    );
-
-    /* ==================================================
-       4. QUERY PRINCIPAL (market_entities)
-    ================================================== */
-    $query = DB::table('market_entities as me')
-        ->leftJoinSub($laborSub, 'labor', function ($j) {
-            $j->on('labor.market_entity_id', '=', 'me.id');
-        })
-        ->leftJoinSub($reportsSub, 'reports', function ($j) {
-            $j->on('reports.language_id', '=', 'me.id');
-        })
-        ->where('me.entity_type', 'language');
-if ($search) {
-    $query->where('me.name', 'like', "%{$search}%");
-}
-
-        if (!empty($career)) {
-    $query->whereExists(function ($q) use ($career) {
-        $q->select(DB::raw(1))
-          ->from('market_entity_career as mec')
-          ->join('careers as ca', 'ca.id', '=', 'mec.career_id')
-          ->whereColumn('mec.market_entity_id', 'me.id')
-          ->whereIn('ca.slug', $career);
-    });
-}
-
-
-    /* ==================================================
-       5. SELECT FINAL
-    ================================================== */
-    $ranking = $query->select(
-        DB::raw("'language' as entity_type"),
-        'me.id',
-        'me.name',
-
-        // 🔥 CLASIFICACIÓN MARKET-FIRST
-        'me.has_isil',
-        'me.has_trend',
-        DB::raw("
-            CASE
-                WHEN me.has_isil = 1 AND me.has_trend = 1 THEN 'isil+trend'
-                WHEN me.has_isil = 1 THEN 'isil'
-                WHEN me.has_trend = 1 THEN 'trend'
-                ELSE 'market'
-            END as classification
-        "),
-
-        DB::raw('COALESCE(labor.offers,0) as total_jobs'),
-        DB::raw('COALESCE(reports.report_mentions,0) as trend_reports'),
-
-        DB::raw("
-            ROUND(
-                (LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100,
-            1) as labor_score
-        "),
-
-        DB::raw("
-            ROUND(
-                (LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100,
-            1) as trend_score
-        "),
-
-      DB::raw("
-    ROUND(
-        (
-            ((LOG(COALESCE(labor.offers,0)+1) / LOG({$maxLabor}+1)) * 100 * {$laborWeight})
-          + ((LOG(COALESCE(reports.report_mentions,0)+1) / LOG({$maxTrend}+1)) * 100 * {$trendWeight})
-        ),
-    1) as final_score
-"),
-
-    )
-    ->orderByDesc('final_score')
-    ->paginate(10)
-    ->withQueryString();
-
-    /* ==================================================
-       6. METADATA
-    ================================================== */
-    $totalVacantesAnalizadas = DB::table('language_job as lj')
-        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
-        ->whereBetween('j.published_at', [
-            $range['start'],
-            $range['end'],
-        ])
-        ->distinct('lj.job_offer_id')
-        ->count('lj.job_offer_id');
-
-    $scrapingStatus = ScrapingStatusService::getByEntity('languages');
-
-    /* ==================================================
-       7. RENDER
-    ================================================== */
     return Inertia::render(
         'DashboardRankingLanguages/RankingLenguajesPage',
         [
-            'ranking' => $ranking,
+            'ranking' => $ranking->withQueryString(),
 
             'filters' => [
                 'year'   => $year,
@@ -322,14 +176,13 @@ if ($search) {
                 'trendWeight'  => round($trendWeight * 100, 1),
             ],
 
-            'scrapingStatus' => $scrapingStatus,
+            'scrapingStatus' => ScrapingStatusService::getByEntity('languages'),
 
-            'jobMarketStatus' => JobMarketStatusController::get(
-                $year,
-                $period
-            ),
+            'jobMarketStatus' => JobMarketStatusController::get($year, $period),
+
             'availableCareers' => $availableCareers,
 
+            'canRefreshRanking' => (bool) $request->user()?->can('administrar'),
 
             'meta' => [
                 'year' => $year,
@@ -338,12 +191,25 @@ if ($search) {
                     $period === 's1'
                         ? "Semestre 1 – Enero a Junio {$year}"
                         : "Semestre 2 – Julio a Diciembre {$year}",
-                'vacantes_analizadas' => $totalVacantesAnalizadas,
-                'reportes_analizados' => $totalReports,
-                'actualizado' => now()->toDateTimeString(),
+                'vacantes_analizadas' => (int) ($meta->vacantes_analizadas ?? 0),
+                'reportes_analizados' => (int) ($meta->reportes_analizados ?? 0),
+                'has_data' => $meta !== null,
+                // Fecha del último cálculo, en hora de Perú
+                'calculated_at' => $calculatedAt?->toIso8601String(),
+                'calculated_at_label' => $calculatedAt?->locale('es')->translatedFormat('d/m/Y h:i a'),
+                'actualizado' => $calculatedAt?->toDateTimeString(),
             ],
         ]
     );
+}
+
+/* ==================================================
+   BOTÓN "RECALCULAR RANKING": refresh() y refreshStatus() vienen del trait
+   RefreshesEntityRanking (compartido con Tecnologías).
+================================================== */
+protected function rankingService(): EntityRankingService
+{
+    return app(LanguageRankingService::class);
 }
 
 /* ==================================================
@@ -783,136 +649,43 @@ private function getBaseContext(Request $request): array
     ];
 }
 
-public function weeklyScores(Request $request, $languageId = null)
+/* ==================================================
+   EVOLUCIÓN (MODAL): semanas ISO, quincenas y meses
+   Lee SOLO de language_ranking_weekly(_meta), que llena
+   `ranking:refresh-languages`. Cada ventana cuenta las ofertas publicadas
+   dentro de ella (no acumula).
+================================================== */
+public function weeklyScores(Request $request, LanguageRankingService $rankingService)
 {
     try {
-
-        /*
-        ==================================================
-        📅 PARAMS
-        ==================================================
-        */
-
         $year = (int) $request->get('year', now()->year);
         $filter = $request->get('filter', 'weekly');
-        $page = (int) $request->get('page', 1);
-        $perPage = min((int) $request->get('per_page', 6), 20);
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = max(1, min((int) $request->get('per_page', 6), 20));
 
-        /*
-        ==================================================
-        🛡️ VALID FILTER
-        ==================================================
-        */
-
-        if (!in_array($filter, ['weekly', 'biweekly', 'monthly'])) {
+        if (! in_array($filter, LanguageRankingService::WINDOW_TYPES, true)) {
             $filter = 'weekly';
         }
 
-        /*
-        ==================================================
-        🔍 QUERY CACHE (LENGUAJES)
-        ==================================================
-        */
-
-        // Cambiamos a la tabla de caché de lenguajes
-        $query = DB::table('language_evolution_cache as lec')
-            ->join('market_entities as me', 'me.id', '=', 'lec.market_entity_id')
-            ->where('lec.year', $year)
-            ->where('lec.period_type', $filter);
-
-        /* 🎯 FILTRO LENGUAJE OPCIONAL */
-        if ($languageId) {
-            $query->where('lec.market_entity_id', $languageId);
-        }
-
-        $rows = $query->select('lec.*', 'me.name')
-            ->orderByDesc('lec.start_date')
-            ->orderBy('lec.ranking_position')
-            ->get();
-
-        /*
-        ==================================================
-        📦 GROUP PERIODOS
-        ==================================================
-        */
-
-        $periods = $rows
-            ->groupBy(function ($item) {
-                return $item->period_type . '_' . $item->start_date;
-            })
-            ->map(function ($items) {
-                $first = $items->first();
-
-                return [
-                    'period'           => $first->period_label,
-                    'label'            => $first->period_label,
-                    'start_date'       => $first->start_date,
-                    'end_date'         => $first->end_date,
-                    'period_score'     => round($items->avg('final_score'), 1),
-                    'total_jobs'       => $items->sum('jobs'),
-                    
-                    /* 🔵 TOP LENGUAJES */
-                    'top' => $items
-                        ->sortBy('ranking_position')
-                        ->take(5)
-                        ->values()
-                        ->map(function ($item) {
-                            return [
-                                'id'               => $item->market_entity_id,
-                                'name'             => $item->name,
-                                'jobs'             => $item->jobs,
-                                'trend_reports'    => $item->trend_reports,
-                                'labor_score'      => (float) $item->labor_score,
-                                'trend_score'      => (float) $item->trend_score,
-                                'final_score'      => (float) $item->final_score,
-                                'ranking_position' => $item->ranking_position,
-                            ];
-                        }),
-                ];
-            })
-            ->sortByDesc('start_date')
-            ->values();
-
-        /*
-        ==================================================
-        📦 PAGINATION
-        ==================================================
-        */
-
-        $total = $periods->count();
-        $paged = $periods->forPage($page, $perPage)->values();
-
-        /*
-        ==================================================
-        🚀 RESPONSE
-        ==================================================
-        */
+        $result = $rankingService->windowsPage($year, $filter, $page, $perPage);
 
         return response()->json([
             'success'    => true,
             'filter'     => $filter,
             'year'       => $year,
-            'data'       => $paged,
-            'pagination' => [
-                'current_page' => $page,
-                'per_page'     => $perPage,
-                'total'        => $total,
-                'last_page'    => max(1, ceil($total / $perPage)),
-            ],
+            'data'       => $result['data'],
+            'pagination' => $result['pagination'],
         ]);
-
     } catch (\Throwable $e) {
-
-        Log::error('[LANGUAGE_EVOLUTION_CACHE_ERROR]', [
+        Log::error('[LANGUAGE_EVOLUTION_ERROR]', [
             'message' => $e->getMessage(),
             'line'    => $e->getLine(),
             'file'    => $e->getFile(),
-            'trace'   => $e->getTraceAsString(),
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => $e->getMessage(),
+            'message' => 'No se pudo cargar la evolución.',
         ], 500);
     }
 }
@@ -928,14 +701,10 @@ public function weeklyScores(Request $request, $languageId = null)
         'weekly'
     );
 
-    return Excel::download(
+    // Export genérico en streaming (mismas columnas que LanguagesEvolutionExport)
+    $filter = in_array($filter, EntityRankingService::WINDOW_TYPES, true) ? $filter : 'weekly';
 
-        new LanguagesEvolutionExport(
-            $year,
-            $filter
-        ),
-
-        "languages_evolution_{$filter}.xlsx"
-    );
+    return (new EntityEvolutionExport($this->rankingService(), $year, $filter, 'Lenguaje'))
+        ->download("languages_evolution_{$filter}.xlsx");
 }
 }
