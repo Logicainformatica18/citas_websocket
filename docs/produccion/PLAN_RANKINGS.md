@@ -1,7 +1,7 @@
 # Plan de los rankings del Observatorio (Lenguajes, Tecnologías, Certificaciones)
 
 Documento para retomar el trabajo en una sesión nueva. Estado al **2026-11-16**.
-Rama de trabajo: `observer`. Todo está commiteado (ver "Estado del repositorio").
+Rama de trabajo: `observer`. Plan completo; todo commiteado y subido (ver "Estado del repositorio").
 
 ---
 
@@ -341,7 +341,7 @@ Reversión por indicador: ver el README de cada carpeta (cada script tiene su ro
 
 ## 7. Estado del repositorio
 
-Todo el trabajo está commiteado en la rama `observer` (2026-11-16), en cuatro commits:
+Todo el trabajo está commiteado y subido en la rama `observer`:
 
 | Commit | Contenido |
 |---|---|
@@ -349,10 +349,15 @@ Todo el trabajo está commiteado en la rama `observer` (2026-11-16), en cuatro c
 | `d84a4dd` | Servicio genérico `EntityRankingService`, comando/Job/trait genéricos, export en streaming y componentes compartidos |
 | `439803e` | Fase 2 del Ranking de Tecnologías (incluidos entidades, carreras y export; migraciones 000005-000006) |
 | `e927c61` | `docs/produccion`: scripts SQL, README, CSV de entidades, `PLAN_RANKINGS.md` y herramientas |
+| `65d50cf` | Decisiones de la Fase A de Lenguajes (scripts 09/10) y pausa temporal de Arbeitnow y Greenhouse |
+| `957b7dd` | Matcher (`EntityTextMatcher`), tabla `market_entity_aliases`, auditoría `entities:match-audit`, tests |
+| `bd41c7d` | Matcher en los 14 scrapers de lenguajes, `OfferEntityLinker`, filas de `languages` nuevas |
+| `fa93728` | Limpieza de `language_job` (`entities:clean-associations`, scripts 13-15) |
+| `83c841c` | Fases 3 y 4 de Tecnologías (reglas, 12 scrapers, limpieza con reasignación, scripts 10-14) |
+| `1990bdf` | Ranking de Certificaciones completo (scripts `ranking_certificaciones/01-11`) |
 
 **El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
-`d84a4dd` (no se podían reconstruir los estados intermedios del trabajo). **A partir de `d84a4dd` todo es coherente.**
-No conviene desplegar ni hacer checkout de `b048f75` aislado.
+`d84a4dd`. **A partir de `d84a4dd` todo es coherente.** No conviene desplegar ni hacer checkout de `b048f75` aislado.
 
-Fuera de estos commits quedan, a propósito, `app/Console/Commands/getTrends/DiscoverLanguageGapsCommand.php`
+Fuera de los commits quedan, a propósito, `app/Console/Commands/getTrends/DiscoverLanguageGapsCommand.php`
 (cambios locales que no son de este trabajo) y `MAPEO_OBSERVATORIO.md`.
