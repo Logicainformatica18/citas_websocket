@@ -171,6 +171,17 @@ Solo diagnosticado de pasada: tiene el mismo patrón (cálculo en vivo, `certifi
 y por mostrar 0 en el export.
 
 ### Paso 1 — Fase B: matcher genérico (validado en Lenguajes)
+
+**Avance 2026-11-16 (sin commitear):** pasos B1 y B2 hechos, detenido antes de tocar scrapers.
+- `app/Services/Matching/EntityTextMatcher.php` + `AliasSpec.php`; reglas en `database/data/entity_aliases/languages.php`
+  (fuente única: tests y generador del SQL); `tests/Unit/EntityTextMatcherTest.php` (8 tests, 77 aserciones).
+- Tabla `market_entity_aliases` (migración `2026_11_16_000001` + `ranking_lenguajes/11` y rollback `12`, 298 reglas;
+  bloque generado con `herramientas/generar_aliases_sql.php`). Aplicado en local.
+- `php artisan entities:match-audit --type=languages --semester=2026-s2` (chunks, ~56 MB, 21-105 s; CSV en
+  `storage/app/match_audit/`). Resultado 2026-s2: Arbeitnow 2,5 % de precisión con texto completo; Adzuna 49 %
+  (texto = extracto de ~500 caracteres); GetOnBoard 9 % (72 % sin texto); Greenhouse 0 %.
+- Texto guardado: Adzuna/Arbeitnow/Jooble lo guardan en `requirements`, no en `description`; Computrabajo y Greenhouse no guardan texto.
+- Pendiente de decisión: ¿JavaScript se infiere de Node.js/Next.js/Vue.js? (hoy no: 123 asociaciones rechazadas).
 - `EntityTextMatcher` reutilizable por tipo de entidad + tabla `market_entity_aliases`
   (alias, sensible a mayúsculas, límites de palabra, contextos negativos).
 - Reglas: R y Go sensibles a mayúsculas, `golang`, `C#`/`c sharp`, `F#`, Swift sin contexto bancario, `.NET`, etc.
