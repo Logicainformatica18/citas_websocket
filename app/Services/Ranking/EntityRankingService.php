@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -142,6 +143,25 @@ abstract class EntityRankingService
         return $ids !== '' ? $ids : '0';
     }
 
+    /**
+     * Filtro de asociaciones excluidas (entity_association_exclusions, que llena
+     * entities:exclude-associations): los pares (oferta, entidad) que el matcher no confirma no
+     * cuentan, sin borrar nada de la tabla pivote. Se desactiva con RANKING_EXCLUSIONS_ENABLED=false
+     * (config/ranking_exclusions.php) y se omite solo si la tabla no existe. Afecta al ranking por
+     * semestre, a la evolución y a las vacantes únicas (salen de la misma consulta).
+     * Nombres de tabla tomados de la configuración: seguro interpolarlos.
+     */
+    public function exclusionSql(): string
+    {
+        $table = config('ranking_exclusions.table', 'entity_association_exclusions');
+        if (! config('ranking_exclusions.enabled', true) || ! Schema::hasTable($table)) {
+            return '';
+        }
+
+        return " AND NOT EXISTS (SELECT 1 FROM `{$table}` x WHERE x.pivot_table = '{$this->pivotTable()}'"
+            . ' AND x.job_offer_id = lj.job_offer_id AND x.market_entity_id = lj.market_entity_id AND x.vigente = 1)';
+    }
+
     /* ==================================================
        RECÁLCULO
     ================================================== */
@@ -213,6 +233,8 @@ abstract class EntityRankingService
 
         Log::info($this->logPrefix() . ' Inicio del recálculo', [
             'periods' => array_keys($requested),
+            // true = se ignoran las asociaciones de entity_association_exclusions
+            'exclusiones' => $this->exclusionSql() !== '',
         ]);
 
         $entities = DB::table('market_entities')
@@ -389,7 +411,7 @@ abstract class EntityRankingService
                FROM job_offers j
                JOIN ' . $this->pivotTable() . ' lj ON lj.job_offer_id = j.id
               WHERE j.published_at >= ? AND j.published_at < ?
-                AND lj.market_entity_id IN (' . $activeIds . ')
+                AND lj.market_entity_id IN (' . $activeIds . ')' . $this->exclusionSql() . '
               GROUP BY d, lj.market_entity_id WITH ROLLUP',
             [$from, $semEndExclusive]
         );

@@ -20,6 +20,7 @@ import sys
 
 ROOT = 'docs/produccion/'
 L, T, C = ROOT + 'ranking_lenguajes/', ROOT + 'ranking_tecnologias/', ROOT + 'ranking_certificaciones/'
+X = ROOT + 'ranking_comun/'
 
 DEPLOY = [
     ('Lenguajes 01 — tablas de resumen', L + '01_ranking_languages_tablas.sql'),
@@ -39,9 +40,11 @@ DEPLOY = [
     ('Certificaciones 05 — entidades (duplicados, CompTIA A+, catálogo)', C + '05_ranking_certifications_entidades.sql'),
     ('Certificaciones 07 — reglas del matcher', C + '07_matcher_aliases_certificaciones.sql'),
     ('Certificaciones 12 — términos de búsqueda (keywords)', C + '12_keywords_busqueda_certificaciones.sql'),
+    ('Común — tabla de exclusiones del matcher (sin borrar asociaciones)', X + '01_exclusiones_tabla.sql'),
 ]
 
 ROLLBACK = [
+    ('Común — tabla de exclusiones', X + '02_exclusiones_tabla_rollback.sql'),
     ('Certificaciones 13 — keywords', C + '13_keywords_busqueda_certificaciones_rollback.sql'),
     ('Certificaciones 08 — reglas del matcher', C + '08_matcher_aliases_certificaciones_rollback.sql'),
     ('Certificaciones 06 — entidades', C + '06_ranking_certifications_entidades_rollback.sql'),
@@ -143,7 +146,10 @@ DEPLOY_HEADER = """-- ==========================================================
 --       (UPDATE is_active = 0; no se borra ninguna entidad);
 --     - carreras de tecnologías en market_entity_career;
 --     - tabla market_entity_aliases con las reglas del matcher (1 607 reglas);
---     - filas nuevas de catálogo (languages, certifications) y keywords de búsqueda.
+--     - filas nuevas de catálogo (languages, certifications) y keywords de búsqueda;
+--     - tabla entity_association_exclusions (vacía): la llena la aplicación con
+--       `php artisan entities:exclude-associations` y los rankings ignoran esos pares
+--       oferta-entidad SIN borrarlos de las tablas pivote.
 --   Tablas de respaldo que crea (para la reversión): _respaldo_lenguajes_2026_11,
 --   _respaldo_certificaciones_2026_11, _respaldo_keywords_cert_2026_11.
 --
@@ -177,6 +183,7 @@ DEPLOY_HEADER = """-- ==========================================================
 --
 -- DESPUÉS (en el servidor de la aplicación, con el código nuevo desplegado)
 --   php artisan optimize:clear
+--   php artisan entities:exclude-associations
 --   php artisan ranking:refresh-languages
 --   php artisan ranking:refresh-technologies
 --   php artisan ranking:refresh-certifications
@@ -198,7 +205,7 @@ VERIFY = """
 -- VERIFICACIÓN (solo lectura) — resultado esperado en cada consulta
 -- =====================================================================
 
--- 1. Tablas creadas. Esperado: 15 filas con existe = 'SI'.
+-- 1. Tablas creadas. Esperado: 16 filas con existe = 'SI'.
 SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
   FROM (SELECT 'language_rankings' AS tabla UNION ALL SELECT 'language_ranking_meta'
         UNION ALL SELECT 'language_ranking_weekly' UNION ALL SELECT 'language_ranking_weekly_meta'
@@ -206,7 +213,8 @@ SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
         UNION ALL SELECT 'technology_ranking_weekly' UNION ALL SELECT 'technology_ranking_weekly_meta'
         UNION ALL SELECT 'certification_rankings' UNION ALL SELECT 'certification_ranking_meta'
         UNION ALL SELECT 'certification_ranking_weekly' UNION ALL SELECT 'certification_ranking_weekly_meta'
-        UNION ALL SELECT 'market_entity_aliases' UNION ALL SELECT 'cache' UNION ALL SELECT 'jobs') t
+        UNION ALL SELECT 'market_entity_aliases' UNION ALL SELECT 'entity_association_exclusions'
+        UNION ALL SELECT 'cache' UNION ALL SELECT 'jobs') t
   LEFT JOIN information_schema.tables i ON i.table_schema = DATABASE() AND i.table_name = t.tabla;
 
 -- 2. Índices y columnas. Esperado: 11 filas con existe = 'SI'.
@@ -264,7 +272,10 @@ SELECT 'language_job' AS tabla, COUNT(*) AS filas FROM language_job
 UNION ALL SELECT 'technology_job', COUNT(*) FROM technology_job
 UNION ALL SELECT 'certification_job', COUNT(*) FROM certification_job;
 
-SELECT 'OK: despliegue de los rankings terminado. Ahora: php artisan ranking:refresh-languages / -technologies / -certifications' AS resultado;
+-- 8. Exclusiones. Esperado: 0 justo después del despliegue (las genera entities:exclude-associations).
+SELECT COUNT(*) AS exclusiones FROM entity_association_exclusions;
+
+SELECT 'OK: despliegue terminado. Ahora: php artisan entities:exclude-associations y ranking:refresh-languages / -technologies / -certifications' AS resultado;
 """
 
 ROLLBACK_HEADER = """-- =====================================================================
@@ -277,7 +288,8 @@ ROLLBACK_HEADER = """-- ========================================================
 --   catálogo de certificaciones, reglas del matcher (incluida la tabla
 --   market_entity_aliases), entidades reactivadas con sus valores anteriores,
 --   carreras de tecnologías, columnas is_active de market_entities, índices y las
---   tablas de resumen (datos calculados: se regeneran). Usa las tablas de respaldo
+--   tablas de resumen (datos calculados: se regeneran) y entity_association_exclusions
+--   (datos derivados del matcher). Usa las tablas de respaldo
 --   que creó el despliegue y las elimina al final.
 --   Si el despliegue renombró language_ranking_weekly(_meta) a *_anterior_2026_11,
 --   les devuelve su nombre.

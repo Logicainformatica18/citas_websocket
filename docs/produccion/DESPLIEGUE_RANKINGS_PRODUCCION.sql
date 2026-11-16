@@ -11,7 +11,10 @@
 --       (UPDATE is_active = 0; no se borra ninguna entidad);
 --     - carreras de tecnologías en market_entity_career;
 --     - tabla market_entity_aliases con las reglas del matcher (1 607 reglas);
---     - filas nuevas de catálogo (languages, certifications) y keywords de búsqueda.
+--     - filas nuevas de catálogo (languages, certifications) y keywords de búsqueda;
+--     - tabla entity_association_exclusions (vacía): la llena la aplicación con
+--       `php artisan entities:exclude-associations` y los rankings ignoran esos pares
+--       oferta-entidad SIN borrarlos de las tablas pivote.
 --   Tablas de respaldo que crea (para la reversión): _respaldo_lenguajes_2026_11,
 --   _respaldo_certificaciones_2026_11, _respaldo_keywords_cert_2026_11.
 --
@@ -45,6 +48,7 @@
 --
 -- DESPUÉS (en el servidor de la aplicación, con el código nuevo desplegado)
 --   php artisan optimize:clear
+--   php artisan entities:exclude-associations
 --   php artisan ranking:refresh-languages
 --   php artisan ranking:refresh-technologies
 --   php artisan ranking:refresh-certifications
@@ -61,7 +65,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 
 -- #####################################################################
--- PARTE 1/17: Lenguajes 01 — tablas de resumen
+-- PARTE 1/18: Lenguajes 01 — tablas de resumen
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `language_rankings` (
@@ -163,7 +167,7 @@ CREATE TABLE IF NOT EXISTS `failed_jobs` (
 SELECT 'OK 01: tablas del ranking de lenguajes listas' AS resultado;
 
 -- #####################################################################
--- PARTE 2/17: Lenguajes 02 — índices
+-- PARTE 2/18: Lenguajes 02 — índices
 -- #####################################################################
 
 SET @tbl = 'language_job', @idx = 'idx_lj_job_entity', @cols = 'job_offer_id,market_entity_id';
@@ -331,7 +335,7 @@ SELECT CONCAT('Paso 5 - ', @tbl, '.', @idx, ': ', @accion,
 SELECT 'OK 02: índices revisados' AS resultado;
 
 -- #####################################################################
--- PARTE 3/17: Lenguajes 05 — market_entities.is_active (fuente única de entidad activa)
+-- PARTE 3/18: Lenguajes 05 — market_entities.is_active (fuente única de entidad activa)
 -- #####################################################################
 
 SET @tbl = 'market_entities';
@@ -403,7 +407,7 @@ SELECT id, name, slug, is_active, inactive_reason, inactive_at
 SELECT 'OK 05: marca de entidades activas lista' AS resultado;
 
 -- #####################################################################
--- PARTE 4/17: Lenguajes 06 — tablas de evolución (fotos por semana/quincena/mes)
+-- PARTE 4/18: Lenguajes 06 — tablas de evolución (fotos por semana/quincena/mes)
 -- #####################################################################
 
 SET @vieja = (SELECT COUNT(*) FROM information_schema.tables t
@@ -481,7 +485,7 @@ CREATE TABLE IF NOT EXISTS `language_ranking_weekly_meta` (
 SELECT 'OK 06: tablas de evolución listas (fotos por fecha de corte)' AS resultado;
 
 -- #####################################################################
--- PARTE 5/17: Lenguajes 09 — entidades (Shell/Ada inactivos, slug de F#, Go/Rust/Scala, GNU/Linux y CLI)
+-- PARTE 5/18: Lenguajes 09 — entidades (Shell/Ada inactivos, slug de F#, Go/Rust/Scala, GNU/Linux y CLI)
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `_respaldo_lenguajes_2026_11` (
@@ -591,7 +595,7 @@ SELECT tabla, columna, COUNT(*) AS filas_respaldadas
 SELECT 'OK 09: entidades de lenguajes ajustadas' AS resultado;
 
 -- #####################################################################
--- PARTE 6/17: Lenguajes 11 — matcher: tabla market_entity_aliases, reglas de lenguajes y filas nuevas de languages
+-- PARTE 6/18: Lenguajes 11 — matcher: tabla market_entity_aliases, reglas de lenguajes y filas nuevas de languages
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
@@ -1295,7 +1299,7 @@ SELECT me.name, me.is_active,
 SELECT 'OK 11: matcher listo (tabla y reglas de lenguajes)' AS resultado;
 
 -- #####################################################################
--- PARTE 7/17: Tecnologías 05 — is_active (repaso idempotente)
+-- PARTE 7/18: Tecnologías 05 — is_active (repaso idempotente)
 -- #####################################################################
 
 SET @tbl = 'market_entities';
@@ -1342,7 +1346,7 @@ SELECT CONCAT('market_entities.', @idx, ': ', IF(@existe = 0, 'CREADO', 'YA EXIS
 SELECT 'OK 05: marca de entidades activas lista (tecnologías)' AS resultado;
 
 -- #####################################################################
--- PARTE 8/17: Tecnologías 01 — tablas de resumen
+-- PARTE 8/18: Tecnologías 01 — tablas de resumen
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `technology_rankings` (
@@ -1497,7 +1501,7 @@ CREATE TABLE IF NOT EXISTS `technology_ranking_weekly_meta` (
 SELECT 'OK 01: tablas del ranking de tecnologías listas' AS resultado;
 
 -- #####################################################################
--- PARTE 9/17: Tecnologías 02 — índices
+-- PARTE 9/18: Tecnologías 02 — índices
 -- #####################################################################
 
 SET @tbl = 'technology_job', @idx = 'idx_tj_job_entity', @cols = 'job_offer_id,market_entity_id';
@@ -1665,7 +1669,7 @@ SELECT CONCAT('Paso 5 - ', @tbl, '.', @idx, ': ', @accion,
 SELECT 'OK 02: índices del ranking de tecnologías revisados' AS resultado;
 
 -- #####################################################################
--- PARTE 10/17: Tecnologías 08 — carreras en market_entity_career
+-- PARTE 10/18: Tecnologías 08 — carreras en market_entity_career
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `market_entity_career_migracion_cme` (
@@ -1711,7 +1715,7 @@ SELECT (SELECT COUNT(*) FROM market_entity_career_migracion_cme) AS pares_migrad
 SELECT 'OK 08: carreras de tecnologías unificadas en market_entity_career' AS resultado;
 
 -- #####################################################################
--- PARTE 11/17: Tecnologías 06 — entidades (140 desactivadas, incluidos 41 duplicados)
+-- PARTE 11/18: Tecnologías 06 — entidades (140 desactivadas, incluidos 41 duplicados)
 -- #####################################################################
 
 UPDATE market_entities
@@ -2138,7 +2142,7 @@ SELECT COUNT(*) AS tecnologias_activas FROM market_entities WHERE entity_type = 
 SELECT 'OK 06: entidades de tecnologías reclasificadas' AS resultado;
 
 -- #####################################################################
--- PARTE 12/17: Tecnologías 10 — reglas del matcher y Transformers
+-- PARTE 12/18: Tecnologías 10 — reglas del matcher y Transformers
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
@@ -5086,7 +5090,7 @@ SELECT COUNT(DISTINCT a.market_entity_id) AS entidades_con_reglas, COUNT(*) AS r
 SELECT 'OK 10: reglas de tecnologías cargadas' AS resultado;
 
 -- #####################################################################
--- PARTE 13/17: Certificaciones 01 — tablas de resumen
+-- PARTE 13/18: Certificaciones 01 — tablas de resumen
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `certification_rankings` (
@@ -5241,7 +5245,7 @@ CREATE TABLE IF NOT EXISTS `certification_ranking_weekly_meta` (
 SELECT 'OK 01: tablas del ranking de certificaciones listas' AS resultado;
 
 -- #####################################################################
--- PARTE 14/17: Certificaciones 02 — índices
+-- PARTE 14/18: Certificaciones 02 — índices
 -- #####################################################################
 
 SET @tbl = 'certification_job', @idx = 'idx_cj_job_entity', @cols = 'job_offer_id,market_entity_id';
@@ -5409,7 +5413,7 @@ SELECT CONCAT('Paso 5 - ', @tbl, '.', @idx, ': ', @accion,
 SELECT 'OK 02: índices del ranking de certificaciones revisados' AS resultado;
 
 -- #####################################################################
--- PARTE 15/17: Certificaciones 05 — entidades (duplicados, CompTIA A+, catálogo)
+-- PARTE 15/18: Certificaciones 05 — entidades (duplicados, CompTIA A+, catálogo)
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `_respaldo_certificaciones_2026_11` (
@@ -5539,7 +5543,7 @@ SELECT COUNT(*) AS activas_sin_catalogo FROM market_entities me
 SELECT 'OK 05: entidades de certificaciones ajustadas' AS resultado;
 
 -- #####################################################################
--- PARTE 16/17: Certificaciones 07 — reglas del matcher
+-- PARTE 16/18: Certificaciones 07 — reglas del matcher
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `market_entity_aliases` (
@@ -6638,7 +6642,7 @@ SELECT COUNT(DISTINCT a.market_entity_id) AS certificaciones_con_reglas, COUNT(*
 SELECT 'OK 07: reglas de certificaciones cargadas' AS resultado;
 
 -- #####################################################################
--- PARTE 17/17: Certificaciones 12 — términos de búsqueda (keywords)
+-- PARTE 17/18: Certificaciones 12 — términos de búsqueda (keywords)
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `_respaldo_keywords_cert_2026_11` (
@@ -6836,11 +6840,40 @@ SELECT me.name, JSON_UNQUOTE(JSON_EXTRACT(c.keywords, '$[0]')) AS termino_princi
  ORDER BY me.name;
 SELECT 'OK 12: términos de búsqueda de certificaciones listos' AS resultado;
 
+-- #####################################################################
+-- PARTE 18/18: Común — tabla de exclusiones del matcher (sin borrar asociaciones)
+-- #####################################################################
+
+CREATE TABLE IF NOT EXISTS `entity_association_exclusions` (
+  `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  -- tabla pivote: language_job, technology_job o certification_job
+  `pivot_table`      VARCHAR(40)  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `job_offer_id`     BIGINT UNSIGNED NOT NULL,
+  `market_entity_id` BIGINT UNSIGNED NOT NULL,
+  -- una fila del pivote de referencia (puede haber varias por par)
+  `pivot_id`         BIGINT UNSIGNED NULL,
+  `source`           VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+  -- "sin mención" o "regla: case / negative / weak_no_context"
+  `motivo`           VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+  -- 1 = se excluye del ranking; 0 = ya no aplica (se conserva como historial)
+  `vigente`          TINYINT(1) NOT NULL DEFAULT 1,
+  -- última corrida del comando que la evaluó
+  `revisado_en`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at`       TIMESTAMP NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_eae_par` (`pivot_table`, `job_offer_id`, `market_entity_id`),
+  -- cubre el NOT EXISTS del ranking (sin leer filas)
+  KEY `idx_eae_filtro` (`pivot_table`, `job_offer_id`, `market_entity_id`, `vigente`),
+  KEY `idx_eae_revisado` (`pivot_table`, `vigente`, `revisado_en`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SELECT 'OK: tabla entity_association_exclusions lista' AS resultado;
+
 -- =====================================================================
 -- VERIFICACIÓN (solo lectura) — resultado esperado en cada consulta
 -- =====================================================================
 
--- 1. Tablas creadas. Esperado: 15 filas con existe = 'SI'.
+-- 1. Tablas creadas. Esperado: 16 filas con existe = 'SI'.
 SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
   FROM (SELECT 'language_rankings' AS tabla UNION ALL SELECT 'language_ranking_meta'
         UNION ALL SELECT 'language_ranking_weekly' UNION ALL SELECT 'language_ranking_weekly_meta'
@@ -6848,7 +6881,8 @@ SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
         UNION ALL SELECT 'technology_ranking_weekly' UNION ALL SELECT 'technology_ranking_weekly_meta'
         UNION ALL SELECT 'certification_rankings' UNION ALL SELECT 'certification_ranking_meta'
         UNION ALL SELECT 'certification_ranking_weekly' UNION ALL SELECT 'certification_ranking_weekly_meta'
-        UNION ALL SELECT 'market_entity_aliases' UNION ALL SELECT 'cache' UNION ALL SELECT 'jobs') t
+        UNION ALL SELECT 'market_entity_aliases' UNION ALL SELECT 'entity_association_exclusions'
+        UNION ALL SELECT 'cache' UNION ALL SELECT 'jobs') t
   LEFT JOIN information_schema.tables i ON i.table_schema = DATABASE() AND i.table_name = t.tabla;
 
 -- 2. Índices y columnas. Esperado: 11 filas con existe = 'SI'.
@@ -6906,4 +6940,7 @@ SELECT 'language_job' AS tabla, COUNT(*) AS filas FROM language_job
 UNION ALL SELECT 'technology_job', COUNT(*) FROM technology_job
 UNION ALL SELECT 'certification_job', COUNT(*) FROM certification_job;
 
-SELECT 'OK: despliegue de los rankings terminado. Ahora: php artisan ranking:refresh-languages / -technologies / -certifications' AS resultado;
+-- 8. Exclusiones. Esperado: 0 justo después del despliegue (las genera entities:exclude-associations).
+SELECT COUNT(*) AS exclusiones FROM entity_association_exclusions;
+
+SELECT 'OK: despliegue terminado. Ahora: php artisan entities:exclude-associations y ranking:refresh-languages / -technologies / -certifications' AS resultado;

@@ -179,6 +179,27 @@ Bloque 5 (vacantes de Certificaciones y despliegue consolidado, 2026-11-16):
   `ranking:refresh-*` y las páginas (HTTP 200).
 - **Ponderaciones de Certificaciones (recomendación, NO aplicada)**: ver la sección 3.
 
+Bloque 6 (exclusión de asociaciones sin borrar, 2026-11-16):
+- **`entity_association_exclusions`** (`ranking_comun/01-02`, migración `2026_11_16_000004`, última parte del
+  consolidado): pares (pivote, oferta, entidad) que el matcher no confirma, con motivo, fuente y `vigente`.
+- **`php artisan entities:exclude-associations [--type=all] [--dry-run]`**: la llena en bloques con el mismo criterio
+  estricto que la limpieza; nunca borra filas (las que dejan de aplicar pasan a `vigente = 0`).
+- **`EntityRankingService::exclusionSql()`**: `NOT EXISTS` sobre la tabla en la única consulta que lee el pivote, así
+  que afecta al ranking, la evolución y las vacantes únicas de los tres indicadores. Las tablas pivote no se tocan.
+- **Interruptor**: `RANKING_EXCLUSIONS_ENABLED=false` vuelve al cálculo sin filtro (y se omite solo si la tabla no
+  existe). `ranking:refresh-*` imprime si las exclusiones se aplicaron.
+- **`RANKING_EXCLUSIONS_TRUST_SINCE`** (fecha del despliegue): las filas creadas desde entonces no se re-evalúan. Sin
+  esto, el comando excluía asociaciones que los scrapers nuevos confirmaron con el texto completo de la API (reed,
+  Remotive… guardan poco o nada): en la prueba CCNA bajaba de 10 a 2 vacantes.
+- Resultado en local (base en estado de producción): Lenguajes excluye 233 503 (las mismas que la limpieza),
+  Tecnologías 1 477 634, Certificaciones 13 796. Top 10 de Lenguajes idéntico al de la limpieza; en Tecnologías difieren
+  Microsoft Azure y GCP porque no se reasignan los duplicados.
+- Incidente local: durante la prueba quité de la base local 13 685 filas de `certification_job` que eran la copia
+  desde tecnologías de CompTIA A+ y Cyberops (script 05, que en producción va desactivado). La reversión de la
+  limpieza las había restaurado sin su marca porque la plantilla de respaldo no guarda `certification_name_raw`. El
+  volcado previo salió vacío (`mysqldump --where` con subconsulta a otra tabla no bloqueada), así que no hay respaldo
+  de esas filas; eran copias regenerables desde `technology_job`, que está intacta.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
@@ -194,6 +215,8 @@ Bloque 5 (vacantes de Certificaciones y despliegue consolidado, 2026-11-16):
   `/trend/{trend}/jobs` → `jobsByTechnologyTrend`. (Las de Lenguajes, ya anotadas, siguen igual.)
 - `app/Exports/CertificationsWeeklyExport.php` y `certification_evolution_cache` quedan sin uso (no se borran).
 - La administración de entidades no tiene botón para **reactivar** una entidad desactivada (se hace por SQL).
+- La plantilla de limpieza (`generar_limpieza_sql.php`) no respalda `certification_job.certification_name_raw`.
+- Los modales "ver ofertas" de cada entidad no aplican las exclusiones (listan el pivote completo).
 - Errores de TypeScript previos en las páginas de ranking (`tsc --noEmit`); `npm run build` compila igual.
 
 ## 3. Estado actual (2026-11-16: plan completo)
@@ -224,8 +247,9 @@ Bloque 5 (vacantes de Certificaciones y despliegue consolidado, 2026-11-16):
   vacantes con los scrapers corregidos, no los pesos.
 
 ### Estado de la base local
-- Después de la prueba de despliegue, la base local quedó como quedará producción: **sin limpieza** (language_job
-  267 926 filas, technology_job 2 159 517, certification_job 45 262) y con el despliegue consolidado aplicado. Las
+- La base local quedó como quedará producción: **sin limpieza** (language_job 267 926 filas, technology_job
+  2 159 517, certification_job 31 577), con el despliegue consolidado aplicado y las exclusiones calculadas
+  (`RANKING_EXCLUSIONS_TRUST_SINCE="2026-11-16 10:30:00"` en la prueba). Las
   fotos doradas `*_post_limpieza` ya no corresponden a estos datos: para comparar de nuevo hay que recapturarlas o
   volver a aplicar la limpieza local (scripts 13-14 / 12-13 / 09-10).
 
@@ -339,47 +363,53 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 
 ## 6. Producción: pasos pendientes (en orden)
 
-> **Al DBA se le entrega UN SOLO archivo: `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql`.**
-> Consolida, en orden, los scripts necesarios de `ranking_lenguajes/`, `ranking_tecnologias/` y
-> `ranking_certificaciones/` (tablas, índices, is_active, entidades, carreras, reglas del matcher, filas de catálogo y
-> keywords de certificaciones). No contiene DELETE, TRUNCATE ni DROP; no usa DELIMITER ni procedimientos (sirve en
-> mysql, Workbench y HeidiSQL); es idempotente. Se genera con
-> `python docs/produccion/herramientas/generar_despliegue_consolidado.py` (no editarlo a mano).
-> La reversión, `DESPLIEGUE_RANKINGS_ROLLBACK.sql`, **no se entrega** salvo que haga falta.
+> **Al DBA se le entrega UN SOLO archivo: `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql`** (generado con
+> `python docs/produccion/herramientas/generar_despliegue_consolidado.py`; no editarlo a mano). Sin DELETE, TRUNCATE ni
+> DROP; sin DELIMITER; idempotente. La reversión, `DESPLIEGUE_RANKINGS_ROLLBACK.sql`, no se entrega salvo que haga falta.
 >
-> **La limpieza de asociaciones queda fuera del despliegue**: no se ejecutan `entities:clean-associations` ni
-> `ranking_lenguajes/13-15`, `ranking_tecnologias/12-14`, `ranking_certificaciones/09-11` (siguen en el repositorio,
-> probados, por si se decide aplicarlos). Lo que se pierde por no limpiar:
-> - las asociaciones históricas no confirmadas siguen contando (el 2026-s2 de producción se parecerá al de antes de la
->   limpieza: R, JSON, XML, DAX arriba en Lenguajes; Docker, conda, Terraform en Tecnologías);
-> - las ofertas de las entidades duplicadas (41 de tecnologías, 12 de certificaciones) NO se reasignan a su principal:
->   quedan en el duplicado, que está inactivo y no cuenta;
-> - las asociaciones de las tecnologías CompTIA A+ y Cyberops no se copian a certificaciones (sin limpieza serían
->   ~13 700 falsas).
-> Desde el despliegue, los scrapers solo agregan asociaciones confirmadas por el matcher.
-> Los scripts por indicador siguen siendo la fuente; sus README describen cada uno.
+> **La limpieza de asociaciones queda fuera del despliegue** (no se ejecutan `entities:clean-associations` ni
+> `ranking_lenguajes/13-15`, `ranking_tecnologias/12-14`, `ranking_certificaciones/09-11`). En su lugar, los rankings
+> **ignoran sin borrar** las asociaciones que el matcher no confirma (`entities:exclude-associations`, ver
+> `ranking_comun/README.md`). Lo que se pierde frente a la limpieza: las ofertas de las entidades duplicadas no pasan a
+> su principal, y la copia de asociaciones de CompTIA A+/Cyberops desde tecnologías no se hace.
 
-0. **Respaldo de la base.** No correr `jobs:run-all` ni scrapers mientras se ejecuta el archivo.
-1. **DBA:** ejecutar `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (1-3 minutos) y revisar las consultas de verificación del
-   final (cada una indica el resultado esperado).
-2. **Desplegar el código** y en el servidor: `php artisan optimize:clear` y `php artisan queue:restart`.
-3. Recalcular:
-   ```sh
+### Comandos del operador, en orden
+
+0. Respaldo de la base. Detener `jobs:run-all` y los scrapers hasta terminar el paso 6.
+1. **DBA**: ejecutar `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (1-3 min) y revisar las verificaciones del final.
+2. **Desplegar el código.** En el `.env` del servidor:
+   ```
+   RANKING_EXCLUSIONS_ENABLED=true
+   RANKING_EXCLUSIONS_TRUST_SINCE="AAAA-MM-DD HH:MM:SS"   # fecha y hora de este despliegue
+   ```
+3. ```sh
+   php artisan optimize:clear      # (y php artisan config:cache si el servidor lo usa)
+   php artisan queue:restart       # los workers deben cargar el código nuevo
+   ```
+4. ```sh
+   php artisan entities:exclude-associations       # 3-6 min en local con 2,2 M filas
+   ```
+5. ```sh
    php artisan ranking:refresh-languages
    php artisan ranking:refresh-technologies
-   php artisan ranking:refresh-certifications
-   php artisan schedule:list   # 0 7 * * * para los tres
+   php artisan ranking:refresh-certifications     # cada uno imprime "Exclusiones del matcher: APLICADAS"
    ```
-4. **Crons a quitar** (no están en el repo; crontab del servidor o panel de tareas): `languages:take-snapshot`,
-   `technologies:take-snapshot`, `certifications:take-snapshot` y los `*:backfill-all` si estuvieran programados (sin
-   `--legacy` ya no hacen nada). Revisar también que `greenhouse:technologies` no esté programado fuera del repo.
-5. Comprobar el cron `* * * * * php artisan schedule:run` y el worker `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
-6. **Adzuna**: `adzuna:languages` recorre las entidades de lenguaje activas (26 × 17 países = 442 llamadas por ciclo
-   completo; antes de la Fase A eran 476). `adzuna:certifications` hace 79 × 17 = 1 343 por ciclo completo (una por
-   certificación y país, con el término principal de `keywords`). Ambos retoman desde la última entidad procesada, así
-   que una corrida puede hacer menos. Revisar en el panel de desarrollador de Adzuna el límite del plan (minuto, día y
-   mes) frente al consumo real; si no alcanza, bajar países o la frecuencia.
-7. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+6. ```sh
+   php artisan schedule:list       # 0 7 * * * para los tres ranking:refresh-*
+   ```
+   Reanudar `jobs:run-all` y los scrapers.
+7. **Crons a quitar** (crontab del servidor o panel de tareas): `languages:take-snapshot`,
+   `technologies:take-snapshot`, `certifications:take-snapshot` y los `*:backfill-all` si estuvieran programados.
+   Revisar que `greenhouse:technologies` no esté programado fuera del repo.
+8. Comprobar el cron `* * * * * php artisan schedule:run` y el worker
+   `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
+9. **Adzuna**: `adzuna:languages` = 26 entidades × 17 países = 442 llamadas por ciclo completo; `adzuna:certifications`
+   = 79 × 17 = 1 343. Ambos retoman desde la última entidad procesada. Revisar el límite del plan en el panel de Adzuna.
+10. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+
+Mantenimiento: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
+reglas del matcher o se reactive una entidad. Para desactivar el filtro: `RANKING_EXCLUSIONS_ENABLED=false`,
+`php artisan optimize:clear` y `ranking:refresh-*`.
 
 Reversión: `DESPLIEGUE_RANKINGS_ROLLBACK.sql` (desplegar antes el código anterior).
 

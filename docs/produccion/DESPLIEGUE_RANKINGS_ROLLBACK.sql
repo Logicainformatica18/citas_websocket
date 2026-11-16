@@ -8,7 +8,8 @@
 --   catálogo de certificaciones, reglas del matcher (incluida la tabla
 --   market_entity_aliases), entidades reactivadas con sus valores anteriores,
 --   carreras de tecnologías, columnas is_active de market_entities, índices y las
---   tablas de resumen (datos calculados: se regeneran). Usa las tablas de respaldo
+--   tablas de resumen (datos calculados: se regeneran) y entity_association_exclusions
+--   (datos derivados del matcher). Usa las tablas de respaldo
 --   que creó el despliegue y las elimina al final.
 --   Si el despliegue renombró language_ranking_weekly(_meta) a *_anterior_2026_11,
 --   les devuelve su nombre.
@@ -29,7 +30,14 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 
 -- #####################################################################
--- PARTE 1/12: Certificaciones 13 — keywords
+-- PARTE 1/13: Común — tabla de exclusiones
+-- #####################################################################
+
+DROP TABLE IF EXISTS `entity_association_exclusions`;
+SELECT 'OK: tabla entity_association_exclusions eliminada (si existía)' AS resultado;
+
+-- #####################################################################
+-- PARTE 2/13: Certificaciones 13 — keywords
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `_respaldo_keywords_cert_2026_11` (
@@ -48,7 +56,7 @@ DROP TABLE IF EXISTS `_respaldo_keywords_cert_2026_11`;
 SELECT 'OK 13: reversión de 12 terminada' AS resultado;
 
 -- #####################################################################
--- PARTE 2/12: Certificaciones 08 — reglas del matcher
+-- PARTE 3/13: Certificaciones 08 — reglas del matcher
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables
@@ -62,7 +70,7 @@ SELECT 'Reglas sembradas de certificaciones borradas' AS resultado;
 SELECT 'OK 08: reversión de 07 terminada' AS resultado;
 
 -- #####################################################################
--- PARTE 3/12: Certificaciones 06 — entidades
+-- PARTE 4/13: Certificaciones 06 — entidades
 -- #####################################################################
 
 CREATE TABLE IF NOT EXISTS `_respaldo_certificaciones_2026_11` (
@@ -109,7 +117,7 @@ DROP TABLE IF EXISTS `_respaldo_certificaciones_2026_11`;
 SELECT 'OK 06: reversión de 05 terminada' AS resultado;
 
 -- #####################################################################
--- PARTE 4/12: Certificaciones 03 — tablas e índice
+-- PARTE 5/13: Certificaciones 03 — tablas e índice
 -- #####################################################################
 
 DROP TABLE IF EXISTS `certification_ranking_weekly_meta`;
@@ -128,7 +136,7 @@ SELECT CONCAT(@tbl, '.', @idx, ': ', IF(@existe > 0, 'ELIMINADO', 'NO EXISTE')) 
 SELECT 'OK 03: rollback del ranking de certificaciones terminado' AS resultado;
 
 -- #####################################################################
--- PARTE 5/12: Tecnologías 11 — reglas del matcher y Transformers
+-- PARTE 6/13: Tecnologías 11 — reglas del matcher y Transformers
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables
@@ -148,7 +156,7 @@ SELECT CONCAT('Transformers desactivado: ', ROW_COUNT()) AS resultado;
 SELECT 'OK 11: reversión de 10 terminada' AS resultado;
 
 -- #####################################################################
--- PARTE 6/12: Tecnologías 07 — entidades
+-- PARTE 7/13: Tecnologías 07 — entidades
 -- #####################################################################
 
 UPDATE market_entities
@@ -160,7 +168,7 @@ SELECT CONCAT('Entidades reactivadas: ', ROW_COUNT()) AS resultado;
 SELECT 'OK 07: reclasificación de entidades de tecnologías revertida' AS resultado;
 
 -- #####################################################################
--- PARTE 7/12: Tecnologías 09 — carreras
+-- PARTE 8/13: Tecnologías 09 — carreras
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables
@@ -177,7 +185,7 @@ DROP TABLE IF EXISTS `market_entity_career_migracion_cme`;
 SELECT 'OK 09: migración de carreras revertida' AS resultado;
 
 -- #####################################################################
--- PARTE 8/12: Tecnologías 03 — tablas e índice
+-- PARTE 9/13: Tecnologías 03 — tablas e índice
 -- #####################################################################
 
 DROP TABLE IF EXISTS `technology_ranking_weekly_meta`;
@@ -196,7 +204,7 @@ SELECT CONCAT(@tbl, '.', @idx, ': ', IF(@existe > 0, 'ELIMINADO', 'NO EXISTE')) 
 SELECT 'OK 03: rollback del ranking de tecnologías terminado' AS resultado;
 
 -- #####################################################################
--- PARTE 9/12: Lenguajes 12 — matcher (tabla compartida) y filas nuevas de languages
+-- PARTE 10/13: Lenguajes 12 — matcher (tabla compartida) y filas nuevas de languages
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables
@@ -219,7 +227,7 @@ DROP TABLE IF EXISTS `market_entity_aliases`;
 SELECT 'OK 12: market_entity_aliases eliminada (si existía)' AS resultado;
 
 -- #####################################################################
--- PARTE 10/12: Lenguajes 10 — entidades
+-- PARTE 11/13: Lenguajes 10 — entidades
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables
@@ -272,7 +280,7 @@ DROP TABLE IF EXISTS `_respaldo_lenguajes_2026_11`;
 SELECT 'OK 10: reversión de 09 terminada' AS resultado;
 
 -- #####################################################################
--- PARTE 11/12: Lenguajes 07 — evolución e is_active
+-- PARTE 12/13: Lenguajes 07 — evolución e is_active
 -- #####################################################################
 
 SET @existe = (SELECT COUNT(*) FROM information_schema.columns
@@ -322,7 +330,7 @@ SELECT CONCAT('market_entities.', @col, ': ', IF(@existe > 0, 'ELIMINADA', 'NO E
 SELECT 'OK 07: rollback de la Fase A terminado' AS resultado;
 
 -- #####################################################################
--- PARTE 12/12: Lenguajes 03 — tablas e índices
+-- PARTE 13/13: Lenguajes 03 — tablas e índices
 -- #####################################################################
 
 DROP TABLE IF EXISTS `language_ranking_meta`;
