@@ -103,6 +103,19 @@ Bloque 1 (Fase B de Lenguajes):
 - Jooble, reed y USAJOBS guardan su fragmento/extracto en `requirements` (antes se descartaba).
 - Migraciones `2026_11_12_000002/000006`: salen sin hacer nada fuera de MySQL (usan `information_schema`).
 
+Bloque 2 (Fase C de Lenguajes):
+- **Limpieza estricta**: se borra toda fila de entidad activa que el matcher no confirma en el texto guardado,
+  también si la oferta no tiene texto o solo un extracto (coherente con "exigir la confirmación"). Afecta sobre todo
+  al histórico de Computrabajo (81 %, solo título), GetOnBoard (95 %) y Greenhouse (97 %).
+- Se conservan las filas de entidades inactivas (se recuperan al reactivar) y las sin entidad resoluble (2 210, p. ej.
+  GNU/Linux y CLI).
+- La decisión de qué borrar la toma la aplicación (`entities:clean-associations`, solo escribe una tabla de trabajo);
+  el borrado lo hace el DBA con SQL, por lotes de 5 000 y siempre respaldando antes en la misma transacción.
+- La foto dorada se recapturó después de la limpieza (`storage/app/foto_dorada/lenguajes_2026-11-16_post_limpieza/`)
+  como línea base de los bloques 3 y 4.
+- R quedó en 163 vacantes en 2026-s2 (el plan estimaba ~600): el criterio estricto también descarta los extractos de
+  Adzuna sin mención (pérdida aceptada de ~15 %).
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y

@@ -20,6 +20,8 @@
 |   label                nombre en español para mensajes
 |   catalog_table        catálogo que usan los scrapers (languages, technologies…), con enabled y market_entity_id
 |   offer_relation       relación de JobOffer hacia el catálogo (escribe el pivote)
+|   catalog_fk           columna del pivote que apunta al catálogo (language_id, technology_id…)
+|   duplicates           slug de entidad duplicada desactivada => slug de su principal (limpieza: reasignar)
 */
 
 return [
@@ -42,6 +44,7 @@ return [
         'label' => 'lenguajes',
         'catalog_table' => 'languages',
         'offer_relation' => 'languages',
+        'catalog_fk' => 'language_id',
     ],
 
     'technologies' => [
@@ -64,6 +67,7 @@ return [
         'label' => 'tecnologías',
         'catalog_table' => 'technologies',
         'offer_relation' => 'technologies',
+        'catalog_fk' => 'technology_id',
     ],
 
 ];

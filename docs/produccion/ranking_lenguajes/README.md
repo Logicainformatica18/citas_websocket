@@ -114,3 +114,22 @@ fin y errores. Si un periodo falla se revierte solo ese y conserva sus datos ant
 - Desde este despliegue los 14 scrapers de lenguajes solo asocian una oferta si el matcher confirma el lenguaje en
   su texto, y escriben `language_job.market_entity_id` al insertar.
 - Auditoría (solo lectura): `php artisan entities:match-audit --type=languages --semester=2026-s2`.
+
+## Fase C: limpieza de language_job (2026-11-16)
+
+| # | Script / comando | Qué hace | Tiempo (local) | Bloqueo |
+|---|---|---|---|---|
+| 0 | — | **Respaldo de `language_job`** (además del respaldo propio del script 14) | — | — |
+| 13 | `13_limpieza_preparar.sql` | Crea `language_job_limpieza` (trabajo) y `language_job_respaldo_limpieza` (respaldo) | < 1 s | Ninguno |
+| — | `php artisan entities:clean-associations --type=languages --dry-run` | Informe por fuente y lenguaje (solo lectura) | ~20 s | Ninguno |
+| — | `php artisan entities:clean-associations --type=languages` | Llena la tabla de trabajo (no toca `language_job`) | ~30 s | Ninguno |
+| 14 | `14_limpieza_aplicar.sql` | Respalda y borra en lotes de 5 000, cada lote en su transacción. **Usa DELIMITER: ejecutar con el cliente `mysql`** | ~30 s (233 507 filas) | Filas, por lote |
+| — | `php artisan ranking:refresh-languages` | Recalcula | ~5 s | — |
+
+- Reversión: `15_limpieza_rollback.sql` (restaura desde el respaldo con los ids originales). Probado:
+  aplicar → revertir → aplicar → revertir dos veces → aplicar dos veces.
+- Criterio: se borra la fila si su lenguaje está activo y el matcher no lo confirma en el texto guardado (incluidas
+  las ofertas sin texto o con solo un extracto). Se conservan las filas de lenguajes inactivos y las sin entidad.
+- Resultado local: 267 926 → 34 419 filas. R en 2026-s2: 8 979 → 163 vacantes.
+- Los tres scripts se generan con `docs/produccion/herramientas/generar_limpieza_sql.php` (misma plantilla para
+  tecnologías y certificaciones).
