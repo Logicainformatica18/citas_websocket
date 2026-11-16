@@ -115,12 +115,24 @@ Solo diagnosticado de pasada: tiene el mismo patrón (cálculo en vivo, `certifi
 
 ## 4. Pendientes conocidos
 
-### Decisiones pendientes del usuario (de la Fase A de Lenguajes, nunca confirmadas)
-- 8 entidades de lenguaje creadas por IA el 2026-11-12: Perl, Ruby, VBA, Lua, COBOL (propuesta: mantener);
-  Shell (desactivar hasta Fase B; luego "Shell scripting" con alias Bash/sh), Ada (desactivar: ambiguo),
-  F# (mantener, corregir slug `f` → `fsharp`).
-- Vincular `languages` Go/Rust/Scala (ids 37/38/39) con sus entidades 3901/3902/3912.
-- `languages` GNU/Linux (125) y CLI (126): `enabled = 0` (no son lenguajes; tienen cursos vinculados, no borrar).
+### Fase A de Lenguajes: decisiones confirmadas y aplicadas (2026-11-16)
+- Script `ranking_lenguajes/09` (+ rollback `10`), probado en local y recalculado (26 lenguajes activos):
+  Perl, Ruby, VBA, Lua, COBOL activos; Shell y Ada desactivados con motivo (Fase B: "Shell scripting" con alias
+  Bash/sh; Ada se evalúa con el matcher); F# slug `f` → `fsharp`; Go/Rust/Scala vinculados; GNU/Linux y CLI `enabled = 0`.
+- **Hallazgo:** Perl, Ruby, VBA, Lua, COBOL y F# **no tienen fila en `languages`**: ningún scraper los busca y salen
+  con 0 ofertas. Crear sus filas en la Fase B (cuando el matcher confirme las asociaciones).
+- Foto dorada recapturada después del recálculo: `storage/app/foto_dorada/lenguajes_2026-11-16/` (79 bloques, 0 dif.).
+
+### Mitigación temporal (2026-11-16)
+- `arbeitnow:languages`, `arbeitnow:technologies` y las 28 líneas de `greenhouse:languages` comentados en
+  `RunAllJobs.php` hasta la Fase B. `greenhouse:technologies` no estaba en `RunAllJobs.php` (no hay nada que comentar;
+  revisar que no esté en el crontab del servidor).
+- Precisión medida en 2026-s2 (mención del lenguaje en título+texto guardado):
+  - **Greenhouse**: 401 asociaciones, todas a R, 0 %. Busca con `/{nombre}/i` sin límites de palabra (R coincide con
+    cualquier título con "r"); no guarda la descripción. `greenhouse:technologies` usa la misma expresión.
+  - **GetOnBoard**: 25 % en ofertas con descripción (72 % no la guarda). Bien en SQL/Python/TypeScript/Java/JavaScript
+    (75-91 %), mal en C#, C++, R, PHP, DAX (0-4 %): la búsqueda de la API es difusa.
+  - Adzuna (referencia): 53 %.
 
 ### Bugs / deuda que no se tocaron
 - **Bug de tendencias sin filtro de tipo en Lenguajes: NO aplica** (Lenguajes siempre filtró `entity_type='language'`).
@@ -192,7 +204,7 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 
 ## 6. Producción: pasos pendientes (en orden)
 
-1. **DBA, Lenguajes** (`ranking_lenguajes/`): respaldo → `01` → `02` → `05` → `06` → `04` y `08` (verificación).
+1. **DBA, Lenguajes** (`ranking_lenguajes/`): respaldo → `01` → `02` → `05` → `06` → `09` (entidades) → `04` y `08` (verificación).
 2. **DBA, Tecnologías** (`ranking_tecnologias/`): respaldo de `technology_job`, `market_entities`, `market_entity_career` →
    `05` → `01` → `02` → `08` (carreras) → `06` (entidades) → `04` (verificación).
 3. **Desplegar el código.**

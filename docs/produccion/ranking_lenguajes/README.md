@@ -88,3 +88,15 @@ scrapers de lenguajes. Desde la administración de lenguajes, "eliminar" y el in
 
 `storage/logs/laravel.log`, prefijo `[LANGUAGE_RANKING]`: inicio, cada periodo (filas, vacantes, reportes, duración),
 fin y errores. Si un periodo falla se revierte solo ese y conserva sus datos anteriores.
+
+## Entidades de lenguajes (decisiones de la Fase A, 2026-11-16)
+
+| # | Script | Qué hace | Tiempo | Bloqueo |
+|---|---|---|---|---|
+| 9 | `09_ranking_languages_entidades.sql` | Desactiva Shell y Ada (con motivo), corrige el slug de F# (`f` → `fsharp`), vincula `languages` Go/Rust/Scala con sus entidades (y completa sus filas de `language_job` sin entidad), y deshabilita GNU/Linux y CLI (`enabled = 0`, sin borrar: tienen cursos). Guarda cada valor anterior en `_respaldo_lenguajes_2026_11` | < 1 s | Filas |
+
+- Requiere `05`. Idempotente (probado: aplicar dos veces, revertir, revertir otra vez, aplicar de nuevo).
+- Reversión: `10_ranking_languages_entidades_rollback.sql` (restaura desde la tabla de respaldo y la elimina).
+- Después: `php artisan ranking:refresh-languages`.
+- `market_entities.slug` no se usa en URLs ni en otras tablas; solo lo usa `languages:discover-gaps` para evitar
+  duplicados, y ese comando también compara por nombre.
