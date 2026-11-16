@@ -72,7 +72,7 @@ abstract class RefreshEntityRankingCommand extends Command
         $this->info(sprintf('Ranking de %s recalculado en %.1f s.', $label, $result['duration_ms'] / 1000));
         $this->line($service->exclusionSql() !== ''
             ? '  Exclusiones del matcher: APLICADAS (entity_association_exclusions)'
-            : '  Exclusiones del matcher: no aplicadas (desactivadas o sin tabla)');
+            : '  Exclusiones del matcher: NO aplicadas (desactivadas con entities:exclusions --disable, o sin tabla)');
 
         if (! $result['ok']) {
             $this->error('Algunos periodos fallaron; conservan sus datos anteriores. Revisa storage/logs.');

@@ -13,22 +13,30 @@ igualmente no cuenten las asociaciones falsas (p. ej. Arbeitnow asociaba ~17 len
 
 | Script | Qué hace |
 |---|---|
-| `01_exclusiones_tabla.sql` | Crea `entity_association_exclusions` (vacía). Idempotente |
-| `02_exclusiones_tabla_rollback.sql` | La elimina (datos derivados; se regeneran con el comando) |
+| `01_exclusiones_tabla.sql` | Crea `entity_association_exclusions` (vacía) y `entity_association_exclusion_settings` (fila única: activa, sin fecha). Idempotente |
+| `02_exclusiones_tabla_rollback.sql` | Elimina ambas (datos derivados; se regeneran con el comando) |
 
-## Configuración (`config/ranking_exclusions.php`)
+## Configuración (en la base, sin variables de entorno)
 
-| Variable de entorno | Valor | Efecto |
+Fila única `id = 1` de `entity_association_exclusion_settings` (la crea el despliegue):
+
+| Columna | Valor inicial | Qué hace |
 |---|---|---|
-| `RANKING_EXCLUSIONS_ENABLED` | `true` (por defecto) / `false` | `false` vuelve al cálculo sin filtro sin tocar la base (después `ranking:refresh-*`) |
-| `RANKING_EXCLUSIONS_TRUST_SINCE` | fecha y hora del despliegue, p. ej. `"2026-11-20 08:00:00"` | Las filas del pivote creadas desde entonces no se re-evalúan: los scrapers ya las confirmaron con el texto completo de la API, que varios no guardan |
+| `enabled` | `1` | `1` = los rankings aplican las exclusiones (siempre activas por defecto). `0` = apagado de emergencia |
+| `trust_since` | `NULL` | Fecha y hora de la **primera ejecución** de `entities:exclude-associations`; la guarda el propio comando. Desde entonces los scrapers confirman con el matcher al asociar (con el texto completo de la API, que varios no guardan), así que las filas del pivote creadas desde esa fecha no se vuelven a evaluar |
 
-Si la aplicación usa `php artisan config:cache`, después de cambiar estas variables hay que volver a ejecutarlo.
+```sh
+php artisan entities:exclusions             # estado: activa/desactivada, fecha de confianza, exclusiones por pivote
+php artisan entities:exclusions --disable   # apagado de emergencia (los rankings calculan sin exclusiones)
+php artisan entities:exclusions --enable    # volver a aplicarlas
+# después de cambiarlo: php artisan ranking:refresh-languages / -technologies / -certifications
+```
 
 ## Comportamiento del comando
 
 - Criterio estricto, igual que la limpieza: se excluye lo que el matcher no confirma, también si la oferta no tiene texto.
-- No evalúa las filas de entidades inactivas ni las sin entidad (no cuentan en el ranking).
+- No evalúa las filas de entidades inactivas ni las sin entidad (no cuentan en el ranking), ni las creadas desde
+  la fecha de confianza.
 - Re-ejecutable: inserta o renueva exclusiones; las que dejan de aplicar pasan a `vigente = 0` (nunca borra filas).
 - Volver a ejecutarlo cuando cambien las reglas del matcher o se reactive una entidad, y luego `ranking:refresh-*`.
 - Tiempo en local (2,2 M filas en `technology_job`): 195-321 s para los tres indicadores, ~1 GB de memoria máxima.

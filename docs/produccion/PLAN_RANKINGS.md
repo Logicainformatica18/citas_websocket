@@ -186,10 +186,13 @@ Bloque 6 (exclusión de asociaciones sin borrar, 2026-11-16):
   estricto que la limpieza; nunca borra filas (las que dejan de aplicar pasan a `vigente = 0`).
 - **`EntityRankingService::exclusionSql()`**: `NOT EXISTS` sobre la tabla en la única consulta que lee el pivote, así
   que afecta al ranking, la evolución y las vacantes únicas de los tres indicadores. Las tablas pivote no se tocan.
-- **Interruptor**: `RANKING_EXCLUSIONS_ENABLED=false` vuelve al cálculo sin filtro (y se omite solo si la tabla no
-  existe). `ranking:refresh-*` imprime si las exclusiones se aplicaron.
-- **`RANKING_EXCLUSIONS_TRUST_SINCE`** (fecha del despliegue): las filas creadas desde entonces no se re-evalúan. Sin
-  esto, el comando excluía asociaciones que los scrapers nuevos confirmaron con el texto completo de la API (reed,
+- **Sin variables de entorno** (decisión del usuario): la configuración vive en la fila única de
+  `entity_association_exclusion_settings` (`App\Services\Ranking\ExclusionSettings`). `enabled = 1` por defecto;
+  apagado de emergencia con `php artisan entities:exclusions --disable` (y `--enable`), que recuerda ejecutar
+  `ranking:refresh-*`. El filtro se omite solo si la tabla no existe. `ranking:refresh-*` imprime si se aplicó.
+- **Fecha de confianza automática** (`trust_since`): la primera ejecución de `entities:exclude-associations` (no
+  `--dry-run`) guarda su fecha y hora; en las siguientes, las filas del pivote creadas desde entonces no se re-evalúan.
+  Sin esto, el comando excluía asociaciones que los scrapers nuevos confirmaron con el texto completo de la API (reed,
   Remotive… guardan poco o nada): en la prueba CCNA bajaba de 10 a 2 vacantes.
 - Resultado en local (base en estado de producción): Lenguajes excluye 233 503 (las mismas que la limpieza),
   Tecnologías 1 477 634, Certificaciones 13 796. Top 10 de Lenguajes idéntico al de la limpieza; en Tecnologías difieren
@@ -249,7 +252,8 @@ Bloque 6 (exclusión de asociaciones sin borrar, 2026-11-16):
 ### Estado de la base local
 - La base local quedó como quedará producción: **sin limpieza** (language_job 267 926 filas, technology_job
   2 159 517, certification_job 31 577), con el despliegue consolidado aplicado y las exclusiones calculadas
-  (`RANKING_EXCLUSIONS_TRUST_SINCE="2026-11-16 10:30:00"` en la prueba). Las
+  (en la prueba local se fijó `trust_since = '2026-11-16 10:30:00'` por SQL, para simular una primera ejecución
+  anterior a las pruebas de los scrapers nuevos de ese día; en producción la guarda el comando). Las
   fotos doradas `*_post_limpieza` ya no corresponden a estos datos: para comparar de nuevo hay que recapturarlas o
   volver a aplicar la limpieza local (scripts 13-14 / 12-13 / 09-10).
 
@@ -373,43 +377,44 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 > `ranking_comun/README.md`). Lo que se pierde frente a la limpieza: las ofertas de las entidades duplicadas no pasan a
 > su principal, y la copia de asociaciones de CompTIA A+/Cyberops desde tecnologías no se hace.
 
-### Comandos del operador, en orden
+### Pasos, en orden (sin ningún cambio en el `.env`)
 
-0. Respaldo de la base. Detener `jobs:run-all` y los scrapers hasta terminar el paso 6.
-1. **DBA**: ejecutar `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (1-3 min) y revisar las verificaciones del final.
-2. **Desplegar el código.** En el `.env` del servidor:
-   ```
-   RANKING_EXCLUSIONS_ENABLED=true
-   RANKING_EXCLUSIONS_TRUST_SINCE="AAAA-MM-DD HH:MM:SS"   # fecha y hora de este despliegue
-   ```
-3. ```sh
-   php artisan optimize:clear      # (y php artisan config:cache si el servidor lo usa)
+**DBA**
+0. Respaldo de la base (recomendado; el script no borra datos). Coordinar con el operador que no corran
+   `jobs:run-all` ni scrapers.
+1. Ejecutar `DESPLIEGUE_RANKINGS_PRODUCCION.sql` en la base del Observatorio (1-3 min; mysql, Workbench o HeidiSQL).
+2. Revisar las verificaciones del final del archivo (cada una indica el resultado esperado) y avisar al operador.
+
+**Operador** (servidor de la aplicación)
+3. Mantener detenidos `jobs:run-all` y los scrapers hasta el paso 8.
+4. Desplegar el código.
+5. ```sh
+   php artisan optimize:clear
    php artisan queue:restart       # los workers deben cargar el código nuevo
    ```
-4. ```sh
-   php artisan entities:exclude-associations       # 3-6 min en local con 2,2 M filas
+6. ```sh
+   php artisan entities:exclude-associations   # 1ª ejecución: evalúa todo y guarda la fecha de confianza (3-6 min)
+   php artisan entities:exclusions             # comprobar: ACTIVAS, fecha de confianza y exclusiones por pivote
    ```
-5. ```sh
+7. ```sh
    php artisan ranking:refresh-languages
    php artisan ranking:refresh-technologies
-   php artisan ranking:refresh-certifications     # cada uno imprime "Exclusiones del matcher: APLICADAS"
+   php artisan ranking:refresh-certifications  # cada uno imprime "Exclusiones del matcher: APLICADAS"
+   php artisan schedule:list                   # 0 7 * * * para los tres ranking:refresh-*
    ```
-6. ```sh
-   php artisan schedule:list       # 0 7 * * * para los tres ranking:refresh-*
-   ```
-   Reanudar `jobs:run-all` y los scrapers.
-7. **Crons a quitar** (crontab del servidor o panel de tareas): `languages:take-snapshot`,
+8. Reanudar `jobs:run-all` y los scrapers.
+9. **Crons a quitar** (crontab del servidor o panel de tareas): `languages:take-snapshot`,
    `technologies:take-snapshot`, `certifications:take-snapshot` y los `*:backfill-all` si estuvieran programados.
    Revisar que `greenhouse:technologies` no esté programado fuera del repo.
-8. Comprobar el cron `* * * * * php artisan schedule:run` y el worker
-   `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
-9. **Adzuna**: `adzuna:languages` = 26 entidades × 17 países = 442 llamadas por ciclo completo; `adzuna:certifications`
-   = 79 × 17 = 1 343. Ambos retoman desde la última entidad procesada. Revisar el límite del plan en el panel de Adzuna.
-10. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+10. Comprobar el cron `* * * * * php artisan schedule:run` y el worker
+    `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
+11. **Adzuna**: `adzuna:languages` = 26 entidades × 17 países = 442 llamadas por ciclo completo; `adzuna:certifications`
+    = 79 × 17 = 1 343. Ambos retoman desde la última entidad procesada. Revisar el límite del plan en el panel de Adzuna.
+12. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
 
-Mantenimiento: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
-reglas del matcher o se reactive una entidad. Para desactivar el filtro: `RANKING_EXCLUSIONS_ENABLED=false`,
-`php artisan optimize:clear` y `ranking:refresh-*`.
+**Mantenimiento**: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
+reglas del matcher o se reactive una entidad. **Apagado de emergencia**: `php artisan entities:exclusions --disable` y
+`ranking:refresh-*` (para volver: `--enable` y `ranking:refresh-*`).
 
 Reversión: `DESPLIEGUE_RANKINGS_ROLLBACK.sql` (desplegar antes el código anterior).
 

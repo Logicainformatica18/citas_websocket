@@ -9,7 +9,12 @@
 --   La llena la aplicación: php artisan entities:exclude-associations
 --   Una exclusión que deja de aplicar (p. ej. tras ajustar reglas) se marca
 --   vigente = 0; nunca se borra.
---   Se puede desactivar el filtro sin tocar la base: RANKING_EXCLUSIONS_ENABLED=false.
+--   Crea también entity_association_exclusion_settings (una sola fila, id = 1):
+--     enabled      1 = los rankings aplican las exclusiones (por defecto);
+--                  0 = apagado de emergencia: php artisan entities:exclusions --disable
+--     trust_since  fecha y hora de la PRIMERA ejecución de entities:exclude-associations
+--                  (la guarda el comando); las asociaciones creadas desde entonces ya las
+--                  confirmó el matcher al asociarlas y no se vuelven a evaluar.
 --
 -- REQUISITOS
 --   MySQL 8.0+.
@@ -47,4 +52,17 @@ CREATE TABLE IF NOT EXISTS `entity_association_exclusions` (
   KEY `idx_eae_revisado` (`pivot_table`, `vigente`, `revisado_en`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-SELECT 'OK: tabla entity_association_exclusions lista' AS resultado;
+CREATE TABLE IF NOT EXISTS `entity_association_exclusion_settings` (
+  `id`          TINYINT UNSIGNED NOT NULL,
+  `enabled`     TINYINT(1) NOT NULL DEFAULT 1,
+  `trust_since` DATETIME NULL DEFAULT NULL,
+  `updated_at`  TIMESTAMP NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Fila única con los valores por defecto (no modifica una fila existente)
+INSERT INTO `entity_association_exclusion_settings` (id, enabled, trust_since, updated_at)
+SELECT 1, 1, NULL, NOW() FROM DUAL
+ WHERE NOT EXISTS (SELECT 1 FROM `entity_association_exclusion_settings` WHERE id = 1);
+
+SELECT 'OK: tablas entity_association_exclusions y entity_association_exclusion_settings listas' AS resultado;

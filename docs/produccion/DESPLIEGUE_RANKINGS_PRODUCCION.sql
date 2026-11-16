@@ -14,7 +14,8 @@
 --     - filas nuevas de catálogo (languages, certifications) y keywords de búsqueda;
 --     - tabla entity_association_exclusions (vacía): la llena la aplicación con
 --       `php artisan entities:exclude-associations` y los rankings ignoran esos pares
---       oferta-entidad SIN borrarlos de las tablas pivote.
+--       oferta-entidad SIN borrarlos de las tablas pivote; y su configuración en
+--       entity_association_exclusion_settings (fila única: activa, sin fecha de confianza).
 --   Tablas de respaldo que crea (para la reversión): _respaldo_lenguajes_2026_11,
 --   _respaldo_certificaciones_2026_11, _respaldo_keywords_cert_2026_11.
 --
@@ -6867,13 +6868,26 @@ CREATE TABLE IF NOT EXISTS `entity_association_exclusions` (
   KEY `idx_eae_revisado` (`pivot_table`, `vigente`, `revisado_en`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-SELECT 'OK: tabla entity_association_exclusions lista' AS resultado;
+CREATE TABLE IF NOT EXISTS `entity_association_exclusion_settings` (
+  `id`          TINYINT UNSIGNED NOT NULL,
+  `enabled`     TINYINT(1) NOT NULL DEFAULT 1,
+  `trust_since` DATETIME NULL DEFAULT NULL,
+  `updated_at`  TIMESTAMP NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Fila única con los valores por defecto (no modifica una fila existente)
+INSERT INTO `entity_association_exclusion_settings` (id, enabled, trust_since, updated_at)
+SELECT 1, 1, NULL, NOW() FROM DUAL
+ WHERE NOT EXISTS (SELECT 1 FROM `entity_association_exclusion_settings` WHERE id = 1);
+
+SELECT 'OK: tablas entity_association_exclusions y entity_association_exclusion_settings listas' AS resultado;
 
 -- =====================================================================
 -- VERIFICACIÓN (solo lectura) — resultado esperado en cada consulta
 -- =====================================================================
 
--- 1. Tablas creadas. Esperado: 16 filas con existe = 'SI'.
+-- 1. Tablas creadas. Esperado: 17 filas con existe = 'SI'.
 SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
   FROM (SELECT 'language_rankings' AS tabla UNION ALL SELECT 'language_ranking_meta'
         UNION ALL SELECT 'language_ranking_weekly' UNION ALL SELECT 'language_ranking_weekly_meta'
@@ -6882,6 +6896,7 @@ SELECT t.tabla, IF(i.table_name IS NULL, 'NO', 'SI') AS existe
         UNION ALL SELECT 'certification_rankings' UNION ALL SELECT 'certification_ranking_meta'
         UNION ALL SELECT 'certification_ranking_weekly' UNION ALL SELECT 'certification_ranking_weekly_meta'
         UNION ALL SELECT 'market_entity_aliases' UNION ALL SELECT 'entity_association_exclusions'
+        UNION ALL SELECT 'entity_association_exclusion_settings'
         UNION ALL SELECT 'cache' UNION ALL SELECT 'jobs') t
   LEFT JOIN information_schema.tables i ON i.table_schema = DATABASE() AND i.table_name = t.tabla;
 
@@ -6942,5 +6957,9 @@ UNION ALL SELECT 'certification_job', COUNT(*) FROM certification_job;
 
 -- 8. Exclusiones. Esperado: 0 justo después del despliegue (las genera entities:exclude-associations).
 SELECT COUNT(*) AS exclusiones FROM entity_association_exclusions;
+
+-- 9. Configuración de la exclusión. Esperado: 1 fila con enabled = 1 y trust_since NULL (la fecha la guarda la
+--    primera ejecución de entities:exclude-associations; enabled = 0 solo con entities:exclusions --disable).
+SELECT id, enabled, trust_since FROM entity_association_exclusion_settings;
 
 SELECT 'OK: despliegue terminado. Ahora: php artisan entities:exclude-associations y ranking:refresh-languages / -technologies / -certifications' AS resultado;

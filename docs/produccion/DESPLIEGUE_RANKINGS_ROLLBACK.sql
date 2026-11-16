@@ -8,7 +8,8 @@
 --   catálogo de certificaciones, reglas del matcher (incluida la tabla
 --   market_entity_aliases), entidades reactivadas con sus valores anteriores,
 --   carreras de tecnologías, columnas is_active de market_entities, índices y las
---   tablas de resumen (datos calculados: se regeneran) y entity_association_exclusions
+--   tablas de resumen (datos calculados: se regeneran), entity_association_exclusions
+--   y entity_association_exclusion_settings
 --   (datos derivados del matcher). Usa las tablas de respaldo
 --   que creó el despliegue y las elimina al final.
 --   Si el despliegue renombró language_ranking_weekly(_meta) a *_anterior_2026_11,
@@ -34,7 +35,8 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 -- #####################################################################
 
 DROP TABLE IF EXISTS `entity_association_exclusions`;
-SELECT 'OK: tabla entity_association_exclusions eliminada (si existía)' AS resultado;
+DROP TABLE IF EXISTS `entity_association_exclusion_settings`;
+SELECT 'OK: tablas de exclusiones eliminadas (si existían)' AS resultado;
 
 -- #####################################################################
 -- PARTE 2/13: Certificaciones 13 — keywords

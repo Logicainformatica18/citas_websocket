@@ -4,6 +4,8 @@
 > scripts necesarios de esta carpeta (ver `PLAN_RANKINGS.md`, sección 6). Los scripts de aquí siguen siendo la fuente
 > del consolidado y sirven para aplicar o revertir partes sueltas. **La limpieza de asociaciones queda fuera del
 > despliegue.**
+> En su lugar, los rankings ignoran sin borrar las asociaciones que el matcher no confirma
+> (`php artisan entities:exclude-associations`; ver `docs/produccion/ranking_comun/README.md`). Sin cambios en el `.env`.
 
 La página `/dashboard/ranking/languages` ya no calcula el ranking en vivo (35-60 s, superaba el límite de 30 s).
 Lee de las tablas de resumen `language_rankings` y `language_ranking_meta`, que llena el comando

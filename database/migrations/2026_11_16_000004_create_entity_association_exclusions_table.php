@@ -5,7 +5,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Exclusiones de asociaciones oferta↔entidad que el matcher no confirma (ver config/ranking_exclusions.php).
+ * Exclusiones de asociaciones oferta↔entidad que el matcher no confirma, y su fila de configuración
+ * (entity_association_exclusion_settings: enabled, trust_since). Ver App\Services\Ranking\ExclusionSettings.
  *
  * Idempotente: en producción la crea el DBA con DESPLIEGUE_RANKINGS_PRODUCCION.sql
  * (fuente: docs/produccion/ranking_comun/01_exclusiones_tabla.sql; misma definición que aquí).
@@ -14,7 +15,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('entity_association_exclusions') || DB::getDriverName() !== 'mysql') {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
+        if (! Schema::hasTable('entity_association_exclusion_settings')) {
+            DB::statement(<<<'SQL'
+CREATE TABLE `entity_association_exclusion_settings` (
+  `id`          TINYINT UNSIGNED NOT NULL,
+  `enabled`     TINYINT(1) NOT NULL DEFAULT 1,
+  `trust_since` DATETIME NULL DEFAULT NULL,
+  `updated_at`  TIMESTAMP NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+SQL);
+        }
+        DB::statement('INSERT INTO entity_association_exclusion_settings (id, enabled, trust_since, updated_at)
+            SELECT 1, 1, NULL, NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM entity_association_exclusion_settings WHERE id = 1)');
+
+        if (Schema::hasTable('entity_association_exclusions')) {
             return;
         }
 
@@ -41,5 +60,6 @@ SQL);
     public function down(): void
     {
         Schema::dropIfExists('entity_association_exclusions');
+        Schema::dropIfExists('entity_association_exclusion_settings');
     }
 };

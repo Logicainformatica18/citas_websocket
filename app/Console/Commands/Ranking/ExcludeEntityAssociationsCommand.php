@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Ranking;
 
 use App\Services\Matching\EntityTextMatcher;
+use App\Services\Ranking\ExclusionSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,9 +20,10 @@ use Illuminate\Support\Facades\Schema;
  *   - se excluye todo lo que el matcher no confirma, incluidas las ofertas sin texto o con solo
  *     un extracto (criterio estricto).
  *
- * RANKING_EXCLUSIONS_TRUST_SINCE (fecha del despliegue): las filas del pivote creadas desde entonces
- * ya las confirmó el matcher al asociarlas, con el texto completo de la API (que varios scrapers no
- * guardan); no se re-evalúan con el texto guardado.
+ * Fecha de confianza: la primera ejecución (no --dry-run) guarda su fecha y hora en
+ * entity_association_exclusion_settings.trust_since. En las siguientes, las filas del pivote creadas
+ * desde esa fecha no se re-evalúan: ya las confirmó el matcher al asociarlas, con el texto completo de
+ * la API (que varios scrapers no guardan). Ver php artisan entities:exclusions.
  *
  * Re-ejecución: las exclusiones se insertan o se renuevan (revisado_en); las que ya no aplican
  * (p. ej. tras ajustar reglas o activar una entidad) pasan a vigente = 0. Nunca borra filas.
@@ -39,7 +41,7 @@ class ExcludeEntityAssociationsCommand extends Command
 
     public function handle(): int
     {
-        $table = config('ranking_exclusions.table');
+        $table = ExclusionSettings::TABLE;
         $dry = (bool) $this->option('dry-run');
         if (! $dry && ! Schema::hasTable($table)) {
             $this->error("Falta la tabla {$table}: aplicar antes DESPLIEGUE_RANKINGS_PRODUCCION.sql (o migrate).");
@@ -57,12 +59,23 @@ class ExcludeEntityAssociationsCommand extends Command
             }
         }
 
-        if (! config('ranking_exclusions.enabled')) {
-            $this->warn('Aviso: RANKING_EXCLUSIONS_ENABLED=false — las exclusiones se calculan, pero el ranking no las aplica.');
+        if (! ExclusionSettings::enabled()) {
+            $this->warn('Aviso: la exclusión está desactivada (entities:exclusions --disable): se calcula, pero el ranking no la aplica.');
         }
 
+        // Fecha de confianza: la de la primera ejecución; en esta primera vez se evalúa todo
+        $trustSince = ExclusionSettings::trustSince();
+        $runStart = DB::selectOne('SELECT NOW() AS t')->t;
+        $this->line($trustSince
+            ? "Fecha de confianza: {$trustSince} (las asociaciones creadas desde entonces no se re-evalúan)"
+            : 'Primera ejecución: se evalúan todas las asociaciones; su fecha y hora quedará como fecha de confianza.');
+
         foreach ($types as $t) {
-            $this->processType($t, $table, $dry);
+            $this->processType($t, $table, $dry, $trustSince);
+        }
+
+        if (! $dry && $trustSince === null && ExclusionSettings::initTrustSince($runStart)) {
+            $this->info("Fecha de confianza guardada: {$runStart}");
         }
 
         $this->info('Listo. Ahora: php artisan ranking:refresh-' . ($type === 'all' ? '{languages,technologies,certifications}' : $type));
@@ -70,7 +83,7 @@ class ExcludeEntityAssociationsCommand extends Command
         return self::SUCCESS;
     }
 
-    private function processType(string $type, string $table, bool $dry): void
+    private function processType(string $type, string $table, bool $dry, ?string $trustSince): void
     {
         $cfg = config("entity_rankings.{$type}");
         $pivot = $cfg['pivot_table'];
@@ -78,8 +91,6 @@ class ExcludeEntityAssociationsCommand extends Command
         $runStart = DB::selectOne('SELECT NOW() AS t')->t;
 
         $matcher = EntityTextMatcher::for($cfg['entity_type']);   // solo entidades activas
-        // Filas creadas desde que los scrapers confirman con el matcher: no se re-evalúan
-        $trustSince = config('ranking_exclusions.trust_since') ?: null;
         $active = array_flip($matcher->entityIds());
 
         $base = DB::table('job_offers as jo')
