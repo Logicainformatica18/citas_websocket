@@ -15,6 +15,7 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
  
 class GreenhouseByLanguagesCommand extends Command
 {
@@ -100,7 +101,8 @@ class GreenhouseByLanguagesCommand extends Command
 
             $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
 
-            $response = Http::timeout(20)->get($url);
+            // content=true: la descripción completa viene en la misma llamada (sin costo extra)
+            $response = Http::timeout(20)->get($url, ['content' => 'true']);
 
             if ($response->failed()) {
                 SourceStatusService::connectionFailed($source, "Error empresa {$companySlug}");
@@ -125,20 +127,16 @@ class GreenhouseByLanguagesCommand extends Command
             | 🧠 LOOP POR LENGUAJE
             |--------------------------------------------------------------------------
             */
+            $linker = OfferEntityLinker::for('languages');
+
             foreach ($languages as $language) {
 
-                $pattern = $language->name;
-                $escaped = preg_quote($pattern, '/');
-                $regex   = "/{$escaped}/i";
-
-                $resultsForLang = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
-
-                    $title   = $job['title'] ?? '';
-                    $content = $contentAvailable ? ($job['content'] ?? '') : '';
-
-                    return preg_match($regex, $title)
-                        || ($contentAvailable && preg_match($regex, $content));
-                });
+                // Fase B (matcher): antes /{nombre}/i sin límites de palabra (R coincidía con cualquier "r").
+                $resultsForLang = array_filter($jobs, fn ($job) => $linker->confirms(
+                    $language->id,
+                    $job['title'] ?? '',
+                    $contentAvailable ? ($job['content'] ?? '') : null
+                ));
 
                 $this->line("\n🔎 {$language->name} → " . count($resultsForLang));
 
@@ -179,7 +177,7 @@ class GreenhouseByLanguagesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->languages()->syncWithoutDetaching([$language->id]);
+                        $linker->attach($existing, [$language->id]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -197,6 +195,7 @@ class GreenhouseByLanguagesCommand extends Command
                         'skills'           => $this->extractSkills($content),
                         'certifications'   => $this->extractCertifications($content),
                         'requirements'     => strip_tags($content),
+                        'description'      => strip_tags(html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
                         'source'           => 'Greenhouse',
                         'external_id'      => $externalId,
                         'url'              => $urlJob,
@@ -205,7 +204,7 @@ class GreenhouseByLanguagesCommand extends Command
                         'region'           => RegionHelper::fromCountry($countryFull),
                     ]);
 
-                    $offer->languages()->syncWithoutDetaching([$language->id]);
+                    $linker->attach($offer, [$language->id]);
 
                     $newForLang++;
                     $totalInsertedAll++;

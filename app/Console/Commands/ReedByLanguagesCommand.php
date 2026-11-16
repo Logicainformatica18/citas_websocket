@@ -14,6 +14,8 @@ use App\Helpers\RegionHelper;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class ReedByLanguagesCommand extends Command
 {
     protected $signature = 'reed:languages {--pages=1}';
@@ -117,14 +119,20 @@ public function handle()
 
                 foreach ($jobs as $job) {
 
+                    // Fase B (matcher): reed devuelve un extracto de la descripción
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['jobTitle'] ?? '', $job['jobDescription'] ?? '')) {
+                        continue;
+                    }
+
                     $totalFound++;
                     $totalFoundAll++;
 
                     $externalId = 'reed-' . $job['jobId'];
 
-                    if (JobOffer::where('external_id', $externalId)
+                    if ($existing = JobOffer::where('external_id', $externalId)
                         ->where('source', 'reed')
-                        ->exists()) {
+                        ->first()) {
+                        OfferEntityLinker::for('languages')->attach($existing, [$languageId]);
 
                         $this->stats['skipped']++;
                         $totalSkippedAll++;
@@ -161,7 +169,7 @@ public function handle()
 
                     $publishedAt = $this->parseReedDate($job['date'] ?? null);
 
-                    JobOffer::create([
+                    $offer = JobOffer::create([
                         'title'        => $job['jobTitle'] ?? '',
                         'company'      => $job['employerName'] ?? '',
                         'country'      => $country,
@@ -175,8 +183,11 @@ public function handle()
                         'external_id'  => $externalId,
                         'url'          => $job['jobUrl'] ?? null,
                         'search_query' => $languageName,
+                        'requirements' => strip_tags($job['jobDescription'] ?? ''),
                         'published_at' => $publishedAt,
                     ]);
+                    // Antes no se asociaba el lenguaje: la oferta quedaba sin pivote.
+                    OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

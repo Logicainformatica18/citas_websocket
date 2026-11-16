@@ -14,6 +14,8 @@ use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class RemotiveByLanguagesCommand extends Command
 {
     protected $signature = 'remotive:languages';
@@ -111,6 +113,11 @@ class RemotiveByLanguagesCommand extends Command
 
                 foreach ($jobs as $job) {
 
+                    // Fase B (matcher)
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', strip_tags($job['description'] ?? ''))) {
+                        continue;
+                    }
+
                     $externalId = $job['id'] ?? null;
 
                     $existing = JobOffer::where('external_id', $externalId)
@@ -118,7 +125,7 @@ class RemotiveByLanguagesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->languages()->syncWithoutDetaching([$languageId]);
+                        OfferEntityLinker::for('languages')->attach($existing, [$languageId]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -174,7 +181,7 @@ class RemotiveByLanguagesCommand extends Command
                         'region'           => $region,
                     ]);
 
-                    $offer->languages()->syncWithoutDetaching([$languageId]);
+                    OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

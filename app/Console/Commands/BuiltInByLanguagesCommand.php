@@ -12,6 +12,8 @@ use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class BuiltInByLanguagesCommand extends Command
 {
     protected $signature = 'builtin:languages';
@@ -62,6 +64,11 @@ class BuiltInByLanguagesCommand extends Command
 
                 $location = (string) $item->category;
 
+                // Fase B (matcher)
+                if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, strip_tags((string) $item->description))) {
+                    continue;
+                }
+
                 $externalId = "builtin-" . md5($link);
 
                 // DEDUPE
@@ -70,7 +77,7 @@ class BuiltInByLanguagesCommand extends Command
                     ->first();
 
                 if ($existing) {
-                    $existing->languages()->syncWithoutDetaching([$languageId]);
+                    OfferEntityLinker::for('languages')->attach($existing, [$languageId]);
                     $this->stats['skipped']++;
                     continue;
                 }
@@ -114,7 +121,7 @@ class BuiltInByLanguagesCommand extends Command
                     'published_at'      => $pubDate,
                 ]);
 
-                $offer->languages()->syncWithoutDetaching([$languageId]);
+                OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                 LanguageMetric::create([
                     'language_id' => $languageId,

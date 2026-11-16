@@ -14,6 +14,8 @@ use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class WantedlyByLanguagesCommand extends Command
 {
     protected $signature = 'wantedly:languages {--lang=es}';
@@ -138,13 +140,17 @@ public function handle()
                     $externalId = $job['id'] ?? null;
                     if (!$externalId) continue;
 
+                    // Fase B (matcher)
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', strip_tags($job['description'] ?? ''))) {
+                        continue;
+                    }
+
                     $existing = JobOffer::where('source', 'wantedly')
                         ->where('external_id', $externalId)
                         ->first();
 
                     if ($existing) {
-                        $existing->languages()
-                            ->syncWithoutDetaching([$languageId]);
+                        OfferEntityLinker::for('languages')->attach($existing, [$languageId]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -196,8 +202,7 @@ public function handle()
                         'published_at' => $published,
                     ]);
 
-                    $offer->languages()
-                        ->syncWithoutDetaching([$languageId]);
+                    OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                     $newInPage++;
                     $totalNew++;

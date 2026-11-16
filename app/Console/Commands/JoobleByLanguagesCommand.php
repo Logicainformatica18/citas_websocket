@@ -18,6 +18,8 @@ use App\Services\ScraperRunService;
 
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class JoobleByLanguagesCommand extends Command
 {
     protected $signature = 'jooble:languages {--country=United States} {--pages=5}';
@@ -118,6 +120,11 @@ public function handle()
                         $desc     = strtolower($job['snippet'] ?? '');
                         $urlJob   = $job['link'] ?? null;
 
+                        // Fase B (matcher): Jooble solo da un fragmento
+                        if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, strip_tags($job['snippet'] ?? ''))) {
+                            continue;
+                        }
+
                         $modality = $this->detectModality($location, $desc);
 
                         [$rawCity, $rawCountry] = $this->splitLocation($location);
@@ -147,6 +154,7 @@ public function handle()
                             'salary_min'   => $this->extractMinSalary($job['salary'] ?? ''),
                             'salary_max'   => $this->extractMaxSalary($job['salary'] ?? ''),
                             'source'       => 'Jooble',
+                            'requirements' => strip_tags($job['snippet'] ?? ''),
                             'external_id'  => $externalId,
                             'url'          => $urlJob,
                             'search_query' => $languageName,
@@ -154,7 +162,7 @@ public function handle()
                             'region'       => RegionHelper::fromCountry($countryFull),
                         ]);
 
-                        $offer->languages()->syncWithoutDetaching([$languageId]);
+                        OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                         $totalNew++;
                         $totalInsertedAll++;

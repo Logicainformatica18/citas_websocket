@@ -13,6 +13,7 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
 class RemoteOkByLanguagesCommand extends Command
 {
     protected $signature = 'remoteok:languages';
@@ -92,6 +93,8 @@ class RemoteOkByLanguagesCommand extends Command
             ->skip(1)
             ->filter(fn ($j) => isset($j['position']));
 
+        $linker = OfferEntityLinker::for('languages');
+
         foreach ($languages as $language) {
 
             $languageId   = $language->id;
@@ -106,9 +109,10 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $title = $job['position'] ?? '';
                 $tags  = $job['tags'] ?? [];
-                $text  = strtolower($title . ' ' . implode(' ', $tags));
+                $descriptionText = strip_tags(html_entity_decode((string) ($job['description'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
-                if (!str_contains($text, strtolower($languageName))) {
+                // Fase B (matcher): antes str_contains sin límites de palabra.
+                if (! $linker->confirms($languageId, $title, OfferEntityLinker::body($descriptionText, $tags))) {
                     continue;
                 }
 
@@ -117,10 +121,9 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $externalId = $job['id'] ?? null;
 
-                if ($externalId && JobOffer::where('source', 'RemoteOK')
-                    ->where('external_id', $externalId)
-                    ->exists()) {
-
+                $existing = $externalId ? JobOffer::where('source', 'RemoteOK')->where('external_id', $externalId)->first() : null;
+                if ($existing) {
+                    $linker->attach($existing, [$languageId]);
                     $totalSkippedAll++;
                     continue;
                 }
@@ -136,7 +139,7 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
 
-                JobOffer::create([
+                $offer = JobOffer::create([
                     'title'        => $title ?: 'N/A',
                     'company'      => $job['company'] ?? null,
                     'country'      => $country,
@@ -149,10 +152,14 @@ class RemoteOkByLanguagesCommand extends Command
                     'search_query' => $languageName,
                     'external_id'  => $externalId,
                     'url'          => $job['url'] ?? null,
+                    'description'  => $descriptionText,
+                    'skills'       => implode(', ', $tags),
                     'published_at' => isset($job['date'])
                         ? Carbon::parse($job['date'])
                         : now(),
                 ]);
+                // Antes no se asociaba el lenguaje: la oferta quedaba sin pivote.
+                $linker->attach($offer, [$languageId]);
 
                 $totalNew++;
                 $totalInsertedAll++;

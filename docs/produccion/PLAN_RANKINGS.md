@@ -84,6 +84,35 @@ y no sirve). MySQL 8.0.46 en `localhost:3307`, base `observatorio_2`. Cliente: `
 
 ---
 
+### Decisiones tomadas sin consulta (ejecución de corrido, desde 2026-11-16)
+Confirmadas por el usuario antes de empezar: JavaScript no se infiere de Node.js/Next.js/Vue.js; en Adzuna se acepta
+la pérdida de ~15 % por extracto truncado; no se guarda en el pivote qué campo coincidió.
+
+Bloque 1 (Fase B de Lenguajes):
+- **Servicio común `OfferEntityLinker`** (match/confirms/attach) para todos los scrapers; el pivote se escribe con
+  `market_entity_id` al insertar. Una fila de catálogo sin entidad activa no se asocia (criterio estricto).
+- **Arbeitnow**: descarga el feed una vez (`--pages=5`, ~100 ofertas por página) y clasifica cada oferta; las ofertas
+  sin ningún lenguaje no se guardan. Se quitó `getLanguageFromMarketEntity` (creaba filas de `languages` por nombre).
+- **Greenhouse**: `content=true` (descripción en la misma llamada, sin costo extra) y guarda `description`.
+- **RemoteOk y Reed no asociaban ningún lenguaje** (creaban la oferta sin pivote): corregido al integrar.
+- **JobsDataFeeds**: su puntaje con alias amplios (node/react → JavaScript, py → Python) se reemplazó por `match()`.
+- **GetOnBoard**: la descripción completa se arma con `description_headline`, `description`, `functions`, `desirable`
+  y `projects` (antes solo `description`, vacío en el 72 %).
+- **Computrabajo**: confirma con el título; si no basta y la oferta es nueva, descarga su detalle una vez por URL y
+  corrida (pausa 0,3-0,8 s) y lo guarda en `description`. Las ofertas ya existentes no se vuelven a descargar.
+- Jooble, reed y USAJOBS guardan su fragmento/extracto en `requirements` (antes se descartaba).
+- Migraciones `2026_11_12_000002/000006`: salen sin hacer nada fuera de MySQL (usan `information_schema`).
+
+### Pendientes fuera de alcance (anotados, no tocados)
+- Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
+  (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
+  JobsDataFeeds. Costo real por lenguaje nuevo: Adzuna 17 + Jooble 8 + Computrabajo 8 = 33 llamadas por corrida.
+- RemoteOk, BuiltIn, Remotive, Wantedly y JobsDataFeeds no están en `RunAllJobs.php` (no se ejecutan).
+- Computrabajo no tiene asociaciones de lenguajes en 2026-s2 (¿scraper caído?).
+- Greenhouse guarda en `requirements` el HTML escapado (`&lt;p&gt;`); la descripción limpia va en `description`.
+- Adzuna busca la oferta existente por `external_id` sin filtrar la fuente.
+- `tests/Unit/ExampleTest` falla con SQLite: `market_entities` (y otras tablas base) no se crean en ninguna migración.
+
 ## 3. Estado actual
 
 ### Lenguajes — hecho y probado

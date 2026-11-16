@@ -17,6 +17,8 @@ use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class SelectaByLanguagesCommand extends Command
 {
     protected $signature = 'selecta:languages';
@@ -78,6 +80,8 @@ class SelectaByLanguagesCommand extends Command
         /* ===========================
            LOOP LENGUAJES
         ============================ */
+        $linker = OfferEntityLinker::for('languages');
+
         foreach ($languages as $language) {
 
             $languageId   = $language->id;
@@ -92,8 +96,8 @@ class SelectaByLanguagesCommand extends Command
 
                 $text = $job['full_desc'];
 
-                // 🔥 MATCH MÁS FLEXIBLE
-                if (!$this->matchLanguage($text, $languageName)) {
+                // Fase B (matcher): antes str_contains sin límites de palabra (matchLanguage).
+                if (! $linker->confirms($languageId, $job['title'], $text)) {
                     continue;
                 }
 
@@ -107,7 +111,7 @@ class SelectaByLanguagesCommand extends Command
                     ->first();
 
                 if ($existing) {
-                    $existing->languages()->syncWithoutDetaching([$languageId]);
+                    $linker->attach($existing, [$languageId]);
                     $totalSkippedAll++;
                     continue;
                 }
@@ -125,12 +129,13 @@ class SelectaByLanguagesCommand extends Command
                     'source'      => 'selecta',
                     'external_id' => $externalId,
                     'url'         => $job['url'],
+                    'description' => $text,
                     'search_query'=> $languageName,
                     'published_at'=> now(),
                     'region'      => RegionHelper::fromCountry('PE'),
                 ]);
 
-                $offer->languages()->syncWithoutDetaching([$languageId]);
+                $linker->attach($offer, [$languageId]);
 
                 $totalNew++;
                 $totalInsertedAll++;
@@ -257,27 +262,6 @@ class SelectaByLanguagesCommand extends Command
             return 'N/A';
         }
     }
-    private function matchLanguage(string $text, string $language): bool
-{
-    $text = strtolower($text);
-
-    $map = [
-        'javascript' => ['javascript', 'js'],
-        'python'     => ['python', 'python3'],
-        'java'       => ['java'],
-        'php'        => ['php'],
-        'c#'         => ['c#', 'csharp'],
-    ];
-
-    if (isset($map[$language])) {
-        foreach ($map[$language] as $alias) {
-            if (str_contains($text, $alias)) return true;
-        }
-        return false;
-    }
-
-    return str_contains($text, $language);
-}
 private function fetchJobDetail(string $url): string
 {
     try {

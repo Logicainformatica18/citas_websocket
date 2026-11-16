@@ -15,6 +15,8 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class AdzunaByLanguagesCommand extends Command
 {
     protected $signature = 'adzuna:languages {--country=us} {--pages=1}';
@@ -149,6 +151,11 @@ $connectionOk = true; // ✅ clave
                 $totalFound += count($results);
 
                 foreach ($results as $job) {
+
+                    // Fase B (matcher): solo se asocia si el título o el extracto confirman el lenguaje
+                    if (! OfferEntityLinker::for('languages')->confirmsEntity($marketEntityId, $job['title'] ?? '', $job['description'] ?? '')) {
+                        continue;
+                    }
 
                     $existing = JobOffer::where('external_id',$job['id'] ?? null)->first();
 

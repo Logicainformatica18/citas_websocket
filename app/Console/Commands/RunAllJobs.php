@@ -14,7 +14,7 @@ class RunAllJobs extends Command
     public function handle()
     {
       $commands = [
-    // 'arbeitnow:languages', // Desactivado hasta Fase B (matcher)
+    'arbeitnow:languages',   // Fase B: feed clasificado con el matcher
     'arbeitnow:methodologies',
     // 'arbeitnow:technologies', // Desactivado hasta Fase B (matcher)
 
@@ -110,38 +110,38 @@ class RunAllJobs extends Command
 'jooble:technologies --country="Italy" --pages=1',
 'jooble:technologies --country="Mexico" --pages=1',
 
-// 'greenhouse:languages --company=cloudflare', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=stripe', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=discord', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=gitlab', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=dropbox', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=airbnb', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=datadog', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=notion', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=shopify', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=brex', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=zoom', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=hubspot', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=duolingo', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=figma', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=reddit', // Desactivado hasta Fase B (matcher)
+'greenhouse:languages --company=cloudflare',
+'greenhouse:languages --company=stripe',
+'greenhouse:languages --company=discord',
+'greenhouse:languages --company=gitlab',
+'greenhouse:languages --company=dropbox',
+'greenhouse:languages --company=airbnb',
+'greenhouse:languages --company=datadog',
+'greenhouse:languages --company=notion',
+'greenhouse:languages --company=shopify',
+'greenhouse:languages --company=brex',
+'greenhouse:languages --company=zoom',
+'greenhouse:languages --company=hubspot',
+'greenhouse:languages --company=duolingo',
+'greenhouse:languages --company=figma',
+'greenhouse:languages --company=reddit',
 
 // 🌱 Startups tech
-// 'greenhouse:languages --company=rippling', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=deel', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=ramp', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=mercury', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=wise', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=bolt', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=sentry', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=zapier', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=benchling', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=anduril', // Desactivado hasta Fase B (matcher)
+'greenhouse:languages --company=rippling',
+'greenhouse:languages --company=deel',
+'greenhouse:languages --company=ramp',
+'greenhouse:languages --company=mercury',
+'greenhouse:languages --company=wise',
+'greenhouse:languages --company=bolt',
+'greenhouse:languages --company=sentry',
+'greenhouse:languages --company=zapier',
+'greenhouse:languages --company=benchling',
+'greenhouse:languages --company=anduril',
 
 // // 🌱 Extra (si quieres más variedad)
-// 'greenhouse:languages --company=asana', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=grammarly', // Desactivado hasta Fase B (matcher)
-// 'greenhouse:languages --company=openai', // Desactivado hasta Fase B (matcher)
+'greenhouse:languages --company=asana',
+'greenhouse:languages --company=grammarly',
+'greenhouse:languages --company=openai',
 
 'reed:languages',
 'reed:methodologies',

@@ -2,7 +2,8 @@
 -- 12_matcher_aliases_rollback.sql
 -- ---------------------------------------------------------------------
 -- QUÉ HACE
---   Deshace 11_matcher_aliases.sql: elimina market_entity_aliases.
+--   Deshace 11_matcher_aliases.sql: elimina market_entity_aliases y deshabilita
+--   las filas de languages que 11 creó (Perl, Ruby, VBA, Lua, COBOL, F#).
 --   ATENCIÓN: se pierden también las reglas creadas a mano (la consulta del
 --   paso 0 las deja en pantalla antes de borrar).
 --   Desplegar antes el código anterior a la Fase B (el matcher sin la tabla
@@ -21,6 +22,15 @@ SET @sql = IF(@existe > 0,
   'SELECT a.id, me.entity_type, me.name, a.kind, a.pattern, a.case_sensitive, a.is_weak, a.window_chars, a.notes FROM market_entity_aliases a JOIN market_entities me ON me.id = a.market_entity_id WHERE a.notes IS NULL OR a.notes NOT LIKE ''[seed %'' ORDER BY me.entity_type, me.name',
   'SELECT ''market_entity_aliases no existe'' AS resultado');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Filas de languages creadas por 11: se DESHABILITAN (no se borran: pueden tener ofertas).
+SET @existe = (SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE() AND table_name = '_respaldo_lenguajes_2026_11');
+SET @sql = IF(@existe > 0,
+  'UPDATE languages l JOIN _respaldo_lenguajes_2026_11 r ON r.tabla = ''languages'' AND r.fila_id = l.id AND r.columna = ''creada'' SET l.enabled = 0, l.updated_at = NOW()',
+  'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SELECT 'Filas de languages creadas por 11: deshabilitadas (si había)' AS resultado;
 
 DROP TABLE IF EXISTS `market_entity_aliases`;
 SELECT 'OK 12: market_entity_aliases eliminada (si existía)' AS resultado;

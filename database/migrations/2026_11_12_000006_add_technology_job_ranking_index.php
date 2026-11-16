@@ -26,6 +26,11 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Índices con ALGORITHM=INPLACE e information_schema: solo MySQL (las pruebas usan SQLite)
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         foreach (self::INDEXES as [$table, $name, $columns]) {
             if (! $this->tableHasColumns($table, $columns)) {
                 $this->report("Omitido {$table}.{$name}: falta la tabla o alguna columna (" . implode(', ', $columns) . ').');

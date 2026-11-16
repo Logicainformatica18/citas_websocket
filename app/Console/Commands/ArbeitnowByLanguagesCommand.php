@@ -15,10 +15,11 @@ use App\Services\ScraperRunService;
 use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
 
 class ArbeitnowByLanguagesCommand extends Command
 {
-    protected $signature = 'arbeitnow:languages';
+    protected $signature = 'arbeitnow:languages {--pages=5 : páginas del feed (unas 100 ofertas cada una)}';
     protected $description = '🌍 Recorre todos los lenguajes y registra métricas de demanda laboral desde Arbeitnow (Europa/Asia), con geolocalización y modalidades estandarizadas.';
 
     protected $stats = ['api_hits' => 0, 'fallback' => 0, 'mapped' => 0];
@@ -83,103 +84,30 @@ SourceStatusService::start(
 $startedAt = now();
         try {
 
-           $baseQuery = MarketEntity::active()->where('entity_type', 'language')
-    ->orderBy('id');
+            // Fase B (matcher): la API de Arbeitnow ignora "search" y devuelve siempre el mismo feed.
+            // Se descarga el feed UNA vez (paginado) y cada oferta se clasifica por su texto.
+            $linker = OfferEntityLinker::for('languages');
+            $pages = max(1, (int) $this->option('pages'));
+            $perEntity = [];
+            $connectionOk = false;
 
-$lastLanguageId = MarketEntityMetric::where('source','Arbeitnow')
-    ->orderByDesc('created_at')
-    ->value('market_entity_id');
+            $this->info("🌐 Arbeitnow: {$pages} página(s) del feed, clasificadas con el matcher de lenguajes...");
 
-$languagesQuery = clone $baseQuery;
+            for ($page = 1; $page <= $pages; $page++) {
+                $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', ['page' => $page]);
+                $this->stats['api_hits']++;
 
-if ($lastLanguageId) {
-    $languagesQuery->where('id','>', $lastLanguageId);
-}
-
-$languages = $languagesQuery->pluck('name','id');
-
-if ($languages->isEmpty()) {
-    $languages = $baseQuery->pluck('name','id');
-}
-
-            if ($languages->isEmpty()) {
-                // 🔁 ciclo completo → volver al inicio
-                $languages = $baseQuery->get();
-            }
-
-
-            $this->info("🌐 Iniciando scraping de Arbeitnow por lenguaje ({$languages->count()} lenguajes)...");
-$connectionOk = false;
-           foreach ($languages as $marketEntityId => $languageName) {
- 
- 
-$language = $this->getLanguageFromMarketEntity(
-    $marketEntityId,
-    $languageName
-);
-
-                $this->warn("\n💡 Procesando lenguaje: {$languageName}");
-
-                $totalFound = 0;
-                $totalNew = 0;
-                $countries = [];
-                $modalities = []; 
-
-                /* ================= API PRINCIPAL ================= */
-                $response = Http::timeout(25)->get(
-                    'https://www.arbeitnow.com/api/job-board-api',
-                    ['search' => $languageName]
-                );
-
-
-if ($response->failed()) {
-
-    SourceStatusService::connectionFailed($source, 'Error API Arbeitnow');
-    continue;
-}
-$connectionOk = true; // ✅ AQUÍ sí
- 
-                
+                if ($response->failed()) {
+                    SourceStatusService::connectionFailed($source, "Error API Arbeitnow (página {$page})");
+                    break;
+                }
+                $connectionOk = true;
 
                 $jobs = $response->json()['data'] ?? [];
-                $totalFound = count($jobs);
-
-                /* ================= FALLBACK ================= */
-                if ($totalFound === 0) {
-                $this->stats['fallback']++;
-                    $backup = Http::timeout(25)->get(
-                        'https://www.arbeitnow.com/api/job-board-api'
-                    );
-if ($backup->failed()) {
-    SourceStatusService::connectionFailed($source, 'Fallback API error');
-    continue;
-}
-                    if ($backup->ok()) {
-                        $jobs = collect($backup->json()['data'] ?? [])
-                            ->filter(function ($job) use ($languageName) {
-                                $text = strtolower(
-                                    strip_tags(($job['title'] ?? '') . ' ' . ($job['description'] ?? ''))
-                                );
-
-                                $needle = strtolower($languageName);
-                                $needle = str_replace(['#', '++'], ['sharp', 'pp'], $needle);
-
-                                return preg_match("/\\b" . preg_quote($needle, '/') . "\\b/i", $text);
-                            })
-                            ->values()
-                            ->all();
-
-                        $totalFound = count($jobs);
-                    }
+                if (empty($jobs)) {
+                    break;
                 }
 
-                if ($totalFound === 0) {
-                    continue;
-                }
-
-                $foundAll += $totalFound;
-
-                /* ================= PROCESO DE OFERTAS ================= */
                 foreach ($jobs as $job) {
                     $title = $job['title'] ?? 'N/A';
                     $company = $job['company_name'] ?? null;
@@ -188,10 +116,15 @@ if ($backup->failed()) {
                     $urlJob = $job['url'] ?? null;
                     $isRemote = $job['remote'] ?? false;
 
-                    /* ================= MODALIDAD ================= */
-                    $modality = $this->extractModality($location, $isRemote);
+                    $matched = $linker->match($title, OfferEntityLinker::body(
+                        strip_tags($description), $job['tags'] ?? [], $job['job_types'] ?? []
+                    ));
+                    if (empty($matched)) {
+                        $skippedAll++;
+                        continue;
+                    }
 
-                    /* ================= UBICACIÓN ================= */
+                    $modality = $this->extractModality($location, $isRemote);
                     $countryCode = $this->detectCountryCode($location, $isRemote);
                     [$city, $lat, $lng, $country] = $this->getCoordsFromCountry(
                         $this->extractCity($location),
@@ -203,25 +136,21 @@ if ($backup->failed()) {
                         continue;
                     }
 
-                    /* ================= DEDUP ================= */
-                    $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
+                    $foundAll++;
+                    foreach ($matched as $entityId) {
+                        $perEntity[$entityId]['found'] = ($perEntity[$entityId]['found'] ?? 0) + 1;
+                    }
 
+                    $externalId = $job['slug'] ?? md5($urlJob ?? uniqid('arbeitnow_'));
                     $existing = JobOffer::where('source', 'Arbeitnow')
                         ->where('external_id', $externalId)
                         ->first();
 
                     if ($existing) {
-                       $existing->languages()->syncWithoutDetaching([
-    $language->id => [
-        'market_entity_id' => $marketEntityId
-    ]
-]);
+                        $linker->attach($existing, array_keys($matched));
                         $skippedAll++;
                         continue;
                     }
-
-                    /* ================= INSERT ================= */
-                    $region = RegionHelper::fromCountry($country);
 
                     $offer = JobOffer::create([
                         'title' => $title,
@@ -236,54 +165,41 @@ if ($backup->failed()) {
                         'source' => 'Arbeitnow',
                         'external_id' => $externalId,
                         'url' => $urlJob,
-                        'search_query' => $languageName,
+                        'search_query' => 'feed',
                         'published_at' => isset($job['created_at'])
                             ? Carbon::parse($job['created_at'])
                             : now(),
-                        'region' => $region,
+                        'region' => RegionHelper::fromCountry($country),
                     ]);
-
-                  $offer->languages()->syncWithoutDetaching([
-    $language->id => [
-        'market_entity_id' => $marketEntityId
-    ]
-]);
-
-                    $totalNew++;
+                    $linker->attach($offer, array_keys($matched));
                     $insertedAll++;
 
-                    $countries[$country] =
-                        ($countries[$country] ?? 0) + 1;
-                    $modalities[$modality] =
-                        ($modalities[$modality] ?? 0) + 1;
+                    foreach ($matched as $entityId) {
+                        $perEntity[$entityId]['new'] = ($perEntity[$entityId]['new'] ?? 0) + 1;
+                        $perEntity[$entityId]['countries'][$country] = ($perEntity[$entityId]['countries'][$country] ?? 0) + 1;
+                        $perEntity[$entityId]['modalities'][$modality] = ($perEntity[$entityId]['modalities'][$modality] ?? 0) + 1;
+                    }
                 }
 
-                /* ================= MÉTRICA DIARIA ================= */
-             MarketEntityMetric::updateOrCreate(
-[
-    'market_entity_id' => $marketEntityId,
-    'run_date' => now()->toDateString(),
-    'source' => 'Arbeitnow'
-],
-[
-    'entity_name' => $languageName,
-    'jobs_found_count' => $totalFound,
-    'jobs_new_count' => $totalNew,
-    'countries_breakdown' => $countries,
-    'modality_breakdown' => $modalities
-]
-);
-
-
-
-                $this->info("✅ {$languageName}: {$totalNew} nuevas | 🌍 {$totalFound} encontradas");
-                SourceStatusService::progress(
-    $source,
-    $foundAll,
-    $insertedAll,
-    $skippedAll
-);
+                SourceStatusService::progress($source, $foundAll, $insertedAll, $skippedAll);
             }
+
+            /* ================= MÉTRICA DIARIA POR LENGUAJE ================= */
+            $names = MarketEntity::whereIn('id', array_keys($perEntity))->pluck('name', 'id');
+            foreach ($perEntity as $entityId => $m) {
+                MarketEntityMetric::updateOrCreate(
+                    ['market_entity_id' => $entityId, 'run_date' => now()->toDateString(), 'source' => 'Arbeitnow'],
+                    [
+                        'entity_name' => $names[$entityId] ?? '',
+                        'jobs_found_count' => $m['found'] ?? 0,
+                        'jobs_new_count' => $m['new'] ?? 0,
+                        'countries_breakdown' => $m['countries'] ?? [],
+                        'modality_breakdown' => $m['modalities'] ?? [],
+                    ]
+                );
+            }
+
+            $this->info("✅ Arbeitnow: {$foundAll} ofertas con lenguajes, {$insertedAll} nuevas, {$skippedAll} omitidas (sin lenguaje, sin país o ya existentes)");
          if ($connectionOk) {
     SourceStatusService::connectionOk($source);
 } 
@@ -322,13 +238,6 @@ durationSeconds: now()->diffInSeconds($startedAt)
         }
     }
 
-protected function getLanguageFromMarketEntity($marketEntityId, $languageName)
-{
-   return Language::firstOrCreate(
-    ['name' => $languageName],
-    ['market_entity_id' => $marketEntityId]
-);
-}
     protected function extractCity(?string $location): ?string
     {
         if (empty($location))

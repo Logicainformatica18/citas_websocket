@@ -18,6 +18,8 @@
 |   lock_name            Cache::lock que impide dos recálculos a la vez (y clave de estado)
 |   log_prefix           prefijo de las líneas de log
 |   label                nombre en español para mensajes
+|   catalog_table        catálogo que usan los scrapers (languages, technologies…), con enabled y market_entity_id
+|   offer_relation       relación de JobOffer hacia el catálogo (escribe el pivote)
 */
 
 return [
@@ -38,6 +40,8 @@ return [
         'lock_name' => 'ranking-languages-refresh',
         'log_prefix' => '[LANGUAGE_RANKING]',
         'label' => 'lenguajes',
+        'catalog_table' => 'languages',
+        'offer_relation' => 'languages',
     ],
 
     'technologies' => [
@@ -58,6 +62,8 @@ return [
         'lock_name' => 'ranking-technologies-refresh',
         'log_prefix' => '[TECHNOLOGY_RANKING]',
         'label' => 'tecnologías',
+        'catalog_table' => 'technologies',
+        'offer_relation' => 'technologies',
     ],
 
 ];

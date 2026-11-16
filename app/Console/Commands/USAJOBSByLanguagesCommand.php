@@ -14,6 +14,8 @@ use Carbon\Carbon;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class USAJOBSByLanguagesCommand extends Command
 {
     protected $signature = 'usajobs:languages {--pages=1}';
@@ -105,6 +107,16 @@ public function handle()
 
                     $job = $item['MatchedObjectDescriptor'] ?? [];
 
+                    // Fase B (matcher)
+                    $usaText = OfferEntityLinker::body(
+                        $job['QualificationSummary'] ?? '',
+                        $job['UserArea']['Details']['JobSummary'] ?? '',
+                        $job['UserArea']['Details']['MajorDuties'] ?? []
+                    );
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['PositionTitle'] ?? '', $usaText)) {
+                        continue;
+                    }
+
                     $totalFound++;
                     $totalFoundAll++;
 
@@ -155,10 +167,11 @@ public function handle()
                         'external_id'  => $externalId,
                         'url'          => $job['PositionURI'] ?? null,
                         'search_query' => $languageName,
+                        'requirements' => $usaText,
                         'published_at' => $publishedAt,
                     ]);
 
-                    $offer->languages()->syncWithoutDetaching([$languageId]);
+                    OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

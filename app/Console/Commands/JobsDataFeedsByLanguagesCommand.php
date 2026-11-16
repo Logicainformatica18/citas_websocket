@@ -11,6 +11,8 @@ use App\Models\JobOffer;
 use App\Models\LanguageMetric;
 use Carbon\Carbon;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class JobsDataFeedsByLanguagesCommand extends Command
 {
     protected $signature = 'jobsdatafeeds:languages {--country=US} {--pages=2}';
@@ -110,10 +112,10 @@ class JobsDataFeedsByLanguagesCommand extends Command
                                     continue;
                                 }
 
-                                // 🧠 SCORE FLEXIBLE
-                                $score = $this->calculateLanguageScore($text, $languageName);
-
-                                if ($score === 0) {
+                                // Fase B (matcher): antes un puntaje con alias amplios (node/react → JavaScript, py → Python…)
+                                $jdfBody = OfferEntityLinker::body($job['description'] ?? '', $job['skills'] ?? []);
+                                $matched = OfferEntityLinker::for('languages')->match($job['title'] ?? '', $jdfBody);
+                                if (empty($matched)) {
                                     continue;
                                 }
 
@@ -157,11 +159,7 @@ class JobsDataFeedsByLanguagesCommand extends Command
                                         : now(),
                                 ]);
 
-                             $detectedLanguages = $this->detectLanguagesFromText($text);
-
-foreach ($detectedLanguages as $langId) {
-    $offer->languages()->syncWithoutDetaching([$langId]);
-}
+                             OfferEntityLinker::for('languages')->attach($offer, array_keys($matched));
 
                                 $new++;
                                 $rolesBreakdown[$role] = ($rolesBreakdown[$role] ?? 0) + 1;

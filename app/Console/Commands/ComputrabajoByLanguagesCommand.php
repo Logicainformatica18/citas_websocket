@@ -19,6 +19,8 @@ use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
 use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class ComputrabajoByLanguagesCommand extends Command
 {
     use JobFilterTrait; // 👈 usa el trait aquí
@@ -46,6 +48,9 @@ class ComputrabajoByLanguagesCommand extends Command
         've' => 'VES',
     ];
 
+
+/** Descripción del detalle por URL (una descarga por oferta y corrida) */
+protected array $detailCache = [];
 
 protected function normalizeUrl(string $url): string
 {
@@ -240,6 +245,27 @@ $connectionOk = true;
 $urlJob = "https://{$code}.computrabajo.com{$href}";
 $urlJob = $this->normalizeUrl($urlJob);
 
+                                // Fase B (matcher): confirmar con el título; si no basta y la oferta es nueva,
+                                // con la descripción del detalle (una descarga por URL y corrida). Las ofertas
+                                // existentes no se vuelven a descargar.
+                                $known = JobOffer::where('source', 'Computrabajo')->where('url', $urlJob)->first();
+                                $detailText = $known?->description;
+                                if (! OfferEntityLinker::for('languages')->confirmsEntity($marketEntityId, $title, $detailText)) {
+                                    if ($known) {
+                                        $totalSkippedAll++;
+                                        return;
+                                    }
+                                    if (! array_key_exists($urlJob, $this->detailCache)) {
+                                        $this->detailCache[$urlJob] = $this->scrapeJobDetail($urlJob)['description'] ?? '';
+                                        usleep(random_int(300000, 800000));
+                                    }
+                                    $detailText = $this->detailCache[$urlJob];
+                                    if (! OfferEntityLinker::for('languages')->confirmsEntity($marketEntityId, $title, $detailText)) {
+                                        $totalSkippedAll++;
+                                        return;
+                                    }
+                                }
+
                                 // 🏢 empresa
                                 $company = $offer->filter('p.fc_base a')->count()
                                     ? trim($offer->filter('p.fc_base a')->text())
@@ -280,11 +306,7 @@ $urlJob = $this->normalizeUrl($urlJob);
                                     ->first();
 
                                 if ($existingOffer) {
-                                    $existingOffer->languages()->syncWithoutDetaching([
-                                        $langId => [
-                                            'market_entity_id' => $marketEntityId
-                                        ]
-                                    ]);
+                                    OfferEntityLinker::for('languages')->attach($existingOffer, [$langId]);
                                     $totalSkippedAll++;
                                     return;
                                 }
@@ -316,17 +338,13 @@ $urlJob = $this->normalizeUrl($urlJob);
                                     'salary_min' => $salaryMin,
                                     'salary_max' => $salaryMax,
                                     'currency' => $currency,
-                                //    'description' => $detailData['description'] ?? null,
+                                    'description' => ($detailText ?? '') !== '' ? $detailText : null,
                                     'published_at' => now(),
                                     'created_at' => now(),
                                     'updated_at' => now(),
                                 ]);
 
-                                $offerModel->languages()->syncWithoutDetaching([
-                                    $langId => [
-                                        'market_entity_id' => $marketEntityId
-                                    ]
-                                ]);
+                                OfferEntityLinker::for('languages')->attach($offerModel, [$langId]);
 
                                 $totalNew++;
                                 $totalInsertedAll++;

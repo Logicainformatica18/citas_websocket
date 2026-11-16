@@ -100,3 +100,17 @@ fin y errores. Si un periodo falla se revierte solo ese y conserva sus datos ant
 - Después: `php artisan ranking:refresh-languages`.
 - `market_entities.slug` no se usa en URLs ni en otras tablas; solo lo usa `languages:discover-gaps` para evitar
   duplicados, y ese comando también compara por nombre.
+
+## Fase B: matcher de entidades (2026-11-16)
+
+| # | Script | Qué hace | Tiempo | Bloqueo |
+|---|---|---|---|---|
+| 11 | `11_matcher_aliases.sql` | Crea `market_entity_aliases` (reglas del matcher, común a todos los indicadores), carga 298 reglas de lenguajes y crea las filas de `languages` de Perl, Ruby, VBA, Lua, COBOL y F# | < 1 s | Ninguno |
+
+- Requiere `09`. Idempotente (probado: aplicar dos veces, revertir, volver a aplicar).
+- Reversión: `12_matcher_aliases_rollback.sql` (elimina la tabla y deshabilita las 6 filas creadas; no las borra).
+- El bloque de reglas se genera con `docs/produccion/herramientas/generar_aliases_sql.php languages language lenguajes`
+  desde `database/data/entity_aliases/languages.php`: no editar a mano.
+- Desde este despliegue los 14 scrapers de lenguajes solo asocian una oferta si el matcher confirma el lenguaje en
+  su texto, y escriben `language_job.market_entity_id` al insertar.
+- Auditoría (solo lectura): `php artisan entities:match-audit --type=languages --semester=2026-s2`.

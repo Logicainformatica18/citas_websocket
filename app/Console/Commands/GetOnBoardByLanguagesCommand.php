@@ -13,6 +13,8 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class GetOnBoardByLanguagesCommand extends Command
 {
     protected $signature = 'getonboard:languages {--pages=1}';
@@ -127,6 +129,18 @@ $connectionOk = true;
 
                         $attr       = $job['attributes'] ?? [];
                         $title      = $attr['title'] ?? 'N/A';
+
+                        // Fase B (matcher). La descripción completa de GetOnBoard está repartida en varios campos.
+                        $fullDesc = OfferEntityLinker::body(
+                            $attr['description_headline'] ?? '',
+                            strip_tags($attr['description'] ?? ''),
+                            strip_tags($attr['functions'] ?? ''),
+                            strip_tags($attr['desirable'] ?? ''),
+                            strip_tags($attr['projects'] ?? '')
+                        );
+                        if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, $fullDesc)) {
+                            continue;
+                        }
                         $company    = $attr['company']['data']['attributes']['name'] ?? null;
                         $country    = $attr['countries'][0] ?? 'Desconocido';
                         $city       = $attr['city'] ?? null;
@@ -170,8 +184,7 @@ $connectionOk = true;
                             ->first();
 
                         if ($existingOffer) {
-                            $existingOffer->languages()
-                                ->syncWithoutDetaching([$languageId]);
+                            OfferEntityLinker::for('languages')->attach($existingOffer, [$languageId]);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -180,7 +193,7 @@ $connectionOk = true;
                        
 
                         // 📄 Textos
-                        $desc         = strip_tags($attr['description'] ?? '');
+                        $desc         = $fullDesc;   // descripción completa (antes solo 'description', a menudo vacío)
                         $benefitsText = strip_tags($attr['benefits'] ?? '');
 
                         // 📊 Campos adicionales
@@ -222,8 +235,7 @@ $connectionOk = true;
                             'updated_at'        => now(),
                         ]);
 
-                        $offer->languages()
-                              ->syncWithoutDetaching([$languageId]);
+                        OfferEntityLinker::for('languages')->attach($offer, [$languageId]);
 
                         $totalNew++;
                     }

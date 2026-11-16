@@ -15,6 +15,9 @@
 --      Generadas desde database/data/entity_aliases/languages.php con
 --      docs/produccion/herramientas/generar_aliases_sql.php: no editar a mano
 --      el bloque generado; cambiar el archivo PHP y regenerar.
+--   3. Crea las filas de languages de Perl, Ruby, VBA, Lua, COBOL y F# (entidades
+--      activas sin fila: ningún scraper las buscaba). Las filas creadas quedan en
+--      _respaldo_lenguajes_2026_11 (columna = 'creada') para que 12 las deshabilite.
 --
 -- REQUISITOS
 --   MySQL 8.0+. 09_ranking_languages_entidades.sql aplicado (slug 'fsharp').
@@ -613,6 +616,48 @@ SELECT CONCAT('Reglas sembradas: ', COUNT(*), ' (esperadas 298)') AS resultado
 -- ====================== FIN DEL BLOQUE GENERADO =======================
 
 COMMIT;
+
+-- ---------------------------------------------------------------------
+-- 3. Filas de languages para los lenguajes activos que no tenían
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `_respaldo_lenguajes_2026_11` (
+  `tabla`          VARCHAR(64)  NOT NULL,
+  `fila_id`        BIGINT UNSIGNED NOT NULL,
+  `columna`        VARCHAR(64)  NOT NULL,
+  `valor_anterior` VARCHAR(255) NULL,
+  `respaldado_en`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`tabla`, `fila_id`, `columna`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Filas que ya existían sin vínculo: vincularlas (no se crean duplicados)
+UPDATE languages l
+  JOIN market_entities me ON me.entity_type = 'language' AND me.name = l.name
+   SET l.market_entity_id = me.id
+ WHERE me.slug IN ('perl', 'ruby', 'vba', 'lua', 'cobol', 'fsharp') AND l.market_entity_id IS NULL;
+SELECT CONCAT('Filas de languages existentes vinculadas: ', ROW_COUNT()) AS resultado;
+
+-- Re-aplicación después de 12: reactivar las filas que este script creó antes
+UPDATE languages l
+  JOIN `_respaldo_lenguajes_2026_11` r ON r.tabla = 'languages' AND r.fila_id = l.id AND r.columna = 'creada'
+   SET l.enabled = 1, l.updated_at = NOW()
+ WHERE l.enabled = 0;
+SELECT CONCAT('Filas creadas antes por 11, reactivadas: ', ROW_COUNT()) AS resultado;
+
+INSERT INTO languages (name, enabled, market_entity_id, created_at, updated_at)
+SELECT me.name, 1, me.id, NOW(), NOW()
+  FROM market_entities me
+ WHERE me.entity_type = 'language' AND me.is_active = 1
+   AND me.slug IN ('perl', 'ruby', 'vba', 'lua', 'cobol', 'fsharp')
+   AND NOT EXISTS (SELECT 1 FROM languages l WHERE l.name = me.name);
+SET @creadas = ROW_COUNT();
+SELECT CONCAT('Filas de languages creadas: ', @creadas) AS resultado;
+
+-- Respaldo: solo las filas recién creadas (la última inserción de este script)
+INSERT IGNORE INTO `_respaldo_lenguajes_2026_11` (tabla, fila_id, columna, valor_anterior)
+SELECT 'languages', l.id, 'creada', NULL
+  FROM languages l
+ WHERE @creadas > 0
+   AND l.id >= LAST_INSERT_ID() AND l.id < LAST_INSERT_ID() + @creadas;
 
 -- Verificación: reglas por lenguaje
 SELECT me.name, me.is_active,
