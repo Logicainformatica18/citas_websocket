@@ -432,6 +432,7 @@ Todo el trabajo está commiteado y subido en la rama `observer`:
 | `83c841c` | Fases 3 y 4 de Tecnologías (reglas, 12 scrapers, limpieza con reasignación, scripts 10-14) |
 | `1990bdf` | Ranking de Certificaciones completo (scripts `ranking_certificaciones/01-11`) |
 | `0e4f50d` | Búsqueda de certificaciones corregida (keywords, script 12-13) y despliegue consolidado `DESPLIEGUE_RANKINGS_PRODUCCION.sql` |
+| `42c724d` | Exclusión de asociaciones sin borrar (`entity_association_exclusions`, `entities:exclude-associations`) |
 
 **El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
 `d84a4dd`. **A partir de `d84a4dd` todo es coherente.** No conviene desplegar ni hacer checkout de `b048f75` aislado.
