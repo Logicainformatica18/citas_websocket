@@ -132,6 +132,29 @@ final class OfferEntityLinker
         return $out;
     }
 
+    /**
+     * Asocia la oferta solo si el matcher confirma la entidad en el texto de la oferta
+     * (título + description + requirements + skills ya guardados, más $extraText si se pasa).
+     * $id es la fila del catálogo, o la entidad si $isEntity. Para scrapers cuya lógica de
+     * búsqueda se conserva (Certificaciones): toda escritura al pivote pasa por aquí.
+     */
+    public function attachIfConfirmed(JobOffer $offer, int $id, bool $isEntity = false, ?string $extraText = null): bool
+    {
+        $entityId = $isEntity ? $id : $this->entityFor($id);
+        $catalogId = $isEntity ? $this->catalogFor($id) : $id;
+        $ok = $entityId !== null && $catalogId !== null && $this->matcher->confirms(
+            $entityId,
+            (string) $offer->title,
+            self::body($offer->description, $offer->requirements, $offer->skills, $extraText)
+        );
+        $this->stats[$ok ? 'confirmed' : 'rejected']++;
+        if ($ok) {
+            $this->attach($offer, [$catalogId]);
+        }
+
+        return $ok;
+    }
+
     /** Asocia la oferta a las filas del catálogo indicadas, con su market_entity_id. */
     public function attach(JobOffer $offer, array $catalogIds): void
     {

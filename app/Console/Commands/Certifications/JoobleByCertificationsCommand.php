@@ -15,6 +15,8 @@ use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class JoobleByCertificationsCommand extends Command
 {
     protected $signature = 'jooble:certifications {--country=United States} {--pages=5}';
@@ -78,7 +80,7 @@ class JoobleByCertificationsCommand extends Command
             (int) $this->option('pages');
 
         // ✅ certificaciones
-        $certifications = Certification::where('enabled', 1)
+        $certifications = Certification::active()
             ->pluck('name', 'id');
 
         $this->info(
@@ -294,10 +296,7 @@ class JoobleByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                $existing->certifications()
-                                    ->syncWithoutDetaching([
-                                        $certId
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
                             }
 
                             $totalDuplicates++;
@@ -394,10 +393,7 @@ class JoobleByCertificationsCommand extends Command
                                 $region,
                         ]);
 
-                        $offer->certifications()
-                            ->syncWithoutDetaching([
-                                $certId
-                            ]);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
 
                         $totalNew++;
 

@@ -12,6 +12,8 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
+use App\Services\Matching\OfferEntityLinker;
+
 class GetOnBoardByCertificationsCommand extends Command
 {
     protected $signature = 'getonboard:certifications {--pages=1}';
@@ -62,7 +64,7 @@ class GetOnBoardByCertificationsCommand extends Command
 
     try {
 
-        $certifications = Certification::where('enabled', 1)
+        $certifications = Certification::active()
             ->whereNotNull('keywords')
             ->get(['id', 'name', 'keywords']);
 
@@ -257,10 +259,7 @@ class GetOnBoardByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                $existing->certifications()
-                                    ->syncWithoutDetaching([
-                                        $certId
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
                             }
 
                             continue;
@@ -314,10 +313,7 @@ class GetOnBoardByCertificationsCommand extends Command
                                     : now(),
                         ]);
 
-                        $offer->certifications()
-                            ->syncWithoutDetaching([
-                                $certId
-                            ]);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
 
                         $totalNew++;
 

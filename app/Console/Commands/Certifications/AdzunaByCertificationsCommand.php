@@ -19,6 +19,8 @@ use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
 use Illuminate\Support\Str;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class AdzunaByCertificationsCommand extends Command
 {
     protected $signature = 'adzuna:certifications {--country=us} {--pages=1}';
@@ -104,7 +106,7 @@ class AdzunaByCertificationsCommand extends Command
         $baseQuery = MarketEntity::where(
             'entity_type',
             'certification'
-        )->orderBy('id');
+        )->where('is_active', 1)->orderBy('id');
 
         /* =====================================================
            ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD
@@ -226,8 +228,7 @@ class AdzunaByCertificationsCommand extends Command
 
                         if ($existing) {
 
-                            $existing->marketCertifications()
-                                ->syncWithoutDetaching([$entityId]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
                         }
 
                         $totalDuplicate++;
@@ -336,8 +337,7 @@ class AdzunaByCertificationsCommand extends Command
                     ]);
 
                     // ✅ attach certification
-                    $offer->marketCertifications()
-                        ->syncWithoutDetaching([$entityId]);
+                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true);
 
                     $totalNew++;
 

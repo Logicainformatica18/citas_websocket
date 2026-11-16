@@ -14,6 +14,8 @@ use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class RemotiveByCertificationsCommand extends Command
 {
     protected $signature = 'remotive:certifications';
@@ -57,7 +59,7 @@ class RemotiveByCertificationsCommand extends Command
         /**
          * ✅ Certificaciones con keywords
          */
-        $certifications = Certification::select(
+        $certifications = Certification::active()->select(
             'id',
             'name',
             'keywords'
@@ -293,10 +295,7 @@ class RemotiveByCertificationsCommand extends Command
                                 )
                             ) {
 
-                                $existing->certifications()
-                                    ->syncWithoutDetaching([
-                                        $cert->id
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id);
                             }
 
                             $totalDuplicates++;
@@ -403,10 +402,7 @@ class RemotiveByCertificationsCommand extends Command
                             )
                         ) {
 
-                            $offer->certifications()
-                                ->syncWithoutDetaching([
-                                    $cert->id
-                                ]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $cert->id);
                         }
 
                         $totalNew++;

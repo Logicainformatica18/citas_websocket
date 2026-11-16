@@ -13,6 +13,8 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
+use App\Services\Matching\OfferEntityLinker;
+
 class GreenhouseByCertificationsCommand extends Command
 {
     protected $signature = 'greenhouse:certifications {--company=*}';
@@ -66,7 +68,7 @@ class GreenhouseByCertificationsCommand extends Command
     try {
 
         // 🔹 certificaciones
-        $certifications = Certification::where('enabled', 1)
+        $certifications = Certification::active()
             ->select('id', 'name', 'keywords')
             ->get();
 
@@ -284,10 +286,7 @@ class GreenhouseByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                $existing->certifications()
-                                    ->syncWithoutDetaching([
-                                        $certId
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
                             }
 
                             $found[] = $externalId;
@@ -361,10 +360,7 @@ class GreenhouseByCertificationsCommand extends Command
                                 $region,
                         ]);
 
-                        $offer->certifications()
-                            ->syncWithoutDetaching([
-                                $certId
-                            ]);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
 
                         $new[]   = $externalId;
                         $found[] = $externalId;

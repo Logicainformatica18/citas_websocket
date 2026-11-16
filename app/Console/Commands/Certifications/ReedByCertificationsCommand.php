@@ -12,6 +12,8 @@ use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class ReedByCertificationsCommand extends Command
 {
     protected $signature = 'reed:certifications {--pages=1}';
@@ -57,7 +59,7 @@ class ReedByCertificationsCommand extends Command
         /**
          * ✅ certificaciones
          */
-        $certifications = Certification::pluck('name', 'id');
+        $certifications = Certification::active()->pluck('name', 'id');
 
         if ($certifications->isEmpty()) {
 
@@ -190,10 +192,7 @@ class ReedByCertificationsCommand extends Command
                                 )
                             ) {
 
-                                $existing->certifications()
-                                    ->syncWithoutDetaching([
-                                        $certificationId
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certificationId);
                             }
 
                             $this->stats['skipped']++;
@@ -338,10 +337,7 @@ class ReedByCertificationsCommand extends Command
                             )
                         ) {
 
-                            $jobOffer->certifications()
-                                ->syncWithoutDetaching([
-                                    $certificationId
-                                ]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $certificationId);
                         }
 
                         $totalNew++;

@@ -138,42 +138,65 @@ Bloque 3 (Fases 3 y 4 de Tecnologías):
 - Herramienta de foto dorada generalizada: `docs/produccion/herramientas/foto_dorada.php <tipo> capture|compare <dir>`
   (`foto_dorada_lenguajes.php` queda como envoltorio). Fotos post-limpieza en `storage/app/foto_dorada/`.
 
+Bloque 4 (Certificaciones completo):
+- Refactor a `EntityRankingService` (`config/entity_rankings.php` 'certifications', `CertificationRankingService`,
+  `ranking:refresh-certifications`, tablas resumen, evolución como foto, botón, export en streaming). La tendencia pasa a
+  la fórmula común `LOG(reportes+1)/LOG(max+1)*100` (antes menciones/total de reportes). Se conservan 4 tarjetas por
+  página y el filtro por área (`EntityRankingService::paginate` admite `$categories`).
+- **"Eliminar" en `MarketEntityController::destroy` ahora desactiva** para todos los tipos de entidad (antes borraba la
+  entidad y, en cascada, sus ofertas; Lenguajes y Tecnologías ya desactivaban desde sus propios controladores).
+- 12 duplicados desactivados (CISSP/CISM con nombre largo, los "Microsoft Certified: …" y "AWS Certified …" repetidos,
+  versiones 2021 de Oracle). No se tocaron certificaciones dudosas que podrían no existir ("Azure AI Ethics Specialist",
+  "Responsible AI Certification by Microsoft"): quedan activas con su nombre como única regla.
+- CompTIA A+ dada de alta; Cisco CyberOps Associate ya existía. Sus 13 701 asociaciones de `technology_job` se copiaron
+  a `certification_job` y la limpieza conservó las que el matcher confirma (16 de CompTIA A+, 0 de CyberOps).
+- Los scrapers de certificaciones conservan su búsqueda por keywords, pero **toda escritura al pivote pasa por
+  `OfferEntityLinker::attachIfConfirmed()`** (confirma con el texto de la oferta). Solo recorren certificaciones activas.
+- Las filas de `certifications` sin keywords reciben `["<nombre>"]` (la columna tiene restricción JSON).
+- `certification_aliases` (22 alias genéricos: "AWS", "AZURE", "SCRUM") queda sin uso; no se borra.
+- No se infiere el nivel: "AWS Solutions Architect" sin Associate/Professional no cuenta para ninguna.
+- `certification_job` admite `certification_id` NULL (filas escritas por entidad): la plantilla de limpieza lo respeta.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
-  JobsDataFeeds. Costo real por lenguaje nuevo: Adzuna 17 + Jooble 8 + Computrabajo 8 = 33 llamadas por corrida.
+  JobsDataFeeds. Adzuna y Computrabajo recorren entidades (ya incluían a los 6); las filas nuevas suman 8 llamadas
+  por lenguaje en Jooble.
 - RemoteOk, BuiltIn, Remotive, Wantedly y JobsDataFeeds no están en `RunAllJobs.php` (no se ejecutan).
 - Computrabajo no tiene asociaciones de lenguajes en 2026-s2 (¿scraper caído?).
 - (Resuelto en el Bloque 3) Greenhouse guardaba en `requirements` el HTML escapado; ahora usa `OfferEntityLinker::plain()`.
 - Adzuna busca la oferta existente por `external_id` sin filtrar la fuente.
 - `tests/Unit/ExampleTest` falla con SQLite: `market_entities` (y otras tablas base) no se crean en ninguna migración.
+- **Scrapers de certificaciones: leen `certifications.keywords` (JSON) sin decodificar** (GetOnBoard, RemoteOk, Remotive…)
+  y buscan literalmente `["…"]`; encuentran poco. Corregirlo exige cambiar cómo cada uno lee la columna.
+- Rutas de Certificaciones a métodos inexistentes (error 500): `/trending` → `trendingCertifications`,
+  `/trend/{trend}/jobs` → `jobsByTechnologyTrend`. (Las de Lenguajes, ya anotadas, siguen igual.)
+- `app/Exports/CertificationsWeeklyExport.php` y `certification_evolution_cache` quedan sin uso (no se borran).
+- La administración de entidades no tiene botón para **reactivar** una entidad desactivada (se hace por SQL).
+- Errores de TypeScript previos en las páginas de ranking (`tsc --noEmit`); `npm run build` compila igual.
 
-## 3. Estado actual
+## 3. Estado actual (2026-11-16: plan completo)
 
 ### Lenguajes — hecho y probado
-- Tablas de resumen, índices, comando, botón, evolución como foto, export en streaming: ✅
-- Filtro de activos en ranking/evolución/export/14 scrapers; "eliminar" desactiva; `$fillable` corregido: ✅
-- IDC y OECD desactivadas (organizaciones). ✅
-- Página: 35,7 s → ~0,1 s. Recálculo completo: 12-45 s (depende del caché de InnoDB local).
-- Refactor a `EntityRankingService` validado con **foto dorada: 0 diferencias** (antes del cambio de mostrar ceros en el export).
-- Scripts DBA: `ranking_lenguajes/01-08` (ver su README).
+- Tablas de resumen, evolución como foto, botón, export, activos (Fase A), matcher en los 14 scrapers (Fase B) y
+  limpieza de `language_job` (Fase C: 267 926 → 34 419 filas). Página: 35,7 s → ~0,06 s.
+- Scripts DBA: `ranking_lenguajes/01-15` (ver su README).
 
-### Tecnologías — Fase 2 hecha y probada
-- Página: 15,0 s / 32,0 s → ~0,3 s. Recálculo completo: 77-200 s (buffer pool local de 128 MB); un semestre: 25-80 s.
-- Corregidos 3 bugs de cálculo: máximo de tendencias de cualquier tipo de entidad (era IDC, 163); `reportes_analizados`
-  de todos los tipos; normalización laboral contra el grupo de ofertas sin entidad (11 243 > Docker).
-- Filtro `ranking_type` eliminado (se leía y nunca se aplicaba; la interfaz no tenía control).
-- 140 entidades desactivadas (script 06, aprobado): organizaciones, normas/marcos, conceptos genéricos,
-  protocolos/algoritmos, otro indicador (CompTIA A+, Cyberops), Transformers (ambiguo) y 41 duplicados → quedan **312**.
-  Detalle: `ranking_tecnologias/entidades_propuesta.csv`.
-- Carreras migradas a `market_entity_career` (481 pares, script 08). Filtro por carrera verificado: mismas tecnologías y
-  posiciones en las 9 carreras × 2 semestres, más 30 pares (tecnologías de IA) que ya estaban en `market_entity_career`.
-- Foto de la semana actual = ranking principal (312/312). Export semanal: 20 000+ filas con 128 MB.
-- Scripts DBA: `ranking_tecnologias/01-09` (ver su README).
+### Tecnologías — hecho y probado
+- Fase 2 (resumen, entidades, carreras), Fase 3 (matcher en los 12 scrapers, 968 reglas, Transformers reactivado) y
+  Fase 4 (limpieza con reasignación de duplicados: `technology_job` 2 159 306 → 536 880). Página: 15-32 s → ~0,08 s.
+- Scripts DBA: `ranking_tecnologias/01-14` (ver su README).
 
-### Certificaciones — sin empezar
-Solo diagnosticado de pasada: tiene el mismo patrón (cálculo en vivo, `certification_evolution_cache`,
-`certifications:take-snapshot`/`backfill-all`) y usa `JobMarketStatusController` (ya cacheado).
+### Certificaciones — hecho y probado
+- Todo el criterio de una vez (ver Bloque 4 en "Decisiones tomadas sin consulta"). `certification_job` 45 214 → 726.
+  Página: cálculo en vivo → ~0,04 s.
+- Scripts DBA: `ranking_certificaciones/01-11` (ver su README).
+
+### Verificación final
+- Foto de la semana actual = ranking principal: Lenguajes 26/26, Tecnologías 313/313, Certificaciones 79/79.
+- Fotos doradas post-limpieza (`storage/app/foto_dorada/*_2026-11-16_post_limpieza/`): Lenguajes y Tecnologías siguen
+  con 0 diferencias después de todo el Bloque 4; Certificaciones capturada y verificada.
+- Tests: `tests/Unit/EntityTextMatcher*Test.php` (15 tests).
 
 ---
 
@@ -228,7 +251,7 @@ Solo diagnosticado de pasada: tiene el mismo patrón (cálculo en vivo, `certifi
 
 ---
 
-## 5. Plan restante (en orden; detenerse al final de cada paso)
+## 5. Plan (histórico; completado el 2026-11-16)
 
 **Antes de empezar cualquier paso:** recapturar la foto dorada de Lenguajes el mismo día
 (`php83 docs/produccion/herramientas/foto_dorada_lenguajes.php capture <dir>`): la anterior quedó obsoleta por la fecha
@@ -279,25 +302,40 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 
 ## 6. Producción: pasos pendientes (en orden)
 
-1. **DBA, Lenguajes** (`ranking_lenguajes/`): respaldo → `01` → `02` → `05` → `06` → `09` (entidades) → `04` y `08` (verificación).
-2. **DBA, Tecnologías** (`ranking_tecnologias/`): respaldo de `technology_job`, `market_entities`, `market_entity_career` →
-   `05` → `01` → `02` → `08` (carreras) → `06` (entidades) → `04` (verificación).
-3. **Desplegar el código.**
-4. En el servidor:
+0. **Respaldo completo de la base** (o, como mínimo, de `language_job`, `technology_job`, `certification_job`,
+   `market_entities`, `languages`, `technologies`, `certifications`, `market_entity_career`, `job_offers`, `scraper_runs`).
+   No correr `jobs:run-all` ni scrapers durante los pasos 1-6.
+1. **DBA, Lenguajes** (`ranking_lenguajes/`): `01` → `02` → `05` → `06` → `09` → `11` → `13`.
+2. **DBA, Tecnologías** (`ranking_tecnologias/`): `05` → `01` → `02` → `08` → `06` → `10` → `12`.
+3. **DBA, Certificaciones** (`ranking_certificaciones/`): `01` → `02` → `05` → `07` → `09`.
+4. **Desplegar el código** y en el servidor: `php artisan optimize:clear` y `php artisan queue:restart`.
+5. **Limpieza** (la decide la aplicación, la aplica el DBA; los scripts usan DELIMITER → cliente `mysql`):
    ```sh
-   php artisan optimize:clear
+   php artisan entities:clean-associations --type=languages --dry-run      # informe (opcional)
+   php artisan entities:clean-associations --type=languages                # → DBA: ranking_lenguajes/14
+   php artisan entities:clean-associations --type=technologies             # → DBA: ranking_tecnologias/13
+   php artisan entities:clean-associations --type=certifications           # → DBA: ranking_certificaciones/10
+   ```
+6. Recalcular:
+   ```sh
    php artisan ranking:refresh-languages
    php artisan ranking:refresh-technologies
-   php artisan queue:restart          # obligatorio: los workers deben cargar el código nuevo
-   php artisan schedule:list          # 07:00 ranking:refresh-languages y ranking:refresh-technologies
+   php artisan ranking:refresh-certifications
+   php artisan schedule:list   # 0 7 * * * para los tres
    ```
-5. **Crons a quitar** (no están en el repo; crontab del servidor o panel de tareas):
-   `languages:take-snapshot`, `technologies:take-snapshot`, y `languages:backfill-all` / `technologies:backfill-all`
-   si estuvieran programados. (Sin `--legacy` ya no hacen nada, pero conviene quitarlos.)
-6. Comprobar que existe el cron `* * * * * php artisan schedule:run` (si no, las 07:00 no se ejecutan; `jobs:run-all`
-   igual recalcula al final).
-7. Worker de colas: `php artisan queue:work --sleep=3 --tries=3 --timeout=170` (el botón lo necesita).
-8. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+7. Verificación (solo lectura): `ranking_lenguajes/04` y `08`, `ranking_tecnologias/04`, `ranking_certificaciones/04`.
+8. **Crons a quitar** (no están en el repo; crontab del servidor o panel de tareas): `languages:take-snapshot`,
+   `technologies:take-snapshot`, `certifications:take-snapshot` y los `*:backfill-all` si estuvieran programados (sin
+   `--legacy` ya no hacen nada). Revisar también que `greenhouse:technologies` no esté programado fuera del repo.
+9. Comprobar el cron `* * * * * php artisan schedule:run` y el worker `php artisan queue:work --sleep=3 --tries=3 --timeout=170`.
+10. **Adzuna**: `adzuna:languages` recorre las entidades de lenguaje activas, no las filas de `languages`: hoy 26 × 17
+    países = 442 llamadas por ciclo completo (antes de la Fase A eran 28 entidades → 476). Las filas nuevas de
+    `languages` agregan llamadas en Jooble (8 por lenguaje). Revisar en el panel de desarrollador de Adzuna el límite del
+    plan (por minuto, día y mes) frente al consumo real de `adzuna:languages`, `:technologies` y `:certifications`
+    (17 países cada uno); si no alcanza, bajar países o la frecuencia.
+11. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+
+Reversión por indicador: ver el README de cada carpeta (cada script tiene su rollback, probado en local).
 
 ---
 

@@ -768,7 +768,7 @@ abstract class EntityRankingService
      * Ranking paginado del periodo con los pesos vigentes.
      * position es la posición global del periodo (antes de filtros de carrera/búsqueda).
      */
-    public function paginate(int $year, string $period, float $laborWeight, float $trendWeight, array $careers = [], ?string $search = null, int $perPage = 10): LengthAwarePaginator
+    public function paginate(int $year, string $period, float $laborWeight, float $trendWeight, array $careers = [], ?string $search = null, int $perPage = 10, array $categories = []): LengthAwarePaginator
     {
         // Los pesos se validan como numéricos (0..1) al guardarlos; se pasan como bindings.
         $finalExpr = '(lr.labor_score * ? + lr.trend_score * ?)';
@@ -825,6 +825,16 @@ abstract class EntityRankingService
                     ->join('careers as ca', 'ca.id', '=', 'mec.career_id')
                     ->whereColumn('mec.market_entity_id', 'r.market_entity_id')
                     ->whereIn('ca.slug', $careers);
+            });
+        }
+
+        // Filtro por área (market_entities.category); lo usa Certificaciones
+        if (! empty($categories)) {
+            $query->whereExists(function ($q) use ($categories) {
+                $q->select(DB::raw(1))
+                    ->from('market_entities as mcat')
+                    ->whereColumn('mcat.id', 'r.market_entity_id')
+                    ->whereIn('mcat.category', $categories);
             });
         }
 

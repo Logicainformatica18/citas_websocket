@@ -10,11 +10,19 @@ use Carbon\Carbon;
 
 class BackfillCertificationHistoryCommand extends Command
 {
-    protected $signature = 'certifications:backfill-all {year=2026}';
-    protected $description = 'Reconstruye el historial (Semanal, Quincenal y Mensual) para certificaciones guardando la foto exacta acumulada de cada fecha de corte.';
+    protected $signature = 'certifications:backfill-all {year=2026} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
+    protected $description = '[RETIRADO] Reconstruye el historial (Semanal, Quincenal y Mensual) para certificaciones guardando la foto exacta acumulada de cada fecha de corte.';
 
     public function handle()
     {
+        // RETIRADO: el modal y el export de Certificaciones leen certification_ranking_weekly, que llena
+        // ranking:refresh-certifications. Se conserva el archivo (y certification_evolution_cache) por si hay
+        // que consultarlo; sin --legacy no hace nada (para que un cron olvidado no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('certifications:backfill-all está RETIRADO: la evolución la calcula ranking:refresh-certifications. No se hizo nada. Desactiva su cron.');
+
+            return self::SUCCESS;
+        }
         $year = (int) $this->argument('year');
 
         /* ==================================================

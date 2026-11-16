@@ -13,6 +13,8 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class RemoteOkByCertificationsCommand extends Command
 {
     protected $signature = 'remoteok:certifications';
@@ -47,7 +49,7 @@ class RemoteOkByCertificationsCommand extends Command
 
     try {
 
-        $certifications = Certification::select(
+        $certifications = Certification::active()->select(
             'id',
             'name',
             'keywords'
@@ -228,10 +230,7 @@ class RemoteOkByCertificationsCommand extends Command
                             )
                         ) {
 
-                            $existing->certifications()
-                                ->syncWithoutDetaching([
-                                    $cert->id
-                                ]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id);
                         }
 
                         continue;
@@ -312,10 +311,7 @@ class RemoteOkByCertificationsCommand extends Command
                         )
                     ) {
 
-                        $jobOffer->certifications()
-                            ->syncWithoutDetaching([
-                                $cert->id
-                            ]);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($jobOffer, $cert->id);
                     }
 
                     $new++;

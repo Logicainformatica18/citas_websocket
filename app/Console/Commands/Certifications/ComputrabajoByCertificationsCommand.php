@@ -20,6 +20,8 @@ use App\Models\MarketEntityMetric;
 
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class ComputrabajoByCertificationsCommand extends Command
 {
     use JobFilterTrait;
@@ -90,7 +92,7 @@ class ComputrabajoByCertificationsCommand extends Command
         $baseQuery = MarketEntity::where(
             'entity_type',
             'certification'
-        )->orderBy('id');
+        )->where('is_active', 1)->orderBy('id');
 
         /* =====================================================
            ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD
@@ -307,10 +309,7 @@ class ComputrabajoByCertificationsCommand extends Command
 
                             if ($existing) {
 
-                                $existing->marketCertifications()
-                                    ->syncWithoutDetaching([
-                                        $entityId
-                                    ]);
+                                OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
 
                                 return;
                             }
@@ -379,10 +378,7 @@ class ComputrabajoByCertificationsCommand extends Command
                             ]);
 
                             // ✅ attach market entity
-                            $job->marketCertifications()
-                                ->syncWithoutDetaching([
-                                    $entityId
-                                ]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($job, $entityId, true);
 
                             $totalNew++;
 

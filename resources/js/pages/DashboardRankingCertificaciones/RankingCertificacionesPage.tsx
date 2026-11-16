@@ -43,7 +43,12 @@ type PageProps = {
   kpis: any;
   meta: {
     year: number;
-    period: string;
+    period: "s1" | "s2";
+    periodo_label: string;
+    vacantes_analizadas: number;
+    reportes_analizados: number;
+    has_data?: boolean;
+    calculated_at_label?: string | null;
   };
   weights: {
     laborWeight: number;
@@ -236,6 +241,19 @@ const [openEvolutionModal, setOpenEvolutionModal] = useState(false);
 
               {/* ================= FILTROS ================= */}
               <RankingFilters />
+
+              {/* Primera vez: el ranking del periodo aún no se ha calculado */}
+              {meta.has_data === false && (
+                <div className="rounded-2xl border border-dashed border-teal-400/60 bg-teal-50/60 p-6 text-center dark:bg-[#102C3C]">
+                  <p className="text-base font-semibold text-[#0A2540] dark:text-slate-100">
+                    El ranking de este periodo todavía no está disponible
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    Se calcula automáticamente todos los días a las 7:00 a. m. (hora de Perú).
+                    Si eres administrador, puedes generarlo ahora con «Recalcular ranking».
+                  </p>
+                </div>
+              )}
 
               {/* ================= RANKING ================= */}
               <RankingList

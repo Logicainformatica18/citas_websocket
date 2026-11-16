@@ -180,27 +180,23 @@ class MarketEntityController extends Controller
     }
 
     /**
-     * 🗑️ Eliminar entidad
+     * 🗑️ "Eliminar" entidad: la DESACTIVA (market_entities.is_active = 0), no la borra.
+     * Borrar arrastraba en cascada sus ofertas (certification_job, language_job, technology_job)
+     * y los scrapers la volvían a crear. Rankings, evolución y scrapers ignoran las inactivas.
      */
 public function destroy($id)
 {
-    return DB::transaction(function () use ($id) {
+    $entity = MarketEntity::findOrFail($id);
 
-        $entity = MarketEntity::findOrFail($id);
+    $entity->forceFill([
+        'is_active' => false,
+        'inactive_reason' => 'Desactivada desde la administración',
+        'inactive_at' => now(),
+    ])->save();
 
-        // 1. Eliminar relaciones pivot
-        $entity->careers()->detach();
-
-        // 2. Eliminar certifications relacionadas
-        $entity->certifications()->delete(); // 👈 ESTA ES LA CLAVE
-
-        // 3. Eliminar entidad
-        $entity->delete();
-
-        return response()->json([
-            'message' => '🗑️ Entidad eliminada correctamente.'
-        ]);
-    });
+    return response()->json([
+        'message' => '🗑️ Entidad desactivada (no se borran sus ofertas; se puede reactivar).'
+    ]);
 }
 
     /**

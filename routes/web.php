@@ -473,10 +473,24 @@ Route::prefix('trends')->group(function () {
 });
 
 Route::prefix('dashboard/ranking-certificaciones')->group(function () {
+// Evolución en streaming (antes /weekly/export con CertificationsWeeklyExport)
 Route::get(
-    '/weekly/export',
-    [RankingCertificacionesController::class, 'exportWeekly']
-)->name('certifications.weekly.export');
+    '/evolution/export',
+    [RankingCertificacionesController::class, 'exportEvolution']
+)->name('certifications.evolution.export');
+
+// 🔄 Recalcular las tablas de resumen del ranking (solo administradores)
+Route::post(
+    '/refresh',
+    [RankingCertificacionesController::class, 'refresh']
+)->middleware(['permission:administrar', 'throttle:3,1'])
+ ->name('dashboard.ranking.certificaciones.refresh');
+
+Route::get(
+    '/refresh-status',
+    [RankingCertificacionesController::class, 'refreshStatus']
+)->middleware(['permission:administrar', 'throttle:60,1'])
+ ->name('dashboard.ranking.certificaciones.refresh-status');
 
 Route::get(
     '/weekly',

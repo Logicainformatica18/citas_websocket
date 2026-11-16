@@ -13,15 +13,23 @@ class TakeCertificationSnapshotCommand extends Command
     /**
      * El nombre y la firma del comando en la consola.
      */
-    protected $signature = 'certifications:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly}';
+    protected $signature = 'certifications:take-snapshot {--filter=auto : Opciones: auto, weekly, biweekly, monthly} {--legacy : Ejecutarlo igualmente aunque esté retirado}';
 
     /**
      * La descripción del comando.
      */
-    protected $description = 'Calcula de forma automática o manual las fotos históricas necesarias de certificaciones (Semanal, Quincenal, Mensual).';
+    protected $description = '[RETIRADO] Calcula de forma automática o manual las fotos históricas necesarias de certificaciones (Semanal, Quincenal, Mensual).';
 
     public function handle()
     {
+        // RETIRADO: el modal y el export de Certificaciones leen certification_ranking_weekly, que llena
+        // ranking:refresh-certifications. Se conserva el archivo (y certification_evolution_cache) por si hay
+        // que consultarlo; sin --legacy no hace nada (para que un cron olvidado no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('certifications:take-snapshot está RETIRADO: la evolución la calcula ranking:refresh-certifications. No se hizo nada. Desactiva su cron.');
+
+            return self::SUCCESS;
+        }
         $filterOption = $this->option('filter');
         $now = Carbon::now();
         $year = $now->year;

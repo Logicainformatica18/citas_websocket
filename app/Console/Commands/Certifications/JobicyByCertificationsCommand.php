@@ -14,6 +14,8 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
  use App\Services\SourceStatusService;
  use App\Services\ScraperRunService;
+use App\Services\Matching\OfferEntityLinker;
+
 class JobicyByCertificationsCommand extends Command
 {
     protected $signature = 'jobicy:certifications';
@@ -73,7 +75,7 @@ class JobicyByCertificationsCommand extends Command
     try {
 
         // ✅ certificaciones
-        $certifications = Certification::where('enabled', 1)
+        $certifications = Certification::active()
             ->pluck('name', 'id');
 
         if ($certifications->isEmpty()) {
@@ -186,10 +188,7 @@ class JobicyByCertificationsCommand extends Command
 
                         if ($existing) {
 
-                            $existing->certifications()
-                                ->syncWithoutDetaching([
-                                    $certId
-                                ]);
+                            OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId);
                         }
 
                         continue;
@@ -280,10 +279,7 @@ class JobicyByCertificationsCommand extends Command
                                 : now(),
                     ]);
 
-                    $offer->certifications()
-                        ->syncWithoutDetaching([
-                            $certId
-                        ]);
+                    OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $certId);
 
                     $totalNew++;
 

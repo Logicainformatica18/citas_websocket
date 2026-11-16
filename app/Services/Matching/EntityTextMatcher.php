@@ -188,7 +188,7 @@ final class EntityTextMatcher
             $cs = (bool) ($rule['case_sensitive'] ?? false);
             $body = ! empty($rule['is_regex'])
                 ? $pattern
-                : str_replace(' ', '[\s\-]+', preg_quote($pattern, '/'));
+                : str_replace(' ', '[\s\-–—]+', preg_quote($pattern, '/'));
 
             $compiled = [
                 'pattern' => $pattern,
@@ -202,7 +202,7 @@ final class EntityTextMatcher
 
         $entity['explicit'] = $entity['aliases'] !== [];
         if ($entity['aliases'] === []) {
-            $body = str_replace(' ', '[\s\-]+', preg_quote($name, '/'));
+            $body = str_replace(' ', '[\s\-–—]+', preg_quote($name, '/'));
             $regex = '/' . self::LEFT . '(?:' . $body . ')' . self::RIGHT . '/ui';
             $entity['aliases'][] = ['pattern' => $name, 'regex' => $regex, 'loose' => $regex, 'weak' => false, 'window' => null];
         }

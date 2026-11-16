@@ -17,6 +17,7 @@ class Certification extends Model
         'vendor',        // AWS, Microsoft, Google, PMI, etc.
         'level',         // associate, professional, expert, foundation, etc.
         'enabled',
+        'market_entity_id',
     ];
 
     protected $casts = [
@@ -47,6 +48,30 @@ class Certification extends Model
     public function scopeEnabled($query)
     {
         return $query->where('enabled', true);
+    }
+
+    /**
+     * Certificaciones que deben buscar los scrapers: habilitadas y con su entidad activa
+     * (market_entities.is_active es la fuente de verdad, igual que en Language y Technology).
+     */
+    public function scopeActive($query)
+    {
+        return $query
+            ->where('certifications.enabled', true)
+            ->where(function ($q) {
+                $q->whereNull('certifications.market_entity_id')
+                    ->orWhereExists(function ($e) {
+                        $e->selectRaw('1')
+                            ->from('market_entities as me_active')
+                            ->whereColumn('me_active.id', 'certifications.market_entity_id')
+                            ->where('me_active.is_active', 1);
+                    });
+            });
+    }
+
+    public function marketEntity()
+    {
+        return $this->belongsTo(MarketEntity::class, 'market_entity_id');
     }
 
     /* =========================================================

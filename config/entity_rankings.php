@@ -115,4 +115,40 @@ return [
         ],
     ],
 
+    'certifications' => [
+        'service' => App\Services\CertificationRankingService::class,
+        'entity_type' => 'certification',
+        'pivot_table' => 'certification_job',
+        'tables' => [
+            'rankings' => 'certification_rankings',
+            'meta' => 'certification_ranking_meta',
+            'windows' => 'certification_ranking_weekly',
+            'windows_meta' => 'certification_ranking_weekly_meta',
+        ],
+        'windows_count_column' => 'entities_count',
+        'weights_context' => 'certifications',
+        'career_table' => 'market_entity_career',
+        'lock_name' => 'ranking-certifications-refresh',
+        'log_prefix' => '[CERTIFICATION_RANKING]',
+        'label' => 'certificaciones',
+        'catalog_table' => 'certifications',
+        'offer_relation' => 'certifications',
+        'catalog_fk' => 'certification_id',
+        // Duplicados desactivados (ranking_certificaciones/05) => su principal: la limpieza reasigna sus ofertas.
+        'duplicates' => [
+            'certified-information-systems-security-professional-cissp' => 'cissp',
+            'certified-information-security-manager-cism' => 'cism',
+            'microsoft-certified-azure-security-engineer-associate' => 'microsoft-azure-security-engineer-(az-500)',
+            'microsoft-certified-azure-devops-engineer-expert' => 'microsoft-azure-devops-engineer-(az-400)',
+            'microsoft-certified-azure-ai-engineer-associate' => 'microsoft-azure-ai-engineer-(ai-102)',
+            'aws-certified-machine-learning-specialty' => 'aws-machine-learning-–-specialty',
+            'aws-certified-advanced-networking-specialty' => 'aws-advanced-networking-–-specialty',
+            'aws-certified-devops-engineer-professional' => 'aws-devops-engineer-–-professional',
+            'microsoft-certified-azure-data-engineer-associate' => 'microsoft-azure-data-engineer-(dp-203)',
+            'microsoft-certified-azure-solutions-architect-expert-az-303-az-304' => 'microsoft-azure-solutions-architect-(az-305)',
+            'oracle-machine-learning-2021-certified-professional' => 'oracle-machine-learning-2022-certified-professional',
+            'oracle-cloud-infrastructure-data-science-2021-certified-professional' => 'oracle-cloud-infrastructure-data-science-2022-certified-professional',
+        ],
+    ],
+
 ];

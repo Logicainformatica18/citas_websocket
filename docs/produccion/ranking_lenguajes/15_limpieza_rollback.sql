@@ -22,7 +22,7 @@
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'language_job_respaldo_limpieza');
 SELECT IF(@existe > 0, 'Respaldo encontrado', 'Sin respaldo: nada que revertir') AS resultado;
 
-CREATE TABLE IF NOT EXISTS `language_job_respaldo_limpieza` (`id` BIGINT UNSIGNED NOT NULL PRIMARY KEY, `language_id` BIGINT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS `language_job_respaldo_limpieza` (`id` BIGINT UNSIGNED NOT NULL PRIMARY KEY, `language_id` BIGINT UNSIGNED NULL,
   `market_entity_id` BIGINT UNSIGNED NULL, `job_offer_id` BIGINT UNSIGNED NOT NULL, `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL, `accion` ENUM('borrar','reasignar') NOT NULL, `nuevo_catalog_id` BIGINT UNSIGNED NULL,
   `nuevo_market_entity_id` BIGINT UNSIGNED NULL, `motivo` VARCHAR(100) NULL,

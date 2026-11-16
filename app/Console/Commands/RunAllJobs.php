@@ -237,6 +237,8 @@ class RunAllJobs extends Command
 'ranking:refresh-languages',
 // Ídem para el Ranking de Tecnologías
 'ranking:refresh-technologies',
+// Ídem para el Ranking de Certificaciones
+'ranking:refresh-certifications',
 ];
 
         $total = count($commands);

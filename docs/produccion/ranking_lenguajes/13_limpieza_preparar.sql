@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `language_job_limpieza` (
 
 CREATE TABLE IF NOT EXISTS `language_job_respaldo_limpieza` (
   `id`                     BIGINT UNSIGNED NOT NULL,           -- id original en language_job
-  `language_id`                  BIGINT UNSIGNED NOT NULL,
+  `language_id`                  BIGINT UNSIGNED NULL,               -- certification_job admite NULL
   `market_entity_id`       BIGINT UNSIGNED NULL,
   `job_offer_id`           BIGINT UNSIGNED NOT NULL,
   `created_at`             TIMESTAMP NULL,

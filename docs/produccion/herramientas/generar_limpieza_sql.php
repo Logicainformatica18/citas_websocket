@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `{$work}` (
 
 CREATE TABLE IF NOT EXISTS `{$bak}` (
   `id`                     BIGINT UNSIGNED NOT NULL,           -- id original en {$pivot}
-  `{$fk}`                  BIGINT UNSIGNED NOT NULL,
+  `{$fk}`                  BIGINT UNSIGNED NULL,               -- certification_job admite NULL
   `market_entity_id`       BIGINT UNSIGNED NULL,
   `job_offer_id`           BIGINT UNSIGNED NOT NULL,
   `created_at`             TIMESTAMP NULL,
@@ -193,7 +193,7 @@ $rollback .= <<<SQL
 SET @existe = (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '{$bak}');
 SELECT IF(@existe > 0, 'Respaldo encontrado', 'Sin respaldo: nada que revertir') AS resultado;
 
-CREATE TABLE IF NOT EXISTS `{$bak}` (`id` BIGINT UNSIGNED NOT NULL PRIMARY KEY, `{$fk}` BIGINT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS `{$bak}` (`id` BIGINT UNSIGNED NOT NULL PRIMARY KEY, `{$fk}` BIGINT UNSIGNED NULL,
   `market_entity_id` BIGINT UNSIGNED NULL, `job_offer_id` BIGINT UNSIGNED NOT NULL, `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL, `accion` ENUM('borrar','reasignar') NOT NULL, `nuevo_catalog_id` BIGINT UNSIGNED NULL,
   `nuevo_market_entity_id` BIGINT UNSIGNED NULL, `motivo` VARCHAR(100) NULL,

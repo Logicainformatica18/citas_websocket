@@ -15,6 +15,8 @@ use App\Services\ScraperRunService;
 use App\Models\MarketEntity;
 use App\Models\MarketEntityMetric;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class ArbeitnowByCertificationsCommand extends Command
 {
     protected $signature = 'arbeitnow:certifications';
@@ -75,7 +77,7 @@ class ArbeitnowByCertificationsCommand extends Command
         $baseQuery = MarketEntity::where(
             'entity_type',
             'certification'
-        )->orderBy('id');
+        )->where('is_active', 1)->orderBy('id');
 
         /* =====================================================
            ▶️ REANUDAR DESDE ÚLTIMA ENTIDAD
@@ -266,8 +268,7 @@ class ArbeitnowByCertificationsCommand extends Command
 
                     if ($existing) {
 
-                        $existing->marketCertifications()
-                            ->syncWithoutDetaching([$entityId]);
+                        OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $entityId, true);
                     }
 
                     continue;
@@ -369,8 +370,7 @@ class ArbeitnowByCertificationsCommand extends Command
                 ]);
 
                 // ✅ attach market entity
-                $offer->marketCertifications()
-                    ->syncWithoutDetaching([$entityId]);
+                OfferEntityLinker::for('certifications')->attachIfConfirmed($offer, $entityId, true);
 
                 $totalNew++;
 
