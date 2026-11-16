@@ -121,7 +121,7 @@ public function handle()
                         $urlJob   = $job['link'] ?? null;
 
                         // Fase B (matcher): Jooble solo da un fragmento
-                        if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, strip_tags($job['snippet'] ?? ''))) {
+                        if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, OfferEntityLinker::plain($job['snippet'] ?? ''))) {
                             continue;
                         }
 
@@ -154,7 +154,7 @@ public function handle()
                             'salary_min'   => $this->extractMinSalary($job['salary'] ?? ''),
                             'salary_max'   => $this->extractMaxSalary($job['salary'] ?? ''),
                             'source'       => 'Jooble',
-                            'requirements' => strip_tags($job['snippet'] ?? ''),
+                            'requirements' => OfferEntityLinker::plain($job['snippet'] ?? ''),
                             'external_id'  => $externalId,
                             'url'          => $urlJob,
                             'search_query' => $languageName,

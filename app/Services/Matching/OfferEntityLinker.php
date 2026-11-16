@@ -65,6 +65,16 @@ final class OfferEntityLinker
         EntityTextMatcher::flush();
     }
 
+    /**
+     * Texto plano para guardar: etiquetas → espacio y entidades HTML decodificadas.
+     * strip_tags() pega las palabras de elementos contiguos ("REST APIs</li><li>Docker" → "APIsDocker")
+     * y rompe los límites de palabra del matcher.
+     */
+    public static function plain(?string $html): string
+    {
+        return EntityTextMatcher::normalize($html);
+    }
+
     /** Une los textos disponibles de una oferta (null, arreglos y HTML admitidos). */
     public static function body(mixed ...$parts): string
     {

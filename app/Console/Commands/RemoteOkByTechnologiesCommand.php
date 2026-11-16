@@ -13,6 +13,8 @@ use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class RemoteOkByTechnologiesCommand extends Command
 {
     protected $signature = 'remoteok:technologies';
@@ -106,9 +108,10 @@ class RemoteOkByTechnologiesCommand extends Command
                 $title = $job['position'] ?? '';
                 $tags  = $job['tags'] ?? [];
 
-                $text = strtolower($title . ' ' . implode(' ', $tags));
+                $descriptionText = OfferEntityLinker::plain($job['description'] ?? '');
 
-                if (!str_contains($text, strtolower($technologyName))) {
+                // Fase 3 (matcher): antes str_contains sin límites de palabra.
+                if (! OfferEntityLinker::for('technologies')->confirms($technologyId, $title, OfferEntityLinker::body($descriptionText, $tags))) {
                     continue;
                 }
 
@@ -117,10 +120,9 @@ class RemoteOkByTechnologiesCommand extends Command
 
                 $externalId = $job['id'] ?? null;
 
-                if ($externalId && JobOffer::where('source', 'RemoteOK')
-                    ->where('external_id', $externalId)
-                    ->exists()) {
-
+                $existing = $externalId ? JobOffer::where('source', 'RemoteOK')->where('external_id', $externalId)->first() : null;
+                if ($existing) {
+                    OfferEntityLinker::for('technologies')->attach($existing, [$technologyId]);
                     $totalSkippedAll++;
                     continue;
                 }
@@ -136,7 +138,7 @@ class RemoteOkByTechnologiesCommand extends Command
 
                 $region = RegionHelper::fromCountry($country) ?? 'REMOTE';
 
-                JobOffer::create([
+                $offer = JobOffer::create([
                     'title'        => $title ?: 'N/A',
                     'company'      => $job['company'] ?? null,
                     'country'      => $country,
@@ -149,10 +151,14 @@ class RemoteOkByTechnologiesCommand extends Command
                     'search_query' => $technologyName,
                     'external_id'  => $externalId,
                     'url'          => $job['url'] ?? null,
+                    'description'  => $descriptionText,
+                    'skills'       => implode(', ', $tags),
                     'published_at' => isset($job['date'])
                         ? Carbon::parse($job['date'])
                         : now(),
                 ]);
+                // Antes no se asociaba la tecnología: la oferta quedaba sin pivote.
+                OfferEntityLinker::for('technologies')->attach($offer, [$technologyId]);
 
                 $totalNew++;
                 $totalInsertedAll++;

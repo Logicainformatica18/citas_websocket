@@ -12,6 +12,8 @@ use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class USAJOBSByTechnologiesCommand extends Command
 {
     protected $signature = 'usajobs:technologies {--pages=1}';
@@ -103,6 +105,16 @@ class USAJOBSByTechnologiesCommand extends Command
 
                     $job = $item['MatchedObjectDescriptor'] ?? [];
 
+                    // Fase 3 (matcher)
+                    $usaText = OfferEntityLinker::body(
+                        $job['QualificationSummary'] ?? '',
+                        $job['UserArea']['Details']['JobSummary'] ?? '',
+                        $job['UserArea']['Details']['MajorDuties'] ?? []
+                    );
+                    if (! OfferEntityLinker::for('technologies')->confirms($techId, $job['PositionTitle'] ?? '', $usaText)) {
+                        continue;
+                    }
+
                     $totalFound++;
                     $totalFoundAll++;
 
@@ -113,8 +125,7 @@ class USAJOBSByTechnologiesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->technologies()
-                            ->syncWithoutDetaching([$techId]);
+                        OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -167,6 +178,7 @@ class USAJOBSByTechnologiesCommand extends Command
                         'salary_max'        => $salaryMax,
                         'currency'          => 'USD',
                         'compensation_type' => $compType,
+                        'requirements'      => $usaText,
                         'source'            => 'usajobs',
                         'external_id'       => $externalId,
                         'url'               => $job['PositionURI'] ?? null,
@@ -174,8 +186,7 @@ class USAJOBSByTechnologiesCommand extends Command
                         'published_at'      => $publishedAt,
                     ]);
 
-                    $offer->technologies()
-                        ->syncWithoutDetaching([$techId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

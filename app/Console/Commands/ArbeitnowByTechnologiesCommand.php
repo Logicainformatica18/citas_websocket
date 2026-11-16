@@ -14,9 +14,11 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class ArbeitnowByTechnologiesCommand extends Command
 {
-    protected $signature = 'arbeitnow:technologies';
+    protected $signature = 'arbeitnow:technologies {--pages=5 : páginas del feed (unas 100 ofertas cada una)}';
     protected $description = '🌍 Recorre todas las tecnologías y registra métricas de demanda laboral desde Arbeitnow (Europa/Asia) con país y geolocalización.';
 
     protected $stats = ['api_hits' => 0, 'fallback' => 0, 'mapped' => 0];
@@ -89,6 +91,10 @@ SourceStatusService::start(
 $connectionOk = false;
 $startedAt = now();
         try {
+            // Fase 3 (matcher): el feed se descarga una vez y se reutiliza para cada tecnología
+            $feed = null;
+            $pages = max(1, (int) $this->option('pages'));
+
             foreach ($technologies as $technology) {
     $techId = $technology->id;
     $techName = $technology->name;
@@ -99,19 +105,26 @@ $startedAt = now();
                 $countries = [];
                 $modalities = [];
 
-                $response = Http::timeout(25)->get(
-                    'https://www.arbeitnow.com/api/job-board-api',
-                    ['search' => $techName]
-                );
+                if ($feed === null) {
+                    $feed = [];
+                    for ($page = 1; $page <= $pages; $page++) {
+                        $response = Http::timeout(25)->get('https://www.arbeitnow.com/api/job-board-api', ['page' => $page]);
+                        if ($response->failed()) {
+                            SourceStatusService::connectionFailed($source, "Error API Arbeitnow (página {$page})");
+                            break;
+                        }
+                        $connectionOk = true;
+                        $chunk = $response->json()['data'] ?? [];
+                        if (empty($chunk)) {
+                            break;
+                        }
+                        array_push($feed, ...$chunk);
+                    }
+                }
 
-               if ($response->failed()) {
-    SourceStatusService::connectionFailed($source, 'Error API Arbeitnow');
-    $totalSkippedAll++;
-    continue;
-}
-$connectionOk = true;
-
-                $jobs = $response->json()['data'] ?? [];
+                $jobs = array_values(array_filter($feed, fn ($job) => OfferEntityLinker::for('technologies')->confirms(
+                    $techId, $job['title'] ?? '', OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? [])
+                )));
                 $totalFound = count($jobs);
                 $totalFoundAll += $totalFound;
 
@@ -155,7 +168,7 @@ $connectionOk = true;
                         ->first();
 
                     if ($existingOffer) {
-                        $existingOffer->technologies()->syncWithoutDetaching([$techId]);
+                        OfferEntityLinker::for('technologies')->attach($existingOffer, [$techId]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -171,6 +184,7 @@ $connectionOk = true;
                         'latitude' => $lat,
                         'longitude' => $lng,
                         'modality' => $modality,
+                        'requirements' => OfferEntityLinker::plain($job['description'] ?? ''),
                         'source' => 'Arbeitnow',
                         'external_id' => $externalId,
                         'url' => $urlJob,
@@ -188,7 +202,7 @@ $connectionOk = true;
                         'region' => $region,
                     ]);
 
-                    $offer->technologies()->syncWithoutDetaching([$techId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

@@ -183,7 +183,7 @@ public function handle()
                         'external_id'  => $externalId,
                         'url'          => $job['jobUrl'] ?? null,
                         'search_query' => $languageName,
-                        'requirements' => strip_tags($job['jobDescription'] ?? ''),
+                        'requirements' => OfferEntityLinker::plain($job['jobDescription'] ?? ''),
                         'published_at' => $publishedAt,
                     ]);
                     // Antes no se asociaba el lenguaje: la oferta quedaba sin pivote.

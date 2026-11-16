@@ -14,6 +14,8 @@ use App\Helpers\RemotiveCountry;
 use App\Helpers\RegionMapper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class RemotiveByTechnologiesCommand extends Command
 {
     protected $signature = 'remotive:technologies';
@@ -111,6 +113,11 @@ class RemotiveByTechnologiesCommand extends Command
 
                 foreach ($jobs as $job) {
 
+                    // Fase 3 (matcher)
+                    if (! OfferEntityLinker::for('technologies')->confirms($techId, $job['title'] ?? '', $job['description'] ?? '')) {
+                        continue;
+                    }
+
                     $externalId = $job['id'] ?? null;
 
                     $existing = JobOffer::where('external_id', $externalId)
@@ -118,7 +125,7 @@ class RemotiveByTechnologiesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->technologies()->syncWithoutDetaching([$techId]);
+                        OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -162,7 +169,7 @@ class RemotiveByTechnologiesCommand extends Command
                         'education_level'  => $this->extractEducation($desc),
                         'certifications'   => $this->extractCertifications($desc),
                         'skills'           => $this->extractSkills($desc),
-                        'requirements'     => $desc,
+                        'requirements'     => OfferEntityLinker::plain($job['description'] ?? ''),
                         'source'           => 'Remotive',
                         'external_id'      => $externalId,
                         'url'              => $urlJob,
@@ -173,7 +180,7 @@ class RemotiveByTechnologiesCommand extends Command
                         'region'           => $region,
                     ]);
 
-                    $offer->technologies()->syncWithoutDetaching([$techId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

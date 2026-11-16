@@ -149,7 +149,7 @@ class JobsDataFeedsByLanguagesCommand extends Command
                                     'longitude'    => $lng,
                                     'modality'     => $this->detectModality($text),
                                     'skills'       => implode(', ', $job['skills'] ?? []),
-                                    'requirements' => strip_tags($job['description'] ?? ''),
+                                    'requirements' => OfferEntityLinker::plain($job['description'] ?? ''),
                                     'source'       => 'JobsDataFeeds',
                                     'external_id'  => $externalId,
                                     'url'          => $job['url'] ?? null,

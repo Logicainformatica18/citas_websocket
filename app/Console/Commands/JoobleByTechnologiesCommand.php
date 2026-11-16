@@ -15,6 +15,8 @@ use App\Helpers\JoobleLocation;
 use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class JoobleByTechnologiesCommand extends Command
 {
     protected $signature = 'jooble:technologies {--country=United States} {--pages=5}';
@@ -124,6 +126,11 @@ public function handle()
 
                     foreach ($jobs as $job) {
 
+                        // Fase 3 (matcher): Jooble solo da un fragmento
+                        if (! OfferEntityLinker::for('technologies')->confirms($technologyId, $job['title'] ?? '', $job['snippet'] ?? '')) {
+                            continue;
+                        }
+
                         $externalId = $job['id'];
 
                         $existing = JobOffer::where('external_id', $externalId)
@@ -131,8 +138,7 @@ public function handle()
                             ->first();
 
                         if ($existing) {
-                            $existing->technologies()
-                                ->syncWithoutDetaching([$technologyId]);
+                            OfferEntityLinker::for('technologies')->attach($existing, [$technologyId]);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -174,7 +180,7 @@ public function handle()
 
                         $region = RegionHelper::fromCountry($countryFull);
 
-                        JobOffer::create([
+                        $offer = JobOffer::create([
                             'title'             => $title,
                             'company'           => $company,
                             'country'           => $countryFull,
@@ -190,13 +196,15 @@ public function handle()
                             'education_level'   => $this->extractEducation($desc),
                             'certifications'    => $this->extractCertifications($desc),
                             'skills'            => $this->extractSkills($desc),
-                            'requirements'      => strip_tags($desc),
+                            'requirements'      => OfferEntityLinker::plain($job['snippet'] ?? ''),
                             'external_id'       => $externalId,
                             'url'               => $urlJob,
                             'search_query'      => $technologyName,
                             'published_at'      => Carbon::parse($job['updated'] ?? now()),
                             'region'            => $region,
                         ]);
+                        // Antes no se asociaba la tecnología al crear la oferta.
+                        OfferEntityLinker::for('technologies')->attach($offer, [$technologyId]);
 
                         $totalNew++;
                         $totalInsertedAll++;

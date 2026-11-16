@@ -141,7 +141,7 @@ public function handle()
                     if (!$externalId) continue;
 
                     // Fase B (matcher)
-                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', strip_tags($job['description'] ?? ''))) {
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', OfferEntityLinker::plain($job['description'] ?? ''))) {
                         continue;
                     }
 
@@ -157,7 +157,7 @@ public function handle()
 
                     $title     = $job['title'] ?? 'N/A';
                     $company   = $job['company']['name'] ?? null;
-                    $desc      = strip_tags($job['description'] ?? '');
+                    $desc      = OfferEntityLinker::plain($job['description'] ?? '');
                     $cityRaw   = $job['location'] ?? 'Tokyo';
                     $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
                     $published = isset($job['published_at'])

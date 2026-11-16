@@ -109,7 +109,7 @@ class RemoteOkByLanguagesCommand extends Command
 
                 $title = $job['position'] ?? '';
                 $tags  = $job['tags'] ?? [];
-                $descriptionText = strip_tags(html_entity_decode((string) ($job['description'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                $descriptionText = OfferEntityLinker::plain(html_entity_decode((string) ($job['description'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
                 // Fase B (matcher): antes str_contains sin límites de palabra.
                 if (! $linker->confirms($languageId, $title, OfferEntityLinker::body($descriptionText, $tags))) {

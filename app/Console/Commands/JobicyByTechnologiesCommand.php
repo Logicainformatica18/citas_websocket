@@ -15,6 +15,8 @@ use App\Helpers\CountryNormalizer;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
  
+use App\Services\Matching\OfferEntityLinker;
+
 class JobicyByTechnologiesCommand extends Command
 {
     protected $signature = 'jobicy:technologies';
@@ -118,9 +120,9 @@ class JobicyByTechnologiesCommand extends Command
                 $connectionOk = true;
 
                 $results = collect($response->json('jobs') ?? [])
-                    ->filter(fn ($job) => str_contains(
-                        strtolower(($job['jobTitle'] ?? '') . ' ' . ($job['jobDescription'] ?? '')),
-                        strtolower($techName)
+                    // Fase 3 (matcher): antes str_contains sin límites de palabra
+                    ->filter(fn ($job) => OfferEntityLinker::for('technologies')->confirms(
+                        $techId, $job['jobTitle'] ?? '', OfferEntityLinker::body($job['jobExcerpt'] ?? '', $job['jobDescription'] ?? '')
                     ))
                     ->values();
 
@@ -158,7 +160,7 @@ class JobicyByTechnologiesCommand extends Command
                     $title   = $job['jobTitle'] ?? 'N/A';
                     $company = $job['companyName'] ?? null;
                     $urlJob  = $job['url'] ?? null;
-                    $desc    = strip_tags($job['jobDescription'] ?? '');
+                    $desc    = OfferEntityLinker::plain($job['jobDescription'] ?? '');
 
                     $modality = $this->detectModality(
                         $desc,
@@ -183,6 +185,7 @@ class JobicyByTechnologiesCommand extends Command
                         'salary_min'   => $salaryMin,
                         'salary_max'   => $salaryMax,
                         'currency'     => $currency,
+                        'requirements' => $desc,
                         'source'       => 'Jobicy',
                         'external_id'  => $externalId,
                         'url'          => $urlJob,
@@ -194,7 +197,7 @@ class JobicyByTechnologiesCommand extends Command
                         'updated_at'   => now(),
                     ]);
 
-                    $offer->technologies()->syncWithoutDetaching([$techId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                     $totalNew++;
                     $countries[$country]   = ($countries[$country] ?? 0) + 1;

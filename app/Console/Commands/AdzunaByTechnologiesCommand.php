@@ -15,6 +15,8 @@ use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class AdzunaByTechnologiesCommand extends Command
 {
     protected $signature = 'adzuna:technologies {--country=us} {--pages=1}';
@@ -162,10 +164,15 @@ $this->info("Resultados encontrados: ".count($results));
 
                 foreach ($results as $job) {
 
+                    // Fase 3 (matcher): solo se asocia si el título o el extracto confirman la tecnología
+                    if (! OfferEntityLinker::for('technologies')->confirmsEntity($marketEntityId, $job['title'] ?? '', $job['description'] ?? '')) {
+                        continue;
+                    }
+
                     $existing = JobOffer::where('external_id',$job['id'] ?? null)->first();
 
                     if ($existing) {
-                        $existing->technologies()->syncWithoutDetaching([$techId]);
+                        OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
                         $totalDuplicates++;
                         $skippedAll++;
                         continue;
@@ -207,6 +214,7 @@ $this->info("Resultados encontrados: ".count($results));
                         'salary_min'   => $job['salary_min'] ?? null,
                         'salary_max'   => $job['salary_max'] ?? null,
                         'currency'     => $job['salary_currency'] ?? 'USD',
+                        'requirements' => OfferEntityLinker::plain($job['description'] ?? ''),
                         'source'       => 'Adzuna',
                         'external_id'  => $job['id'] ?? null,
                         'url'          => $urlJob,
@@ -217,7 +225,7 @@ $this->info("Resultados encontrados: ".count($results));
                         'region'       => $region,
                     ]);
 
-                    $offer->technologies()->syncWithoutDetaching([$techId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                     $totalNew++;
                     $insertedAll++;

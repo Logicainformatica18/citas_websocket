@@ -65,7 +65,7 @@ class BuiltInByLanguagesCommand extends Command
                 $location = (string) $item->category;
 
                 // Fase B (matcher)
-                if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, strip_tags((string) $item->description))) {
+                if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, OfferEntityLinker::plain((string) $item->description))) {
                     continue;
                 }
 

@@ -117,7 +117,7 @@ $startedAt = now();
                     $isRemote = $job['remote'] ?? false;
 
                     $matched = $linker->match($title, OfferEntityLinker::body(
-                        strip_tags($description), $job['tags'] ?? [], $job['job_types'] ?? []
+                        OfferEntityLinker::plain($description), $job['tags'] ?? [], $job['job_types'] ?? []
                     ));
                     if (empty($matched)) {
                         $skippedAll++;
@@ -161,7 +161,7 @@ $startedAt = now();
                         'longitude' => $lng,
                         'modality' => $modality,
                         'currency' => 'EUR',
-                        'requirements' => strip_tags($description),
+                        'requirements' => OfferEntityLinker::plain($description),
                         'source' => 'Arbeitnow',
                         'external_id' => $externalId,
                         'url' => $urlJob,

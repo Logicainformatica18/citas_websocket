@@ -12,6 +12,8 @@ use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
+use App\Services\Matching\OfferEntityLinker;
+
 class GetOnBoardByTechnologiesCommand extends Command
 {
     protected $signature = 'getonboard:technologies {--pages=1}';
@@ -125,6 +127,18 @@ class GetOnBoardByTechnologiesCommand extends Command
 
                         $attr       = $job['attributes'] ?? [];
                         $title      = $attr['title'] ?? 'N/A';
+
+                        // Fase 3 (matcher). La descripción completa está repartida en varios campos.
+                        $fullDesc = OfferEntityLinker::body(
+                            $attr['description_headline'] ?? '',
+                            OfferEntityLinker::plain($attr['description'] ?? ''),
+                            OfferEntityLinker::plain($attr['functions'] ?? ''),
+                            OfferEntityLinker::plain($attr['desirable'] ?? ''),
+                            OfferEntityLinker::plain($attr['projects'] ?? '')
+                        );
+                        if (! OfferEntityLinker::for('technologies')->confirms($technologyId, $title, $fullDesc)) {
+                            continue;
+                        }
                         $company    = $attr['company']['data']['attributes']['name'] ?? null;
                         $country    = $attr['countries'][0] ?? 'Desconocido';
                         $city       = $attr['city'] ?? null;
@@ -151,8 +165,7 @@ class GetOnBoardByTechnologiesCommand extends Command
                             ->first();
 
                         if ($existingOffer) {
-                            $existingOffer->technologies()
-                                ->syncWithoutDetaching([$technologyId]);
+                            OfferEntityLinker::for('technologies')->attach($existingOffer, [$technologyId]);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -170,7 +183,7 @@ class GetOnBoardByTechnologiesCommand extends Command
                             default => ucfirst($country),
                         };
 
-                        $desc         = strip_tags($attr['description'] ?? '');
+                        $desc         = $fullDesc;   // descripción completa (antes solo 'description', a menudo vacío)
                         $benefitsText = strip_tags($attr['benefits'] ?? '');
 
                         $seniority = $attr['seniority']['data']['id'] ?? null;
@@ -210,8 +223,7 @@ class GetOnBoardByTechnologiesCommand extends Command
                             'updated_at'        => now(),
                         ]);
 
-                        $offer->technologies()
-                              ->syncWithoutDetaching([$technologyId]);
+                        OfferEntityLinker::for('technologies')->attach($offer, [$technologyId]);
 
                         $totalNew++;
                     }

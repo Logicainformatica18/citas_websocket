@@ -16,7 +16,7 @@ class RunAllJobs extends Command
       $commands = [
     'arbeitnow:languages',   // Fase B: feed clasificado con el matcher
     'arbeitnow:methodologies',
-    // 'arbeitnow:technologies', // Desactivado hasta Fase B (matcher)
+    'arbeitnow:technologies', // Fase 3: feed clasificado con el matcher
 
     'getonboard:languages',
     'getonboard:methodologies',

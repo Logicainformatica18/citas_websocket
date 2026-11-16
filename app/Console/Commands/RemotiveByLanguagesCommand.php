@@ -114,7 +114,7 @@ class RemotiveByLanguagesCommand extends Command
                 foreach ($jobs as $job) {
 
                     // Fase B (matcher)
-                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', strip_tags($job['description'] ?? ''))) {
+                    if (! OfferEntityLinker::for('languages')->confirms($languageId, $job['title'] ?? '', OfferEntityLinker::plain($job['description'] ?? ''))) {
                         continue;
                     }
 
@@ -170,7 +170,7 @@ class RemotiveByLanguagesCommand extends Command
                         'education_level'  => $this->extractEducation($desc),
                         'certifications'   => $this->extractCertifications($desc),
                         'skills'           => $this->extractSkills($desc),
-                        'requirements'     => strip_tags($desc),
+                        'requirements'     => OfferEntityLinker::plain($desc),
                         'source'           => 'Remotive',
                         'external_id'      => $externalId,
                         'url'              => $urlJob,

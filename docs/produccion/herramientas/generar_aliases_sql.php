@@ -34,6 +34,10 @@ foreach ($spec as $slug => $rules) {
     $rows = AliasSpec::toRows($rules);
     $values = [];
     foreach ($rows as $r) {
+        if (mb_strlen($r['pattern']) > 191) {   // market_entity_aliases.pattern es VARCHAR(191)
+            fwrite(STDERR, "ERROR: regla de {$slug} con más de 191 caracteres: dividirla\n");
+            exit(1);
+        }
         $values[] = sprintf('(%s, %s, %d, %d, %d, %s)', $q($r['kind']), $q($r['pattern']), $r['case_sensitive'],
             $r['is_regex'], $r['is_weak'], $r['window_chars'] === null ? 'NULL' : $r['window_chars']);
     }

@@ -14,6 +14,8 @@ use Carbon\Carbon;
 use App\Services\ScraperRunService;
  use App\Services\SourceStatusService;
  
+use App\Services\Matching\OfferEntityLinker;
+
 class ReedByTechnologiesCommand extends Command
 {
     protected $signature = 'reed:technologies {--pages=1}';
@@ -145,6 +147,11 @@ class ReedByTechnologiesCommand extends Command
 
                 foreach ($jobs as $job) {
 
+                    // Fase 3 (matcher): reed devuelve un extracto de la descripción
+                    if (! OfferEntityLinker::for('technologies')->confirms($technologyId, $job['jobTitle'] ?? '', $job['jobDescription'] ?? '')) {
+                        continue;
+                    }
+
                     $totalFound++;
                     $totalFoundAll++;
 
@@ -155,8 +162,7 @@ class ReedByTechnologiesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->technologies()
-                            ->syncWithoutDetaching([$technologyId]);
+                        OfferEntityLinker::for('technologies')->attach($existing, [$technologyId]);
                         $this->stats['skipped']++;
                         $totalSkippedAll++;
                         continue;
@@ -202,6 +208,7 @@ class ReedByTechnologiesCommand extends Command
                         'modality'     => $modality,
                         'salary_min'   => $job['minimumSalary'] ?? null,
                         'salary_max'   => $job['maximumSalary'] ?? null,
+                        'requirements' => OfferEntityLinker::plain($job['jobDescription'] ?? ''),
                         'source'       => 'reed',
                         'external_id'  => $externalId,
                         'url'          => $job['jobUrl'] ?? null,
@@ -209,8 +216,7 @@ class ReedByTechnologiesCommand extends Command
                         'published_at' => $publishedAt,
                     ]);
 
-                    $offer->technologies()
-                        ->syncWithoutDetaching([$technologyId]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$technologyId]);
 
                     $totalNew++;
                     $totalInsertedAll++;

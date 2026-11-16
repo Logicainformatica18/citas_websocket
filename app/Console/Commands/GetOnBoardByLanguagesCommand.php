@@ -133,10 +133,10 @@ $connectionOk = true;
                         // Fase B (matcher). La descripción completa de GetOnBoard está repartida en varios campos.
                         $fullDesc = OfferEntityLinker::body(
                             $attr['description_headline'] ?? '',
-                            strip_tags($attr['description'] ?? ''),
-                            strip_tags($attr['functions'] ?? ''),
-                            strip_tags($attr['desirable'] ?? ''),
-                            strip_tags($attr['projects'] ?? '')
+                            OfferEntityLinker::plain($attr['description'] ?? ''),
+                            OfferEntityLinker::plain($attr['functions'] ?? ''),
+                            OfferEntityLinker::plain($attr['desirable'] ?? ''),
+                            OfferEntityLinker::plain($attr['projects'] ?? '')
                         );
                         if (! OfferEntityLinker::for('languages')->confirms($languageId, $title, $fullDesc)) {
                             continue;
@@ -194,7 +194,7 @@ $connectionOk = true;
 
                         // 📄 Textos
                         $desc         = $fullDesc;   // descripción completa (antes solo 'description', a menudo vacío)
-                        $benefitsText = strip_tags($attr['benefits'] ?? '');
+                        $benefitsText = OfferEntityLinker::plain($attr['benefits'] ?? '');
 
                         // 📊 Campos adicionales
                         $seniority = $attr['seniority']['data']['id'] ?? null;

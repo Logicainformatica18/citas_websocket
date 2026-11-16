@@ -14,6 +14,8 @@ use App\Helpers\CountryNormalizer;
 use App\Helpers\RegionHelper;
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class WantedlyByTechnologiesCommand extends Command
 {
     protected $signature = 'wantedly:technologies {--pages=1} {--lang=es}';
@@ -136,20 +138,24 @@ class WantedlyByTechnologiesCommand extends Command
                         $externalId = $job['id'] ?? null;
                         if (!$externalId) continue;
 
+                        // Fase 3 (matcher)
+                        if (! OfferEntityLinker::for('technologies')->confirms($techId, $job['title'] ?? '', $job['description'] ?? '')) {
+                            continue;
+                        }
+
                         $existing = JobOffer::where('source', 'wantedly')
                             ->where('external_id', $externalId)
                             ->first();
 
                         if ($existing) {
-                            $existing->technologies()
-                                ->syncWithoutDetaching([$techId]);
+                            OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
                             $totalSkippedAll++;
                             continue;
                         }
 
                         $title     = $job['title'] ?? 'N/A';
                         $company   = $job['company']['name'] ?? null;
-                        $desc      = strip_tags($job['description'] ?? '');
+                        $desc      = OfferEntityLinker::plain($job['description'] ?? '');
                         $cityRaw   = $job['location'] ?? 'Tokyo';
                         $urlJob    = "https://www.wantedly.com/projects/{$externalId}";
                         $published = isset($job['published_at'])
@@ -203,8 +209,7 @@ class WantedlyByTechnologiesCommand extends Command
                             'published_at'     => $published,
                         ]);
 
-                        $offer->technologies()
-                            ->syncWithoutDetaching([$techId]);
+                        OfferEntityLinker::for('technologies')->attach($offer, [$techId]);
 
                         $newInPage++;
                         $totalNew++;
@@ -461,7 +466,7 @@ class WantedlyByTechnologiesCommand extends Command
     {
         if (empty(trim($text))) return '';
 
-        $text = strip_tags($text);
+        $text = OfferEntityLinker::plain($text);
         $text = preg_replace('/[\x{1F600}-\x{1F64F}]/u','',$text);
         $text = str_replace(["\r","\n","\t"],' ',$text);
         $text = mb_substr($text,0,500);

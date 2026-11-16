@@ -17,6 +17,8 @@ use App\Models\TechnologyMetric;
  use App\Services\SourceStatusService;
 
 
+use App\Services\Matching\OfferEntityLinker;
+
 class GreenhouseByTechnologiesCommand extends Command
 {
     protected $signature = 'greenhouse:technologies {--company=*}';
@@ -97,7 +99,8 @@ class GreenhouseByTechnologiesCommand extends Command
 
             $url = "https://boards-api.greenhouse.io/v1/boards/{$companySlug}/jobs";
 
-            $response = Http::timeout(20)->get($url);
+            // content=true: la descripción completa viene en la misma llamada (sin costo extra)
+            $response = Http::timeout(20)->get($url, ['content' => 'true']);
 
             if ($response->failed()) {
                 SourceStatusService::connectionFailed($source, "Error empresa {$companySlug}");
@@ -117,18 +120,12 @@ class GreenhouseByTechnologiesCommand extends Command
 
             foreach ($technologies as $tech) {
 
-                $pattern = $tech->name;
-                $escaped = preg_quote($pattern, '/');
-                $regex   = "/{$escaped}/i";
-
-                $resultsForTech = array_filter($jobs, function ($job) use ($regex, $contentAvailable) {
-
-                    $title   = $job['title'] ?? '';
-                    $content = $contentAvailable ? ($job['content'] ?? '') : '';
-
-                    return preg_match($regex, $title)
-                        || ($contentAvailable && preg_match($regex, $content));
-                });
+                // Fase 3 (matcher): antes /{nombre}/i sin límites de palabra.
+                $resultsForTech = array_filter($jobs, fn ($job) => OfferEntityLinker::for('technologies')->confirms(
+                    $tech->id,
+                    $job['title'] ?? '',
+                    $contentAvailable ? ($job['content'] ?? '') : null
+                ));
 
                 $this->line("\n🔎 {$tech->name} → " . count($resultsForTech));
 
@@ -170,7 +167,7 @@ class GreenhouseByTechnologiesCommand extends Command
                         ->first();
 
                     if ($existing) {
-                        $existing->technologies()->syncWithoutDetaching([$tech->id]);
+                        OfferEntityLinker::for('technologies')->attach($existing, [$tech->id]);
                         $totalSkippedAll++;
                         continue;
                     }
@@ -189,7 +186,8 @@ class GreenhouseByTechnologiesCommand extends Command
                         'education_level'   => $this->extractEducation($content),
                         'skills'            => $this->extractSkills($content),
                         'certifications'    => $this->extractCertifications($content),
-                        'requirements'      => strip_tags($content),
+                        'requirements'      => OfferEntityLinker::plain($content),
+                        'description'       => OfferEntityLinker::plain($content),
                         'source'            => 'Greenhouse',
                         'external_id'       => $externalId,
                         'url'               => $urlJob,
@@ -198,7 +196,7 @@ class GreenhouseByTechnologiesCommand extends Command
                         'region'            => $region,
                     ]);
 
-                    $offer->technologies()->syncWithoutDetaching([$tech->id]);
+                    OfferEntityLinker::for('technologies')->attach($offer, [$tech->id]);
 
                     $newForTech++;
                     $totalInsertedAll++;

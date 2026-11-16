@@ -116,13 +116,35 @@ Bloque 2 (Fase C de Lenguajes):
 - R quedó en 163 vacantes en 2026-s2 (el plan estimaba ~600): el criterio estricto también descarta los extractos de
   Adzuna sin mención (pérdida aceptada de ~15 %).
 
+Bloque 3 (Fases 3 y 4 de Tecnologías):
+- **Reglas** (`database/data/entity_aliases/technologies.php`, 968): estrictas para palabras comunes (REST/SOAP/AJAX
+  con contexto de APIs, Express, Unity, Excel, Apache sin "Apache Kafka/Spark…", Teams, Monday, Tableau sin "Tableau de",
+  Postman, Bootstrap, SAN/NAS, servicios de AWS con siglas…), los 41 duplicados como alias de su principal; el resto
+  usa su nombre. Entidades con nombre genérico y significado incierto quedan solo con alias inequívocos: Pure
+  ("Pure Storage", "Pure Data"), Foundation (Zurb), Eraser ("Eraser.io"), Translate/Transcribe/Polly/Comprehend/Forecast/
+  Lex/MQ (solo con "Amazon"/"AWS").
+- **Transformers reactivado** con reglas estrictas (Hugging Face o contexto de ML; descarta "power transformers").
+- **Mismo criterio estricto que Lenguajes**: se borran 1 622 637 de 1 646 266 filas evaluadas (98,6 %). Arbeitnow aporta
+  1,45 M con precisión ~0 % (asociaba ~87 tecnologías por oferta). Adzuna/reed/Jooble/GetOnBoard pierden 82-96 % porque
+  sus scrapers de tecnologías **no guardaban texto** (solo título): no se puede confirmar. El ranking se reconstruye con
+  los scrapers, que ahora guardan el texto.
+- Duplicados: si la oferta ya tenía la principal, la fila del duplicado se borra; si no, se reasigna (1 202).
+- **Jooble (tecnologías) y RemoteOK (tecnologías) no asociaban la tecnología al crear la oferta**: corregido.
+- Computrabajo (tecnologías): mismo criterio que lenguajes, con `ComputrabajoHelper::fetchDescription()` (detalle una vez
+  por URL y proceso).
+- `OfferEntityLinker::plain()` reemplaza `strip_tags()` al guardar y al confirmar: `strip_tags` pegaba palabras de
+  elementos contiguos ("REST APIsErfahrung") y rompía los límites de palabra. El texto histórico ya guardado sigue pegado
+  (pérdida menor en la limpieza: algunas menciones al final de un elemento HTML no se reconocen).
+- Herramienta de foto dorada generalizada: `docs/produccion/herramientas/foto_dorada.php <tipo> capture|compare <dir>`
+  (`foto_dorada_lenguajes.php` queda como envoltorio). Fotos post-limpieza en `storage/app/foto_dorada/`.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
   JobsDataFeeds. Costo real por lenguaje nuevo: Adzuna 17 + Jooble 8 + Computrabajo 8 = 33 llamadas por corrida.
 - RemoteOk, BuiltIn, Remotive, Wantedly y JobsDataFeeds no están en `RunAllJobs.php` (no se ejecutan).
 - Computrabajo no tiene asociaciones de lenguajes en 2026-s2 (¿scraper caído?).
-- Greenhouse guarda en `requirements` el HTML escapado (`&lt;p&gt;`); la descripción limpia va en `description`.
+- (Resuelto en el Bloque 3) Greenhouse guardaba en `requirements` el HTML escapado; ahora usa `OfferEntityLinker::plain()`.
 - Adzuna busca la oferta existente por `external_id` sin filtrar la fuente.
 - `tests/Unit/ExampleTest` falla con SQLite: `market_entities` (y otras tablas base) no se crean en ninguna migración.
 

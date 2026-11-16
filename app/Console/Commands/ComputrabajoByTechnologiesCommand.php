@@ -16,6 +16,8 @@ use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
 use App\Services\SourceStatusService;
 
+use App\Services\Matching\OfferEntityLinker;
+
 class ComputrabajoByTechnologiesCommand extends Command
 {
      use JobFilterTrait; // 👈 usa el trait aquí
@@ -158,6 +160,21 @@ $connectionOk = true;
                                 $href   = $offer->filter('h2 a')->attr('href');
                                 $urlJob = ComputrabajoHelper::canonicalUrl("https://{$code}.computrabajo.com{$href}");
 
+                                // Fase 3 (matcher): título; si no basta y la oferta es nueva, descripción del detalle
+                                $known = JobOffer::where('source', 'Computrabajo')->where('url', $urlJob)->first();
+                                $detailText = $known?->description;
+                                if (! OfferEntityLinker::for('technologies')->confirms($techId, $title, $detailText)) {
+                                    if ($known) {
+                                        $totalSkippedAll++;
+                                        return;
+                                    }
+                                    $detailText = ComputrabajoHelper::fetchDescription($urlJob);
+                                    if (! OfferEntityLinker::for('technologies')->confirms($techId, $title, $detailText)) {
+                                        $totalSkippedAll++;
+                                        return;
+                                    }
+                                }
+
                                 $city = $this->extractCityFromUrl($urlJob);
                                // El país siempre es el del dominio ({$code}.computrabajo.com)
                                [$city, $lat, $lng] = ComputrabajoHelper::coords($city, $country, $code);
@@ -193,8 +210,7 @@ $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                     ->first();
 
                                 if ($existingOffer) {
-                                    $existingOffer->technologies()
-                                        ->syncWithoutDetaching([$techId]);
+                                    OfferEntityLinker::for('technologies')->attach($existingOffer, [$techId]);
                                     $totalSkippedAll++;
                                     return;
                                 }
@@ -212,6 +228,7 @@ $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                     'longitude'    => $lng,
                                     'modality'     => $modality,
                                     'source'       => 'Computrabajo',
+                                    'description'  => ($detailText ?? '') !== '' ? $detailText : null,
                                     'search_query' => $techName,
                                     'url'          => $urlJob,
                                     'published_at' => now(),
@@ -219,8 +236,7 @@ $countries[$countryName] = ($countries[$countryName] ?? 0) + 1;
                                     'updated_at'   => now(),
                                 ]);
 
-                                $offerModel->technologies()
-                                    ->syncWithoutDetaching([$techId]);
+                                OfferEntityLinker::for('technologies')->attach($offerModel, [$techId]);
 
                                 $totalNew++;
                                 $this->line("✅ {$title} ({$countryName} - {$city})");

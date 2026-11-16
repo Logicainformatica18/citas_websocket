@@ -56,3 +56,25 @@ corría los viernes y sábados por la noche (hora del servidor). Sin `--legacy` 
 - Worker: el mismo de Lenguajes (`php artisan queue:work --sleep=3 --tries=3 --timeout=170`). **Tras cada despliegue,
   `php artisan queue:restart`**: un worker iniciado antes del despliegue tiene el código viejo y los jobs nuevos fallan.
 - Logs: `storage/logs/laravel.log`, prefijo `[TECHNOLOGY_RANKING]`.
+
+## Fases 3 y 4: matcher y limpieza de technology_job (2026-11-16)
+
+| # | Script / comando | Qué hace | Tiempo (local) | Bloqueo |
+|---|---|---|---|---|
+| 10 | `10_matcher_aliases_tecnologias.sql` | Reglas del matcher para tecnologías (968: alias estrictos para palabras comunes y siglas, y los 41 duplicados como alias de su principal); reactiva Transformers con reglas estrictas. Crea `market_entity_aliases` si no existe | < 1 s | Ninguno |
+| 0 | — | **Respaldo de `technology_job`** (además del respaldo propio del script 13) | — | — |
+| 12 | `12_limpieza_preparar.sql` | Tablas `technology_job_limpieza` y `technology_job_respaldo_limpieza` | < 1 s | Ninguno |
+| — | `php artisan entities:clean-associations --type=technologies --dry-run` | Informe (solo lectura) | ~80 s | Ninguno |
+| — | `php artisan entities:clean-associations --type=technologies` | Llena la tabla de trabajo: `borrar` (no confirmadas) y `reasignar` (duplicados → principal) | ~130 s | Ninguno |
+| 13 | `13_limpieza_aplicar.sql` | Respalda, borra y reasigna en lotes de 5 000. **Cliente `mysql` (DELIMITER)**, fuera de `jobs:run-all` | ~4-5 min (1,62 M filas) | Filas, por lote |
+| — | `php artisan ranking:refresh-technologies` | Recalcula | ~10 s | — |
+
+- Reversiones: `11_matcher_aliases_tecnologias_rollback.sql` (borra solo las reglas de tecnologías y vuelve a
+  desactivar Transformers; no elimina la tabla compartida) y `14_limpieza_rollback.sql` (restaura filas borradas y
+  devuelve las reasignadas). Probado: aplicar → revertir → aplicar.
+- Resultado local: `technology_job` 2 159 306 → 536 880 filas (se conservan las de entidades inactivas, 445 871, y las
+  sin entidad, 67 380); 1 202 filas de duplicados reasignadas a su principal.
+- No depende del orden con `ranking_lenguajes/11`: la tabla `market_entity_aliases` la crea el primero que se aplique.
+- Desde este despliegue los 12 scrapers de tecnologías solo asocian si el matcher confirma la tecnología, guardan el
+  texto disponible y escriben `technology_job.market_entity_id` al insertar. `arbeitnow:technologies` vuelve a
+  `RunAllJobs` (descarga el feed una vez y lo reutiliza).

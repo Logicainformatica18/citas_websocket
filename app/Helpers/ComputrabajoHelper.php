@@ -97,4 +97,37 @@ class ComputrabajoHelper
 
         return null;
     }
+
+    /** @var array<string, string> descripción del detalle por URL (una descarga por oferta y proceso) */
+    private static array $detailCache = [];
+
+    /**
+     * Descripción de la página de detalle de una oferta (texto plano). Una descarga por URL y proceso,
+     * con una pausa corta para no saturar el sitio. Devuelve "" si falla.
+     */
+    public static function fetchDescription(string $url): string
+    {
+        if (array_key_exists($url, self::$detailCache)) {
+            return self::$detailCache[$url];
+        }
+        $text = "";
+        try {
+            $response = Http::withHeaders([
+                "User-Agent" => "Mozilla/5.0",
+                "Accept-Language" => "es-ES,es;q=0.9",
+            ])->timeout(20)->get($url);
+            if ($response->ok()) {
+                $crawler = new \Symfony\Component\DomCrawler\Crawler($response->body());
+                $node = $crawler->filter(".description_offer .t_word_wrap");
+                if ($node->count()) {
+                    $text = \App\Services\Matching\EntityTextMatcher::normalize($node->html());
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Computrabajo: error al leer el detalle", ["url" => $url, "error" => $e->getMessage()]);
+        }
+        usleep(random_int(300000, 800000));
+
+        return self::$detailCache[$url] = $text;
+    }
 }
