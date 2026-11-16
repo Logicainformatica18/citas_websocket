@@ -1,0 +1,169 @@
+﻿id,nombre,slug,accion,principal,motivo,filas_technology_job
+3833,Gartner,gartner,desactivar,,"Organización o reporte, no es una tecnología",2971
+3836,"Forrester Research",forrester-research,desactivar,,"Organización o reporte, no es una tecnología",602
+3835,"McKinsey & Company",mckinsey-company,desactivar,,"Organización o reporte, no es una tecnología",955
+3840,"McKinsey Global Institute",mckinsey-global-institute,desactivar,,"Organización o reporte, no es una tecnología",0
+3842,"International Data Corporation (IDC)",international-data-corporation-idc,desactivar,,"Organización o reporte, no es una tecnología",42
+3838,"International Labour Organization",international-labour-organization,desactivar,,"Organización o reporte, no es una tecnología",226
+3841,"International Telecommunication Union (ITU)",international-telecommunication-union-itu,desactivar,,"Organización o reporte, no es una tecnología",129
+3832,"World Economic Forum",world-economic-forum,desactivar,,"Organización o reporte, no es una tecnología",1060
+3834,"LinkedIn Workforce Report",linkedin-workforce-report,desactivar,,"Organización o reporte, no es una tecnología",1
+3844,"Cisco Annual Cybersecurity Report",cisco-annual-cybersecurity-report,desactivar,,"Organización o reporte, no es una tecnología",0
+3843,"Cisco Annual Cybersecurity Report 2025",cisco-annual-cybersecurity-report-2025,desactivar,,"Organización o reporte, no es una tecnología",0
+550,DevOps,devops,desactivar,,"Ya existe como metodología (otro indicador)",8903
+618,SAFe,safe,desactivar,,"Ya existe como metodología (otro indicador)",16
+617,LeSS,less,desactivar,,"Ya existe como metodología (otro indicador)",44
+546,COBIT,cobit,desactivar,,"Ya existe como metodología (otro indicador)",6475
+567,"ISO 27001:2022",iso-270012022,desactivar,,"Ya existe como metodología (otro indicador)",11
+289,NIST,nist,desactivar,,"Ya existe como metodología (otro indicador)",7155
+545,COSO,coso,desactivar,,"Norma, marco o regulación, no es una tecnología",8498
+615,PMBOK,pmbok,desactivar,,"Norma, marco o regulación, no es una tecnología",6071
+593,TOGAF,togaf,desactivar,,"Norma, marco o regulación, no es una tecnología",6628
+594,"Zachman Framework",zachman-framework,desactivar,,"Norma, marco o regulación, no es una tecnología",6246
+480,MDA,mda,desactivar,,"Norma, marco o regulación, no es una tecnología",7
+529,"ISO 25000",iso-25000,desactivar,,"Norma, marco o regulación, no es una tecnología",0
+288,"ISO 27000",iso-27000,desactivar,,"Norma, marco o regulación, no es una tecnología",11
+531,"ISO/IEC 12207",isoiec-12207,desactivar,,"Norma, marco o regulación, no es una tecnología",2
+543,"ISO/IEC 25000",isoiec-25000,desactivar,,"Norma, marco o regulación, no es una tecnología",0
+530,"ISO/IEC 9126",isoiec-9126,desactivar,,"Norma, marco o regulación, no es una tecnología",0
+291,GDPR,gdpr,desactivar,,"Norma, marco o regulación, no es una tecnología",7289
+290,"PCI DSS",pci-dss,desactivar,,"Norma, marco o regulación, no es una tecnología",6561
+229,"PLAFT Compliance",plaft-compliance,desactivar,,"Norma, marco o regulación, no es una tecnología",0
+228,"Gesintel cumplimiento normativo Perú",gesintel-cumplimiento-normativo-peru,desactivar,,"Norma, marco o regulación, no es una tecnología",86
+585,"Auditoría de seguridad de datos",auditoria-de-seguridad-de-datos,desactivar,,"Norma, marco o regulación, no es una tecnología",0
+497,"CompTIA A+",comptia-a,desactivar,,"Pertenece a otro indicador: certificaciones",7595
+214,APIs,apis,desactivar,,"Concepto genérico, no es una tecnología concreta",9921
+263,API,api,desactivar,,"Concepto genérico, no es una tecnología concreta",0
+216,Cloud,cloud,desactivar,,"Concepto genérico, no es una tecnología concreta",1
+538,ERP,erp,desactivar,,"Concepto genérico, no es una tecnología concreta",7811
+609,ERPs,erps,desactivar,,"Concepto genérico, no es una tecnología concreta",7393
+266,Firewall,firewall,desactivar,,"Concepto genérico, no es una tecnología concreta",7136
+268,VPN,vpn,desactivar,,"Concepto genérico, no es una tecnología concreta",7194
+533,SDK,sdk,desactivar,,"Concepto genérico, no es una tecnología concreta",33
+368,"Web Services",web-services,desactivar,,"Concepto genérico, no es una tecnología concreta",0
+447,No-Code,no-code,desactivar,,"Concepto genérico, no es una tecnología concreta",9
+597,"Software colaborativos",software-colaborativos,desactivar,,"Concepto genérico, no es una tecnología concreta",6730
+589,"Bases de datos NewSQL",bases-de-datos-newsql,desactivar,,"Concepto genérico, no es una tecnología concreta",6660
+588,"Bases de datos NoSQL",bases-de-datos-nosql,desactivar,,"Concepto genérico, no es una tecnología concreta",6938
+587,"Bases de datos relacionales",bases-de-datos-relacionales,desactivar,,"Concepto genérico, no es una tecnología concreta",7172
+378,NOSQL,nosql,desactivar,,"Concepto genérico, no es una tecnología concreta",7182
+554,"Redes Neuronales",redes-neuronales,desactivar,,"Concepto genérico, no es una tecnología concreta",6189
+560,"Modelos de aprendizaje profundo",modelos-de-aprendizaje-profundo,desactivar,,"Concepto genérico, no es una tecnología concreta",6286
+555,CNN,cnn,desactivar,,"Concepto genérico, no es una tecnología concreta",8684
+556,RNN,rnn,desactivar,,"Concepto genérico, no es una tecnología concreta",6857
+347,GANS,gans,desactivar,,"Concepto genérico, no es una tecnología concreta",7030
+596,"Data Lakehouses",data-lakehouses,desactivar,,"Concepto genérico, no es una tecnología concreta",6978
+345,DataMarts,datamarts,desactivar,,"Concepto genérico, no es una tecnología concreta",0
+344,DataWarehouse,datawarehouse,desactivar,,"Concepto genérico, no es una tecnología concreta",10
+539,ArrayList,arraylist,desactivar,,"Concepto genérico, no es una tecnología concreta",6050
+552,Byzantine,byzantine,desactivar,,"Concepto genérico, no es una tecnología concreta",6286
+481,"Game Design Document (GDD)",game-design-document-gdd,desactivar,,"Concepto genérico, no es una tecnología concreta",0
+548,"WorkFlow Management System",workflow-management-system,desactivar,,"Concepto genérico, no es una tecnología concreta",7411
+547,EAI,eai,desactivar,,"Concepto genérico, no es una tecnología concreta",7149
+367,MOM,mom,desactivar,,"Concepto genérico, no es una tecnología concreta",6254
+590,BPMS,bpms,desactivar,,"Concepto genérico, no es una tecnología concreta",6243
+299,SIEM,siem,desactivar,,"Concepto genérico, no es una tecnología concreta",7516
+559,IDS/IPS,idsips,desactivar,,"Concepto genérico, no es una tecnología concreta",15
+267,IPS,ips,desactivar,,"Concepto genérico, no es una tecnología concreta",8095
+522,Wi-Fi,wi-fi,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",8491
+259,WLAN,wlan,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6888
+521,Ethernet,ethernet,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6712
+483,TCP,tcp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7705
+482,UDP,udp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7502
+262,STP,stp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6518
+260,DHCP,dhcp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7067
+488,NTP,ntp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6203
+295,SSL,ssl,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",18
+296,TLS,tls,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",14
+331,SSL/TLS,ssltls,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6555
+566,SSH,ssh,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6496
+215,SFTP,sftp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",13
+525,AMQP,amqp,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6371
+523,MQTT,mqtt,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6186
+524,COAP,coap,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6492
+519,LoRaWAN,lorawan,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6093
+520,Zigbee,zigbee,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6008
+332,IPsec,ipsec,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6240
+333,Kerberos,kerberos,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6216
+270,RADIUS,radius,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7047
+273,PKI,pki,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6993
+562,RSA,rsa,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7209
+563,DSA,dsa,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",8339
+565,ECC,ecc,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7179
+564,Diffie-Hellman,diffie-hellman,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6187
+561,RC4,rc4,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6203
+348,VAES,vaes,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",6830
+261,EtherChannel,etherchannel,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",5975
+328,NFS,nfs,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7318
+329,AFS,afs,desactivar,,"Protocolo, estándar o algoritmo: se reconsidera en la Fase 3 con alias estrictos",7854
+557,Transformers,transformers,desactivar,,"Ambiguo: se reactiva en la Fase 3 con alias estrictos",7341
+217,Cyberops,cyberops,desactivar,,"Pertenece a certificaciones (Cisco CyberOps Associate)",6106
+240,"Amazon S3",amazon-s3,principal,,"Entidad principal del grupo; queda activa",6897
+196,"AWS S3",aws-s3,duplicado,"Amazon S3","duplicado de Amazon S3",7653
+532,S3,s3,duplicado,"Amazon S3","duplicado de Amazon S3",23
+534,"Simple Storage Service (S3)",simple-storage-service-s3,duplicado,"Amazon S3","duplicado de Amazon S3",38
+361,"Amazon Simple Storage Service (S3)",amazon-simple-storage-service-s3,duplicado,"Amazon S3","duplicado de Amazon S3",6477
+387,"Amazon S3 Glacier",amazon-s3-glacier,principal,,"Entidad principal del grupo; queda activa",6249
+407,"AWS S3 Glacier",aws-s3-glacier,duplicado,"Amazon S3 Glacier","duplicado de Amazon S3 Glacier",6071
+381,"Amazon SNS",amazon-sns,principal,,"Entidad principal del grupo; queda activa",6382
+365,"Amazon Simple Notification Service (SNS)",amazon-simple-notification-service-sns,duplicado,"Amazon SNS","duplicado de Amazon SNS",6387
+536,"Simple Notification Service (SNS)",simple-notification-service-sns,duplicado,"Amazon SNS","duplicado de Amazon SNS",0
+370,"Amazon SQS",amazon-sqs,principal,,"Entidad principal del grupo; queda activa",6583
+364,"Amazon Simple Queue Service (SQS)",amazon-simple-queue-service-sqs,duplicado,"Amazon SQS","duplicado de Amazon SQS",6395
+535,"Simple Queue Service (SQS)",simple-queue-service-sqs,duplicado,"Amazon SQS","duplicado de Amazon SQS",0
+199,"Amazon EC2",amazon-ec2,principal,,"Entidad principal del grupo; queda activa",6788
+375,EC2,ec2,duplicado,"Amazon EC2","duplicado de Amazon EC2",7040
+360,"Elastic Computing Cloud (EC2)",elastic-computing-cloud-ec2,duplicado,"Amazon EC2","duplicado de Amazon EC2",6091
+408,"Amazon EC2 Auto Scaling",amazon-ec2-auto-scaling,principal,,"Entidad principal del grupo; queda activa",6296
+404,"AWS EC2 Auto Scaling",aws-ec2-auto-scaling,duplicado,"Amazon EC2 Auto Scaling","duplicado de Amazon EC2 Auto Scaling",90
+201,"Amazon CloudFront",amazon-cloudfront,principal,,"Entidad principal del grupo; queda activa",6601
+401,"AWS CloudFront",aws-cloudfront,duplicado,"Amazon CloudFront","duplicado de Amazon CloudFront",131
+241,"Amazon VPC",amazon-vpc,principal,,"Entidad principal del grupo; queda activa",6626
+402,"AWS VPC",aws-vpc,duplicado,"Amazon VPC","duplicado de Amazon VPC",6378
+542,VPC,vpc,duplicado,"Amazon VPC","duplicado de Amazon VPC",6700
+386,"Amazon ElastiCache",amazon-elasticache,principal,,"Entidad principal del grupo; queda activa",6309
+379,Elasticache,elasticache,duplicado,"Amazon ElastiCache","duplicado de Amazon ElastiCache",6266
+396,"Amazon Redshift",amazon-redshift,principal,,"Entidad principal del grupo; queda activa",6447
+232,Redshift,redshift,duplicado,"Amazon Redshift","duplicado de Amazon Redshift",6445
+362,"Amazon RDS",amazon-rds,principal,,"Entidad principal del grupo; queda activa",6572
+377,RDS,rds,duplicado,"Amazon RDS","duplicado de Amazon RDS",6810
+352,"Amazon SageMaker",amazon-sagemaker,principal,,"Entidad principal del grupo; queda activa",6629
+320,SageMaker,sagemaker,duplicado,"Amazon SageMaker","duplicado de Amazon SageMaker",16
+403,"Elastic Load Balancing",elastic-load-balancing,principal,,"Entidad principal del grupo; queda activa",5944
+242,"Elastic Load Balancer (ELB)",elastic-load-balancer-elb,duplicado,"Elastic Load Balancing","duplicado de Elastic Load Balancing",6159
+271,IIS,iis,principal,,"Entidad principal del grupo; queda activa",1
+526,"Internet Information Server (IIS)",internet-information-server-iis,duplicado,IIS,"duplicado de IIS",6167
+254,"Internet Information Services (IIS)",internet-information-services-iis,duplicado,IIS,"duplicado de IIS",6211
+549,"Identity and Access Management (IAM)",identity-and-access-management-iam,principal,,"Entidad principal del grupo; queda activa",6960
+544,"IAM (Identity and Access Management)",iam-identity-and-access-management,duplicado,"Identity and Access Management (IAM)","duplicado de Identity and Access Management (IAM)",6724
+300,"Power BI",power-bi,principal,,"Entidad principal del grupo; queda activa",7776
+202,"Microsoft Power BI",microsoft-power-bi,duplicado,"Power BI","duplicado de Power BI",4
+206,"SQL Server",sql-server,principal,,"Entidad principal del grupo; queda activa",8486
+208,"Microsoft SQL Server",microsoft-sql-server,duplicado,"SQL Server","duplicado de SQL Server",32
+451,"Adobe Photoshop",adobe-photoshop,principal,,"Entidad principal del grupo; queda activa",111
+471,Photoshop,photoshop,duplicado,"Adobe Photoshop","duplicado de Adobe Photoshop",26
+449,"Google AdWords",google-adwords,principal,,"Entidad principal del grupo; queda activa",12
+448,Adwords,adwords,duplicado,"Google AdWords","duplicado de Google AdWords",102
+443,"Google Analytics",google-analytics,principal,,"Entidad principal del grupo; queda activa",7847
+460,"Google Analytics 4",google-analytics-4,duplicado,"Google Analytics","duplicado de Google Analytics",13
+558,VirtualBox,virtualbox,principal,,"Entidad principal del grupo; queda activa",12
+501,"Virtual Box",virtual-box,duplicado,VirtualBox,"duplicado de VirtualBox",6652
+330,HDFS,hdfs,principal,,"Entidad principal del grupo; queda activa",6195
+350,"Hadoop Distributed File System (HDFS)",hadoop-distributed-file-system-hdfs,duplicado,HDFS,"duplicado de HDFS",6195
+279,Metasploit,metasploit,principal,,"Entidad principal del grupo; queda activa",6196
+574,"Metasploit Framework",metasploit-framework,duplicado,Metasploit,"duplicado de Metasploit",6531
+518,"Microsoft Azure",microsoft-azure,principal,,"Entidad principal del grupo; queda activa",7716
+297,Azure,azure,duplicado,"Microsoft Azure","duplicado de Microsoft Azure",8253
+298,"Google Cloud Platform",google-cloud-platform,principal,,"Entidad principal del grupo; queda activa",7749
+595,GCP,gcp,duplicado,"Google Cloud Platform","duplicado de Google Cloud Platform",7809
+334,Unity,unity,principal,,"Entidad principal del grupo; queda activa",21
+474,"Unity 3D",unity-3d,duplicado,Unity,"duplicado de Unity",22
+465,Unity3D,unity3d,duplicado,Unity,"duplicado de Unity",10
+462,UnityEditor,unityeditor,duplicado,Unity,"duplicado de Unity",0
+475,UnityEngine,unityengine,duplicado,Unity,"duplicado de Unity",0
+476,"Unity UI",unity-ui,duplicado,Unity,"duplicado de Unity",10
+571,"Windows Server",windows-server,principal,,"Entidad principal del grupo; queda activa",7477
+346,"Windows Server 2019",windows-server-2019,duplicado,"Windows Server","duplicado de Windows Server",0
+244,"Windows Server 2022",windows-server-2022,duplicado,"Windows Server","duplicado de Windows Server",6241
+453,React.js,reactjs,principal,,"Entidad principal del grupo; queda activa",6453
+426,"CMS React.js",cms-reactjs,duplicado,React.js,"duplicado de React.js",2
