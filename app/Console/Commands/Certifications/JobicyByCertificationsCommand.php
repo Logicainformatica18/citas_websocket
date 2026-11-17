@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Certification;
 use App\Models\JobOffer;
 use App\Models\CertificationMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
@@ -186,6 +187,8 @@ class JobicyByCertificationsCommand extends Command
                             OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, OfferEntityLinker::body($job['jobExcerpt'] ?? '', $job['jobDescription'] ?? ''));
                         }
 
+                        JobFunctions::fillMissingFor('Jobicy', $externalId, JobFunctions::fromDescription($job['jobDescription'] ?? null));
+
                         continue;
                     }
 
@@ -262,6 +265,8 @@ class JobicyByCertificationsCommand extends Command
                         'url' =>
                             $job['url']
                             ?? null,
+
+                        ...JobFunctions::fromDescription($job['jobDescription'] ?? null),
 
                         'search_query' =>
                             $certName,

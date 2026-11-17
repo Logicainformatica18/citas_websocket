@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\GetOnBoardFunctions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -282,7 +283,7 @@ public function import(Request $request)
                     }
                 }
 
-                JobOffer::updateOrCreate(
+                $offer = JobOffer::updateOrCreate(
                     ['url' => $urlJob],
                     [
                         'title'        => $title,
@@ -299,6 +300,8 @@ public function import(Request $request)
                             : null,
                     ]
                 );
+                // Funciones del puesto: solo se completan si hoy están en null (no pisa nada)
+                GetOnBoardFunctions::fillMissing($offer, $attr);
                 $saved++;
             }
         }

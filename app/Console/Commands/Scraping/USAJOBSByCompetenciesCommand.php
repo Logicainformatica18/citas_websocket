@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
@@ -85,6 +86,7 @@ class USAJOBSByCompetenciesCommand extends Command
                         ->where('source', 'USAJOBS')
                         ->exists()) {
 
+                        JobFunctions::fillMissingFor('USAJOBS', $externalId, JobFunctions::fromUsajobs($job));
                         $this->stats['skipped']++;
                         continue;
                     }
@@ -156,6 +158,7 @@ class USAJOBSByCompetenciesCommand extends Command
                         'external_id'        => $externalId,
                         'url'                => $job['PositionURI'] ?? null,
                         'search_query'       => $competencyName,
+                        ...JobFunctions::fromUsajobs($job),
                         'published_at'       => $publishedAt,
                     ]);
 

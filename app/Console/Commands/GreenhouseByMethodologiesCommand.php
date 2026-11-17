@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 
 use App\Helpers\RegionHelper;
@@ -177,6 +178,7 @@ class GreenhouseByMethodologiesCommand extends Command
                     if ($existing) {
                         $existing->methodologies()
                             ->syncWithoutDetaching([$method->id]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromDescription($content));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -193,6 +195,7 @@ class GreenhouseByMethodologiesCommand extends Command
                         'source'       => 'Greenhouse',
                         'external_id'  => $externalId,
                         'url'          => $job['absolute_url'] ?? null,
+                        ...JobFunctions::fromDescription($content),
                         'search_query' => $pattern,
                         'published_at' => $job['updated_at'] ?? now(),
                         'region'       => RegionHelper::fromCountry($countryFull),

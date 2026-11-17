@@ -10,6 +10,7 @@ use App\Models\Language;
 use App\Models\LanguageMetric;
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\JobFunctions;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
@@ -62,14 +63,16 @@ class SelectaByLanguagesCommand extends Command
         $parsedJobs = [];
 
         foreach ($jobsHtml as $node) {
-            $parsedJobs[] = $this->parseJob(new Crawler($node));
+            $parsedJobs[] = $this->extractJobData(new Crawler($node));
         }
 
         /* ===========================
            🔥 TRAER DETALLE SOLO UNA VEZ
         ============================ */
         foreach ($parsedJobs as &$job) {
-            $job['full_desc'] = $this->fetchJobDetail($job['url']);
+            $job['full_desc'] = $this->fetchJobDetail($job['url'], $descriptionHtml);
+            // Funciones del puesto: de la descripción del aviso (.main__description), no del <body> completo
+            $job['functions'] = JobFunctions::fromDescription($descriptionHtml);
         }
         unset($job);
 
@@ -112,6 +115,7 @@ class SelectaByLanguagesCommand extends Command
 
                 if ($existing) {
                     $linker->attach($existing, [$languageId]);
+                    JobFunctions::fillMissing($existing, $job['functions']);
                     $totalSkippedAll++;
                     continue;
                 }
@@ -130,6 +134,7 @@ class SelectaByLanguagesCommand extends Command
                     'external_id' => $externalId,
                     'url'         => $job['url'],
                     'description' => $text,
+                    ...$job['functions'],
                     'search_query'=> $languageName,
                     'published_at'=> now(),
                     'region'      => RegionHelper::fromCountry('PE'),
@@ -262,14 +267,20 @@ class SelectaByLanguagesCommand extends Command
             return 'N/A';
         }
     }
-private function fetchJobDetail(string $url): string
+/** @param  string|null  $descriptionHtml  (salida) HTML de .main__description del aviso */
+private function fetchJobDetail(string $url, ?string &$descriptionHtml = null): string
 {
+    $descriptionHtml = null;
+
     try {
         $res = Http::timeout(15)->get($url);
 
         if ($res->failed()) return '';
 
         $crawler = new Crawler($res->body());
+
+        $description = $crawler->filter('.main__description');
+        $descriptionHtml = $description->count() ? $description->first()->html() : null;
 
         return strtolower(
             trim($crawler->filter('body')->text())

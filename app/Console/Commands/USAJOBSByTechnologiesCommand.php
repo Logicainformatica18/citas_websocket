@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\JobFunctions;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
@@ -126,6 +127,7 @@ class USAJOBSByTechnologiesCommand extends Command
 
                     if ($existing) {
                         OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromUsajobs($job));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -183,6 +185,7 @@ class USAJOBSByTechnologiesCommand extends Command
                         'external_id'       => $externalId,
                         'url'               => $job['PositionURI'] ?? null,
                         'search_query'      => $techName,
+                        ...JobFunctions::fromUsajobs($job),
                         'published_at'      => $publishedAt,
                     ]);
 

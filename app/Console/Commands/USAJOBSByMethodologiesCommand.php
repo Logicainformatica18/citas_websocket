@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\JobFunctions;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
@@ -115,6 +116,7 @@ class USAJOBSByMethodologiesCommand extends Command
                     if ($existing) {
                         $existing->methodologies()
                             ->syncWithoutDetaching([$methodologyId]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromUsajobs($job));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -171,6 +173,7 @@ class USAJOBSByMethodologiesCommand extends Command
                         'external_id'       => $externalId,
                         'url'               => $job['PositionURI'] ?? null,
                         'search_query'      => $methodologyName,
+                        ...JobFunctions::fromUsajobs($job),
                         'published_at'      => $publishedAt,
                     ]);
 

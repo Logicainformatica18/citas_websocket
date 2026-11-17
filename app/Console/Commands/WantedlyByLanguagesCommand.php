@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Language;
 use App\Models\JobOffer;
 use App\Models\LanguageMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
@@ -151,6 +152,7 @@ public function handle()
 
                     if ($existing) {
                         OfferEntityLinker::for('languages')->attach($existing, [$languageId]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromWantedly($job));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -199,6 +201,7 @@ public function handle()
                         'url'          => $urlJob,
                         'search_query' => $languageName,
                         'description'  => $desc,
+                        ...JobFunctions::fromWantedly($job),
                         'published_at' => $published,
                     ]);
 

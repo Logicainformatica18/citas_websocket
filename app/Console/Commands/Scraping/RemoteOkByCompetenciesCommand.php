@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -89,6 +90,7 @@ class RemoteOkByCompetenciesCommand extends Command
                 if ($externalId && JobOffer::where('source', 'RemoteOK')
                         ->where('external_id', $externalId)
                         ->exists()) {
+                    JobFunctions::fillMissingFor('RemoteOK', $externalId, JobFunctions::fromDescription($job['description'] ?? null));
                     continue;
                 }
 
@@ -125,6 +127,7 @@ class RemoteOkByCompetenciesCommand extends Command
                     'source'       => 'RemoteOK',
                     'external_id'  => $externalId,
                     'url'          => $urlJob,
+                    ...JobFunctions::fromDescription($job['description'] ?? null),
                     'search_query' => $competencyName,
 
                     'published_at' => isset($job['date'])

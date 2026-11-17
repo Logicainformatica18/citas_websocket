@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -121,6 +122,7 @@ class RemoteOkByMethodologiesCommand extends Command
                     ->where('external_id', $externalId)
                     ->exists()) {
 
+                    JobFunctions::fillMissingFor('RemoteOK', $externalId, JobFunctions::fromDescription($job['description'] ?? null));
                     $totalSkippedAll++;
                     continue;
                 }
@@ -149,6 +151,7 @@ class RemoteOkByMethodologiesCommand extends Command
                     'search_query' => $methodologyName,
                     'external_id'  => $externalId,
                     'url'          => $job['url'] ?? null,
+                    ...JobFunctions::fromDescription($job['description'] ?? null),
                     'published_at' => isset($job['date'])
                         ? Carbon::parse($job['date'])
                         : now(),

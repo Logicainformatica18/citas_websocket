@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 
 use App\Helpers\RegionHelper;
@@ -128,6 +129,7 @@ class GreenhouseByCompetenciesCommand extends Command
 
                     if ($existing) {
                         $existing->competencies()->syncWithoutDetaching([$comp->id]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromDescription($content));
                         continue;
                     }
 
@@ -150,6 +152,7 @@ class GreenhouseByCompetenciesCommand extends Command
                         'source'            => 'Greenhouse',
                         'external_id'       => $externalId,
                         'url'               => $urlJob,
+                        ...JobFunctions::fromDescription($content),
                         'search_query'      => $pattern,
                         'published_at'      => $job['updated_at'] ?? now(),
                         'region'            => $region,

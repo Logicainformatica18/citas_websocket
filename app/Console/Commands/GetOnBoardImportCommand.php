@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\JobOffer;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 
 class GetOnBoardImportCommand extends Command
@@ -93,8 +95,9 @@ class GetOnBoardImportCommand extends Command
                     }
 
                     // 🔎 Evita duplicados
-                    $exists = JobOffer::where('url', $urlJob)->exists();
-                    if ($exists) {
+                    $existing = JobOffer::where('url', $urlJob)->first();
+                    if ($existing) {
+                        GetOnBoardFunctions::fillMissing($existing, $attr);
                         $duplicates++;
                         continue;
                     }
@@ -111,6 +114,7 @@ class GetOnBoardImportCommand extends Command
                         'experience_level' => $attr['experience_level'] ?? null,
                         'category' => $attr['category_name'] ?? null,
                         'role' => $attr['role'] ?? null,
+                        ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
                         'latitude' => $latitude,
                         'longitude' => $longitude,
                         'source' => 'GetOnBoard',

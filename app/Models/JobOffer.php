@@ -32,6 +32,9 @@ class JobOffer extends Model
         'skills',            // 🆕 Habilidades clave (Python, React, SQL...)
         'description',
         'benefits',
+        'functions',          // 🆕 Funciones del puesto (texto plano, App\Support\HtmlText)
+        'functions_headline', // 🆕 Título de la sección de funciones en la fuente
+        'functions_origin',   // 🆕 'field' (campo propio de la fuente) | 'heuristic' (extraído de la descripción)
         'salary_min',
         'salary_max',
         'currency',

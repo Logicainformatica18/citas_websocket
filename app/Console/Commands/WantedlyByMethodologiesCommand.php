@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
@@ -140,6 +141,7 @@ public function handle()
                     if ($existing) {
                         $existing->methodologies()
                             ->syncWithoutDetaching([$methId]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromWantedly($job));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -197,6 +199,7 @@ public function handle()
                         'url'              => $urlJob,
                         'search_query'     => $methName,
                         'description'      => $desc,
+                        ...JobFunctions::fromWantedly($job),
                         'published_at'     => $published,
                     ]);
 

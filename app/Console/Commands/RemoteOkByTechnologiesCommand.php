@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -123,6 +124,7 @@ class RemoteOkByTechnologiesCommand extends Command
                 $existing = $externalId ? JobOffer::where('source', 'RemoteOK')->where('external_id', $externalId)->first() : null;
                 if ($existing) {
                     OfferEntityLinker::for('technologies')->attach($existing, [$technologyId]);
+                    JobFunctions::fillMissing($existing, JobFunctions::fromDescription($job['description'] ?? null));
                     $totalSkippedAll++;
                     continue;
                 }
@@ -152,6 +154,7 @@ class RemoteOkByTechnologiesCommand extends Command
                     'external_id'  => $externalId,
                     'url'          => $job['url'] ?? null,
                     'description'  => $descriptionText,
+                    ...JobFunctions::fromDescription($job['description'] ?? null),
                     'skills'       => implode(', ', $tags),
                     'published_at' => isset($job['date'])
                         ? Carbon::parse($job['date'])

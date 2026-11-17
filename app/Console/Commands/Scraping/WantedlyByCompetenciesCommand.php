@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
@@ -83,6 +84,7 @@ class WantedlyByCompetenciesCommand extends Command
 
                     if ($existing) {
                         $existing->competencies()->syncWithoutDetaching([$competencyId]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromWantedly($job));
                         continue;
                     }
 
@@ -165,6 +167,7 @@ class WantedlyByCompetenciesCommand extends Command
                         'search_query'=> $competencyName,
 
                         'description'    => $desc,
+                        ...JobFunctions::fromWantedly($job),
                         'description_es' => $targetLang === 'es' ? $descTranslated : null,
                         'description_en' => $targetLang === 'en' ? $descTranslated : null,
 

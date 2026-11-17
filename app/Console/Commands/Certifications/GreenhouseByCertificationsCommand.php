@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Certification;
 use App\Models\JobOffer;
 use App\Models\CertificationMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -272,6 +273,7 @@ class GreenhouseByCertificationsCommand extends Command
                             if ($existing) {
 
                                 OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, $content);
+                                JobFunctions::fillMissing($existing, JobFunctions::fromDescription($content));
                             }
 
                             $found[] = $externalId;
@@ -336,6 +338,8 @@ class GreenhouseByCertificationsCommand extends Command
 
                             'url' =>
                                 $urlJob,
+
+                            ...JobFunctions::fromDescription($content),
 
                             'published_at' =>
                                 $job['updated_at']

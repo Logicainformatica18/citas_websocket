@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\JobFunctions;
 use App\Models\Language;
 use App\Models\LanguageMetric;
 
@@ -178,6 +179,7 @@ class GreenhouseByLanguagesCommand extends Command
 
                     if ($existing) {
                         $linker->attach($existing, [$language->id]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromDescription($content));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -199,6 +201,7 @@ class GreenhouseByLanguagesCommand extends Command
                         'source'           => 'Greenhouse',
                         'external_id'      => $externalId,
                         'url'              => $urlJob,
+                        ...JobFunctions::fromDescription($content),
                         'search_query'     => $language->name,
                         'published_at'     => $job['updated_at'] ?? now(),
                         'region'           => RegionHelper::fromCountry($countryFull),

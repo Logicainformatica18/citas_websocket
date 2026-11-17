@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Models\JobOffer;
 use App\Models\CompetencyMetric;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 
@@ -106,6 +108,7 @@ class GetOnBoardByCompetenciesCommand extends Command
 
                     if ($existing) {
                         $existing->competencies()->syncWithoutDetaching([$competencyId]);
+                        GetOnBoardFunctions::fillMissing($existing, $attr);
                         continue;
                     }
 
@@ -165,6 +168,7 @@ class GetOnBoardByCompetenciesCommand extends Command
                         'certifications'    => !empty($certifications) ? implode(', ', $certifications) : null,
                         'description'       => $desc,
                         'benefits'          => $benefitsText,
+                        ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
                         'salary_min'        => $minSalary,
                         'salary_max'        => $maxSalary,
                         'currency'          => $currency,

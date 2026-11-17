@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Certification;
 use App\Models\JobOffer;
 use App\Models\CertificationMetric;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -214,6 +215,8 @@ class RemoteOkByCertificationsCommand extends Command
                             OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $cert->id, false, OfferEntityLinker::body($job['description'] ?? '', $job['tags'] ?? []));
                         }
 
+                        JobFunctions::fillMissingFor('RemoteOK', $externalId, JobFunctions::fromDescription($job['description'] ?? null));
+
                         continue;
                     }
 
@@ -276,6 +279,8 @@ class RemoteOkByCertificationsCommand extends Command
 
                         'url' =>
                             $job['url'] ?? null,
+
+                        ...JobFunctions::fromDescription($job['description'] ?? null),
 
                         'published_at' =>
                             isset($job['date'])

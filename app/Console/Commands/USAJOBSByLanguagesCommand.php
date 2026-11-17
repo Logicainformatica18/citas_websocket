@@ -9,6 +9,7 @@ use App\Models\Language;
 use App\Models\LanguageMetric;
 use App\Models\JobOffer;
 use App\Models\City;
+use App\Support\JobFunctions;
 use App\Helpers\CountryNormalizer;
 use Carbon\Carbon;
 use App\Services\ScraperRunService;
@@ -127,6 +128,7 @@ public function handle()
                             ->where('external_id', $externalId)
                             ->exists()
                     ) {
+                        JobFunctions::fillMissingFor('usajobs', $externalId, JobFunctions::fromUsajobs($job));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -168,6 +170,7 @@ public function handle()
                         'url'          => $job['PositionURI'] ?? null,
                         'search_query' => $languageName,
                         'requirements' => $usaText,
+                        ...JobFunctions::fromUsajobs($job),
                         'published_at' => $publishedAt,
                     ]);
 

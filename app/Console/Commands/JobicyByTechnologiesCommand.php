@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
@@ -136,6 +137,7 @@ class JobicyByTechnologiesCommand extends Command
                     $externalId = $job['id'] ?? null;
 
                     if ($externalId && JobOffer::where('external_id', $externalId)->exists()) {
+                        JobFunctions::fillMissingFor('Jobicy', $externalId, JobFunctions::fromDescription($job['jobDescription'] ?? null));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -189,6 +191,7 @@ class JobicyByTechnologiesCommand extends Command
                         'source'       => 'Jobicy',
                         'external_id'  => $externalId,
                         'url'          => $urlJob,
+                        ...JobFunctions::fromDescription($job['jobDescription'] ?? null),
                         'search_query' => $techName,
                         'published_at' => isset($job['pubDate'])
                                             ? Carbon::parse($job['pubDate'])

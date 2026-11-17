@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Language;
 use App\Models\JobOffer;
 use App\Models\LanguageMetric;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
@@ -185,6 +187,7 @@ $connectionOk = true;
 
                         if ($existingOffer) {
                             OfferEntityLinker::for('languages')->attach($existingOffer, [$languageId]);
+                            GetOnBoardFunctions::fillMissing($existingOffer, $attr);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -220,6 +223,7 @@ $connectionOk = true;
                             'experience_level'  => $seniority,
                             'description'       => $desc,
                             'benefits'          => $benefitsText,
+                            ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
                             'salary_min'        => $minSalary,
                             'salary_max'        => $maxSalary,
                             'currency'          => $currency,

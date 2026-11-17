@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
  
 use App\Models\JobOffer;
- 
+use App\Support\JobFunctions;
+
 use App\Models\City;
 use App\Helpers\RegionHelper;
 use App\Helpers\CountryNormalizer;
@@ -168,6 +169,7 @@ class GreenhouseByTechnologiesCommand extends Command
 
                     if ($existing) {
                         OfferEntityLinker::for('technologies')->attach($existing, [$tech->id]);
+                        JobFunctions::fillMissing($existing, JobFunctions::fromDescription($content));
                         $totalSkippedAll++;
                         continue;
                     }
@@ -191,6 +193,7 @@ class GreenhouseByTechnologiesCommand extends Command
                         'source'            => 'Greenhouse',
                         'external_id'       => $externalId,
                         'url'               => $urlJob,
+                        ...JobFunctions::fromDescription($content),
                         'search_query'      => $tech->name,
                         'published_at'      => $job['updated_at'] ?? now(),
                         'region'            => $region,

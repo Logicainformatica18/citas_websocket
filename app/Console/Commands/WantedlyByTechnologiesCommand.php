@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
+use App\Support\JobFunctions;
 use App\Models\City;
 use Carbon\Carbon;
 use App\Helpers\CountryNormalizer;
@@ -149,6 +150,7 @@ class WantedlyByTechnologiesCommand extends Command
 
                         if ($existing) {
                             OfferEntityLinker::for('technologies')->attach($existing, [$techId]);
+                            JobFunctions::fillMissing($existing, JobFunctions::fromWantedly($job));
                             $totalSkippedAll++;
                             continue;
                         }
@@ -206,6 +208,7 @@ class WantedlyByTechnologiesCommand extends Command
                             'url'              => $urlJob,
                             'search_query'     => $techName,
                             'description'      => $desc,
+                            ...JobFunctions::fromWantedly($job),
                             'published_at'     => $published,
                         ]);
 

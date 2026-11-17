@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Certification;
 use App\Models\JobOffer;
 use App\Models\CertificationMetric;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
  use App\Services\SourceStatusService;
@@ -256,6 +258,7 @@ class GetOnBoardByCertificationsCommand extends Command
                             if ($existing) {
 
                                 OfferEntityLinker::for('certifications')->attachIfConfirmed($existing, $certId, false, OfferEntityLinker::body($job['attributes']['description'] ?? '', $job['attributes']['functions'] ?? '', $job['attributes']['desirable'] ?? ''));
+                                GetOnBoardFunctions::fillMissing($existing, $attr);
                             }
 
                             continue;
@@ -300,6 +303,8 @@ class GetOnBoardByCertificationsCommand extends Command
 
                             'url' =>
                                 $urlJob,
+
+                            ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
 
                             'published_at' =>
                                 isset($attr['published_at'])

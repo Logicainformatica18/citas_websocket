@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Methodology;
 use App\Models\JobOffer;
 use App\Models\MethodologyMetric;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper; // ✅ importante: asegúrate de importar el helper
 use App\Services\ScraperRunService;
@@ -155,7 +157,7 @@ public function handle()
                             continue;
                         }
 
-                        $exists = JobOffer::where('source', 'GetOnBoard')
+                        $existing = JobOffer::where('source', 'GetOnBoard')
                             ->where(function ($q) use (
                                 $externalId,
                                 $title,
@@ -182,9 +184,10 @@ public function handle()
                                          ->where('url', $urlJob);
                                   });
                             })
-                            ->exists();
+                            ->first();
 
-                        if ($exists) {
+                        if ($existing) {
+                            GetOnBoardFunctions::fillMissing($existing, $attr);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -229,6 +232,7 @@ public function handle()
                                                     : null,
                             'description'       => $desc,
                             'benefits'          => $benefitsText,
+                            ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
                             'salary_min'        => $minSalary,
                             'salary_max'        => $maxSalary,
                             'currency'          => $currency,

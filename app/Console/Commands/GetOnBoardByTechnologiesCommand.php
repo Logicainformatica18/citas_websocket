@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Technology;
 use App\Models\JobOffer;
 use App\Models\TechnologyMetric;
+use App\Support\GetOnBoardFunctions;
+use App\Support\JobFunctions;
 use Carbon\Carbon;
 use App\Helpers\RegionHelper;
 use App\Services\ScraperRunService;
@@ -166,6 +168,7 @@ class GetOnBoardByTechnologiesCommand extends Command
 
                         if ($existingOffer) {
                             OfferEntityLinker::for('technologies')->attach($existingOffer, [$technologyId]);
+                            GetOnBoardFunctions::fillMissing($existingOffer, $attr);
                             $totalSkippedAll++;
                             continue;
                         }
@@ -208,6 +211,7 @@ class GetOnBoardByTechnologiesCommand extends Command
                             'experience_level'  => $seniority,
                             'description'       => $desc,
                             'benefits'          => $benefitsText,
+                            ...JobFunctions::withOrigin(GetOnBoardFunctions::fromAttributes($attr), JobFunctions::FIELD),
                             'salary_min'        => $minSalary,
                             'salary_max'        => $maxSalary,
                             'currency'          => $currency,
