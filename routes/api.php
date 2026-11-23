@@ -11,7 +11,6 @@ use App\Http\Controllers\TransferController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\AreaController;
@@ -24,8 +23,6 @@ use App\Http\Controllers\TypeController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\DashboardController;
-
 
 // --------------------
 // ✅ Rutas públicas
@@ -58,8 +55,22 @@ Route::get('/test', fn () => response()->json([
 
 // ------------------------------
 // 🔒 Rutas protegidas con Sanctum
+// Mismos permisos que routes/web.php (ver el comentario de cabecera allí).
 // ------------------------------
-Route::middleware('auth:sanctum')->group(function () {
+$admin = 'permission:administrar';
+$sol_ver = 'permission:administrar|solicitudes.ver';
+$sol_actualizar = 'permission:administrar|solicitudes.actualizar';
+$sol_avanzadas = 'permission:administrar|solicitudes.acciones_avanzadas';
+$sol_eliminar = 'permission:administrar|solicitudes.eliminar';
+$clientes = 'permission:administrar|clientes';
+$inv_agregar = 'permission:administrar|agregar';
+$inv_editar = 'permission:administrar|editar|actualizar';
+$inv_eliminar = 'permission:administrar|eliminar';
+
+Route::middleware('auth:sanctum')->group(function () use (
+    $admin, $sol_ver, $sol_actualizar, $sol_avanzadas, $sol_eliminar,
+    $clientes, $inv_agregar, $inv_editar, $inv_eliminar
+) {
 
     // 🔐 Logout
     Route::post('/logout', function (Request $request) {
@@ -71,183 +82,126 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', fn (Request $request) => response()->json($request->user()));
 
     // ----------------------------
-    // 👤 Usuarios
+    // 👤 Usuarios y 🔐 Roles (solo administrar)
     // ----------------------------
-    Route::get('/users', [UserController::class, 'index']);
-    Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('users.fetch');
-    Route::get('/users/{id}', [UserController::class, 'show']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
-    Route::post('/users/{id}/roles', [UserController::class, 'syncRoles']);
+    Route::middleware($admin)->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/fetch', [UserController::class, 'fetchPaginated'])->name('api.users.fetch');
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+        Route::post('/users/{id}/roles', [UserController::class, 'syncRoles']);
+
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::get('/roles/fetch', [RoleController::class, 'fetchPaginated']);
+        Route::get('/roles/{id}', [RoleController::class, 'show']);
+        Route::post('/roles', [RoleController::class, 'store']);
+        Route::put('/roles/{id}', [RoleController::class, 'update']);
+        Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
+    });
 
     // ----------------------------
     // 📦 Productos
     // ----------------------------
     Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('products.fetch');
+    Route::get('/products/fetch', [ProductController::class, 'fetchPaginated'])->name('api.products.fetch');
     Route::get('/products/search', [ProductController::class, 'searchByDescription']);
     Route::get('/products/{id}', [ProductController::class, 'show']);
-    Route::post('/products', [ProductController::class, 'store']);
-    Route::put('/products/{id}', [ProductController::class, 'update']);
-    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::post('/products', [ProductController::class, 'store'])->middleware($inv_agregar);
+    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware($inv_editar);
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware($inv_eliminar);
 
     // ----------------------------
     // 📋 Artículos
     // ----------------------------
     Route::get('/articles/fetch', [ArticleController::class, 'fetchPaginated']);
     Route::get('/articles/{id}', [ArticleController::class, 'show']);
-    Route::post('/articles', [ArticleController::class, 'store']);
-    Route::post('/articles/{id}', [ArticleController::class, 'update']); // PUT vía FormData
-    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
-    Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete']);
-    Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore']);
     Route::get('/articles/export/{transfer_id}', [ArticleController::class, 'exportExcel']);
+    Route::post('/articles/bulk-delete', [ArticleController::class, 'bulkDelete'])->middleware($inv_eliminar);
+    Route::post('/articles/bulk-store', [ArticleController::class, 'bulkStore'])->middleware($inv_agregar);
+    Route::post('/articles', [ArticleController::class, 'store'])->middleware($inv_agregar);
+    Route::post('/articles/{id}', [ArticleController::class, 'update'])->middleware($inv_editar); // PUT vía FormData
+    Route::delete('/articles/{id}', [ArticleController::class, 'destroy'])->middleware($inv_eliminar);
 
     // ----------------------------
     // 🔄 Transferencias
     // ----------------------------
     Route::get('/transfers', [TransferController::class, 'index']);
-    Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('transfers.fetch');
+    Route::get('/transfers/fetch', [TransferController::class, 'fetchPaginated'])->name('api.transfers.fetch');
     Route::get('/transfers/{id}', [TransferController::class, 'show']);
-    Route::post('/transfers', [TransferController::class, 'store']);
-    Route::put('/transfers/{id}', [TransferController::class, 'update']);
-    Route::delete('/transfers/{id}', [TransferController::class, 'destroy']);
+    Route::post('/transfers', [TransferController::class, 'store'])->middleware($inv_agregar);
+    Route::put('/transfers/{id}', [TransferController::class, 'update'])->middleware($inv_editar);
+    Route::delete('/transfers/{id}', [TransferController::class, 'destroy'])->middleware($inv_eliminar);
 
-    // Puedes seguir aquí con más módulos: supports, clients, etc.
-     // ----------------------------
+    // ----------------------------
     // 📁 Soportes
     // ----------------------------
-    Route::get('/supports', [SupportController::class, 'index']);
-    Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('supports.fetch');
-    Route::get('/supports/{id}', [SupportController::class, 'show']);
-    Route::post('/supports', [SupportController::class, 'store']);
-    Route::put('/supports/{id}', [SupportController::class, 'update']);
-    Route::delete('/supports/{id}', [SupportController::class, 'destroy']);
-    Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
-    Route::put('/supports/{id}/area-motivo', [SupportController::class, 'updateAreaMotivo']);
-    Route::get('/supports/export-all', [SupportController::class, 'exportAll']);
+    Route::get('/supports/export-all', [SupportController::class, 'exportAll'])->middleware($admin);
+    Route::middleware($sol_ver)->group(function () {
+        Route::get('/supports', [SupportController::class, 'index']);
+        Route::get('/supports/fetch', [SupportController::class, 'fetchPaginated'])->name('api.supports.fetch');
+        Route::get('/supports/{id}', [SupportController::class, 'show']);
+        Route::post('/supports', [SupportController::class, 'store']);
+        Route::get('/reports/{id}', [ReportController::class, 'show']);
+    });
+    Route::put('/supports/{id}', [SupportController::class, 'update'])->middleware($sol_actualizar);
+    // NOTA: SupportController no tiene updateAreaMotivo (está en SupportDetailController
+    // y recibe el id del detalle). Esta ruta responde 500; se deja tal cual.
+    Route::put('/supports/{id}/area-motivo', [SupportController::class, 'updateAreaMotivo'])->middleware($sol_avanzadas);
+    Route::middleware($sol_eliminar)->group(function () {
+        Route::delete('/supports/{id}', [SupportController::class, 'destroy']);
+        Route::post('/supports/bulk-delete', [SupportController::class, 'bulkDelete']);
+    });
 
     // ----------------------------
     // 👥 Clientes
     // ----------------------------
-    Route::get('/clients', [ClientController::class, 'index']);
-    Route::get('/clients/fetch', [ClientController::class, 'fetchPaginated']);
-    Route::get('/clients/search', [ClientController::class, 'searchByName']);
-    Route::get('/clients/{id}', [ClientController::class, 'show']);
-    Route::post('/clients', [ClientController::class, 'store']);
-    Route::put('/clients/{id}', [ClientController::class, 'update']);
-    Route::delete('/clients/{id}', [ClientController::class, 'destroy']);
-    Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete']);
+    Route::get('/clients/search', [ClientController::class, 'searchByName'])
+        ->middleware('permission:administrar|solicitudes.ver|clientes');
+    Route::middleware($clientes)->group(function () {
+        Route::get('/clients', [ClientController::class, 'index']);
+        Route::get('/clients/fetch', [ClientController::class, 'fetchPaginated']);
+        Route::get('/clients/{id}', [ClientController::class, 'show']);
+        Route::post('/clients', [ClientController::class, 'store']);
+        Route::put('/clients/{id}', [ClientController::class, 'update']);
+    });
+    Route::middleware($admin)->group(function () {
+        Route::delete('/clients/{id}', [ClientController::class, 'destroy']);
+        Route::post('/clients/bulk-delete', [ClientController::class, 'bulkDelete']);
+    });
 
     // ----------------------------
-    // 🏢 Áreas
+    // 📚 Catálogos: lectura libre, escritura administrar
     // ----------------------------
-    Route::get('/areas', [AreaController::class, 'index']);
-    Route::get('/areas/fetch', [AreaController::class, 'fetchPaginated']);
     Route::get('/areas/all', [AreaController::class, 'getAllEnabled']);
-    Route::get('/areas/{id}', [AreaController::class, 'show']);
-    Route::post('/areas', [AreaController::class, 'store']);
-    Route::put('/areas/{id}', [AreaController::class, 'update']);
-    Route::delete('/areas/{id}', [AreaController::class, 'destroy']);
-    Route::post('/areas/bulk-delete', [AreaController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 🔐 Roles y Permisos
-    // ----------------------------
-    Route::get('/roles', [RoleController::class, 'index']);
-    Route::get('/roles/fetch', [RoleController::class, 'fetchPaginated']);
-    Route::get('/roles/{id}', [RoleController::class, 'show']);
-    Route::post('/roles', [RoleController::class, 'store']);
-    Route::put('/roles/{id}', [RoleController::class, 'update']);
-    Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
-
-    // ----------------------------
-    // 🟢 Estado Interno
-    // ----------------------------
-    Route::get('/internal-states', [InternalStateController::class, 'index']);
-    Route::get('/internal-states/fetch', [InternalStateController::class, 'fetchPaginated']);
-    Route::get('/internal-states/{id}', [InternalStateController::class, 'show']);
-    Route::post('/internal-states', [InternalStateController::class, 'store']);
-    Route::put('/internal-states/{id}', [InternalStateController::class, 'update']);
-    Route::delete('/internal-states/{id}', [InternalStateController::class, 'destroy']);
-    Route::post('/internal-states/bulk-delete', [InternalStateController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 🔴 Estado Externo
-    // ----------------------------
-    Route::get('/external-states', [ExternalStateController::class, 'index']);
-    Route::get('/external-states/fetch', [ExternalStateController::class, 'fetchPaginated']);
-    Route::get('/external-states/{id}', [ExternalStateController::class, 'show']);
-    Route::post('/external-states', [ExternalStateController::class, 'store']);
-    Route::put('/external-states/{id}', [ExternalStateController::class, 'update']);
-    Route::delete('/external-states/{id}', [ExternalStateController::class, 'destroy']);
-    Route::post('/external-states/bulk-delete', [ExternalStateController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 📆 Tipos de Cita
-    // ----------------------------
-    Route::get('/appointment-types', [AppointmentTypeController::class, 'index']);
-    Route::get('/appointment-types/fetch', [AppointmentTypeController::class, 'fetchPaginated']);
-    Route::get('/appointment-types/{id}', [AppointmentTypeController::class, 'show']);
-    Route::post('/appointment-types', [AppointmentTypeController::class, 'store']);
-    Route::put('/appointment-types/{id}', [AppointmentTypeController::class, 'update']);
-    Route::delete('/appointment-types/{id}', [AppointmentTypeController::class, 'destroy']);
-    Route::post('/appointment-types/bulk-delete', [AppointmentTypeController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 🕐 Días de Espera
-    // ----------------------------
-    Route::get('/waiting-days', [WaitingDayController::class, 'index']);
-    Route::get('/waiting-days/fetch', [WaitingDayController::class, 'fetchPaginated']);
-    Route::get('/waiting-days/{id}', [WaitingDayController::class, 'show']);
-    Route::post('/waiting-days', [WaitingDayController::class, 'store']);
-    Route::put('/waiting-days/{id}', [WaitingDayController::class, 'update']);
-    Route::delete('/waiting-days/{id}', [WaitingDayController::class, 'destroy']);
-    Route::post('/waiting-days/bulk-delete', [WaitingDayController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 📋 Motivos
-    // ----------------------------
-    Route::get('/motives', [MotiveController::class, 'index']);
-    Route::get('/motives/fetch', [MotiveController::class, 'fetchPaginated']);
     Route::get('/motivos-cita/all', [MotiveController::class, 'getAllEnabled']);
-    Route::get('/motives/{id}', [MotiveController::class, 'show']);
-    Route::post('/motives', [MotiveController::class, 'store']);
-    Route::put('/motives/{id}', [MotiveController::class, 'update']);
-    Route::delete('/motives/{id}', [MotiveController::class, 'destroy']);
-    Route::post('/motives/bulk-delete', [MotiveController::class, 'bulkDelete']);
 
-    // ----------------------------
-    // 🧾 Tipos
-    // ----------------------------
-    Route::get('/types', [TypeController::class, 'index']);
-    Route::get('/types/fetch', [TypeController::class, 'fetchPaginated']);
-    Route::get('/types/{id}', [TypeController::class, 'show']);
-    Route::post('/types', [TypeController::class, 'store']);
-    Route::put('/types/{id}', [TypeController::class, 'update']);
-    Route::delete('/types/{id}', [TypeController::class, 'destroy']);
-    Route::post('/types/bulk-delete', [TypeController::class, 'bulkDelete']);
-
-    // ----------------------------
-    // 🏗️ Proyectos
-    // ----------------------------
-    Route::get('/projects', [ProjectController::class, 'index']);
-    Route::get('/projects/fetch', [ProjectController::class, 'fetchPaginated']);
-    Route::get('/projects/{id}', [ProjectController::class, 'show']);
-    Route::post('/projects', [ProjectController::class, 'store']);
-    Route::put('/projects/{id}', [ProjectController::class, 'update']);
-    Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
-    Route::post('/projects/bulk-delete', [ProjectController::class, 'bulkDelete']);
+    $catalogs = [
+        'areas' => AreaController::class,
+        'internal-states' => InternalStateController::class,
+        'external-states' => ExternalStateController::class,
+        'appointment-types' => AppointmentTypeController::class,
+        'waiting-days' => WaitingDayController::class,
+        'motives' => MotiveController::class,
+        'types' => TypeController::class,
+        'projects' => ProjectController::class,
+    ];
+    foreach ($catalogs as $uri => $controller) {
+        Route::get("/{$uri}", [$controller, 'index']);
+        Route::get("/{$uri}/fetch", [$controller, 'fetchPaginated']);
+        Route::get("/{$uri}/{id}", [$controller, 'show']);
+        Route::middleware($admin)->group(function () use ($uri, $controller) {
+            Route::post("/{$uri}", [$controller, 'store']);
+            Route::put("/{$uri}/{id}", [$controller, 'update']);
+            Route::delete("/{$uri}/{id}", [$controller, 'destroy']);
+            Route::post("/{$uri}/bulk-delete", [$controller, 'bulkDelete']);
+        });
+    }
 
     // ----------------------------
     // 💬 Chat
     // ----------------------------
     Route::get('/chat/messages', [ChatMessageController::class, 'fetch']);
     Route::post('/chat/messages', [ChatMessageController::class, 'store']);
-
-    // ----------------------------
-    // 📊 Reportes
-    // ----------------------------
-    Route::get('/reports/{id}', [ReportController::class, 'show']);
 });
