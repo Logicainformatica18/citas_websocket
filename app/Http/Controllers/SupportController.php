@@ -15,6 +15,8 @@ use App\Models\InternalState;
 use App\Models\ExternalState;
 use App\Models\Type;
 use App\Models\User;
+use App\Http\Requests\Support\StoreSupportRequest;
+use App\Http\Requests\Support\UpdateSupportRequest;
 use App\Services\TicketNumberGenerator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -182,11 +184,11 @@ class SupportController extends Controller
 
 
 
-    public function store(Request $request)
+    public function store(StoreSupportRequest $request)
     {
-
-        $details = json_decode($request->details, true);
-        $firstDetail = json_decode($request->details, true)[0] ?? null;
+        // StoreSupportRequest ya decodificó y validó "details" (array con ≥ 1 detalle).
+        $details = $request->validated('details');
+        $firstDetail = $details[0] ?? null;
 
         if (
             $firstDetail &&
@@ -202,27 +204,13 @@ class SupportController extends Controller
             ]);
         }
 
-        // 1. Crear soporte base
-        $support = Support::create([
-            'client_id' => $request->client_id,
-            'state' => $request->state,
-            'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
-            'created_by' => Auth::id(),
-        ]);
-
-
-        if (!is_array($details)) {
-            Log::error('❌ Error: details no es un array válido', ['details' => $request->details]);
-            return response()->json(['message' => 'Detalles inválidos'], 422);
-        }
-
         // Obtener archivos múltiples (puede venir como null si no se cargó nada)
-        $attachments = $request->file('attachments'); // Puede ser array o null
-///////////////////////////////////////////////////////////////////////////////////////////////////
+        $attachments = $request->file('attachments') ?? [];
+
         // Un ticket TK por detalle (antes se compartía uno para toda la solicitud).
         $generateTicket = (bool) auth()->user()?->can('generar_ticket');
         $tickets = app(TicketNumberGenerator::class);
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
         $roles = Auth::user()->getRoleNames();
 
         if ($roles->contains('ATC_Oficina')) {
@@ -242,16 +230,27 @@ class SupportController extends Controller
 
 
 
+        // Solicitud + detalles + tickets en una sola transacción: si falla un
+        // detalle no queda una solicitud huérfana ni se consumen números de ticket.
+        $storedFiles = [];
+        try {
+            $support = DB::transaction(function () use ($request, $details, $attachments, $generateTicket, $tickets, $channelName, &$storedFiles) {
+        // 1. Crear soporte base
+        $support = Support::create([
+            'client_id' => $request->client_id,
+            'state' => $request->state,
+            'status_global' => $request->status_global ? $request->status_global : 'Incompleto',
+            'created_by' => Auth::id(),
+        ]);
+
         foreach ($details as $index => $detail) {
-            Log::info("🧪 Verificando detalle #{$index}:", [
-                'subject' => $detail['subject'] ?? null,
-                'project_id' => $detail['project_id'] ?? null,
-                'Manzana' => $detail['Manzana'] ?? null,
-            ]);
             // Buscar el archivo correspondiente a este índice (si existe)
             $attachment = isset($attachments[$index]) ? fileStore($attachments[$index], 'uploads') : null;
+            if ($attachment) {
+                $storedFiles[] = $attachment;
+            }
 
-            $createdDetail = $support->details()->create([
+            $support->details()->create([
                 'subject' => $detail['subject'],
                 'description' => $detail['description'] ?? null,
                 'priority' => $detail['priority'] ?? 'Baja',
@@ -272,17 +271,19 @@ class SupportController extends Controller
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
                 'ticket' => $generateTicket ? $tickets->next() : TicketNumberGenerator::PLACEHOLDER,
-              'channel' => $channelName ?? ($detail['channel'] ?? null),
-
-
-
+                'channel' => $channelName ?? ($detail['channel'] ?? null),
+                // Con permiso generar_ticket se registra el inicio del ticket
+                'ticket_start' => $generateTicket ? Carbon::now('America/Lima') : null,
             ]);
-            // Si el usuario tiene el permiso, genera el ticket tipo "TK-<id>"
-            if (Auth::user()->can('generar_ticket')) {
-                $createdDetail->update([
-                    'ticket_start' => Carbon::now('America/Lima'),
-                ]);
+        }
+
+        return $support;
+            });
+        } catch (\Throwable $e) {
+            foreach ($storedFiles as $file) {
+                fileDestroy($file, 'uploads');
             }
+            throw $e;
         }
 
 
@@ -385,7 +386,7 @@ class SupportController extends Controller
 
 
 
-    public function update(Request $request, $id)
+    public function update(UpdateSupportRequest $request, $id)
     {
         $support = Support::findOrFail($id);
 
@@ -393,7 +394,8 @@ class SupportController extends Controller
         $support->fill([
             // 'client_id' => $request->input('client_id'),
             // 'cellphone' => $request->input('cellphone'),
-            'status_global' => $request->input('status_global'),
+            // status_global es NOT NULL: si no llega, se conserva el actual.
+            'status_global' => $request->input('status_global') ?? $support->status_global,
         ]);
 
         // 2. Procesar archivo adjunto si se sube uno nuevo
@@ -408,10 +410,8 @@ class SupportController extends Controller
         // Elimina detalles actuales y reemplaza por los nuevos (opcionalmente podrías actualizar uno por uno)
         //  $support->details()->delete();
 
-        $details = $request->input('details', []);
-        if (is_string($details)) {
-            $details = json_decode($details, true);
-        }
+        // UpdateSupportRequest ya decodificó y validó "details".
+        $details = $request->validated('details') ?? [];
 
        $detailData = $details[0] ?? null;
 Log::info('🔍 Detalle recibido para actualizar:', ['data' => $detailData]); // ✅ siempre array
@@ -629,30 +629,6 @@ Log::info('🔍 Detalle recibido para actualizar:', ['data' => $detailData]); //
         return response()->json(['message' => 'Tickets eliminados correctamente']);
     }
 
-    private function validateSupport(Request $request)
-    {
-        $request->validate([
-            'subject' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'priority' => 'required|in:Baja,Media,Alta',
-            'type' => 'required|string|max:50',
-            'attachment' => 'nullable|file|max:2048',
-            'area_id' => 'nullable|exists:areas,id_area',
-            'client_id' => 'required|exists:clientes,id_cliente',
-            'status' => 'required|in:Pendiente,Atendido,Cerrado',
-            'reservation_time' => 'nullable|date',
-            'attended_at' => 'nullable|date',
-            'derived' => 'nullable|string|max:255',
-            'cellphone' => 'nullable|string|max:20',
-            'id_motivos_cita' => 'nullable|exists:motivos_cita,id_motivos_cita',
-            'id_tipo_cita' => 'nullable|exists:tipos_cita,id_tipo_cita',
-            'id_dia_espera' => 'nullable|exists:dias_espera,id_dias_espera',
-            'internal_state_id' => 'nullable|exists:internal_states,id',
-            'external_state_id' => 'nullable|exists:external_states,id',
-            'type_id' => 'nullable|exists:types,id',
-
-        ]);
-    }
 
 
     public function exportAll()

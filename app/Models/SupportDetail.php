@@ -20,6 +20,11 @@ class SupportDetail extends Model
 
   protected $table = 'support_details';
 
+    /** Única lista de prioridades válida (formulario, validación y seeders). */
+    public const PRIORITIES = ['Baja', 'Media', 'Alta'];
+
+    public const STATUSES = ['Pendiente', 'Atendido', 'Cerrado'];
+
     // Columna generada solo para el índice único de tickets.
     protected $hidden = ['ticket_unique'];
 

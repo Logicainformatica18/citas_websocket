@@ -599,7 +599,10 @@ const SupportModal = ({
         onClose(); // Cierra el modal
     } catch (error) {
         console.error('❌ Error al enviar soporte:', error);
-        toast.error('Hubo un error al guardar el soporte');
+        // 422: mostrar el primer mensaje de validación del backend
+        const errors = (error as any)?.response?.data?.errors;
+        const firstError = errors ? (Object.values(errors)[0] as string[])?.[0] : null;
+        toast.error(firstError || 'Hubo un error al guardar el soporte');
     } finally {
         setUploading(false);
     }

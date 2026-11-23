@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\SupportDetail;
+use App\Http\Requests\Support\UpdateAreaMotivoRequest;
 use App\Services\TicketNumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -76,7 +77,7 @@ class SupportDetailController extends Controller
     // }
 
 
-    public function updateAreaMotivo(Request $request, $id)
+    public function updateAreaMotivo(UpdateAreaMotivoRequest $request, $id)
     {
         // (Opcional) Validación, puedes reactivarla si quieres control:
         // $request->validate([
@@ -570,29 +571,6 @@ class SupportDetailController extends Controller
         return response()->json(['message' => 'Detalles eliminados correctamente', 'deleted' => $deleted]);
     }
 
-    private function validateSupport(Request $request)
-    {
-        $request->validate([
-            'subject' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'priority' => 'required|in:Normal,Urgente,Preferencial',
-            'type' => 'required|string|max:50',
-            'attachment' => 'nullable|file|max:2048',
-            'area_id' => 'nullable|exists:areas,id_area',
-            'client_id' => 'required|exists:clientes,id_cliente',
-            'status' => 'required|in:Pendiente,Atendido,Cerrado',
-            'reservation_time' => 'nullable|date',
-            'attended_at' => 'nullable|date',
-            'derived' => 'nullable|string|max:255',
-            'cellphone' => 'nullable|string|max:20',
-            'id_motivos_cita' => 'nullable|exists:motivos_cita,id_motivos_cita',
-            'id_tipo_cita' => 'nullable|exists:tipos_cita,id_tipo_cita',
-            'id_dia_espera' => 'nullable|exists:dias_espera,id_dias_espera',
-            'internal_state_id' => 'nullable|exists:internal_states,id',
-            'external_state_id' => 'nullable|exists:external_states,id',
-            'type_id' => 'nullable|exists:types,id',
-        ]);
-    }
 
 
     public function exportAll()
