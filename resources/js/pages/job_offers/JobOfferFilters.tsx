@@ -21,6 +21,11 @@ export default function JobOfferFilters({ filters, combos }) {
         published_to: filters.published_to ?? "",
         created_from: filters.created_from ?? "",
         created_to: filters.created_to ?? "",
+
+        // Periodo (rangos de exportar_periodos.py) y exclusión por título
+        year: filters.year ?? "",
+        semester: filters.semester ?? "",
+        excluded: filters.excluded ?? "",
     });
 
     const [open, setOpen] = useState({});
@@ -246,6 +251,49 @@ useEffect(() => {
                         onChange={(e) => update("created_from", e.target.value)}
                         className="border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700"
                     />
+                </div>
+
+                {/* Periodo: Ene–Jun = [año-01-01, año-07-01) · Jul–Dic = [año-07-01, año+1-01-01) */}
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">Año (publicación)</label>
+                    <select
+                        value={state.year}
+                        onChange={(e) => setState((prev) => ({ ...prev, year: e.target.value, semester: e.target.value ? prev.semester : "" }))}
+                        className="border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700"
+                    >
+                        <option value="">Todos</option>
+                        {(combos.years ?? []).map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">Semestre</label>
+                    <select
+                        value={state.semester}
+                        disabled={!state.year}
+                        onChange={(e) => update("semester", e.target.value)}
+                        className="border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700 disabled:opacity-50"
+                        title={state.year ? "" : "Elige primero el año"}
+                    >
+                        <option value="">Año completo</option>
+                        <option value="s1">Ene–Jun</option>
+                        <option value="s2">Jul–Dic</option>
+                    </select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">Excluidas por título</label>
+                    <select
+                        value={state.excluded}
+                        onChange={(e) => update("excluded", e.target.value)}
+                        className="border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700"
+                    >
+                        <option value="">Todas</option>
+                        <option value="valid">Solo válidas</option>
+                        <option value="excluded">Solo excluidas (rol no TI)</option>
+                    </select>
                 </div>
 
                 <div className="flex flex-col gap-2">

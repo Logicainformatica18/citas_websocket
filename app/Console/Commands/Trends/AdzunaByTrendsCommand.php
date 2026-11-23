@@ -137,6 +137,10 @@ if (!empty($topic->scanned_keywords)) {
                                 ]
                             );
 
+                            if (! $jobOffer->exists) {
+                                continue;   // título excluido (rol no TI): JobOffer no la guardó
+                            }
+
                             /** =============================
                              * 2️⃣ LINK TREND ↔ JOB
                              ============================== */

@@ -2,14 +2,63 @@
 
 namespace App\Models;
 use App\Models\MarketEntity;
+use App\Services\JobOffers\TitleExclusionMatcher;
+use App\Services\JobOffers\TitleExclusionStats;
+use App\Support\Eloquent\SavedParentBelongsToMany;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Certification;
 class JobOffer extends Model
 {
     use HasFactory;
 
     protected $table = 'job_offers';
+
+    /**
+     * Exclusión por título (roles que no son de TI, lista en job_title_exclusion_keywords):
+     *   - creating: una oferta NUEVA cuyo título coincide con una exclusión activa NO se guarda
+     *     (save() devuelve false; lo cuenta TitleExclusionStats y se registra al terminar el scraper).
+     *   - updating: si cambia el título de una oferta existente, se recalcula title_exclusion_id.
+     * Las ofertas existentes se marcan con php artisan job-offers:apply-title-exclusions.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (JobOffer $offer) {
+            $match = TitleExclusionMatcher::active()->excludedBy($offer->title);
+            if ($match !== null) {
+                TitleExclusionStats::record($offer->source, $match, $offer->title);
+
+                return false;
+            }
+        });
+
+        static::updating(function (JobOffer $offer) {
+            if ($offer->isDirty('title') && self::hasTitleExclusionColumn()) {
+                $offer->title_exclusion_id = TitleExclusionMatcher::active()->excludedId($offer->title);
+            }
+        });
+    }
+
+    public static function hasTitleExclusionColumn(): bool
+    {
+        static $has = null;
+
+        return $has ??= Schema::hasColumn('job_offers', 'title_exclusion_id');
+    }
+
+    /** Las relaciones muchos a muchos no escriben el pivote si la oferta no se guardó (ver booted()). */
+    protected function newBelongsToMany(Builder $query, Model $parent, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relationName = null)
+    {
+        return new SavedParentBelongsToMany($query, $parent, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relationName);
+    }
+
+    /** Patrón que excluyó la oferta por su título (null = válida). */
+    public function titleExclusion()
+    {
+        return $this->belongsTo(JobTitleExclusionKeyword::class, 'title_exclusion_id');
+    }
 
     /**
      * 🧩 Campos que se pueden asignar masivamente

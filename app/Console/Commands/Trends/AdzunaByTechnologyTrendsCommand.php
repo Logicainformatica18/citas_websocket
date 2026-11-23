@@ -143,6 +143,10 @@ class AdzunaByTechnologyTrendsCommand extends Command
                                 ]
                             );
 
+                            if (! $jobOffer->exists) {
+                                continue;   // título excluido (rol no TI): JobOffer no la guardó
+                            }
+
                             $this->stats['jobs_created']++;
 
                             /* =============================

@@ -1,9 +1,11 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { usePage, router } from '@inertiajs/react';   // <--- OK
+import { usePage, router, Link } from '@inertiajs/react';   // <--- OK
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Trash2, Plus, Briefcase } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { Trash2, Plus, Briefcase, ShieldOff, Download } from 'lucide-react';
+import { ProcessBar, useProcess, type JobOfferProcess } from './ProcessStatus';
 import JobOfferModal from './JobOfferModal';
 import JobOfferCsvModal from './JobOfferCsvModal';
 import JobOfferFilters from './JobOfferFilters';
@@ -58,8 +60,16 @@ function cleanFilters(filters: any) {
 }
 
 export default function JobOffersIndex() {
-    const { offers: initialPagination, filters, combos } = usePage().props;
-    const [exporting, setExporting] = useState(false);
+    const { offers: initialPagination, filters, combos, lastExport } = usePage().props as any;
+
+    // Export en cola: el proceso se sondea y al terminar se descarga el archivo
+    const downloadUrl = (p: JobOfferProcess) => `/job-offers/exports/${p.id}/download`;
+    const [exportProc, setExportProc] = useProcess(lastExport ?? null, (p) => {
+        if (p.status === 'done') {
+            window.location.href = downloadUrl(p);
+        }
+    });
+    const exporting = !!exportProc && (exportProc.status === 'queued' || exportProc.status === 'running');
 
     const [items, setItems] = useState(initialPagination.data);
     const [pagination, setPagination] = useState(initialPagination);
@@ -118,30 +128,14 @@ export default function JobOffersIndex() {
     };
     const exportExcel = async () => {
         try {
-            setExporting(true);
-
-            const cleaned = cleanFilters(filters);
-            const params = new URLSearchParams(cleaned).toString();
-
-            const response = await fetch(`/job-offers/export-excel?${params}`, {
-                method: "GET",
-            });
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "job_offers.xlsx";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-
-        } catch (error) {
-            console.error("Error exportando Excel:", error);
-        } finally {
-            setExporting(false);
+            const { data } = await axios.post('/job-offers/export-excel', cleanFilters(filters));
+            setExportProc(data.process);
+        } catch (error: any) {
+            if (error.response?.status === 409 && error.response.data?.process) {
+                setExportProc(error.response.data.process);
+                return;
+            }
+            Swal.fire({ icon: 'error', title: 'No se pudo exportar', text: error.response?.data?.message ?? '' });
         }
     };
     const [detailItem, setDetailItem] = useState(null);
@@ -167,21 +161,33 @@ export default function JobOffersIndex() {
       {/* 🔎 FILTROS */}
       <JobOfferFilters filters={filters} combos={combos} />
 
-      {/* 📊 Exportar */}
-      <button
-        disabled={exporting}
-        onClick={exportExcel}
-        className="px-4 py-2 rounded-md shadow flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white disabled:opacity-50 my-4"
-      >
-        {exporting ? (
-          <>
-            <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-            Generando...
-          </>
-        ) : (
-          <>📊 Exportar Excel (Hasta 4 mil Registros)</>
+      {/* 📊 Exportar (en cola, con los filtros aplicados) */}
+      <div className="flex flex-wrap items-center gap-3 my-4">
+        <button
+          disabled={exporting}
+          onClick={exportExcel}
+          className="px-4 py-2 rounded-md shadow flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white disabled:opacity-50"
+        >
+          {exporting ? (
+            <>
+              <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+              Generando...
+            </>
+          ) : (
+            <>📊 Exportar Excel ({(initialPagination.total ?? 0).toLocaleString('es-PE')} registros con los filtros)</>
+          )}
+        </button>
+        {exportProc?.status === 'done' && exportProc.result && (
+          <a href={downloadUrl(exportProc)} className="text-sm text-[#0C647A] dark:text-[#1CBCE8] hover:underline flex items-center gap-1">
+            <Download className="w-4 h-4" /> Descargar {exportProc.result.download_name} ({exportProc.result.rows.toLocaleString('es-PE')} filas, {exportProc.result.size_mb} MB)
+            {exportProc.result.truncated_rows > 0 && ` · ${exportProc.result.truncated_rows.toLocaleString('es-PE')} filas no caben en Excel`}
+          </a>
         )}
-      </button>
+        <Link href="/job-offers/title-exclusions" className="ml-auto px-4 py-2 rounded-md shadow flex items-center gap-2 bg-[#0C647A] hover:bg-[#0a5466] text-white">
+          <ShieldOff className="w-4 h-4" /> Exclusión por título (roles no TI)
+        </Link>
+      </div>
+      {exporting && <div className="mb-4"><ProcessBar process={exportProc} /></div>}
 
       {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between mb-6 pb-4 border-b border-gray-300 dark:border-gray-700">
@@ -279,6 +285,14 @@ export default function JobOffersIndex() {
                   >
                     {item.title}
                   </button>
+                  {item.title_exclusion && (
+                    <span
+                      className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                      title={`Excluida de los indicadores por el patrón "${item.title_exclusion.pattern}" (${item.title_exclusion.category ?? 'sin categoría'})`}
+                    >
+                      excluida
+                    </span>
+                  )}
                 </td>
 
                 <td className="px-4 py-2">{item.company ?? '-'}</td>

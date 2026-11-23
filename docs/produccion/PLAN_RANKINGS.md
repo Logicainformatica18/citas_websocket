@@ -1,6 +1,6 @@
 # Plan de los rankings del Observatorio (Lenguajes, Tecnologías, Certificaciones)
 
-Documento para retomar el trabajo en una sesión nueva. Estado al **2026-11-16**.
+Documento para retomar el trabajo en una sesión nueva. Estado al **2026-11-23** (exclusión por título: Bloque 7).
 Rama de trabajo: `observer`. Plan completo; todo commiteado y subido (ver "Estado del repositorio").
 
 ---
@@ -203,6 +203,71 @@ Bloque 6 (exclusión de asociaciones sin borrar, 2026-11-16):
   volcado previo salió vacío (`mysqldump --where` con subconsulta a otra tabla no bloqueada), así que no hay respaldo
   de esas filas; eran copias regenerables desde `technology_job`, que está intacta.
 
+Bloque 7 (exclusión de ofertas por TÍTULO — roles no TI, 2026-11-23; ver `docs/produccion/ofertas_exclusion/README.md`):
+- Criterio y semilla: `docs/produccion/herramientas/exportar_periodos_ti.py` (`PATRONES_EXCLUIR`, título en minúsculas y
+  sin tildes). La semilla (`database/data/job_title_exclusions/seed.php`, 116 patrones) adapta cada expresión: literal →
+  `text`; `\bliteral\b` → `text` + palabra completa; el resto → `regex` tal cual. `PATRONES_TI` y `PATRON_SIGLAS_TI` no
+  deciden nada (el script usa `SOLO_EXCLUIR = True`): sirven para medir el riesgo de falso positivo ("con palabra TI") y
+  como contexto de la IA (`config/job_title_exclusions.php`). **Paridad comprobada: 0 diferencias con el script de
+  Python en los 202 096 títulos distintos** (28 933 excluidos en ambos).
+- `regex` se compila con `(*UCP)` (bordes de palabra Unicode, como el `re` de Python), sin distinguir mayúsculas y sin
+  tildes en el patrón. No se admiten referencias a grupos (`\1`): todos los patrones se combinan en una sola expresión.
+  Atribución ("qué patrón la excluyó"): el de menor id que coincide. Una excepción activa gana sobre cualquier exclusión.
+- **Marca en `job_offers.title_exclusion_id`** (NULL = válida; si no, el patrón), no tabla aparte: una columna dice si
+  está excluida y por cuál, y el índice `(published_at, title_exclusion_id)` cubre la consulta del ranking. El filtro
+  (`EntityRankingService::titleExclusionSql()`) va en la única consulta que lee el pivote → afecta a los tres rankings,
+  la evolución y las vacantes analizadas. Recálculo con el filtro: mismos tiempos (Lenguajes 21 s, Tecnologías 109 s).
+- **Scrapers sin tocar uno por uno**: `JobOffer::creating` cancela el INSERT de un título excluido (los ~70 puntos de
+  creación usan `create`/`updateOrCreate`). Para que el `sync` posterior al pivote no inserte `job_offer_id = NULL`,
+  `JobOffer` usa `SavedParentBelongsToMany` (no escribe si el padre no se guardó). Los 3 `Adzuna*TrendsCommand` usaban
+  `$jobOffer->id` directo: se les agregó `if (! $jobOffer->exists) continue;`. El conteo por scraper se registra al
+  terminar cada comando (`CommandFinished`: log `[TITLE_EXCLUSION]` y línea en la salida que muestra `jobs:run-all`).
+  Al cambiar el título de una oferta existente, `updating` recalcula su marca. Alta manual (`POST /job-offers`) con título
+  excluido → 422 con el patrón.
+- Lista nueva = solo ofertas NUEVAS al instante; las existentes se re-marcan con `job-offers:apply-title-exclusions`
+  (en `RunAllJobs.php` antes de los `ranking:refresh-*`) o con "Excluir de los indicadores". La pantalla avisa si la lista
+  cambió después de la última aplicación (`Cache` `job_title_exclusions:list_changed_at`). Borrar un patrón no desmarca
+  sus ofertas hasta re-aplicar.
+- **Colas**: ninguna nueva; todo en la cola por defecto. Cada Job trabaja ≤ 60 s y se re-encola (`JobOfferProcessJob`,
+  `slice_seconds`) porque la cola `database` tiene `retry_after = 90` (con dos workers, un Job de más de 90 s se
+  ejecutaría dos veces). Los `ranking:refresh-*` desde la interfaz van **un Job por indicador y semestre**
+  (`RefreshRankingsChainJob`, 18 pasos): el completo de Tecnologías tarda ~110-150 s en local. El más largo medido:
+  Tecnologías 2026-s1, 54 s. En el análisis, una fase pesada solo empieza si quedan 30 s del tramo (impacto de
+  Tecnologías: 45 s tras unir sus dos consultas con `WITH ROLLUP`).
+- `job_offer_processes` registra cada proceso (quién, cuándo, cuántas, progreso, resultado). Procesos que tocan la tabla
+  completa (aplicar, analizar, eliminar, restaurar) de a uno; un proceso sin avance en 15 min se considera caído.
+- "Analizar basura" guarda sus candidatos en `job_title_exclusion_candidates` (solo los del último análisis) y calcula el
+  impacto por indicador con la fórmula del ranking: **verificado igual al recálculo real** (vacantes y top 10 de los tres
+  indicadores en 2026-s2). "Eliminar definitivamente" exige escribir ELIMINAR, usa SOLO el último análisis terminado,
+  respalda cada fila (JSON) en `job_offer_deletion_backups` antes de borrar (tablas con `job_offer_id` descubiertas en
+  `information_schema`), y se revierte con "Restaurar" o `job-offers:restore-deleted` (INSERT IGNORE; huella idéntica
+  verificada). El rollback SQL conserva `job_offer_deletion_backups` si tiene filas.
+- "Sugerir con IA": la misma integración que "Detectar nuevos lenguajes con IA" (OpenAI `gpt-4.1-mini`, JSON). Envía la
+  lista, los 250 títulos válidos más frecuentes + 150 al azar del resto y hasta 120 excluidos con palabra TI (para
+  proponer excepciones). Cada sugerencia muestra ofertas afectadas, coincidencias, "con palabra TI" y ejemplos; se
+  aprueban una a una o todas (origen `ai`, activas) o se descartan. Los títulos se recorren con una consulta NO
+  bufferizada (`eachTitle`): con un arreglo de 200 000 títulos el worker superaba los 128 MB (incidente en la prueba).
+- Export: antes corría **en la petición** (Maatwebsite `FromCollection`, `limit(4000)`, `memory_limit -1`) y además, sin
+  caché de rutas, `GET /job-offers/export-excel` caía en `show('export-excel')` (404) porque `/job-offers/{id}` se
+  registraba antes. Ahora: `POST` encola `ExportJobOffersJob` (keyset por id, hoja XML por partes con
+  `StreamingXlsxWriter::sheetStart/rowXml/package`), mismos filtros que el listado (`JobOfferFilters`), tope 1 048 575
+  filas, celdas recortadas a 32 767, columna extra "Excluida por título (patrón)", archivo 3 días en
+  `storage/app/job_offer_exports/`. 2026-s2 completo: 93 872 filas, 25,8 MB, 21 s. Las rutas `{id}` llevan `whereNumber`.
+- Filtros del listado: año + semestre con los rangos del script (`[año-01-01, año-07-01)`, `[año-07-01, año+1-01-01)`;
+  solo año = año completo), "Excluidas por título" (todas / válidas / excluidas), y las fechas pasan de `whereDate()` a
+  rangos semiabiertos (usan el índice). **6 índices nuevos para los combos** (`company`, `city`, `modality`, `job_type`,
+  `remote_type`, `workload`): cada `SELECT DISTINCT` recorría la tabla (1,7-2,9 s); la página pasa de ~11 s a ~2 s.
+- Resultado en local (2026-s2): 10 338 de 93 872 ofertas excluidas (11,0 %); total 59 512 de 403 674 (14,7 %). Vacantes
+  analizadas 2026-s2: Lenguajes 9 367 → 9 177, Tecnologías 7 921 → 7 600, Certificaciones 81 → 70. Fotos doradas
+  (`storage/app/foto_dorada/exclusion_titulos_antes_2026-11-23/`): toda diferencia de Lenguajes y Tecnologías (ranking,
+  meta y 36 479 filas de evolución) se explica exactamente por las ofertas excluidas; sin marcas, 0 diferencias.
+- Falsos positivos vistos en la revisión (sin tocar la semilla, para que lo decida el usuario): `tutor\b` atrapa
+  "Kotlin Developer for AI Tutor"; `\bsales?\b` atrapa "Technical Architect (Pre-Sales)" y "Sales Engineer" (el script lo
+  excluye a propósito). Falsos negativos: "Dispensing Optician", "Lettings Negotiator", "Media-Buyer", "Line Setter".
+  La IA propuso, entre otras, `trainee` (5 087 de 8 171 coincidencias con palabra TI: no aprobar) y excepciones como
+  `clinical data` y `salesforce`. En local las dos aprobadas en la prueba (`caretaker`, `clinical data`) se borraron con
+  el ciclo de rollback del SQL.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
@@ -221,6 +286,16 @@ Bloque 6 (exclusión de asociaciones sin borrar, 2026-11-16):
 - La plantilla de limpieza (`generar_limpieza_sql.php`) no respalda `certification_job.certification_name_raw`.
 - Los modales "ver ofertas" de cada entidad no aplican las exclusiones (listan el pivote completo).
 - Errores de TypeScript previos en las páginas de ranking (`tsc --noEmit`); `npm run build` compila igual.
+- (Exclusión por título) `retry_after = 90` de la cola `database` con `--timeout=170`: los Jobs de más de 90 s ya
+  existentes (p. ej. `RefreshEntityRankingJob` completo de Tecnologías desde el botón "Recalcular") pueden ejecutarse dos
+  veces si hay más de un worker. No se cambió la configuración (decisión: sin tocar el worker ni el `.env`).
+- (Exclusión por título) `ImportController` (importar CSV) y `JobOfferController::import` no informan cuántas filas se
+  descartaron por título (quedan en el log `[TITLE_EXCLUSION]`).
+- (Exclusión por título) Errores de TypeScript previos en `resources/js/pages/job_offers/` (`implicit any`): 46 antes,
+  41 después (ninguno en los archivos nuevos).
+- (Exclusión por título) `app/Exports/JobOffersExport.php` queda sin uso (no se borra).
+- (Exclusión por título) La interfaz se probó por HTTP (mismo kernel, usuario administrador) y con `npm run build`; no se
+  revisó visualmente en el navegador.
 
 ## 3. Estado actual (2026-11-16: plan completo)
 
@@ -411,6 +486,12 @@ Scripts en `docs/produccion/ranking_certificaciones/`.
 11. **Adzuna**: `adzuna:languages` = 26 entidades × 17 países = 442 llamadas por ciclo completo; `adzuna:certifications`
     = 79 × 17 = 1 343. Ambos retoman desde la última entidad procesada. Revisar el límite del plan en el panel de Adzuna.
 12. Pedir al DBA: `SELECT @@global.time_zone, @@session.time_zone` e `innodb_buffer_pool_size`.
+
+**Exclusión por título (2026-11-23, independiente del despliegue anterior)**: el DBA ejecuta
+`docs/produccion/ofertas_exclusion/01_exclusion_titulos.sql` (80 s en local; detener scrapers mientras tanto); el
+operador ejecuta `symfony php artisan optimize:clear`, `symfony php artisan queue:restart`,
+`symfony php artisan job-offers:apply-title-exclusions` y los tres `symfony php artisan ranking:refresh-*`. Detalle en
+`docs/produccion/ofertas_exclusion/README.md`.
 
 **Mantenimiento**: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
 reglas del matcher o se reactive una entidad. **Apagado de emergencia**: `php artisan entities:exclusions --disable` y

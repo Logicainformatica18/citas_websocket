@@ -3,6 +3,7 @@
 namespace App\Services\Ranking;
 
 use App\Http\Controllers\Dashboard\JobMarketStatusController;
+use App\Models\JobOffer;
 use App\Models\Prueba;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -131,7 +132,7 @@ abstract class EntityRankingService
      * "market_entity_id IN (…)". Son enteros leídos de la BD (seguro interpolarlos);
      * '0' si no hay ninguna, para que el IN siga siendo válido.
      */
-    protected function activeIdsSql(): string
+    public function activeIdsSql(): string
     {
         $ids = DB::table('market_entities')
             ->where('entity_type', $this->entityType())
@@ -160,6 +161,16 @@ abstract class EntityRankingService
 
         return " AND NOT EXISTS (SELECT 1 FROM `{$table}` x WHERE x.pivot_table = '{$this->pivotTable()}'"
             . ' AND x.job_offer_id = lj.job_offer_id AND x.market_entity_id = lj.market_entity_id AND x.vigente = 1)';
+    }
+
+    /**
+     * Ofertas excluidas por título (rol no TI, job_offers.title_exclusion_id, que marca
+     * job-offers:apply-title-exclusions): no cuentan en el ranking, la evolución ni las vacantes
+     * analizadas. No se borra nada. Se omite si la columna aún no existe.
+     */
+    public static function titleExclusionSql(string $alias = 'j'): string
+    {
+        return JobOffer::hasTitleExclusionColumn() ? " AND {$alias}.title_exclusion_id IS NULL" : '';
     }
 
     /* ==================================================
@@ -235,6 +246,8 @@ abstract class EntityRankingService
             'periods' => array_keys($requested),
             // true = se ignoran las asociaciones de entity_association_exclusions
             'exclusiones' => $this->exclusionSql() !== '',
+            // true = se ignoran las ofertas excluidas por título (job_offers.title_exclusion_id)
+            'exclusion_titulos' => self::titleExclusionSql() !== '',
         ]);
 
         $entities = DB::table('market_entities')
@@ -410,7 +423,7 @@ abstract class EntityRankingService
                     COUNT(DISTINCT lj.job_offer_id) AS offers
                FROM job_offers j
                JOIN ' . $this->pivotTable() . ' lj ON lj.job_offer_id = j.id
-              WHERE j.published_at >= ? AND j.published_at < ?
+              WHERE j.published_at >= ? AND j.published_at < ?' . self::titleExclusionSql() . '
                 AND lj.market_entity_id IN (' . $activeIds . ')' . $this->exclusionSql() . '
               GROUP BY d, lj.market_entity_id WITH ROLLUP',
             [$from, $semEndExclusive]

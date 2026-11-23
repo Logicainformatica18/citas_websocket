@@ -73,6 +73,9 @@ abstract class RefreshEntityRankingCommand extends Command
         $this->line($service->exclusionSql() !== ''
             ? '  Exclusiones del matcher: APLICADAS (entity_association_exclusions)'
             : '  Exclusiones del matcher: NO aplicadas (desactivadas con entities:exclusions --disable, o sin tabla)');
+        $this->line($service::titleExclusionSql() !== ''
+            ? '  Ofertas excluidas por título: IGNORADAS (job_offers.title_exclusion_id)'
+            : '  Ofertas excluidas por título: falta la columna job_offers.title_exclusion_id (no se filtran)');
 
         if (! $result['ok']) {
             $this->error('Algunos periodos fallaron; conservan sus datos anteriores. Revisa storage/logs.');

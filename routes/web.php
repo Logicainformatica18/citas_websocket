@@ -21,6 +21,7 @@ use App\Http\Controllers\CourseLinkController;
 use App\Http\Controllers\CareerCourseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\JobOfferImportController;
+use App\Http\Controllers\JobOfferTitleExclusionController;
 use App\Http\Controllers\Ocr\DniOcrController;
 use App\Http\Controllers\Auth\Saml2LoginController;
 use App\Http\Controllers\AI\AITrainingController;
@@ -729,10 +730,33 @@ Route::get(
         Route::get('backups/export', [BackupController::class, 'export'])->name('backups.export');
     });
 
-    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
-        ->name('job-offers.show')->middleware('permission:administrar');
+    // Export a Excel EN COLA (antes GET síncrono, hasta 4 000 filas) y su descarga
+    Route::post('/job-offers/export-excel', [JobOfferController::class, 'exportExcel'])
+        ->middleware(['permission:administrar', 'throttle:6,1']);
+    Route::get('/job-offers/exports/{process}/download', [JobOfferController::class, 'downloadExport'])
+        ->name('job_offers.export.download')->middleware('permission:administrar');
 
-    Route::get('/job-offers/export-excel', [JobOfferController::class, 'exportExcel'])->middleware('permission:administrar');
+    // Lista de exclusión por título (roles no TI) y procesos en cola del módulo
+    Route::prefix('job-offers')->middleware('permission:administrar')->group(function () {
+        Route::get('/title-exclusions', [JobOfferTitleExclusionController::class, 'index'])->name('job_offers.title_exclusions');
+        Route::post('/title-exclusions', [JobOfferTitleExclusionController::class, 'store']);
+        Route::post('/title-exclusions/preview', [JobOfferTitleExclusionController::class, 'preview'])->middleware('throttle:30,1');
+        Route::post('/title-exclusions/apply', [JobOfferTitleExclusionController::class, 'apply'])->middleware('throttle:6,1');
+        Route::post('/title-exclusions/analyze', [JobOfferTitleExclusionController::class, 'analyze'])->middleware('throttle:6,1');
+        Route::post('/title-exclusions/delete-offers', [JobOfferTitleExclusionController::class, 'deleteOffers'])->middleware('throttle:3,1');
+        Route::post('/title-exclusions/suggest', [JobOfferTitleExclusionController::class, 'suggest'])->middleware('throttle:3,1');
+        Route::post('/title-exclusions/suggestions/{process}/approve', [JobOfferTitleExclusionController::class, 'approve']);
+        Route::post('/title-exclusions/suggestions/{process}/reject', [JobOfferTitleExclusionController::class, 'reject']);
+        Route::post('/title-exclusions/restore/{process}', [JobOfferTitleExclusionController::class, 'restore'])->middleware('throttle:3,1');
+        Route::put('/title-exclusions/{keyword}', [JobOfferTitleExclusionController::class, 'update']);
+        Route::patch('/title-exclusions/{keyword}/toggle', [JobOfferTitleExclusionController::class, 'toggle']);
+        Route::delete('/title-exclusions/{keyword}', [JobOfferTitleExclusionController::class, 'destroy']);
+        Route::get('/title-exclusions/{keyword}/examples', [JobOfferTitleExclusionController::class, 'examples'])->middleware('throttle:30,1');
+        Route::get('/processes/{process}', [JobOfferTitleExclusionController::class, 'status'])->name('job_offers.process');
+    });
+
+    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])->whereNumber('id')
+        ->name('job-offers.show')->middleware('permission:administrar');
 
 
 
@@ -745,13 +769,13 @@ Route::get(
     Route::get('/job-offers', [JobOfferController::class, 'index'])
         ->name('job_offers.index')->middleware('permission:administrar');
 
-    Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])
+    Route::delete('/job-offers/{id}', [JobOfferController::class, 'destroy'])->whereNumber('id')
         ->name('job_offers.destroy')->middleware('permission:administrar');
 
-    Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])
+    Route::put('/job-offers/{id}', [JobOfferController::class, 'update'])->whereNumber('id')
         ->name('job_offers.update')->middleware('permission:administrar');
 
-    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])
+    Route::get('/job-offers/{id}', [JobOfferController::class, 'show'])->whereNumber('id')
         ->name('job_offers.show')->middleware('permission:administrar');
 
     Route::delete('/job-offers', [JobOfferController::class, 'bulkDelete'])

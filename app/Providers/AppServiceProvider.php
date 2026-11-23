@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\JobOffers\TitleExclusionStats;
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +22,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Ofertas nuevas descartadas por título (JobOffer::creating): resumen en el log al terminar
+        // cada scraper (y en su salida, que jobs:run-all muestra), Job o petición.
+        Event::listen(CommandFinished::class, function (CommandFinished $e) {
+            if ($msg = TitleExclusionStats::flush(trim((string) $e->input) ?: (string) $e->command)) {
+                $e->output->writeln($msg);
+            }
+        });
+        Event::listen(JobProcessed::class, fn (JobProcessed $e) => TitleExclusionStats::flush('job ' . $e->job->resolveName()));
+        $this->app->terminating(fn () => TitleExclusionStats::flush($this->app->runningInConsole() ? 'consola' : 'web ' . request()->path()));
+
         Storage::extend('gcs', function ($app, $config) {
             $client = new StorageClient([
                 'projectId'   => $config['project_id'],

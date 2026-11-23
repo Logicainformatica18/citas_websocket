@@ -25,8 +25,7 @@ class StreamingXlsxWriter
     public static function write(array $headings, iterable $rows, string $sheetName = 'Hoja1', bool $blankZeros = false): string
     {
         $sheet = tmpfile();
-        fwrite($sheet, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>');
+        fwrite($sheet, self::sheetStart());
 
         $r = 1;
         fwrite($sheet, self::row($r++, $headings, false));
@@ -34,11 +33,42 @@ class StreamingXlsxWriter
             fwrite($sheet, self::row($r++, array_values($row), $blankZeros));
         }
 
-        fwrite($sheet, '</sheetData></worksheet>');
+        fwrite($sheet, self::sheetEnd());
         rewind($sheet);
 
         $path = tempnam(sys_get_temp_dir(), 'xlsx');
-        $out = fopen($path, 'wb');
+        self::package($sheet, $path, $sheetName);
+        fclose($sheet);
+
+        return $path;
+    }
+
+    /*
+     * Escritura por partes (export en cola con Jobs encadenados): cada Job agrega filas a un archivo
+     * con sheetStart() + rowXml()… y el último cierra con sheetEnd() y llama a package().
+     */
+
+    public static function sheetStart(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+    }
+
+    public static function sheetEnd(): string
+    {
+        return '</sheetData></worksheet>';
+    }
+
+    /** XML de la fila $r (1 = encabezado). */
+    public static function rowXml(int $r, array $values): string
+    {
+        return self::row($r, array_values($values), false);
+    }
+
+    /** Empaqueta el XML de la hoja (stream abierto y al inicio) como .xlsx en $outPath. */
+    public static function package($sheetStream, string $outPath, string $sheetName = 'Hoja1'): void
+    {
+        $out = fopen($outPath, 'wb');
 
         $zip = new ZipStream(outputStream: $out, sendHttpHeaders: false, defaultEnableZeroHeader: false);
         $zip->addFile('[Content_Types].xml', self::CONTENT_TYPES);
@@ -46,13 +76,10 @@ class StreamingXlsxWriter
         $zip->addFile('xl/workbook.xml', sprintf(self::WORKBOOK, self::xml(mb_substr($sheetName, 0, 31))));
         $zip->addFile('xl/_rels/workbook.xml.rels', self::WORKBOOK_RELS);
         $zip->addFile('xl/styles.xml', self::STYLES);
-        $zip->addFileFromStream('xl/worksheets/sheet1.xml', $sheet);
+        $zip->addFileFromStream('xl/worksheets/sheet1.xml', $sheetStream);
         $zip->finish();
 
         fclose($out);
-        fclose($sheet);
-
-        return $path;
     }
 
     /**

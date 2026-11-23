@@ -2,8 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ExportJobOffersJob;
 use App\Models\JobOffer;
+use App\Models\JobOfferProcess;
 use App\Models\City;
+use App\Services\JobOffers\JobOfferExportService;
+use App\Services\JobOffers\JobOfferFilters;
+use App\Services\JobOffers\TitleExclusionMatcher;
+use App\Services\Matching\EntityTextMatcher;
+use App\Services\Ranking\ExclusionSettings;
+use Illuminate\Support\Facades\Schema;
 use App\Support\GetOnBoardFunctions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,73 +19,19 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 
 use Illuminate\Support\Facades\Log;
-    use Maatwebsite\Excel\Facades\Excel;
 class JobOfferController extends Controller
 {
    public function index(Request $request)
 {
-    // === Filtros que vienen desde la URL ===
-    $filters = [
-        'companies'       => $request->input('companies', []),
-        'countries'       => $request->input('countries', []),
-        'cities'          => $request->input('cities', []),
-        'sources'         => $request->input('sources', []),
-        'modalities'      => $request->input('modalities', []),
-        'job_types'       => $request->input('job_types', []),
-        'remote_types'    => $request->input('remote_types', []),
-        'workloads'       => $request->input('workloads', []),
+    // Filtros de la URL (compartidos con el export): selección múltiple, fechas, periodo
+    // (año/semestre) y exclusión por título. Ver App\Services\JobOffers\JobOfferFilters.
+    $filters = JobOfferFilters::fromInput($request->all());
 
-        // === NUEVOS FILTROS POR FECHAS ===
-        'published_from'  => $request->input('published_from'),
-        'published_to'    => $request->input('published_to'),
-        'created_from'    => $request->input('created_from'),
-        'created_to'      => $request->input('created_to'),
-    ];
+    $query = JobOfferFilters::apply(JobOffer::query(), $filters)
+        ->with('titleExclusion:id,pattern,category')
+        ->orderBy('id', 'desc');
 
-    $query = JobOffer::query()->orderBy('id', 'desc');
-
-    // === Filtros múltiples por select ===
-    foreach ([
-        'companies'    => 'company',
-        'countries'    => 'country',
-        'cities'       => 'city',
-        'sources'      => 'source',
-        'modalities'   => 'modality',
-        'job_types'    => 'job_type',
-        'remote_types' => 'remote_type',
-        'workloads'    => 'workload',
-    ] as $filterKey => $column) {
-        if (!empty($filters[$filterKey])) {
-            $query->whereIn($column, $filters[$filterKey]);
-        }
-    }
-
-    // === NUEVO: FILTRO POR FECHAS (published_at) ===
-    if ($filters['published_from']) {
-        $query->whereDate('published_at', '>=', $filters['published_from']);
-    }
-
-    if ($filters['published_to']) {
-        $query->whereDate('published_at', '<=', $filters['published_to']);
-    }
-
-    // === NUEVO: FILTRO POR FECHAS (created_at) ===
-    if ($filters['created_from']) {
-        $query->whereDate('created_at', '>=', $filters['created_from']);
-    }
-
-    if ($filters['created_to']) {
-        $query->whereDate('created_at', '<=', $filters['created_to']);
-    }
-
-    // === Paginación que retiene filtros ===
-    $offers = $query->paginate(10)->appends($filters);
-// 🔥 Normalizar valores "null" o vacíos
-foreach ($filters as $key => $value) {
-    if ($value === "null" || $value === "" || $value === null) {
-        $filters[$key] = null;
-    }
-}
+    $offers = $query->paginate(10)->appends(JobOfferFilters::compact($filters));
 
     // === Datos de combos ===
     $comboData = [
@@ -89,6 +43,9 @@ foreach ($filters as $key => $value) {
         'job_types'    => JobOffer::select('job_type')->distinct()->orderBy('job_type')->pluck('job_type'),
         'remote_types' => JobOffer::select('remote_type')->distinct()->orderBy('remote_type')->pluck('remote_type'),
         'workloads'    => JobOffer::select('workload')->distinct()->orderBy('workload')->pluck('workload'),
+        // Años con ofertas publicadas (lee solo el índice de published_at)
+        'years'        => collect(DB::select('SELECT DISTINCT YEAR(published_at) AS y FROM job_offers WHERE published_at IS NOT NULL ORDER BY y DESC'))
+            ->pluck('y')->map(fn ($y) => (string) $y),
     ];
 
     return Inertia::render('job_offers/index', [
@@ -121,6 +78,13 @@ foreach ($filters as $key => $value) {
 
     'published_at'      => optional($offer->published_at)->format('Y-m-d'),
     'created_at'        => optional($offer->created_at)->format('Y-m-d'),
+
+    // Exclusión por título (rol no TI): patrón que la excluyó, o null
+    'title_exclusion'   => $offer->titleExclusion ? [
+        'id' => $offer->titleExclusion->id,
+        'pattern' => $offer->titleExclusion->pattern,
+        'category' => $offer->titleExclusion->category,
+    ] : null,
 ]),
 
 
@@ -129,6 +93,11 @@ foreach ($filters as $key => $value) {
 
         // combos para selects
         'combos' => $comboData,
+
+        // export en curso o terminado (último del usuario)
+        'lastExport' => Schema::hasTable('job_offer_processes')
+            ? JobOfferProcess::where('type', 'export')->where('user_id', auth()->id())->latest('id')->first()?->toApi()
+            : null,
     ]);
 }
 
@@ -401,6 +370,14 @@ public function preview(Request $request)
         return DB::transaction(function () use ($validated) {
             $offer = JobOffer::create($validated);
 
+            if (! $offer->exists) {
+                $match = TitleExclusionMatcher::active()->excludedBy($offer->title);
+
+                return response()->json([
+                    'message' => 'No se guardó: el título corresponde a un rol no TI (patrón "' . ($match['pattern'] ?? '?') . '" de la lista de exclusión).',
+                ], 422);
+            }
+
             return response()->json([
                 'message' => '✅ Oferta creada correctamente',
                 'offer'   => $offer,
@@ -442,8 +419,79 @@ public function show($id)
             'application_type'  => $offer->application_type,
             'published_at'      => optional($offer->published_at)->format('Y-m-d'),
             'created_at'        => optional($offer->created_at)->format('Y-m-d'),
+            'title_exclusion'   => $this->titleExclusionInfo($offer),
+            'entities'          => $this->offerEntities($offer),
         ],
     ]);
+}
+
+/**
+ * Exclusión por título de la oferta: el patrón que la marcó (job_offers.title_exclusion_id) y lo que
+ * diría la lista activa hoy (si difieren, falta ejecutar "Excluir de los indicadores").
+ */
+private function titleExclusionInfo(JobOffer $offer): ?array
+{
+    if (! JobOffer::hasTitleExclusionColumn()) {
+        return null;
+    }
+    $marked = $offer->titleExclusion;
+    $now = TitleExclusionMatcher::active()->excludedBy($offer->title);
+
+    return [
+        'excluded' => $offer->title_exclusion_id !== null,
+        'pattern' => $marked?->pattern,
+        'category' => $marked?->category,
+        'match_mode' => $marked?->match_mode,
+        'keyword_id' => $offer->title_exclusion_id,
+        'current_list_pattern' => $now['pattern'] ?? null,
+        'pending' => ($now['id'] ?? null) !== ($offer->title_exclusion_id === null ? null : (int) $offer->title_exclusion_id),
+    ];
+}
+
+/**
+ * Lenguajes, tecnologías y certificaciones asociados (tablas pivote) y si el detector
+ * (EntityTextMatcher) los confirma en el texto guardado, si la asociación está excluida
+ * (entity_association_exclusions) y si la entidad está activa.
+ */
+private function offerEntities(JobOffer $offer): array
+{
+    $body = implode("\n", array_filter([$offer->description, $offer->requirements, $offer->skills]));
+    $out = [];
+    foreach (['languages', 'technologies', 'certifications'] as $type) {
+        $cfg = config("entity_rankings.{$type}");
+        $pivot = $cfg['pivot_table'];
+        $rows = DB::table("{$pivot} as p")
+            ->leftJoin('market_entities as me', 'me.id', '=', 'p.market_entity_id')
+            ->where('p.job_offer_id', $offer->id)
+            ->select('p.market_entity_id', 'me.name', 'me.is_active')
+            ->distinct()
+            ->get();
+        $excluded = ExclusionSettings::active()
+            ? DB::table(ExclusionSettings::TABLE)->where('pivot_table', $pivot)->where('job_offer_id', $offer->id)
+                ->where('vigente', 1)->pluck('market_entity_id')->map(fn ($id) => (int) $id)->flip()
+            : collect();
+        $matcher = EntityTextMatcher::for($cfg['entity_type'], true);
+
+        $out[$type] = [
+            'label' => $cfg['label'],
+            'items' => $rows->map(function ($r) use ($matcher, $offer, $body, $excluded) {
+                $id = $r->market_entity_id === null ? null : (int) $r->market_entity_id;
+                $v = $id ? $matcher->explain($id, (string) $offer->title, $body) : ['verdict' => null, 'alias' => null];
+
+                return [
+                    'id' => $id,
+                    'name' => $r->name ?? '(sin entidad)',
+                    'active' => (bool) $r->is_active,
+                    'confirmed' => $v['verdict'] === EntityTextMatcher::CONFIRMED,
+                    'verdict' => $v['verdict'],
+                    'alias' => $v['alias'] ?? null,
+                    'excluded_association' => $id !== null && $excluded->has($id),
+                ];
+            })->sortBy('name')->values()->all(),
+        ];
+    }
+
+    return $out;
 }
 
 
@@ -500,145 +548,30 @@ public function show($id)
 
 public function exportExcel(Request $request)
 {
-    ini_set('max_execution_time', 0);
-    ini_set('memory_limit', '-1');
+    // Antes: en la petición (Maatwebsite FromCollection, hasta 4 000 filas en memoria).
+    // Ahora: en cola (ExportJobOffersJob por tramos), con los filtros del listado y sin ese límite.
+    $filters = JobOfferFilters::compact(JobOfferFilters::fromInput($request->all()));
 
-    // ============================
-    // 1. Recuperar filtros crudos
-    // ============================
-    $filters = $request->all();
-
-    // ============================
-    // 2. Normalizar "null" y vacíos
-    // ============================
-    foreach ($filters as $k => $v) {
-        if ($v === "null" || $v === "" || $v === null) {
-            $filters[$k] = null;
-        }
+    $running = JobOfferProcess::where('type', 'export')->where('user_id', auth()->id())
+        ->whereIn('status', ['queued', 'running'])->where('updated_at', '>', now()->subMinutes(15))->first();
+    if ($running) {
+        return response()->json(['message' => 'Ya tienes un export en curso.', 'process' => $running->toApi()], 409);
     }
 
-    // ============================
-    // 3. Normalizar filtros múltiples
-    // ============================
-    $multi = [
-        'companies','countries','cities','sources',
-        'modalities','job_types','remote_types','workloads'
-    ];
+    $process = JobOfferProcess::start('export', ['filters' => $filters]);
+    ExportJobOffersJob::dispatch($process->id);
 
-    foreach ($multi as $m) {
-
-        if (!isset($filters[$m]) || $filters[$m] === null) {
-            $filters[$m] = [];
-            continue;
-        }
-
-        // si viene como array -> ok
-        if (is_array($filters[$m])) continue;
-
-        // si viene como string "A,B,C"
-        $filters[$m] = array_filter(
-            explode(',', $filters[$m]),
-            fn($v) => trim($v) !== ""
-        );
-    }
-
-    // ============================
-    // 4. Construir query
-    // ============================
-    $query = JobOffer::orderBy('id', 'desc');
-
-    $filterMap = [
-        'companies'    => 'company',
-        'countries'    => 'country',
-        'cities'       => 'city',
-        'sources'      => 'source',
-        'modalities'   => 'modality',
-        'job_types'    => 'job_type',
-        'remote_types' => 'remote_type',
-        'workloads'    => 'workload',
-    ];
-
-    foreach ($filterMap as $key => $column) {
-        if (!empty($filters[$key])) {
-            $query->whereIn($column, $filters[$key]);
-        }
-    }
-
-    // ============================
-    // 5. Filtros por fecha
-    // ============================
-    if (!empty($filters['published_from'])) {
-        $query->whereDate('published_at', '>=', $filters['published_from']);
-    }
-
-    if (!empty($filters['published_to'])) {
-        $query->whereDate('published_at', '<=', $filters['published_to']);
-    }
-
-    if (!empty($filters['created_from'])) {
-        $query->whereDate('created_at', '>=', $filters['created_from']);
-    }
-
-    if (!empty($filters['created_to'])) {
-        $query->whereDate('created_at', '<=', $filters['created_to']);
-    }
-
-    // ============================
-    // 6. Obtener resultados
-    // ============================
-    $query->limit(4000);
-    $rows = $query->get()->map(function ($o) {
-
-        return [
-            'ID'                => $o->id,
-            'Titulo'            => $o->title,
-            'Empresa'           => $o->company,
-            'Pais'              => $o->country,
-            'Region'            => $o->region,
-            'State Code'        => $o->state_code,
-            'Ciudad'            => $o->city,
-            'Ciudad ASCII'      => $o->city_ascii,
-            'Location'          => $o->location,
-            'ZIP'               => $o->zip_code,
-            'Modalidad'         => $o->modality,
-            'Job Type'          => $o->job_type,
-            'Remote Type'       => $o->remote_type,
-            'Workload'          => $o->workload,
-            'Experiencia'       => $o->experience_level,
-            'Educación Nivel'   => $o->education_level,
-            'Educación Campo'   => $o->education_field,
-            'Certificaciones'   => $o->certifications,
-            'Requisitos'        => $o->requirements,
-            'Skills'            => $o->skills,
-            'Descripción'       => $o->description,
-            'Beneficios'        => $o->benefits,
-            'Latitud'           => $o->latitude,
-            'Longitud'          => $o->longitude,
-            'Salario Min'       => $o->salary_min,
-            'Salario Max'       => $o->salary_max,
-            'Moneda'            => $o->currency,
-            'Tipo Pago'         => $o->compensation_type,
-            'Fuente'            => $o->source,
-            'Search Query'      => $o->search_query,
-            'External ID'       => $o->external_id,
-            'URL'               => $o->url,
-            'Application URL'   => $o->application_url,
-            'Application Type'  => $o->application_type,
-            'Publicado'         => optional($o->published_at)->format('Y-m-d'),
-            'Expira'            => optional($o->expiry)->format('Y-m-d'),
-            'Creado'            => optional($o->created_at)->format('Y-m-d H:i'),
-            'Actualizado'       => optional($o->updated_at)->format('Y-m-d H:i'),
-        ];
-    });
-
-    if ($rows->isEmpty()) {
-        return back()->with('error', '⚠ No hay datos para exportar con los filtros aplicados.');
-    }
-
-    return Excel::download(new \App\Exports\JobOffersExport($rows), 'job_offers.xlsx');
+    return response()->json(['message' => 'Export encolado.', 'process' => $process->toApi()]);
 }
 
+/** Descarga el .xlsx de un export terminado. */
+public function downloadExport(JobOfferProcess $process)
+{
+    abort_unless($process->type === 'export' && $process->status === 'done', 404);
+    $path = JobOfferExportService::filePath($process);
+    abort_unless(is_file($path), 410, 'El archivo ya no está disponible (se conserva ' . JobOfferExportService::KEEP_DAYS . ' días). Vuelve a exportar.');
 
-
+    return response()->download($path, JobOfferExportService::downloadName($process));
+}
 
 }
