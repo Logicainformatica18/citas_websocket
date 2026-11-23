@@ -20,6 +20,9 @@ class SupportDetail extends Model
 
   protected $table = 'support_details';
 
+    // Columna generada solo para el índice único de tickets.
+    protected $hidden = ['ticket_unique'];
+
 
    protected $fillable = [
     'support_id',

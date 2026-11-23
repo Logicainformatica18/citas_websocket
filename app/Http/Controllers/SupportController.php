@@ -15,6 +15,7 @@ use App\Models\InternalState;
 use App\Models\ExternalState;
 use App\Models\Type;
 use App\Models\User;
+use App\Services\TicketNumberGenerator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -218,14 +219,9 @@ class SupportController extends Controller
         // Obtener archivos múltiples (puede venir como null si no se cargó nada)
         $attachments = $request->file('attachments'); // Puede ser array o null
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-        $generateTicket = auth()->user()?->can('generar_ticket');
-
-
-        $ticket = null;
-
-        if ($generateTicket) {
-            $ticket = (new SupportDetailController)->generateNextSupportTicket();
-        }
+        // Un ticket TK por detalle (antes se compartía uno para toda la solicitud).
+        $generateTicket = (bool) auth()->user()?->can('generar_ticket');
+        $tickets = app(TicketNumberGenerator::class);
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
         $roles = Auth::user()->getRoleNames();
 
@@ -275,7 +271,7 @@ class SupportController extends Controller
                 'Manzana' => $detail['Manzana'] ?? null,
                 'comment' => $detail['comment'] ?? null,
                 'attachment' => $attachment,
-                'ticket' => $ticket ?? "TK-",
+                'ticket' => $generateTicket ? $tickets->next() : TicketNumberGenerator::PLACEHOLDER,
               'channel' => $channelName ?? ($detail['channel'] ?? null),
 
 

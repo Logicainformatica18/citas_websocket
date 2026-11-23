@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\SupportDetail;
+use App\Services\TicketNumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\JsonResponse;
@@ -180,27 +181,25 @@ class SupportDetailController extends Controller
                     ]),
         ]);
     }
+    /** @deprecated Usar App\Services\TicketNumberGenerator::next(). Se mantiene por compatibilidad. */
     function generateNextSupportTicket(): string
     {
-        $lastNumber = DB::table('support_details')
-            ->whereNotNull('ticket')
-            ->whereRaw("LENGTH(ticket) > 3") // excluye 'TK-'
-            ->whereRaw("ticket REGEXP '^TK-[0-9]+$'") // asegura formato tipo TK-00001
-            ->selectRaw("MAX(CAST(SUBSTRING(ticket, 4) AS UNSIGNED)) as max_ticket")
-            ->value('max_ticket');
-
-        $newNumber = ($lastNumber ?? 0) + 1;
-
-        return 'TK-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+        return app(TicketNumberGenerator::class)->next();
     }
+
   public function generateTicket()
 {
-    $supportDetail = SupportDetail::findOrFail(request()->input('support_id'));
-    $ticket = $this->generateNextSupportTicket();
+    // Bloquea el detalle: un doble clic no genera (ni gasta) dos números,
+    // y un detalle que ya tiene TK-n lo conserva.
+    $supportDetail = DB::transaction(function () {
+        $detail = SupportDetail::lockForUpdate()->findOrFail(request()->input('support_id'));
 
-    $supportDetail->update([
-        'ticket' => $ticket,
-    ]);
+        if (! TicketNumberGenerator::isTicket($detail->ticket)) {
+            $detail->update(['ticket' => app(TicketNumberGenerator::class)->next()]);
+        }
+
+        return $detail;
+    });
 
     // Cargar el soporte una sola vez con relaciones
     $support = $supportDetail->support()->with([

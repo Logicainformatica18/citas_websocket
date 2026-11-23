@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Client;
 use App\Models\User;
+use App\Services\TicketNumberGenerator;
 use Database\Factories\CommentFactory;
 use Database\Factories\SupportDetailFactory;
 use Database\Factories\SupportFactory;
@@ -284,6 +285,9 @@ class SupportSeeder extends Seeder
                 'updated_at' => $lastTouch,
             ])->saveQuietly();
         }
+
+        // Los TK se escribieron directamente: la secuencia continúa desde el último.
+        app(TicketNumberGenerator::class)->syncWithExisting();
     }
 
     /** Los tickets más antiguos tienden a estar cerrados; los recientes, pendientes. */
