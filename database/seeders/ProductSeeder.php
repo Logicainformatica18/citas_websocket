@@ -8,11 +8,17 @@ use Illuminate\Database\Seeder;
 
 class ProductSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\OnlyInDemoEnvironments;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
         for ($i = 1; $i <= 20; $i++) {
             Product::create([
                 'code' => 'CODE-' . str_pad($i, 4, '0', STR_PAD_LEFT),

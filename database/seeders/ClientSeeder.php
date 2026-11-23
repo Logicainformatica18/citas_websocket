@@ -13,8 +13,14 @@ use Illuminate\Support\Facades\DB;
  */
 class ClientSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\OnlyInDemoEnvironments;
+
     public function run(): void
     {
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
         $projectIds = DB::table('proyecto')->where('habilitado', true)->pluck('id_proyecto');
 
         ClientFactory::new()->count(60)->create()->each(function ($client) use ($projectIds) {

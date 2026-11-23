@@ -11,6 +11,7 @@ use Database\Factories\SupportDetailFactory;
 use Database\Factories\SupportFactory;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\PermissionsSeeder;
+use Database\Seeders\ProjectSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -22,7 +23,7 @@ class TicketGenerationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed([PermissionsSeeder::class, CatalogSeeder::class]);
+        $this->seed([PermissionsSeeder::class, CatalogSeeder::class, ProjectSeeder::class]);
     }
 
     private function storePayload(int $clientId, array $subjects): array

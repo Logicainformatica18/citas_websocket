@@ -9,6 +9,7 @@ use Database\Factories\SupportDetailFactory;
 use Database\Factories\SupportFactory;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\PermissionsSeeder;
+use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
@@ -21,7 +22,7 @@ class RoutePermissionsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed([PermissionsSeeder::class, CatalogSeeder::class]);
+        $this->seed([PermissionsSeeder::class, CatalogSeeder::class, ProjectSeeder::class]);
     }
 
     private function userWithRole(?string $role): User

@@ -7,6 +7,7 @@ use App\Models\User;
 use Database\Factories\ClientFactory;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\PermissionsSeeder;
+use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -18,7 +19,7 @@ class SalesLotsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed([PermissionsSeeder::class, CatalogSeeder::class]);
+        $this->seed([PermissionsSeeder::class, CatalogSeeder::class, ProjectSeeder::class]);
     }
 
     public function test_agente_atc_registra_lote_con_proyecto(): void

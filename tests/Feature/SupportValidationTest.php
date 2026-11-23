@@ -11,6 +11,7 @@ use Database\Factories\SupportDetailFactory;
 use Database\Factories\SupportFactory;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\PermissionsSeeder;
+use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -24,7 +25,7 @@ class SupportValidationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed([PermissionsSeeder::class, CatalogSeeder::class]);
+        $this->seed([PermissionsSeeder::class, CatalogSeeder::class, ProjectSeeder::class]);
         $this->atc = User::factory()->create()->assignRole('ATC');
     }
 

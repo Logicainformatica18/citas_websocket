@@ -6,7 +6,9 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Catálogos con IDs fijos. El backend depende de varios IDs concretos:
+ * Catálogos base con IDs fijos (corre en todos los entornos; insertOrIgnore no
+ * modifica filas existentes). Los proyectos de demo están en ProjectSeeder.
+ * El backend depende de varios IDs concretos:
  *  - areas.id_area = 1 → ATC (SupportDetailController@updateAreaMotivo: area != 1 ⇒ "Asignado")
  *  - internal_states.id = 3 → Pendiente (default en SupportController@store)
  *  - external_states.id = 1 → Por Asignar, id = 2 → Asignado
@@ -41,30 +43,17 @@ class CatalogSeeder extends Seeder
     {
         $now = now();
 
-        DB::table('areas')->insert(collect(self::AREAS)->map(fn ($d, $id) => [
+        DB::table('areas')->insertOrIgnore(collect(self::AREAS)->map(fn ($d, $id) => [
             'id_area' => $id, 'descripcion' => $d, 'habilitado' => true,
         ])->values()->all());
 
-        DB::table('proyecto')->insert(collect([
-            'Los Jardines de Carabayllo',
-            'Villa del Sol - Huaral',
-            'Brisas de Chilca',
-            'Praderas de Pachacámac',
-            'Mirador de Cieneguilla',
-            'Alameda de Lurín',
-            'Valle Hermoso - Cañete',
-            'Las Lomas de Ancón',
-        ])->map(fn ($d, $i) => [
-            'id_proyecto' => $i + 1, 'descripcion' => $d, 'habilitado' => $i !== 7,
-        ])->all());
-
-        DB::table('tipos_cita')->insert([
+        DB::table('tipos_cita')->insertOrIgnore([
             ['id_tipo_cita' => 1, 'tipo' => 'Presencial', 'habilitado' => true],
             ['id_tipo_cita' => 2, 'tipo' => 'Virtual', 'habilitado' => true],
             ['id_tipo_cita' => 3, 'tipo' => 'Telefónica', 'habilitado' => true],
         ]);
 
-        DB::table('dias_espera')->insert([
+        DB::table('dias_espera')->insertOrIgnore([
             ['id_dias_espera' => 1, 'dias' => '1 día', 'habilitado' => true],
             ['id_dias_espera' => 2, 'dias' => '2 días', 'habilitado' => true],
             ['id_dias_espera' => 3, 'dias' => '3 días', 'habilitado' => true],
@@ -93,7 +82,7 @@ class CatalogSeeder extends Seeder
             ['Consulta de avance de obra', 2, 2, 6],
             ['Refinanciamiento de deuda', 1, 2, 7],
         ];
-        DB::table('motivos_cita')->insert(collect($motivos)->map(fn ($m, $i) => [
+        DB::table('motivos_cita')->insertOrIgnore(collect($motivos)->map(fn ($m, $i) => [
             'id_motivos_cita' => $i + 1,
             'nombre_motivo' => $m[0],
             'id_tipo_cita' => $m[1],
@@ -103,19 +92,19 @@ class CatalogSeeder extends Seeder
             'habilitado' => true,
         ])->all());
 
-        DB::table('internal_states')->insert([
+        DB::table('internal_states')->insertOrIgnore([
             ['id' => self::INTERNAL_ATENDIDO, 'description' => 'Atendido', 'detail' => 'La solicitud fue atendida por el área.', 'created_at' => $now, 'updated_at' => $now],
             ['id' => self::INTERNAL_OBSERVADO, 'description' => 'Observado', 'detail' => 'Falta información o documentación del cliente.', 'created_at' => $now, 'updated_at' => $now],
             ['id' => self::INTERNAL_PENDIENTE, 'description' => 'Pendiente', 'detail' => 'Solicitud registrada, aún sin atender.', 'created_at' => $now, 'updated_at' => $now],
             ['id' => self::INTERNAL_CERRADO, 'description' => 'Cerrado', 'detail' => 'Solicitud finalizada y cerrada.', 'created_at' => $now, 'updated_at' => $now],
         ]);
 
-        DB::table('external_states')->insert([
+        DB::table('external_states')->insertOrIgnore([
             ['id' => self::EXTERNAL_POR_ASIGNAR, 'description' => 'Por Asignar', 'detail' => 'En ATC, aún no derivada a un área.', 'created_at' => $now, 'updated_at' => $now],
             ['id' => self::EXTERNAL_ASIGNADO, 'description' => 'Asignado', 'detail' => 'Derivada a un área responsable.', 'created_at' => $now, 'updated_at' => $now],
         ]);
 
-        DB::table('types')->insert(collect(self::TYPES)->map(fn ($d, $id) => [
+        DB::table('types')->insertOrIgnore(collect(self::TYPES)->map(fn ($d, $id) => [
             'id' => $id, 'description' => $d, 'detail' => null,
         ])->values()->all());
     }

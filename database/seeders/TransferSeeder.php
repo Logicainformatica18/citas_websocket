@@ -7,11 +7,17 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 class TransferSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\OnlyInDemoEnvironments;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
 
         for ($i = 1; $i <= 10; $i++) {
             Transfer::create([

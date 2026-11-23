@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Hash;
  */
 class DemoUserSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\OnlyInDemoEnvironments;
+
     public const DEMO_USERS = [
         ['admin@demo.com', 'Administrador', 'Ramírez', 'Torres', 'Carlos Alberto', 'M'],
         ['atc@demo.com', 'ATC', 'Quispe', 'Huamán', 'Lucía Fernanda', 'F'],
@@ -22,6 +24,10 @@ class DemoUserSeeder extends Seeder
 
     public function run(): void
     {
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
         foreach (self::DEMO_USERS as $i => [$email, $role, $ap1, $ap2, $nombres, $sex]) {
             UserFactory::new()->create([
                 'email' => $email,

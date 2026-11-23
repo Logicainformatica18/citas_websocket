@@ -12,6 +12,7 @@ use Database\Factories\SupportDetailFactory;
 use Database\Factories\SupportFactory;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\PermissionsSeeder;
+use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class BugfixesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed([PermissionsSeeder::class, CatalogSeeder::class]);
+        $this->seed([PermissionsSeeder::class, CatalogSeeder::class, ProjectSeeder::class]);
     }
 
     private function admin(): User

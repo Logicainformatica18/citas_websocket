@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SupportSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\OnlyInDemoEnvironments;
+
     private const TOTAL = 80;
 
     /** asunto => [id_area, id_motivos_cita, type_id] */
@@ -136,6 +138,10 @@ class SupportSeeder extends Seeder
 
     public function run(): void
     {
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
         $faker = fake('es_ES');
         $now = Carbon::now();
 

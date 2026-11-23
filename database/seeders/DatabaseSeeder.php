@@ -2,20 +2,32 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\OnlyInDemoEnvironments;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
+    use OnlyInDemoEnvironments;
+
     /**
-     * Orden según dependencias de claves foráneas:
-     * roles/permisos → usuarios → catálogos → clientes/lotes → solicitudes/detalles/comentarios.
+     * Base (todos los entornos, idempotente): roles/permisos y catálogos.
+     * Demo (solo local/testing): usuarios con contraseña conocida y datos falsos.
+     * Orden según dependencias de claves foráneas.
      */
     public function run(): void
     {
         $this->call([
             PermissionsSeeder::class,
-            DemoUserSeeder::class,
             CatalogSeeder::class,
+        ]);
+
+        if ($this->skipOutsideDemo()) {
+            return;
+        }
+
+        $this->call([
+            DemoUserSeeder::class,
+            ProjectSeeder::class,
             ClientSeeder::class,
             SupportSeeder::class,
             ChatMessageSeeder::class,
