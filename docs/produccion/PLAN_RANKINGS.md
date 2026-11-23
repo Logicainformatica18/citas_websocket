@@ -520,6 +520,7 @@ Todo el trabajo está commiteado y subido en la rama `observer`:
 | `0e4f50d` | Búsqueda de certificaciones corregida (keywords, script 12-13) y despliegue consolidado `DESPLIEGUE_RANKINGS_PRODUCCION.sql` |
 | `42c724d` | Exclusión de asociaciones sin borrar (`entity_association_exclusions`, `entities:exclude-associations`) |
 | `b83044e` | Configuración de la exclusión en la base (`entities:exclusions --enable/--disable`, fecha de confianza automática), sin `.env` |
+| `5b771a9` | Exclusión de ofertas por título (roles no TI): lista y pantalla, scrapers, `title_exclusion_id`, IA, análisis, eliminación con respaldo, filtros por periodo, export en cola, índices (`ofertas_exclusion/01-02`) |
 
 **El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
 `d84a4dd`. **A partir de `d84a4dd` todo es coherente.** No conviene desplegar ni hacer checkout de `b048f75` aislado.
