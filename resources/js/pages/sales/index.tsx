@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { Paintbrush, Trash2 } from 'lucide-react';
-import SaleModal from './modal';
+import SaleModal, { type ProjectOption } from './modal';
 import HourglassLoader from '@/components/HourglassLoader';
 
 type BreadcrumbItem = {
@@ -34,7 +34,10 @@ type Pagination<T> = {
 };
 
 export default function Sales() {
-  const { sales: initialPagination } = usePage<{ sales: Pagination<SaleItem> }>().props;
+  const { sales: initialPagination, projects = [] } = usePage<{
+    sales: Pagination<SaleItem>;
+    projects: ProjectOption[];
+  }>().props;
   const [items, setItems] = useState<SaleItem[]>(initialPagination.data);
   const [pagination, setPagination] = useState(initialPagination);
   const [showModal, setShowModal] = useState(false);
@@ -244,6 +247,7 @@ function getVisiblePages(current: number, last: number): (number | string)[] {
             setEditItem(null);
           }}
           onSaved={handleSaved}
+          projects={projects}
           itemToEdit={editItem}
         />
       )}

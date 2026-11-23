@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\Route;
 | - Cambiar área/motivo/estado interno    → solicitudes.acciones_avanzadas
 | - Generar ticket                        → generar_ticket
 | - Eliminar solicitudes o detalles       → solicitudes.eliminar
-| - Clientes (ver/crear/editar)           → clientes   (eliminar: solo administrar)
+| - Clientes y sus lotes (ver/crear/editar) → clientes (eliminar: solo administrar)
 | - Inventario: crear/editar/eliminar     → agregar / editar|actualizar / eliminar
 | - Lectura de catálogos, dashboard, chat → cualquier usuario autenticado
 */
@@ -164,9 +164,12 @@ Route::middleware(['auth', 'verified'])->group(function () use (
         Route::get('/sales/fetch', [SaleController::class, 'fetchPaginated']);
         Route::get('/sales/{id}', [SaleController::class, 'show']);
     });
-    Route::middleware($admin)->group(function () {
+    // Registrar/editar lotes: también agentes con "clientes" (atajo desde la solicitud).
+    Route::middleware($clientes)->group(function () {
         Route::post('/sales', [SaleController::class, 'store']);
         Route::put('/sales/{id}', [SaleController::class, 'update']);
+    });
+    Route::middleware($admin)->group(function () {
         Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
         Route::post('/sales/bulk-delete', [SaleController::class, 'bulkDelete']);
     });

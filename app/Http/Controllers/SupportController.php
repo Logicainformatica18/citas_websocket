@@ -59,7 +59,7 @@ class SupportController extends Controller
 
         $externalStates = ExternalState::select('id', 'description')->get();
         $types = Type::select('id', 'description')->get();
-        $projects = Project::select('id_proyecto', 'descripcion')->get();
+        $projects = Project::select('id_proyecto', 'descripcion', 'habilitado')->get();
         $areas = Area::select('id_area', 'descripcion')->get();
         $users = User::select('id', 'names', 'email')->get();
 

@@ -13,6 +13,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import ClientSearch from './clientSearch';
+import SaleModal from '../sales/modal';
 import { usePage } from '@inertiajs/react';
 import SupportCommentSection from './SupportCommentSection'; // ajusta la ruta si es necesaria
 
@@ -110,6 +111,20 @@ const SupportModal = ({
     const canEditAdvancedFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas');
     const canEdiAdminAtcReservaFields = permissions.includes('administrar') || permissions.includes('solicitudes.acciones_avanzadas') || permissions.includes('reserva');
     const canEditChannelSelect = permissions.includes('Canal.whatsapp_presencial');
+    const canRegisterLot = permissions.includes('administrar') || permissions.includes('clientes');
+    const [showSaleModal, setShowSaleModal] = useState(false);
+
+    // Lote recién registrado desde el atajo: se agrega a los lotes del cliente y se preselecciona.
+    const handleLotRegistered = (sale: any) => {
+        setSalesFromClient((prev: any[]) => [...prev, sale]);
+        setAvailableLots([sale.mz_lote]);
+        setCurrentDetail((prev: any) => ({
+            ...prev,
+            project_id: sale.project_id,
+            project: sale.project,
+            Manzana: sale.mz_lote,
+        }));
+    };
 
     const inputClass = 'col-span-3 text-sm h-7 px-2 py-1 rounded-md';
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
@@ -810,6 +825,25 @@ const SupportModal = ({
                         </div>
                     </div>
 
+                    {/* Atajo: el cliente no tiene lotes (con proyecto) registrados */}
+                    {selectedClient && clientProjects.length === 0 && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <div className="col-span-3 col-start-2 flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                                <span>
+                                    {salesFromClient.length === 0
+                                        ? 'Este cliente no tiene lotes registrados.'
+                                        : 'Los lotes de este cliente no tienen proyecto asignado.'}
+                                    {!canRegisterLot && ' Pida a un administrador que los registre.'}
+                                </span>
+                                {canRegisterLot && (
+                                    <Button type="button" size="sm" variant="outline" onClick={() => setShowSaleModal(true)}>
+                                        Registrar lote
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Manzana y Prioridad */}
                     {/* Manzana / Lote */}
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -1187,6 +1221,16 @@ const SupportModal = ({
                         Guardar
                     </Button>
                 </DialogFooter>
+
+                {selectedClient && (
+                    <SaleModal
+                        open={showSaleModal}
+                        onClose={() => setShowSaleModal(false)}
+                        onSaved={handleLotRegistered}
+                        projects={projects}
+                        presetClient={{ id: selectedClient.id, names: selectedClient.names, dni: selectedClient.dni }}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );
