@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ClientController extends Controller
@@ -24,34 +26,63 @@ class ClientController extends Controller
         );
     }
 
+    /**
+     * Reglas comunes de store/update.
+     *
+     * - Obligatorios: los campos que envía el formulario de clientes
+     *   (resources/js/pages/clients/modal.tsx). Antes se exigían 20 campos que
+     *   el formulario no envía, así que crear/editar siempre devolvía 422.
+     * - "T.Doc.": Laravel interpreta los puntos como claves anidadas, por lo
+     *   que la regla 'T.Doc.' nunca se cumplía, y Eloquent tampoco puede
+     *   escribir esa columna. Se recibe como "tipo_documento" (opcional) y se
+     *   guarda con SQL crudo en saveTipoDocumento().
+     */
+    private function rules(): array
+    {
+        return [
+            'Codigo' => 'required|string|max:50',
+            'Razon_Social' => 'required|string|max:255',
+            'DNI' => 'required|string|max:20',
+            'Direccion' => 'required|string|max:255',
+            'Telefono' => 'required|string|max:20',
+            'Email' => 'required|email|max:150',
+            'habilitado' => 'required|boolean',
+            'canal' => 'nullable|string|max:50',
+            'comentario' => 'nullable|string',
+
+            'tipo_documento' => 'nullable|string|max:20',
+            'id_slin' => 'nullable|string|max:50',
+            'NIT' => 'nullable|string|max:20',
+            'Ubigeo' => 'nullable|string|max:10',
+            'Departamento' => 'nullable|string|max:100',
+            'Provincia' => 'nullable|string|max:100',
+            'Distrito' => 'nullable|string|max:100',
+            'clave' => 'nullable|string|max:255',
+            'c_clave' => 'nullable|boolean',
+            'ref_telefono1' => 'nullable|integer',
+            'ref_telefono2' => 'nullable|integer',
+        ];
+    }
+
+    /** Escribe la columna heredada "T.Doc." (no se puede vía Eloquent). */
+    private function saveTipoDocumento(Client $client, ?string $value): void
+    {
+        if ($value === null) {
+            return;
+        }
+        $col = DB::getDriverName() === 'mysql' ? '`T.Doc.`' : '"T.Doc."';
+        DB::update("UPDATE clientes SET {$col} = ? WHERE id_cliente = ?", [$value, $client->id_cliente]);
+    }
+
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_slin' => 'required|string',
-            'Codigo' => 'required|string',
-            'Razon_Social' => 'required|string',
-            'T.Doc.' => 'required|string',
-            'DNI' => 'required|string',
-            'NIT' => 'required|string',
-            'Direccion' => 'required|string',
-            'Ubigeo' => 'required|string',
-            'Departamento' => 'required|string',
-            'Provincia' => 'required|string',
-            'Distrito' => 'required|string',
-            'Telefono' => 'required|string',
-            'Email' => 'required|email',
-            'clave' => 'required|string',
-            'c_clave' => 'required|boolean',
-            'ref_telefono1' => 'required|integer',
-            'ref_telefono2' => 'required|integer',
-            'comentario' => 'nullable|string',
-            'canal' => 'nullable|string',
-            'habilitado' => 'required|boolean',
-        ]);
+        $validated = $request->validate($this->rules());
+        $tipoDocumento = Arr::pull($validated, 'tipo_documento');
 
         $validated['id_rol'] = 2;
 
-        Client::create($validated);
+        $client = Client::create($validated);
+        $this->saveTipoDocumento($client, $tipoDocumento);
 
         return redirect()->back()->with('success', 'Cliente creado con éxito');
     }
@@ -63,32 +94,14 @@ class ClientController extends Controller
 
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
-            'id_slin' => 'required|string',
-            'Codigo' => 'required|string',
-            'Razon_Social' => 'required|string',
-            'T.Doc.' => 'required|string',
-            'DNI' => 'required|string',
-            'NIT' => 'required|string',
-            'Direccion' => 'required|string',
-            'Ubigeo' => 'required|string',
-            'Departamento' => 'required|string',
-            'Provincia' => 'required|string',
-            'Distrito' => 'required|string',
-            'Telefono' => 'required|string',
-            'Email' => 'required|email',
-            'clave' => 'required|string',
-            'c_clave' => 'required|boolean',
-            'ref_telefono1' => 'required|integer',
-            'ref_telefono2' => 'required|integer',
-            'comentario' => 'nullable|string',
-            'canal' => 'nullable|string',
-            'habilitado' => 'required|boolean',
-        ]);
+        $validated = $request->validate($this->rules());
+        $tipoDocumento = Arr::pull($validated, 'tipo_documento');
 
         $validated['id_rol'] = 2;
 
-        Client::findOrFail($id)->update($validated);
+        $client = Client::findOrFail($id);
+        $client->update($validated);
+        $this->saveTipoDocumento($client, $tipoDocumento);
 
         return redirect()->back()->with('success', 'Cliente actualizado con éxito');
     }

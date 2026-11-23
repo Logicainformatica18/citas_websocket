@@ -20,7 +20,7 @@ class ChatMessageController extends Controller
         'auth' => [
             'user' => auth()->user(),
         ],
-        'users' => User::select('id', 'name', 'email')->where('id', '!=', auth()->id())->get(),
+        'users' => User::select('id', 'names', 'email')->where('id', '!=', auth()->id())->get(),
     ]);
 }
 

@@ -14,7 +14,8 @@ class Client extends Model
         'id_slin',
         'Codigo',
         'Razon_Social',
-        'T.Doc.',
+        // 'T.Doc.' no es asignable: el query builder no puede escribir columnas
+        // con puntos. Ver ClientController::saveTipoDocumento().
         'DNI',
         'NIT',
         'Direccion',

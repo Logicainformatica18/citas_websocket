@@ -475,17 +475,20 @@ class SupportDetailController extends Controller
 
     public function show($id)
     {
+        // Support solo tiene creator, client y details; las demás relaciones
+        // viven en SupportDetail (antes lanzaba RelationNotFoundException).
         $support = Support::with([
-            'area',
             'creator',
             'client',
-            'motivoCita',
-            'tipoCita',
-            'diaEspera',
-            'internalState',
-            'externalState',
-            'supportType',
-            'project'
+            'details.area',
+            'details.project',
+            'details.motivoCita',
+            'details.tipoCita',
+            'details.diaEspera',
+            'details.internalState',
+            'details.externalState',
+            'details.supportType',
+            'details.lastComment',
         ])->findOrFail($id);
 
         // 👉 reemplaza el cliente crudo por uno transformado
@@ -535,16 +538,37 @@ class SupportDetailController extends Controller
     }
 
 
+    /**
+     * Elimina detalles (no Supports). Igual que destroy(), emite el Support
+     * actualizado por cada solicitud afectada.
+     */
     public function bulkDelete(Request $request)
     {
-        $ids = $request->input('ids', []);
-        Support::whereIn('id', $ids)->delete();
+        $ids = array_filter((array) $request->input('ids', []), 'is_numeric');
 
-        foreach ($ids as $id) {
-            broadcast(new RecordChanged('Support', 'deleted', ['id' => $id]));
+        $supportIds = SupportDetail::whereIn('id', $ids)->pluck('support_id')->unique();
+        $deleted = SupportDetail::whereIn('id', $ids)->delete();
+
+        foreach ($supportIds as $supportId) {
+            $support = Support::with([
+                'client:id_cliente,Razon_Social,dni,telefono,email,direccion',
+                'creator:id,firstname,lastname,names,email',
+                'details.project:id_proyecto,descripcion',
+                'details.area:id_area,descripcion',
+                'details.motivoCita:id_motivos_cita,nombre_motivo',
+                'details.tipoCita:id_tipo_cita,tipo',
+                'details.diaEspera:id_dias_espera,dias',
+                'details.internalState:id,description',
+                'details.externalState:id,description',
+                'details.supportType:id,description',
+            ])->find($supportId);
+
+            if ($support) {
+                broadcast(new RecordChanged('Support', 'detail_deleted', $support->toArray()));
+            }
         }
 
-        return response()->json(['message' => 'Tickets eliminados correctamente']);
+        return response()->json(['message' => 'Detalles eliminados correctamente', 'deleted' => $deleted]);
     }
 
     private function validateSupport(Request $request)
