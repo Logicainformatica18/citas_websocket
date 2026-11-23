@@ -2,80 +2,59 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-//agregar hash
-use Illuminate\Support\Facades\Hash;
-use App\Models\User;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
-
-
+/**
+ * Roles y permisos. Incluye los permisos originales del seeder y todos los
+ * que el código consulta:
+ *  - backend: generar_ticket, Canal.* (SupportController@store), rol ATC / ATC_Oficina
+ *  - frontend: administrar, reserva, recepcion, solicitudes.ver|actualizar|eliminar|acciones_avanzadas,
+ *              Canal.whatsapp_presencial
+ */
 class PermissionsSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        //permisos
-        Permission::create(['name' => 'clientes']);
-        Permission::create(['name' => 'usuarios']);
-        Permission::create(['name' => 'blogs']);
-        Permission::create(['name' => 'proyectos']);
-        Permission::create(['name' => 'imagenes']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        Permission::create(['name' => 'secciones']);
-        Permission::create(['name' => 'editar_plantilla']);
-        Permission::create(['name' => 'editar_inicio']);
-        Permission::create(['name' => 'editar_nosotros']);
-        Permission::create(['name' => 'editar_blog']);
-        Permission::create(['name' => 'editar_proyectos']);
-        Permission::create(['name' => 'editar_contactos']);
+        $legacy = [
+            'clientes', 'usuarios', 'blogs', 'proyectos', 'imagenes', 'secciones',
+            'editar_plantilla', 'editar_inicio', 'editar_nosotros', 'editar_blog',
+            'editar_proyectos', 'editar_contactos', 'agregar', 'editar', 'actualizar', 'eliminar',
+        ];
+        $app = [
+            'administrar', 'reserva', 'recepcion', 'generar_ticket',
+            'solicitudes.ver', 'solicitudes.actualizar', 'solicitudes.eliminar', 'solicitudes.acciones_avanzadas',
+            'Canal.whatsapp', 'Canal.presencial', 'Canal.whatsapp_presencial',
+        ];
+        foreach ([...$legacy, ...$app] as $name) {
+            Permission::create(['name' => $name]);
+        }
 
-        Permission::create(['name' => 'agregar']);
-        Permission::create(['name' => 'editar']);
-        Permission::create(['name' => 'actualizar']);
-        Permission::create(['name' => 'eliminar']);
+        // Administrador: todo menos Canal.* (sin permiso de canal, el backend
+        // respeta el canal elegido en el formulario).
+        Role::create(['name' => 'Administrador'])->syncPermissions(
+            Permission::where('name', 'not like', 'Canal.%')->get()
+        );
 
-        $role0 = Role::create(['name' => 'Asistente']);
-
-        // Asignar todos los permisos menos "usuarios" y "administrar"
-        $permissions = Permission::whereNotIn('name', ['usuarios', 'administrar'])->get();
-        $role0->syncPermissions($permissions);
-
-        Permission::create(['name' => 'administrar']);
-        $role = Role::create(['name' => 'Administrador']);
-        $role->syncPermissions("administrar");
-        // create user
-        $user1= User::create([
-            'dni' => '44444444',
-            'firstname' => 'Cardenas',
-            'lastname' => 'Aquino',
-            'names' => 'Anthony Robert',
-            'password' => Hash::make('sdc123456'),
-            'datebirth' => '2000-10-10',
-            'cellphone' => '999999999',
-            'sex' => 'M',
-            'email' => 'admin@gmail.com',
-        ]);
-        //asignar rol
-        $user1->assignRole('Administrador');
-        ///////////////////////////////////////////////////////////////////////
-        $user2= User::create([
-            'dni' => '44444444',
-            'firstname' => 'Cardenas1',
-            'lastname' => 'Aquino1',
-            'names' => 'Anthony Robert1',
-            'password' => Hash::make('sdc123456'),
-            'datebirth' => '2000-10-10',
-            'cellphone' => '999999999',
-            'sex' => 'M',
-            'email' => 'admin1@gmail.com',
+        // Agente de atención (call center / WhatsApp).
+        Role::create(['name' => 'ATC'])->syncPermissions([
+            'solicitudes.ver', 'solicitudes.actualizar', 'solicitudes.acciones_avanzadas',
+            'generar_ticket', 'reserva', 'clientes', 'Canal.whatsapp',
         ]);
 
+        // Agente de oficina presencial: el backend ignora el canal para este rol.
+        Role::create(['name' => 'ATC_Oficina'])->syncPermissions([
+            'solicitudes.ver', 'solicitudes.actualizar', 'generar_ticket', 'recepcion', 'clientes',
+        ]);
 
+        // Rol original: todos los permisos legacy excepto "usuarios" (+ ver solicitudes).
+        Role::create(['name' => 'Asistente'])->syncPermissions([
+            ...array_values(array_diff($legacy, ['usuarios'])),
+            'solicitudes.ver',
+        ]);
     }
-
 }

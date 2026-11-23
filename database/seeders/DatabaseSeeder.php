@@ -2,23 +2,27 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Orden según dependencias de claves foráneas:
+     * roles/permisos → usuarios → catálogos → clientes/lotes → solicitudes/detalles/comentarios.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-        $this->call(PermissionsSeeder::class);
         $this->call([
+            PermissionsSeeder::class,
+            DemoUserSeeder::class,
+            CatalogSeeder::class,
+            ClientSeeder::class,
+            SupportSeeder::class,
+            ChatMessageSeeder::class,
+            // Módulo de inventario (existente)
             TransferSeeder::class,
+            ProductSeeder::class,
+            // ArticleSeeder::class, // ArticleFactory descarga imágenes y no define product_id
         ]);
-        $this->call(ProductSeeder::class);
-   // $this->call(ArticleSeeder::class);
     }
 }
