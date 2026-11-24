@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\AI;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use App\Models\JobOffer;
 use Illuminate\Support\Facades\Log;
@@ -61,7 +62,7 @@ class CityDemandAIController extends Controller
 
 
         // 🔹 Base: ignora ubicaciones remotas para el mapa
-        $query = JobOffer::query()
+        $query = JobOffer::query()->forIndicators()
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->where(function ($q) {
@@ -118,13 +119,13 @@ class CityDemandAIController extends Controller
         // 🔹 KPIs adicionales
         $totalOffers = $results->sum('total');
 
-        $byModality = JobOffer::select('modality', DB::raw('COUNT(*) as total'))
+        $byModality = JobOffer::forIndicators()->select('modality', DB::raw('COUNT(*) as total'))
             ->when($year, fn($q) => $q->whereYear('published_at', $year))
             ->groupBy('modality')
             ->orderByDesc('total')
             ->get();
 
-        $bySource = JobOffer::select('source', DB::raw('COUNT(*) as total'))
+        $bySource = JobOffer::forIndicators()->select('source', DB::raw('COUNT(*) as total'))
             ->when($year, fn($q) => $q->whereYear('published_at', $year))
             ->groupBy('source')
             ->orderByDesc('total')
@@ -167,7 +168,7 @@ class CityDemandAIController extends Controller
         $startDate  = $request->get('start_date');
         $endDate    = $request->get('end_date');
 
-        $query = JobOffer::query()
+        $query = JobOffer::query()->forIndicators()
             ->select(
                 'title', 'company', 'country', 'city',
                 'modality', 'source',
