@@ -16,6 +16,8 @@ sin tildes; la semilla son sus `PATRONES_EXCLUIR`).
 |---|---|
 | `01_exclusion_titulos.sql` | Crea las 4 tablas, carga la semilla (116 patrones), agrega `job_offers.title_exclusion_id` y 8 índices (2 de la exclusión y 6 para los combos del listado, que pasa de ~11 s a ~2 s). Idempotente; sin DELETE, TRUNCATE ni DROP. **Generado** con `herramientas/generar_exclusion_titulos_sql.php` |
 | `02_exclusion_titulos_rollback.sql` | Revierte lo anterior. `job_offer_deletion_backups` solo se elimina si está vacía |
+| `03_indices_indicadores.sql` | Índices para que todos los indicadores ignoren las excluidas sin recorrer la tabla (`idx_jo_source_created_excl`, `idx_jo_created_excl`) y deja INVISIBLE `idx_jo_title_excl`. Idempotente; sin DELETE, TRUNCATE ni DROP. Equivale a la migración `2026_11_24_000001` |
+| `04_indices_indicadores_rollback.sql` | Revierte `03` |
 
 Equivale a la migración (solo esa):
 
@@ -55,3 +57,27 @@ Ninguna cola nueva: todo usa la cola por defecto que ya atiende el worker
 (`queue:work --sleep=3 --tries=3 --timeout=170`). Cada Job trabaja como máximo 60 s y encola el siguiente tramo
 (`config/job_title_exclusions.php` → `slice_seconds`), por debajo del `--timeout=170` y del `retry_after = 90` de la cola
 `database`. Los recálculos de rankings lanzados desde la pantalla van un Job por indicador y semestre.
+
+## Todos los indicadores (2026-11-24)
+Los indicadores de análisis (Datos Generales, Empresas, Modalidad, Seniority, Carreras, Geo, Alineamiento PE, CCTC,
+modales de los rankings, tendencias y demanda por ciudad) usan el criterio común `App\Services\Indicators\IndicatorScope`:
+sin ofertas excluidas por título y, donde cuentan entidades, sin asociaciones excluidas por el detector ni de entidades
+inactivas. Las vistas operativas (job-offers, fuentes, scraping) siguen mostrando todo. Detalle y mediciones en
+`PLAN_RANKINGS.md`, Bloque 8.
+
+**DBA**: `03_indices_indicadores.sql` (~10 s; no bloquea).
+
+**Operador** (después de desplegar el código):
+```sh
+symfony php artisan optimize:clear
+symfony php artisan queue:restart
+symfony php artisan indicators:curricular-demand        # PE y CCTC (~30 s)
+symfony php artisan seniority:backfill-all 2026         # ~5 s
+symfony php artisan companies:backfill-all 2026         # ~90 s
+symfony php artisan careers:backfill-all 2026           # ~90 s
+symfony php artisan jobs:build-alignment --truncate     # ~4 min (Geo: ciudades por carrera)
+symfony php artisan pe:recalculate <carrera> --year=2026  # por cada carrera activa (o botón "Actualizar" de PE)
+```
+`jobs:run-all` ya incluye `indicators:curricular-demand` y los tres `*:backfill-all` después de
+`job-offers:apply-title-exclusions`. Después de cada `entities:exclude-associations`, ejecutar también
+`jobs:build-alignment --truncate` e `indicators:curricular-demand`.

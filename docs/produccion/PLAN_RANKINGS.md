@@ -268,6 +268,78 @@ Bloque 7 (exclusión de ofertas por TÍTULO — roles no TI, 2026-11-23; ver `do
   `clinical data` y `salesforce`. En local las dos aprobadas en la prueba (`caretaker`, `clinical data`) se borraron con
   el ciclo de rollback del SQL.
 
+Bloque 8 (criterio común en TODOS los indicadores de análisis, 2026-11-24):
+- **Criterio único: `App\Services\Indicators\IndicatorScope`.** Un indicador de análisis (demanda, distribución,
+  tendencias, totales que ve el usuario) ignora: a) las ofertas excluidas por título (`title_exclusion_id`); b) las
+  asociaciones oferta–entidad excluidas por el detector (`entity_association_exclusions` vigentes); c) las asociaciones a
+  entidades inactivas (`market_entities.is_active`). b) y c) solo donde se cuentan lenguajes, tecnologías, metodologías
+  o certificaciones. Piezas: `offers()`/`offersSql()`, `associations()`/`associationsSql()`, `countSql()` (conteo en un
+  GROUP BY de tabla completa), `activeIdSet()`/`excludedPairSet()` (filtro en memoria para procesos por tramos) y
+  `JobOffer::scopeForIndicators()`. `EntityRankingService` delega en él (`activeIdsSql`, `exclusionSql`,
+  `titleExclusionSql`): **fotos doradas de Lenguajes y Tecnologías, 0 diferencias** (antes y después de todo el bloque).
+- **Vistas operativas sin filtro** (muestran lo recolectado): módulo job-offers (ya tiene "Excluidas por título"), estado
+  de fuentes (`/sources`), tarjetas de `/api/job-stats` (totales de hoy y por fuente: dudoso; se trató como recolección),
+  scraping y logs. Verificado: las tres siguen mostrando las 403 881 ofertas.
+- **Datos Generales** (modal de los rankings, Empresas, Modalidad, Geo, Seniority) es un total mostrado al usuario →
+  filtra los conteos (total, nuevas del mes, del semestre, por fuente); las fechas de recolección no se filtran.
+- **Una oferta llega a una carrera por las tecnologías/lenguajes/metodologías de sus cursos** (Seniority por carrera,
+  evolución por carrera, Geo, PE, CCTC): por eso esos indicadores aplican también b) y c). El detector excluye 1,48 M de
+  2,16 M asociaciones de tecnologías: estos números bajan mucho (p. ej. Seniority por carrera 52 761 → 1 787 en 2026-s2).
+  Es el mismo criterio que ya usaba el Ranking de Tecnologías.
+- **Cachés**: la versión `indicators:data_version` (`IndicatorScope::bumpCacheVersion`) forma parte de las claves de
+  Datos Generales, Geo y la demanda curricular; la incrementan `job-offers:apply-title-exclusions` (consola y botón),
+  `entities:exclude-associations`, `entities:exclusions --enable/--disable` y eliminar/restaurar ofertas.
+- **Rendimiento** (local; MySQL con `innodb_buffer_pool_size` = 128 MB y `entity_association_exclusions` = 415 MB, así que
+  cada NOT EXISTS al azar va a disco): donde el filtro de asociaciones multiplicaba el tiempo se cambió la forma de la
+  consulta, verificando siempre que **sin filtros** da exactamente lo mismo que antes:
+  - Seniority por carrera y evolución por carrera: EXISTS por (carrera, oferta) en vez de unir y contar DISTINCT.
+    `careers:backfill-all` agrega una vez por semestre y suma cada tramo en PHP: 515 s → 89 s (1 036 filas idénticas).
+  - Geo, demanda por carrera: pares (oferta, tecnología) válidos materializados con DISTINCT antes del cruce (226 s → 18 s).
+  - `jobs:build-alignment`: por tramos de `job_offer_id`, filtra pares antes del cruce con cursos (350 s → 250 s).
+  - **Alineamiento PE y CCTC: `CurricularDemand`**, una pasada por año por tramos con las exclusiones en memoria, que da
+    vacantes por carrera (año y semestre), entidades con demanda y ofertas por curso. Las páginas leen el precálculo
+    (`indicators:curricular-demand`, 26 s y 102 MB); antes, en frío, CCTC 91 s y cursos de PE 113 s (> 30 s de
+    `max_execution_time` de la web). Respuestas idénticas al cálculo directo (con y sin filtros).
+  - `pe:recalculate`: el conteo por competencia se hace una vez por proceso en PHP (> 10 min → 25 s las 9 carreras).
+  - Índices nuevos: `idx_jo_source_created_excl`, `idx_jo_created_excl`; e `idx_jo_title_excl` queda **INVISIBLE** (no
+    se borra): para `IS NULL` (85 % de las filas) el optimizador la elegía en vez del rango por fecha y Empresas tardaba
+    el doble. Migración `2026_11_24_000001` = `ofertas_exclusion/03_indices_indicadores.sql` (reversión `04`).
+- **RunAllJobs** (después de `job-offers:apply-title-exclusions`): `indicators:curricular-demand` (26 s),
+  `seniority:backfill-all` (4 s), `companies:backfill-all` (90 s) y `careers:backfill-all` (89 s) del año: todos
+  < 5 min y < 512 MB. **No entran**: `jobs:build-alignment` (250 s; lo que filtra solo cambia con
+  `entities:exclude-associations`, que tampoco está en RunAllJobs; tiene su botón "reconstruir") y `pe:recalculate`
+  (pide la carrera; lo ejecuta el botón "Actualizar" de PE). El botón "Excluir de los indicadores" encola en `default`
+  `indicators:curricular-demand` y `seniority:backfill-all` (≤ 30 s); Empresas y Carreras (~90 s, por encima del
+  `retry_after` de 90 s) quedan para `jobs:run-all`.
+- Resultados 2026-s2 en local (salvo que se indique) y tiempos (`docs/produccion/herramientas/medir_indicadores.php`,
+  un proceso por medición; "→" = sin filtros → solo asociaciones → criterio completo):
+
+| Indicador | Filtro | Cuánto deja de contar | Tiempo y memoria |
+|---|---|---|---|
+| Datos Generales | título | total 59 512; semestre 10 735 (por alta) / 10 338 (por publicación); nuevas del mes 1 097 | caché 1 h; cálculo 1,3 s → 0,7 s, 40 MB |
+| Empresas (ranking, ofertas de la empresa) | título | vacantes 89 305 → 79 375 (−9 930); empresas 17 545 → 16 379 | en vivo 6,0 s → 6,2 s, 52 MB |
+| Empresas (evolución) | título | corte oct-2026: internacional −9 299, nacional −10 | companies:backfill-all 2026: 100,7 s → 89,9 s, 44 MB |
+| Modalidad laboral | título | total 19 637 → 17 671 (−1 966): remoto −1 317, híbrido −586, presencial −63 | en vivo 3,5 s → 3,4 s, 44 MB |
+| Seniority (distribución, Datos Generales propio) | título | vacantes 20 108 → 18 603 (−1 505); modalidad 98 685 → 87 950 (−10 735) | en vivo 20,6 s → 21,5 s, 44 MB |
+| Seniority por carrera | título + detector + inactivas | 52 761 → 1 879 por asociaciones (−50 882) → 1 787 por título (−92) | consulta única con EXISTS (antes 9 consultas); incluido arriba |
+| Seniority (evolución) | título | corte oct-2026: −1 505 | seniority:backfill-all 2026: 4,5 s → 4,1 s, 44 MB |
+| Ranking de carreras | título | 2025-s2: 20 367 → 20 255 (−112); 2026-s2 sin datos de posiciones | en vivo 0,67 s → 0,36 s, 44 MB |
+| Carreras (evolución) | título (mercado) + detector + inactivas (por carrera) | corte oct-2026: mercado 86 518 → 81 460 (−5 058); suma por carrera 412 517 → 212 206 por asociaciones → 211 901 por título | careers:backfill-all 2026: 515,5 s → 89,1 s, 46 MB (agregación por semestre; sin filtros 31,4 s e idéntico) |
+| Demanda geográfica: demanda por carrera | título + detector + inactivas | 223 896 → 7 963 por asociaciones → 7 573 por título (−390) | en vivo (página) 19,7 s → 18,5 s, 48 MB (pares válidos materializados; el cruce directo tardaba 226 s) |
+| Demanda geográfica: ciudades | título (al leer) + detector + inactivas (en job_offer_alignment) | filas oferta×carrera 150 313 → 130 439 por título; ciudades 1 745 → 1 581 | incluido arriba |
+| Demanda geográfica: mapa de calor | título | ofertas 91 440 → 81 424 (−10 016); puntos 2 897 → 2 695 | 1,9 s, igual |
+| job_offer_alignment | detector + inactivas | tecnología 475 207 → 32 838 filas; lenguaje 342 485 → 157 843; metodología 187 323 → 187 169 | jobs:build-alignment --truncate: 153,8 s sin filtro → 350,6 s con filtro → 250,0 s por tramos, 44 MB |
+| Alineamiento PE: vacantes analizadas (carrera 1, 2026) | título + detector + inactivas | 53 642 → 24 560 por asociaciones → 21 858 por título (−2 702) | en vivo 3,6 s → 0,0 s (lee el precálculo); antes de este cambio HTTP 500 con >65 535 ofertas |
+| Alineamiento PE: cursos de una competencia | título + detector + inactivas | respuestas idénticas al cálculo directo | en vivo 5,5 s → 0,0 s (lee el precálculo) |
+| Alineamiento PE (pe_alignment_competency_results) | título + detector + inactivas | suma job_count 3 296 096 → 1 178 135; 24 de 77 competencias cambian de nivel | pe:recalculate 9 carreras: >10 min → 24,6 s, 140 MB (sin filtros, idéntico al cálculo anterior) |
+| CCTC: vacantes analizadas (carrera 1, 2026-s2) | título + detector + inactivas | 28 823 → 12 729 por asociaciones → 10 977 por título (−1 752) | página 7,3 s → 0,1 s (lee el precálculo); en frío 23-25 s, 102 MB |
+| CCTC: demanda activa por curso / por competencia | título + detector + inactivas | respuestas idénticas al cálculo directo (s1, s2, competencias) | incluido arriba |
+| CCTC: ofertas recientes y brechas del curso | título + detector + inactivas (brechas: solo entidades del curso) | — | 4,7 s y 12,9 s en vivo |
+| Precálculo curricular (indicators:curricular-demand) | título + detector + inactivas | una pasada por año para PE y CCTC | 26,1 s, 102 MB (sin filtros 28,6 s) |
+| Modales de ofertas de los rankings (histórico de la entidad) | título + detector + inactivas | lenguaje #179: 16 538 → 5 506 → 5 446; tecnología #3888: 4 223 → 2 344 → 2 342; certificación #3907: 34 → 33 | 1,5 s → 1,8 s, 44 MB |
+| Tendencias tecnológicas (detalle y ofertas) | título | tendencia #109: 2 981 → 2 923 | incluido arriba |
+| Demanda por ciudad (mapa IA y su export, 2026) | título | total 171 859 → 153 608 (−18 251); puntos 5 239 → 4 877 | 7,4 s → 6,5 s, 58 MB |
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
@@ -284,7 +356,7 @@ Bloque 7 (exclusión de ofertas por TÍTULO — roles no TI, 2026-11-23; ver `do
 - `app/Exports/CertificationsWeeklyExport.php` y `certification_evolution_cache` quedan sin uso (no se borran).
 - La administración de entidades no tiene botón para **reactivar** una entidad desactivada (se hace por SQL).
 - La plantilla de limpieza (`generar_limpieza_sql.php`) no respalda `certification_job.certification_name_raw`.
-- Los modales "ver ofertas" de cada entidad no aplican las exclusiones (listan el pivote completo).
+- (Resuelto en el Bloque 8) Los modales "ver ofertas" de cada entidad no aplicaban las exclusiones.
 - Errores de TypeScript previos en las páginas de ranking (`tsc --noEmit`); `npm run build` compila igual.
 - (Exclusión por título) `retry_after = 90` de la cola `database` con `--timeout=170`: los Jobs de más de 90 s ya
   existentes (p. ej. `RefreshEntityRankingJob` completo de Tecnologías desde el botón "Recalcular") pueden ejecutarse dos
@@ -296,6 +368,21 @@ Bloque 7 (exclusión de ofertas por TÍTULO — roles no TI, 2026-11-23; ver `do
 - (Exclusión por título) `app/Exports/JobOffersExport.php` queda sin uso (no se borra).
 - (Exclusión por título) La interfaz se probó por HTTP (mismo kernel, usuario administrador) y con `npm run build`; no se
   revisó visualmente en el navegador.
+- (Bloque 8) Widgets de dashboards y entrenamientos de IA (`sqltrainings`, `dashboard_widgets.data_source`): ejecutan
+  SQL libre con alias arbitrarios; no hay un punto seguro donde inyectar el criterio. Siguen contando todo.
+- (Bloque 8) Brechas de CCTC (`getCourseGaps`): `->flip()` antes de `merge()` pierde los ids, así que "conectadas" se
+  compara contra posiciones (error previo, no se corrigió). Ahora solo busca las entidades del curso.
+- (Bloque 8) Rutas a métodos inexistentes en CCTC (`summary`, `detail`, `critical`, `history`, `competencyImpact`,
+  `analyzeCourseWithAI`), PE (`competenciesByCareer`, `jobsByCompetency`, `trendsByCompetency`), Macrotendencias
+  (`detail`, `getReports`, `getJobs`) y `/dashboard/job-market/status` → `JobMarketStatusController::index`.
+- (Bloque 8) Código muerto sin tocar: `PeAlignmentService`, `MacroTrendScoreService`, `CertificationLaborScoreService`,
+  `groupCoursesByCompetency`, `calculateCareerAlignmentSummary`. `trends:populate-macro` llena `macro_trend_job` con todas
+  las ofertas (operativo; el indicador de macrotendencias no lee `job_offers`).
+- (Bloque 8) La evolución de Empresas, Seniority y Carreras la escriben también `*:take-snapshot` (cron externo); con el
+  backfill diario de RunAllJobs el año en curso queda recalculado con el criterio común. `job_offer_alignment` estaba
+  desactualizada desde 2026-06-04 (ciudades de Geo en 2026-s2 = 0) hasta que se reconstruyó en esta prueba.
+- (Bloque 8) Medir en producción el precálculo curricular, Geo y CCTC: en local el buffer pool de 128 MB hace que las
+  búsquedas en `entity_association_exclusions` vayan a disco; pedir `innodb_buffer_pool_size` al DBA (paso 12).
 
 ## 3. Estado actual (2026-11-16: plan completo)
 
@@ -493,6 +580,15 @@ operador ejecuta `symfony php artisan optimize:clear`, `symfony php artisan queu
 `symfony php artisan job-offers:apply-title-exclusions` y los tres `symfony php artisan ranking:refresh-*`. Detalle en
 `docs/produccion/ofertas_exclusion/README.md`.
 
+**Criterio común en todos los indicadores (2026-11-24, después de la exclusión por título)**: el DBA ejecuta
+`docs/produccion/ofertas_exclusion/03_indices_indicadores.sql` (~10 s, no bloquea); el operador despliega el código y
+ejecuta `symfony php artisan optimize:clear`, `symfony php artisan queue:restart`,
+`symfony php artisan indicators:curricular-demand`, `symfony php artisan seniority:backfill-all 2026`,
+`symfony php artisan companies:backfill-all 2026`, `symfony php artisan careers:backfill-all 2026`,
+`symfony php artisan jobs:build-alignment --truncate` y `symfony php artisan pe:recalculate <carrera> --year=2026` por
+cada carrera activa (o el botón "Actualizar" de PE). Después de cada `entities:exclude-associations`: también
+`jobs:build-alignment --truncate` e `indicators:curricular-demand`.
+
 **Mantenimiento**: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
 reglas del matcher o se reactive una entidad. **Apagado de emergencia**: `php artisan entities:exclusions --disable` y
 `ranking:refresh-*` (para volver: `--enable` y `ranking:refresh-*`).
@@ -521,6 +617,7 @@ Todo el trabajo está commiteado y subido en la rama `observer`:
 | `42c724d` | Exclusión de asociaciones sin borrar (`entity_association_exclusions`, `entities:exclude-associations`) |
 | `b83044e` | Configuración de la exclusión en la base (`entities:exclusions --enable/--disable`, fecha de confianza automática), sin `.env` |
 | `5b771a9` | Exclusión de ofertas por título (roles no TI): lista y pantalla, scrapers, `title_exclusion_id`, IA, análisis, eliminación con respaldo, filtros por periodo, export en cola, índices (`ofertas_exclusion/01-02`) |
+| `eed1738`…`51a5a21` | Criterio común de los indicadores (Bloque 8): `IndicatorScope`, Datos Generales, Empresas, Modalidad, Seniority, Carreras, Geo, PE, CCTC (`CurricularDemand`), modales y tendencias, demanda por ciudad, RunAllJobs (`ofertas_exclusion/03-04`) |
 
 **El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
 `d84a4dd`. **A partir de `d84a4dd` todo es coherente.** No conviene desplegar ni hacer checkout de `b048f75` aislado.
