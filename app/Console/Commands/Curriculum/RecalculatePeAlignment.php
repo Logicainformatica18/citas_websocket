@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Curriculum;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Models\Prueba;
@@ -29,6 +30,8 @@ class RecalculatePeAlignment extends Command
         $this->info("🔄 Recalculando PE Alignment...");
         $this->info("Career: {$careerId} | Year: {$year}");
 
+        $market = $this->marketCounts($year);
+
         DB::beginTransaction();
 
         try {
@@ -38,48 +41,10 @@ class RecalculatePeAlignment extends Command
             ====================================================== */
 
             $rows = DB::select("
-            WITH market_base AS (
-
-                SELECT
-                    cc.competency_id,
-                    COUNT(DISTINCT jo.id) AS job_count
-                FROM competency_course cc
-                JOIN course_technology ct ON ct.course_id = cc.course_id
-                JOIN technology_job tj ON tj.technology_id = ct.technology_id
-                JOIN job_offers jo ON jo.id = tj.job_offer_id
-                WHERE YEAR(jo.published_at) = ?
-                GROUP BY cc.competency_id
-
-                UNION ALL
-
-                SELECT
-                    cc.competency_id,
-                    COUNT(DISTINCT jo.id) AS job_count
-                FROM competency_course cc
-                JOIN course_language cl ON cl.course_id = cc.course_id
-                JOIN language_job lj ON lj.language_id = cl.language_id
-                JOIN job_offers jo ON jo.id = lj.job_offer_id
-                WHERE YEAR(jo.published_at) = ?
-                GROUP BY cc.competency_id
-
-                UNION ALL
-
-                SELECT
-                    cc.competency_id,
-                    COUNT(DISTINCT jo.id) AS job_count
-                FROM competency_course cc
-                JOIN course_methodology cm ON cm.course_id = cc.course_id
-                JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
-                JOIN job_offers jo ON jo.id = mj.job_offer_id
-                WHERE YEAR(jo.published_at) = ?
-                GROUP BY cc.competency_id
-            ),
-
-            market_aggregated AS (
-                SELECT competency_id,
-                       SUM(job_count) AS job_count
-                FROM market_base
-                GROUP BY competency_id
+            WITH market_aggregated AS (
+                /* Ofertas del año por competencia (suma de las tres fuentes), calculadas por
+                   tramos en marketCounts() con el criterio común de los indicadores. */
+                " . $this->valuesSql($market) . "
             ),
 
             market_ranked AS (
@@ -156,8 +121,7 @@ class RecalculatePeAlignment extends Command
             LEFT JOIN trend_ranked tr ON tr.competency_id = comp.id
             WHERE comp.career_id = ?
             ", [
-                $year, $year, $year,
-                $year, $year, $year,
+                $year, $year, $year,                  // trend_base
                 $careerId
             ]);
 
@@ -229,5 +193,88 @@ class RecalculatePeAlignment extends Command
             DB::rollBack();
             $this->error("❌ Error: " . $e->getMessage());
         }
+    }
+
+    /** Conteo por competencia y año, compartido entre carreras del mismo proceso (no depende de la carrera). */
+    private static array $marketCache = [];
+
+    /**
+     * Ofertas del año por competencia: por cada fuente (tecnologías, lenguajes, metodologías) una
+     * oferta cuenta una vez por competencia alcanzada a través de los cursos; luego se suman las
+     * tres fuentes (igual que el SQL anterior: COUNT(DISTINCT oferta) por fuente y SUM).
+     * Pares (oferta, entidad) del año con el criterio común (IndicatorScope), leídos por tramos de
+     * job_offer_id; el mapa entidad → competencias está en memoria. Antes, un COUNT(DISTINCT) sobre
+     * pares × cursos × competencias tardaba varios minutos por carrera.
+     *
+     * @return array<int, int> competency_id => job_count (solo > 0)
+     */
+    private function marketCounts(int $year, int $chunk = 10000): array
+    {
+        $key = $year . '|' . implode(',', IndicatorScope::$off);
+        if (isset(self::$marketCache[$key])) {
+            return self::$marketCache[$key];
+        }
+
+        $from = "{$year}-01-01";
+        $to = ($year + 1) . '-01-01';
+        $maxId = (int) DB::table('job_offers')->max('id');
+        $counts = [];
+
+        foreach ([
+            ['technology_job', 'tj', 'technology_id', 'course_technology'],
+            ['language_job', 'lj', 'language_id', 'course_language'],
+            ['methodology_job', 'mj', 'methodology_id', 'course_methodology'],
+        ] as [$pivot, $a, $col, $courseTable]) {
+            $map = [];   // entidad => [competency_id => true]
+            foreach (DB::table($courseTable . ' as x')->join('competency_course as cc', 'cc.course_id', '=', 'x.course_id')
+                ->distinct()->get(["x.{$col} as e", 'cc.competency_id as c']) as $r) {
+                $map[$r->e][$r->c] = true;
+            }
+
+            $active = IndicatorScope::activeIdSet(IndicatorScope::entityType($pivot));
+
+            for ($lo = 0; $lo <= $maxId; $lo += $chunk) {
+                // Asociaciones válidas (IndicatorScope): las exclusiones del detector del tramo se leen
+                // una vez y se descartan en memoria (un NOT EXISTS por par tardaba ~5 min).
+                $excluded = IndicatorScope::excludedPairSet($pivot, $lo, $lo + $chunk);
+                $offers = [];   // oferta => [competency_id => true]
+                foreach (DB::select(
+                    "SELECT DISTINCT {$a}.job_offer_id AS o, {$a}.{$col} AS e, {$a}.market_entity_id AS me
+                       FROM job_offers jo
+                       JOIN {$pivot} {$a} ON {$a}.job_offer_id = jo.id
+                      WHERE jo.id >= ? AND jo.id < ? AND jo.published_at >= ? AND jo.published_at < ?"
+                        . IndicatorScope::offersSql('jo'),
+                    [$lo, $lo + $chunk, $from, $to]
+                ) as $r) {
+                    if (! isset($map[$r->e])
+                        || ($active !== null && ! isset($active[(int) $r->me]))
+                        || isset($excluded[$r->o . ':' . $r->me])) {
+                        continue;
+                    }
+                    $offers[$r->o] = ($offers[$r->o] ?? []) + $map[$r->e];
+                }
+                foreach ($offers as $competencies) {
+                    foreach ($competencies as $c => $_) {
+                        $counts[$c] = ($counts[$c] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        return self::$marketCache[$key] = $counts;
+    }
+
+    /** Filas (competency_id, job_count) como tabla derivada; sin filas si no hay conteos. */
+    private function valuesSql(array $counts): string
+    {
+        if ($counts === []) {
+            return 'SELECT NULL AS competency_id, 0 AS job_count FROM DUAL WHERE 1 = 0';
+        }
+        $rows = [];
+        foreach ($counts as $c => $n) {
+            $rows[] = 'ROW(' . (int) $c . ', ' . (int) $n . ')';
+        }
+
+        return 'SELECT column_0 AS competency_id, column_1 AS job_count FROM (VALUES ' . implode(', ', $rows) . ') AS v';
     }
 }

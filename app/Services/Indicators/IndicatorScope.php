@@ -161,6 +161,47 @@ final class IndicatorScope
         return self::$activeIds[$entityType];
     }
 
+    /* ---------------- b) + c) en PHP (procesos por tramos) ---------------- */
+
+    /**
+     * c) Ids de las entidades activas del tipo como conjunto (id => true), o null si el filtro
+     * está apagado. Para procesos que leen las asociaciones por tramos y filtran en memoria.
+     *
+     * @return array<int, true>|null
+     */
+    public static function activeIdSet(string $entityType): ?array
+    {
+        if (in_array('inactive', self::$off, true)) {
+            return null;
+        }
+
+        return array_fill_keys(array_map('intval', explode(',', self::activeIdsSql($entityType))), true);
+    }
+
+    /**
+     * b) Pares (oferta, entidad) excluidos por el detector para las ofertas con id en
+     * [$fromOffer, $toOffer), como conjunto "oferta:entidad" => true ([] si la exclusión está
+     * apagada). Una lectura por tramo (índice idx_eae_filtro) en vez de un NOT EXISTS por par.
+     *
+     * @return array<string, true>
+     */
+    public static function excludedPairSet(string $pivot, int $fromOffer, int $toOffer): array
+    {
+        if (! ExclusionSettings::active() || in_array('detector', self::$off, true)) {
+            return [];
+        }
+        $set = [];
+        foreach (DB::table(ExclusionSettings::TABLE)
+            ->where('pivot_table', $pivot)
+            ->where('job_offer_id', '>=', $fromOffer)->where('job_offer_id', '<', $toOffer)
+            ->where('vigente', 1)
+            ->get(['job_offer_id', 'market_entity_id']) as $r) {
+            $set[$r->job_offer_id . ':' . $r->market_entity_id] = true;
+        }
+
+        return $set;
+    }
+
     public static function entityType(string $pivot): string
     {
         return self::PIVOTS[$pivot] ?? throw new \InvalidArgumentException("Tabla pivote sin tipo de entidad: {$pivot}");

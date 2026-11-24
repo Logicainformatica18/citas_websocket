@@ -93,7 +93,8 @@ $sections = [
         $j = get('/dashboard/indicators/job-demand-geo', $p, true);
         $h = get('/dashboard/indicators/job-demand-geo/heatmap', $p);
 
-        return $scalars($j['meta'] ?? []) + ['mapa_puntos' => count($h['results'] ?? []), 'mapa_ofertas' => collect($h['results'] ?? [])->sum('total')];
+        return $scalars($j['meta'] ?? []) + ['demanda_carreras' => collect($j['careers'] ?? [])->sum('total_jobs'),
+            'mapa_puntos' => count($h['results'] ?? []), 'mapa_ofertas' => collect($h['results'] ?? [])->sum('total')];
     },
     'pe' => function () use ($p, $career, $scalars) {
         $j = get('/dashboard/indicators/pe-alignment', $p + ['career_id' => $career], true);
