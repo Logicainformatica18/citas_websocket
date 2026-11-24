@@ -8,6 +8,7 @@ use App\Models\Prueba;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
@@ -134,43 +135,28 @@ abstract class EntityRankingService
      */
     public function activeIdsSql(): string
     {
-        $ids = DB::table('market_entities')
-            ->where('entity_type', $this->entityType())
-            ->where('is_active', 1)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->implode(',');
-
-        return $ids !== '' ? $ids : '0';
+        return IndicatorScope::activeIdsSql($this->entityType());
     }
 
     /**
      * Filtro de asociaciones excluidas (entity_association_exclusions, que llena
      * entities:exclude-associations): los pares (oferta, entidad) que el matcher no confirma no
      * cuentan, sin borrar nada de la tabla pivote. Activo por defecto; apagado de emergencia con
-     * php artisan entities:exclusions --disable (flag en entity_association_exclusion_settings).
-     * Se omite solo si la tabla no existe. Afecta al ranking por semestre, a la evolución y a las
-     * vacantes únicas (salen de la misma consulta). Nombres de tabla constantes: seguro interpolarlos.
+     * php artisan entities:exclusions --disable. Afecta al ranking por semestre, a la evolución y
+     * a las vacantes únicas (salen de la misma consulta). Criterio común: IndicatorScope.
      */
     public function exclusionSql(): string
     {
-        if (! ExclusionSettings::active()) {
-            return '';
-        }
-        $table = ExclusionSettings::TABLE;
-
-        return " AND NOT EXISTS (SELECT 1 FROM `{$table}` x WHERE x.pivot_table = '{$this->pivotTable()}'"
-            . ' AND x.job_offer_id = lj.job_offer_id AND x.market_entity_id = lj.market_entity_id AND x.vigente = 1)';
+        return IndicatorScope::associationExclusionSql($this->pivotTable(), 'lj');
     }
 
     /**
-     * Ofertas excluidas por título (rol no TI, job_offers.title_exclusion_id, que marca
-     * job-offers:apply-title-exclusions): no cuentan en el ranking, la evolución ni las vacantes
-     * analizadas. No se borra nada. Se omite si la columna aún no existe.
+     * Ofertas excluidas por título (rol no TI, job_offers.title_exclusion_id): no cuentan en el
+     * ranking, la evolución ni las vacantes analizadas. Criterio común: IndicatorScope.
      */
     public static function titleExclusionSql(string $alias = 'j'): string
     {
-        return JobOffer::hasTitleExclusionColumn() ? " AND {$alias}.title_exclusion_id IS NULL" : '';
+        return IndicatorScope::offersSql($alias);
     }
 
     /* ==================================================

@@ -2,6 +2,7 @@
 
 namespace App\Services\JobOffers;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Jobs\RefreshRankingsChainJob;
 use App\Models\JobOffer;
 use App\Models\JobOfferProcess;
@@ -119,6 +120,7 @@ class TitleExclusionService
         $keywords = JobTitleExclusionKeyword::orderBy('id')->get()->keyBy('id');
 
         if (! $dry) {
+            IndicatorScope::bumpCacheVersion();   // Datos Generales, Geo… (cachés de los indicadores)
             $now = now();
             foreach ($keywords as $id => $k) {
                 DB::table('job_title_exclusion_keywords')->where('id', $id)
@@ -441,6 +443,7 @@ class TitleExclusionService
                     'restorable' => true];
                 $this->startRankingRefresh($p);
 
+                IndicatorScope::bumpCacheVersion();
                 return true;
             }
 
@@ -508,6 +511,7 @@ class TitleExclusionService
                 }
                 $this->startRankingRefresh($p);
 
+                IndicatorScope::bumpCacheVersion();
                 return true;
             }
 

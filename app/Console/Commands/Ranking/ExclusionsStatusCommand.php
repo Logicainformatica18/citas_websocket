@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Ranking;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Services\Ranking\ExclusionSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class ExclusionsStatusCommand extends Command
             $new = (bool) $this->option('enable');
             $old = ExclusionSettings::enabled();
             ExclusionSettings::setEnabled($new);
+            IndicatorScope::bumpCacheVersion();
             $this->info($new ? 'Exclusiones ACTIVADAS.' : 'Exclusiones DESACTIVADAS (apagado de emergencia).');
             if ($old !== $new) {
                 $this->warn('Para que el cambio se vea en los rankings, ejecutar:');

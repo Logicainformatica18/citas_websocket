@@ -2,6 +2,7 @@
 
 namespace App\Models;
 use App\Models\MarketEntity;
+use App\Services\Indicators\IndicatorScope;
 use App\Services\JobOffers\TitleExclusionMatcher;
 use App\Services\JobOffers\TitleExclusionStats;
 use App\Support\Eloquent\SavedParentBelongsToMany;
@@ -39,6 +40,17 @@ class JobOffer extends Model
                 $offer->title_exclusion_id = TitleExclusionMatcher::active()->excludedId($offer->title);
             }
         });
+    }
+
+    /**
+     * Ofertas que cuentan en los indicadores de análisis (sin las excluidas por título).
+     * Criterio común: App\Services\Indicators\IndicatorScope.
+     */
+    public function scopeForIndicators(Builder $query): Builder
+    {
+        IndicatorScope::offers($query->getQuery(), $query->getModel()->getTable());
+
+        return $query;
     }
 
     public static function hasTitleExclusionColumn(): bool

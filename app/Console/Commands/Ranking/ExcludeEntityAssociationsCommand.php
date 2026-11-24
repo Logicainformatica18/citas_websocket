@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Ranking;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Services\Matching\EntityTextMatcher;
 use App\Services\Ranking\ExclusionSettings;
 use Illuminate\Console\Command;
@@ -72,6 +73,10 @@ class ExcludeEntityAssociationsCommand extends Command
 
         foreach ($types as $t) {
             $this->processType($t, $table, $dry, $trustSince);
+        }
+
+        if (! $dry) {
+            IndicatorScope::bumpCacheVersion();   // cachés de los indicadores (Datos Generales, Geo…)
         }
 
         if (! $dry && $trustSince === null && ExclusionSettings::initTrustSince($runStart)) {
