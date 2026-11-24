@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Services\Indicators\IndicatorScope;
 use App\Support\PerformanceTimer;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class JobMarketStatusBuilder
 {
+    /** Los conteos se cachean 26 h: los recalcula a diario indicators:refresh-all. */
+    public const CACHE_TTL = 26 * 3600;
+
     /**
      * Construye el Datos Generales
      * compatible con el frontend actual
@@ -43,13 +47,13 @@ class JobMarketStatusBuilder
 
     private static function buildGlobal(): array
     {
-        $total = IndicatorScope::offers(DB::table('job_offers'))->count();
-
-        $monthStart = Carbon::now()->startOfMonth();
-
-        $newMonth = IndicatorScope::offers(DB::table('job_offers'))
-            ->where('created_at', '>=', $monthStart)
-            ->count();
+        // Conteos cacheados (versión de los indicadores en la clave; los recalcula a diario
+        // indicators:refresh-all); la antigüedad se calcula en cada lectura.
+        [$total, $newMonth] = Cache::remember(
+            'job-market-builder:v' . IndicatorScope::cacheVersion() . ':global:' . Carbon::now()->format('Y-m'),
+            self::CACHE_TTL,
+            fn () => self::globalCounts()
+        );
 
         $first = DB::table('job_offers')
             ->orderBy('created_at')
@@ -64,11 +68,51 @@ class JobMarketStatusBuilder
         ];
     }
 
+    /** @return array{0:int, 1:int} [ofertas, ofertas nuevas del mes] sin excluidas por título */
+    private static function globalCounts(): array
+    {
+        return [
+            IndicatorScope::offers(DB::table('job_offers'))->count(),
+            IndicatorScope::offers(DB::table('job_offers'))->where('created_at', '>=', Carbon::now()->startOfMonth())->count(),
+        ];
+    }
+
+    /** Recalcula y guarda los conteos cacheados (global y del periodo). */
+    public static function warm(int $year, string $period): void
+    {
+        Cache::put('job-market-builder:v' . IndicatorScope::cacheVersion() . ':global:' . Carbon::now()->format('Y-m'), self::globalCounts(), self::CACHE_TTL);
+        $range = self::getPeriodRange($year, $period);
+        Cache::put(self::periodKey($range), self::periodOffers($range), self::CACHE_TTL);
+    }
+
+    private static function periodKey(array $range): string
+    {
+        return 'job-market-builder:v' . IndicatorScope::cacheVersion() . ":period:{$range['start']}";
+    }
+
     /* =====================================================
        PERIOD
     ===================================================== */
 
     private static function buildPeriod(array $range): array
+    {
+        $offers = Cache::remember(self::periodKey($range), self::CACHE_TTL, fn () => self::periodOffers($range));
+
+        $days = Carbon::parse($range['start'])
+            ->diffInDays(Carbon::parse($range['end'])) + 1;
+
+        return [
+            'offers_analysed' => $offers,
+            'avg_per_day'     => $days > 0 ? round($offers / $days, 2) : 0,
+            'days_covered'    => $days,
+            'date_range'      => [
+                'from' => $range['start'],
+                'to'   => $range['end'],
+            ],
+        ];
+    }
+
+    private static function periodOffers(array $range): int
     {
         // DATE(COALESCE(published_at, created_at)) dentro del rango, en dos conteos que usan índices
         // (idx_jo_pub_excl, idx_jo_created_excl): publicadas en el rango + sin fecha de publicación
@@ -84,18 +128,7 @@ class JobMarketStatusBuilder
                 ->where('created_at', '>=', $from)->where('created_at', '<', $to)
                 ->count();
 
-        $days = Carbon::parse($range['start'])
-            ->diffInDays(Carbon::parse($range['end'])) + 1;
-
-        return [
-            'offers_analysed' => $offers,
-            'avg_per_day'     => $days > 0 ? round($offers / $days, 2) : 0,
-            'days_covered'    => $days,
-            'date_range'      => [
-                'from' => $range['start'],
-                'to'   => $range['end'],
-            ],
-        ];
+        return $offers;
     }
 
     /* =====================================================
