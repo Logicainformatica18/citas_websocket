@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Curriculum;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Cache;
@@ -773,14 +774,14 @@ PROMPT;
         $jobIds = $entityIds->isEmpty()
             ? collect()
             : collect()
-                ->merge(DB::table('technology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
-                ->merge(DB::table('language_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
-                ->merge(DB::table('methodology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(IndicatorScope::associations(DB::table('technology_job'), 'technology_job', 'technology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(IndicatorScope::associations(DB::table('language_job'), 'language_job', 'language_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(IndicatorScope::associations(DB::table('methodology_job'), 'methodology_job', 'methodology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
                 ->unique()
                 ->values();
 
         $jobDemand = $jobIds->isNotEmpty()
-            ? DB::table('job_offers')->whereIn('id', $jobIds)->whereYear('published_at', $year)->count()
+            ? IndicatorScope::offers(DB::table('job_offers'))->whereIn('id', $jobIds)->whereYear('published_at', $year)->count()
             : 0;
 
         $trendSignals = $entityIds->isEmpty()

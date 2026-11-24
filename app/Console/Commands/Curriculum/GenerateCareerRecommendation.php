@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Curriculum;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -43,10 +44,10 @@ class GenerateCareerRecommendation extends Command
                 COUNT(DISTINCT jo.id) AS job_count
             FROM competency_course cc
             LEFT JOIN course_technology ct ON ct.course_id = cc.course_id
-            LEFT JOIN technology_job tj ON tj.technology_id = ct.technology_id
+            LEFT JOIN technology_job tj ON tj.technology_id = ct.technology_id" . IndicatorScope::associationsSql('technology_job', 'tj') . "
             LEFT JOIN job_offers jo
                 ON jo.id = tj.job_offer_id
-               AND YEAR(jo.published_at) = ?
+               AND YEAR(jo.published_at) = ?" . IndicatorScope::offersSql('jo') . "
             GROUP BY cc.competency_id
         ),
         market_ranked AS (

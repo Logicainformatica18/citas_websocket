@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Indicators\CurricularDemand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
@@ -62,45 +63,21 @@ class CCTCService
            EXISTS: corta en la 1ra oferta que matchea
         ===================================== */
 
-        $marketCourses = collect()
-            ->merge(
-                DB::table('course_language as cl')
-                    ->whereIn('cl.course_id', $courseIds)
-                    ->whereExists(function ($q) use ($desde, $hasta) {
-                        $q->from('language_job as lj')
-                            ->join('job_offers as jo', 'jo.id', '=', 'lj.job_offer_id')
-                            ->whereColumn('lj.language_id', 'cl.language_id')
-                            ->whereBetween('jo.published_at', [$desde, $hasta]);
-                    })
+        // Cursos con alguna entidad que tenga al menos una oferta válida en el año (criterio común
+        // de los indicadores, IndicatorScope). Precalculado en una pasada por año
+        // (CurricularDemand['demand']); con un EXISTS + NOT EXISTS por asociación tardaba ~50 s.
+        $demand = CurricularDemand::forYear($year)['demand'];
+        $marketCourses = collect();
+        foreach (['language' => 'course_language', 'technology' => 'course_technology', 'methodology' => 'course_methodology'] as $src => $table) {
+            $col = CurricularDemand::SOURCES[$src][2];
+            $marketCourses = $marketCourses->merge(
+                DB::table($table)->whereIn('course_id', $courseIds)
+                    ->whereIn($col, array_keys($demand[$src]) ?: [0])
                     ->distinct()
-                    ->pluck('cl.course_id')
-            )
-            ->merge(
-                DB::table('course_technology as ct')
-                    ->whereIn('ct.course_id', $courseIds)
-                    ->whereExists(function ($q) use ($desde, $hasta) {
-                        $q->from('technology_job as tj')
-                            ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id')
-                            ->whereColumn('tj.technology_id', 'ct.technology_id')
-                            ->whereBetween('jo.published_at', [$desde, $hasta]);
-                    })
-                    ->distinct()
-                    ->pluck('ct.course_id')
-            )
-            ->merge(
-                DB::table('course_methodology as cm')
-                    ->whereIn('cm.course_id', $courseIds)
-                    ->whereExists(function ($q) use ($desde, $hasta) {
-                        $q->from('methodology_job as mj')
-                            ->join('job_offers as jo', 'jo.id', '=', 'mj.job_offer_id')
-                            ->whereColumn('mj.methodology_id', 'cm.methodology_id')
-                            ->whereBetween('jo.published_at', [$desde, $hasta]);
-                    })
-                    ->distinct()
-                    ->pluck('cm.course_id')
-            )
-            ->unique()
-            ->flip();
+                    ->pluck('course_id')
+            );
+        }
+        $marketCourses = $marketCourses->unique()->flip();
 
         /* =====================================
            3️⃣ TENDENCIAS

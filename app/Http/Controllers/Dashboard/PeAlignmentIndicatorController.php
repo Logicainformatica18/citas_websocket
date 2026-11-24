@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Services\Indicators\IndicatorScope;
+use App\Services\Indicators\CurricularDemand;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Models\Prueba;
@@ -34,12 +33,8 @@ class PeAlignmentIndicatorController extends Controller
         [$laborWeight, $trendWeight] = $this->getWeights();
 
         $availableCareers = $this->getAvailableCareers();
-    // Con el criterio común (IndicatorScope) el conteo cruza las exclusiones del detector por cada
-    // asociación del año (~20 s): se cachea 1 h por carrera y año; la versión de los indicadores en
-    // la clave lo invalida al cambiar las exclusiones.
     $meta = $careerId
-    ? Cache::remember('pe-alignment:meta:v' . IndicatorScope::cacheVersion() . ":{$careerId}:{$year}", 3600,
-        fn () => $this->getGlobalMeta($careerId, $year))
+    ? $this->getGlobalMeta($careerId, $year)
     : [
         'year' => $year,
         'vacantes_analizadas' => 0,
@@ -610,58 +605,10 @@ public function getCourses(
 ): Collection {
 
   $rows = DB::select("
-    WITH market_base AS (
-
-        /* =========================
-           TECNOLOGÍAS
-        ========================== */
-        SELECT
-            cc.course_id,
-            jo.id AS job_id
-        FROM career_course cc
-        JOIN course_technology ct ON ct.course_id = cc.course_id
-        JOIN technology_job tj ON tj.technology_id = ct.technology_id
-        JOIN job_offers jo ON jo.id = tj.job_offer_id
-        WHERE cc.career_id = ?
-          AND YEAR(jo.published_at) = ?" . IndicatorScope::offersSql('jo') . IndicatorScope::associationsSql('technology_job', 'tj') . "
-
-        UNION ALL
-
-        /* =========================
-           LENGUAJES
-        ========================== */
-        SELECT
-            cc.course_id,
-            jo.id AS job_id
-        FROM career_course cc
-        JOIN course_language cl ON cl.course_id = cc.course_id
-        JOIN language_job lj ON lj.language_id = cl.language_id
-        JOIN job_offers jo ON jo.id = lj.job_offer_id
-        WHERE cc.career_id = ?
-          AND YEAR(jo.published_at) = ?" . IndicatorScope::offersSql('jo') . IndicatorScope::associationsSql('language_job', 'lj') . "
-
-        UNION ALL
-
-        /* =========================
-           METODOLOGÍAS
-        ========================== */
-        SELECT
-            cc.course_id,
-            jo.id AS job_id
-        FROM career_course cc
-        JOIN course_methodology cm ON cm.course_id = cc.course_id
-        JOIN methodology_job mj ON mj.methodology_id = cm.methodology_id
-        JOIN job_offers jo ON jo.id = mj.job_offer_id
-        WHERE cc.career_id = ?
-          AND YEAR(jo.published_at) = ?" . IndicatorScope::offersSql('jo') . IndicatorScope::associationsSql('methodology_job', 'mj') . "
-    ),
-
-    market_agg AS (
-        SELECT
-            course_id,
-            COUNT(DISTINCT job_id) AS job_count
-        FROM market_base
-        GROUP BY course_id
+    WITH market_agg AS (
+        /* Ofertas distintas del año por curso (sus tres fuentes, sin repetir oferta), con el
+           criterio común de los indicadores. Precalculado en una pasada por año (CurricularDemand). */
+        " . $this->courseJobsSql(CurricularDemand::forYear($year)['course_jobs']) . "
     ),
 
    market_ranked AS (
@@ -763,10 +710,6 @@ END AS trend_score
     LEFT JOIN trend_ranked tr ON tr.course_id = c.id
     WHERE cc.career_id = ?
 ", [
-    $careerId, $year,
-    $careerId, $year,
-    $careerId, $year,
-
     $year, $careerId,
     $year, $careerId,
     $year, $careerId,
@@ -1147,13 +1090,11 @@ public function getCompetencyCourses(Request $request, int $competencyId)
     // 🔥 Obtener cursos ya calculados con modelo porcentual
     [$laborWeight, $trendWeight] = $this->getWeights();
 
-    // No depende de la competencia: se cachea 1 h por carrera, año y pesos. Con el criterio común
-    // cruza las exclusiones del detector de todas las ofertas del año (lento en frío); la versión
-    // de los indicadores en la clave la invalida al cambiar las exclusiones.
-    $courseStates = Cache::remember(
-        'pe-alignment:courses:v' . IndicatorScope::cacheVersion() . ":{$careerId}:{$year}:{$laborWeight}:{$trendWeight}",
-        3600,
-        fn () => $this->getCourses($careerId, $year, $laborWeight, $trendWeight)
+    $courseStates = $this->getCourses(
+        $careerId,
+        $year,
+        $laborWeight,
+        $trendWeight
     )->keyBy('id');
 
     // 🔥 Cursos asociados a la competencia
@@ -1199,6 +1140,20 @@ public function getCompetencyCourses(Request $request, int $competencyId)
             ->where('active', 1)
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);
+    }
+
+    /** (course_id, job_count) como tabla derivada; sin filas si no hay conteos. */
+    private function courseJobsSql(array $courseJobs): string
+    {
+        if ($courseJobs === []) {
+            return 'SELECT NULL AS course_id, 0 AS job_count FROM DUAL WHERE 1 = 0';
+        }
+        $rows = [];
+        foreach ($courseJobs as $course => $n) {
+            $rows[] = 'ROW(' . (int) $course . ', ' . (int) $n . ')';
+        }
+
+        return 'SELECT column_0 AS course_id, column_1 AS job_count FROM (VALUES ' . implode(', ', $rows) . ') AS v';
     }
 
    private function getGlobalMeta(
@@ -1253,26 +1208,10 @@ public function getCompetencyCourses(Request $request, int $competencyId)
        2️⃣ VACANTES REALES CRUZADAS
     ========================== */
 
-    // Una sola consulta (antes: ids en PHP + whereIn, que fallaba con más de 65 535 ofertas).
-    // Criterio de los indicadores: sin ofertas excluidas por título ni asociaciones excluidas
-    // o de entidades inactivas (IndicatorScope).
-    $entityList = $entityIds->map(fn ($id) => (int) $id)->implode(',');
-
-    $vacantes = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-        ->where('jo.published_at', '>=', "{$year}-01-01")
-        ->where('jo.published_at', '<', ($year + 1) . '-01-01')
-        ->where(function ($q) use ($entityList) {
-            foreach ([
-                ['technology_job', 'tj', 'technologies', 'technology_id'],
-                ['language_job', 'lj', 'languages', 'language_id'],
-                ['methodology_job', 'mj', 'methodologies', 'methodology_id'],
-            ] as [$pivot, $a, $table, $col]) {
-                $q->orWhereRaw("EXISTS (SELECT 1 FROM {$pivot} {$a} JOIN {$table} e ON e.id = {$a}.{$col}"
-                    . " WHERE {$a}.job_offer_id = jo.id AND e.market_entity_id IN ({$entityList})"
-                    . IndicatorScope::associationsSql($pivot, $a) . ')');
-            }
-        })
-        ->count();
+    // Ofertas del año con alguna entidad de los cursos de la carrera, con el criterio común de los
+    // indicadores (IndicatorScope). Precalculado en una pasada por año (CurricularDemand): antes,
+    // ids en PHP + whereIn (HTTP 500 con más de 65 535 ofertas).
+    $vacantes = CurricularDemand::forYear($year)['career_year'][$careerId] ?? 0;
 
     /* =========================
        3️⃣ REPORTES REALES CRUZADOS

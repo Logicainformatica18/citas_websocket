@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\CurricularDemand;
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -482,21 +484,21 @@ public function getRecentJobsByCourse(int $courseId)
 
         $jobIds = collect()
             ->merge(
-               DB::table('technology_job as tj')
+               IndicatorScope::associations(DB::table('technology_job as tj'), 'technology_job', 'tj')
     ->join('technologies as t', 't.id', '=', 'tj.technology_id')
     ->whereIn('t.market_entity_id', $entityIds)
     ->pluck('tj.job_offer_id')
 
             )
             ->merge(
-               DB::table('language_job as lj')
+               IndicatorScope::associations(DB::table('language_job as lj'), 'language_job', 'lj')
     ->join('languages as l', 'l.id', '=', 'lj.language_id')
     ->whereIn('l.market_entity_id', $entityIds)
     ->pluck('lj.job_offer_id')
 
             )
             ->merge(
-                DB::table('methodology_job as mj')
+                IndicatorScope::associations(DB::table('methodology_job as mj'), 'methodology_job', 'mj')
     ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
     ->whereIn('m.market_entity_id', $entityIds)
     ->pluck('mj.job_offer_id')
@@ -506,7 +508,7 @@ public function getRecentJobsByCourse(int $courseId)
             ->values();
 
         if ($jobIds->isNotEmpty()) {
-         $recentJobs = DB::table('job_offers')
+         $recentJobs = IndicatorScope::offers(DB::table('job_offers'))
     ->whereIn('id', $jobIds)
     ->orderByDesc('published_at')
     ->limit(10)
@@ -631,18 +633,27 @@ public function getCourseGaps(int $courseId)
     // 2️⃣ Entidades con señal de empleo
   $entitiesWithJobs = collect()
     ->merge(
-        DB::table('technology_job as tj')
+        IndicatorScope::associations(IndicatorScope::offers(DB::table('technology_job as tj')
+            ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id'), 'jo'), 'technology_job', 'tj')
             ->join('technologies as t', 't.id', '=', 'tj.technology_id')
+            ->whereIn('t.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
+            ->distinct()
             ->pluck('t.market_entity_id')
     )
     ->merge(
-        DB::table('language_job as lj')
+        IndicatorScope::associations(IndicatorScope::offers(DB::table('language_job as lj')
+            ->join('job_offers as jo', 'jo.id', '=', 'lj.job_offer_id'), 'jo'), 'language_job', 'lj')
             ->join('languages as l', 'l.id', '=', 'lj.language_id')
+            ->whereIn('l.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
+            ->distinct()
             ->pluck('l.market_entity_id')
     )
     ->merge(
-        DB::table('methodology_job as mj')
+        IndicatorScope::associations(IndicatorScope::offers(DB::table('methodology_job as mj')
+            ->join('job_offers as jo', 'jo.id', '=', 'mj.job_offer_id'), 'jo'), 'methodology_job', 'mj')
             ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
+            ->whereIn('m.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
+            ->distinct()
             ->pluck('m.market_entity_id')
     )
     ->filter()
@@ -964,29 +975,10 @@ private function getGlobalMeta(
        3️⃣ VACANTES — todo dentro del motor
     ===================================================== */
 
-    $tech = DB::table('technology_job as tj')
-        ->join('technologies as t', 't.id', '=', 'tj.technology_id')
-        ->whereIn('t.market_entity_id', $entityIds)
-        ->select('tj.job_offer_id as job_id');
-
-    $lang = DB::table('language_job as lj')
-        ->join('languages as l', 'l.id', '=', 'lj.language_id')
-        ->whereIn('l.market_entity_id', $entityIds)
-        ->select('lj.job_offer_id as job_id');
-
-    $meth = DB::table('methodology_job as mj')
-        ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
-        ->whereIn('m.market_entity_id', $entityIds)
-        ->select('mj.job_offer_id as job_id');
-
-    // union() (NO unionAll) → dedupe en MySQL, no en PHP
-    $jobsUnion = $tech->union($lang)->union($meth);
-
-    $vacantes = DB::query()
-        ->fromSub($jobsUnion, 'x')
-        ->join('job_offers as jo', 'jo.id', '=', 'x.job_id')
-        ->whereBetween('jo.published_at', $range)
-        ->count();
+    // Ofertas del semestre ($range = semestre de resolveParams) con alguna entidad de los cursos de
+    // la carrera, con el criterio común de los indicadores (IndicatorScope). Precalculado en una
+    // pasada por año (CurricularDemand); con un NOT EXISTS por asociación tardaba ~30 s en frío.
+    $vacantes = CurricularDemand::forYear($year)['career_period'][$period][$careerId] ?? 0;
 
     Log::info('CCTC meta vacantes', [
         'req'      => $reqId,

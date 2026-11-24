@@ -190,16 +190,14 @@ final class IndicatorScope
         if (! ExclusionSettings::active() || in_array('detector', self::$off, true)) {
             return [];
         }
-        $set = [];
-        foreach (DB::table(ExclusionSettings::TABLE)
+        // Cadenas en vez de objetos: un tramo puede traer decenas de miles de pares
+        return array_fill_keys(DB::table(ExclusionSettings::TABLE)
             ->where('pivot_table', $pivot)
             ->where('job_offer_id', '>=', $fromOffer)->where('job_offer_id', '<', $toOffer)
             ->where('vigente', 1)
-            ->get(['job_offer_id', 'market_entity_id']) as $r) {
-            $set[$r->job_offer_id . ':' . $r->market_entity_id] = true;
-        }
-
-        return $set;
+            ->selectRaw("CONCAT(job_offer_id, ':', market_entity_id) AS k")
+            ->pluck('k')
+            ->all(), true);
     }
 
     public static function entityType(string $pivot): string
