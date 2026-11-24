@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\Facts\GeoFacts;
+use App\Services\Indicators\IndicatorFacts;
+use App\Services\Indicators\IndicatorRefresher;
 use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use App\Services\JobMarketStatusBuilder;
@@ -95,69 +98,6 @@ class JobDemandGeoIndicatorController extends Controller
         ]);
     }
 
-    /* =====================================================
-       Demanda por carrera (una sola consulta para los tres usos)
-       Reemplaza careers_with_demand, top_career y careers_list.
-       Depende solo del periodo, por eso se cachea por rango.
-    ===================================================== */
-    private function careerDemand(array $range): Collection
-    {
-        return Cache::remember(
-            $this->cacheKey('career_demand', $range),
-            self::CACHE_TTL,
-            function () use ($range) {
-                // 1) Pares (oferta, tecnología) válidos del periodo (IndicatorScope: sin ofertas excluidas
-                //    por título, asociaciones excluidas por el detector ni entidades inactivas). El
-                //    DISTINCT obliga a MySQL a materializarlos antes de unir (si los fusiona, el filtro
-                //    se evalúa por cada carrera y tarda minutos).
-                $validPairs = IndicatorScope::associations(IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-                    ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id'), 'technology_job', 'tj')
-                    ->whereBetween('jo.published_at', $range)
-                    ->select('tj.job_offer_id', 'tj.technology_id')
-                    ->distinct();
-
-                // 2) Mapa carrera → tecnología sin duplicados (tablas pequeñas).
-                $careerTechnology = DB::table('career_course as cc')
-                    ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
-                    ->select('cc.career_id', 'ct.technology_id')
-                    ->distinct();
-
-                return DB::query()->fromSub($validPairs, 'v')
-                    ->joinSub($careerTechnology, 'm', 'm.technology_id', '=', 'v.technology_id')
-                    ->join('careers as c', 'c.id', '=', 'm.career_id')
-                    ->groupBy('c.id', 'c.name')
-                    ->select(
-                        'c.id',
-                        'c.name',
-                        DB::raw('COUNT(DISTINCT v.job_offer_id) as total_jobs')
-                    )
-                    ->orderByDesc('total_jobs')
-                    ->get();
-            }
-        );
-    }
-
-    /* =====================================================
-       Lista de regiones normalizadas (no depende de filtros)
-    ===================================================== */
-    private function regionList(): Collection
-    {
-        return Cache::remember(
-            $this->cacheKey('regions'),
-            self::CACHE_TTL,
-            function () {
-                $regionSql = $this->normalizedRegionSql();
-
-                return DB::table('job_offers')
-                    ->selectRaw("$regionSql as region")
-                    ->whereRaw("$regionSql <> 'Desconocido'")
-                    ->distinct()
-                    ->orderBy('region')
-                    ->pluck('region');
-            }
-        );
-    }
-
     public function index(Request $request)
     {
         $timer = PerformanceTimer::begin('job-demand-geo.index', $this->receivedFilters($request));
@@ -186,9 +126,6 @@ class JobDemandGeoIndicatorController extends Controller
         $country  = $request->input('country');
         $careerId = $request->input('career_id');
 
-        $range     = $this->periodRange($year, $period);
-        $regionSql = $this->normalizedRegionSql();
-
         $filters = [
             'year'      => $year,
             'period'    => $period,
@@ -215,41 +152,9 @@ class JobDemandGeoIndicatorController extends Controller
            Excluye regiones y ciudades desconocidas. De este resultado
            salen los KPIs de ciudad y el ranking paginado.
         ===================================================== */
-        $cityRows = $timer->measure('city_rows', fn () => Cache::remember(
-            $this->cacheKey('city_rows', $filters),
-            self::CACHE_TTL,
-            function () use ($range, $regionSql, $careerId, $region, $country) {
-                $query = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-                    ->join('job_offer_alignment as a', 'a.job_offer_id', '=', 'jo.id')
-                    ->whereBetween('jo.published_at', $range)
-                    ->whereNotNull('jo.city')
-                    ->whereRaw("$regionSql <> 'Desconocido'")
-                    ->where('jo.city', '<>', 'Desconocido');
-
-                if ($careerId) {
-                    $query->where('a.career_id', $careerId);
-                }
-
-                if ($region) {
-                    $query->whereRaw("$regionSql = ?", [$region]);
-                }
-
-                if ($country) {
-                    $query->where('jo.country', $country);
-                }
-
-                return $query
-                    ->select(
-                        'jo.city',
-                        'jo.region',
-                        'jo.country',
-                        DB::raw('COUNT(jo.id) as total_jobs')
-                    )
-                    ->groupBy('jo.city', 'jo.region', 'jo.country')
-                    ->orderByDesc('total_jobs')
-                    ->get();
-            }
-        ));
+        // MENCIONES por ciudad (job_offer_alignment.mentions), precalculadas por periodo y carrera;
+        // región y país se filtran al leer. Sin ofertas excluidas por título (GeoFacts).
+        $cityRows = $timer->measure('city_rows', fn () => GeoFacts::cityRows($year, $period, $careerId, $region, $country));
 
         /* =====================================================
            4️⃣ KPIs de ciudad (calculados en memoria)
@@ -273,7 +178,7 @@ class JobDemandGeoIndicatorController extends Controller
         /* =====================================================
            5️⃣ KPIs de carreras (una sola consulta cacheada)
         ===================================================== */
-        $careers           = $timer->measure('career_demand', fn () => $this->careerDemand($range));
+        $careers           = $timer->measure('career_demand', fn () => GeoFacts::careerDemand($year, $period));
         $careersWithDemand = $careers->count();
         $topCareer         = $careers->first();
 
@@ -320,12 +225,13 @@ class JobDemandGeoIndicatorController extends Controller
             'top_city'           => $topCity,
             'top_career'         => $topCareer?->name,
             'top5_concentration' => $top5Concentration,
+            'updated_at'         => IndicatorFacts::updatedAt('geo_city', $year, $period),
         ];
 
         /* =====================================================
            8️⃣ Render
         ===================================================== */
-        $regions = $timer->measure('regions', fn () => $this->regionList());
+        $regions = $timer->measure('regions', fn () => GeoFacts::regions());
 
         return Inertia::render('DashboardJobDemandGeo/Index', [
             'ranking'         => $ranking,
@@ -354,9 +260,8 @@ class JobDemandGeoIndicatorController extends Controller
             Artisan::queue($command);
         }
 
-        Artisan::queue('jobs:build-alignment', [
-            '--truncate' => true,
-        ]);
+        // Alineamiento por tramos y precálculo de Geo: Jobs encadenados de menos de 60 s
+        IndicatorRefresher::queue(['alignment', 'geo']);
 
         // Invalida la caché del indicador. Como los comandos corren en cola,
         // la caché puede repoblarse con datos previos mientras el pipeline
@@ -413,39 +318,8 @@ class JobDemandGeoIndicatorController extends Controller
         $region  = $request->get('region');
         $country = $request->get('country');
 
-        $range     = $this->periodRange($year, $period);
-        $regionSql = $this->normalizedRegionSql();
-
-        $results = $timer->measure('heatmap_query', fn () => Cache::remember(
-            $this->cacheKey('heatmap', [$range, $region, $country]),
-            self::CACHE_TTL,
-            function () use ($range, $regionSql, $region, $country) {
-                $query = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-                    ->whereBetween('jo.published_at', $range)
-                    ->whereNotNull('jo.latitude')
-                    ->whereNotNull('jo.longitude')
-                    ->whereRaw("$regionSql <> 'Desconocido'");
-
-                if ($country) {
-                    $query->where('jo.country', $country);
-                }
-
-                if ($region) {
-                    $query->whereRaw("$regionSql = ?", [$region]);
-                }
-
-                return $query
-                    ->selectRaw("
-                        jo.country,
-                        jo.city,
-                        AVG(jo.latitude)  as lat,
-                        AVG(jo.longitude) as lng,
-                        COUNT(DISTINCT jo.id) as total
-                    ")
-                    ->groupBy('jo.country', 'jo.city')
-                    ->get();
-            }
-        ));
+        // Precalculado por periodo (GeoFacts): ofertas únicas por ciudad y su posición promedio
+        $results = $timer->measure('heatmap_query', fn () => GeoFacts::heatmap($year, $period, $region, $country));
 
         return $timer->measure('heatmap_transform', function () use ($results) {
             $max = max(1, $results->max('total'));

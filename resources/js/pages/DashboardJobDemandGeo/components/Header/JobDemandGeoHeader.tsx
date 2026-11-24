@@ -17,6 +17,7 @@ interface HeaderProps {
     year: number;
     period?: "s1" | "s2";
     periodo_label: string;
+    updated_at?: string | null;
     total_jobs: number;
     cities_count: number;
     top_city?: string;
@@ -195,7 +196,7 @@ return (
 
                 <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
                   <Database className="h-3 w-3 text-teal-400" />
-                  {meta.total_jobs.toLocaleString()} vacantes
+                  {meta.total_jobs.toLocaleString()} menciones
                 </Badge>
 
                 <Badge className="gap-1.5 bg-white text-[#0A2540] shadow">
@@ -234,17 +235,18 @@ return (
             </div>
 
             <div className="space-y-1 text-sm text-[#0A2540] dark:text-gray-300">
-              <p>• Conteo total de vacantes publicadas por ciudad</p>
+              <p>• Menciones por ciudad: una oferta suma 1 por cada tecnología, lenguaje o metodología de los cursos de la carrera</p>
               <p>• Agrupación jerárquica ciudad → región → país</p>
-              <p>• Ranking por volumen absoluto de ofertas</p>
+              <p>• Ranking por volumen absoluto de menciones</p>
               <p>
-                • <strong>Concentración Top 5</strong>: porcentaje de ofertas
+                • <strong>Concentración Top 5</strong>: porcentaje de menciones
                 acumuladas en las 5 ciudades con mayor demanda
               </p>
             </div>
 
             <p className="mt-3 border-t border-teal-400/30 pt-3 text-xs text-[#0A2540]/70 dark:text-gray-400">
               Los cálculos se realizan únicamente con datos del Periodo seleccionado.
+              {meta.updated_at && <> Última actualización: {meta.updated_at}.</>}
             </p>
 
             {/* ===== BOTÓN ACTUALIZAR ALINEACIÓN ===== */}

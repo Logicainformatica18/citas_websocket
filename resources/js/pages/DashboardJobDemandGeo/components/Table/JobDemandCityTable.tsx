@@ -58,7 +58,7 @@ const filters = pageProps?.filters ?? {};
                         <th>Ciudad</th>
                         <th>Región</th>
                         <th>País</th>
-                        <th className="text-right">Ofertas</th>
+                        <th className="text-right">Menciones</th>
                         <th className="text-right">%</th>
                     </tr>
                 </thead>

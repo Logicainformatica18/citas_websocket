@@ -3,7 +3,7 @@ import { MapPin, Building2, TrendingUp, Percent } from "lucide-react";
 export default function JobDemandGeoKpiGrid({ meta }: { meta: any }) {
     const items = [
         {
-            label: "Ofertas analizadas",
+            label: "Menciones analizadas",
             value: meta.total_jobs,
             icon: TrendingUp,
         },
