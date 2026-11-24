@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Support\PerformanceTimer;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -42,11 +43,11 @@ class JobMarketStatusBuilder
 
     private static function buildGlobal(): array
     {
-        $total = DB::table('job_offers')->count();
+        $total = IndicatorScope::offers(DB::table('job_offers'))->count();
 
         $monthStart = Carbon::now()->startOfMonth();
 
-        $newMonth = DB::table('job_offers')
+        $newMonth = IndicatorScope::offers(DB::table('job_offers'))
             ->where('created_at', '>=', $monthStart)
             ->count();
 
@@ -69,13 +70,19 @@ class JobMarketStatusBuilder
 
     private static function buildPeriod(array $range): array
     {
-        $query = DB::table('job_offers')
-            ->whereBetween(
-                DB::raw('DATE(COALESCE(published_at, created_at))'),
-                [$range['start'], $range['end']]
-            );
+        // DATE(COALESCE(published_at, created_at)) dentro del rango, en dos conteos que usan índices
+        // (idx_jo_pub_excl, idx_jo_created_excl): publicadas en el rango + sin fecha de publicación
+        // creadas en el rango. Mismo resultado; ~0,6 s en vez de ~2 s recorriendo la tabla.
+        $from = $range['start'];
+        $to = Carbon::parse($range['end'])->addDay()->toDateString();   // fin exclusivo
 
-        $offers = $query->count();
+        $offers = IndicatorScope::offers(DB::table('job_offers'))
+            ->where('published_at', '>=', $from)->where('published_at', '<', $to)
+            ->count()
+            + IndicatorScope::offers(DB::table('job_offers'))
+                ->whereNull('published_at')
+                ->where('created_at', '>=', $from)->where('created_at', '<', $to)
+                ->count();
 
         $days = Carbon::parse($range['start'])
             ->diffInDays(Carbon::parse($range['end'])) + 1;

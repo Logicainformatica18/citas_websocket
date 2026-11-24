@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -63,12 +64,12 @@ class JobMarketStatusController
     // Incluye el mes para que "ofertas nuevas del mes" no arrastre el mes anterior.
     private static function globalKey(Carbon $now): string
     {
-        return 'job-market-status:global:' . $now->format('Y-m');
+        return 'job-market-status:v' . IndicatorScope::cacheVersion() . ':global:' . $now->format('Y-m');
     }
 
     private static function periodKey(int $year, string $period): string
     {
-        return "job-market-status:period:{$year}:{$period}";
+        return 'job-market-status:v' . IndicatorScope::cacheVersion() . ":period:{$year}:{$period}";
     }
 
     /* =====================================================
@@ -79,26 +80,29 @@ class JobMarketStatusController
     {
         $startOfMonth = $now->copy()->startOfMonth();
 
+        // Conteos con el criterio de los indicadores (sin ofertas excluidas por título); las fechas
+        // (primera oferta, última inserción/publicación) describen la recolección y no se filtran.
         $bySource = DB::table('job_offers')
             ->select(
                 'source',
-                DB::raw('COUNT(*) as total'),
+                DB::raw(IndicatorScope::countSql() . ' as total'),
                 DB::raw('MAX(created_at) as last_inserted_at')
             )
             ->groupBy('source')
+            ->havingRaw('total > 0')
             ->orderByDesc('total')
             ->get()
             ->map(fn ($row) => (array) $row)
             ->all();
 
         return [
-            'offers_total' => DB::table('job_offers')->count(),
+            'offers_total' => IndicatorScope::offers(DB::table('job_offers'))->count(),
             'first_offer_at' => DB::table('job_offers')->min('created_at'),
             'last_inserted_at' => DB::table('job_offers')->max('created_at'),
             'last_published_at' => DB::table('job_offers')
                 ->whereNotNull('published_at')
                 ->max('published_at'),
-            'offers_new_month' => DB::table('job_offers')
+            'offers_new_month' => IndicatorScope::offers(DB::table('job_offers'))
                 ->where('created_at', '>=', $startOfMonth)
                 ->count(),
             'sources' => $bySource,
@@ -120,7 +124,7 @@ class JobMarketStatusController
             ? Carbon::create($year, 6, 30)->endOfDay()
             : Carbon::create($year, 12, 31)->endOfDay();
 
-        $offersInPeriod = DB::table('job_offers')
+        $offersInPeriod = IndicatorScope::offers(DB::table('job_offers'))
             ->whereBetween('created_at', [$periodStart, $periodEnd])
             ->count();
 

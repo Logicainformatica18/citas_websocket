@@ -90,6 +90,18 @@ final class IndicatorScope
         return $query;
     }
 
+    /**
+     * Conteo de ofertas válidas en un GROUP BY que recorre toda la tabla (p. ej. por fuente):
+     * "SUM({alias}.title_exclusion_id IS NULL)" en vez de COUNT(*) + WHERE. Con el WHERE, MySQL
+     * elige idx_jo_title_excl (85 % de las filas son NULL) y tarda 4 veces más que recorrer el
+     * índice del GROUP BY. Descartar luego los grupos con 0 (HAVING).
+     */
+    public static function countSql(string $alias = 'job_offers'): string
+    {
+        return JobOffer::hasTitleExclusionColumn() && ! in_array('title', self::$off, true)
+            ? "SUM({$alias}.title_exclusion_id IS NULL)" : 'COUNT(*)';
+    }
+
     /* ---------------- b) + c) asociaciones ---------------- */
 
     /**
