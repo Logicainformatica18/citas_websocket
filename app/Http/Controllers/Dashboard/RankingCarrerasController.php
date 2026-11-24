@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -56,8 +57,8 @@ $period = $request->get('period', $DEFAULT_PERIOD);
         /* ==================================================
            2. Query: demanda laboral por carrera
         ================================================== */
-        $demandQuery = DB::table('tech_position_job_offer as tpo')
-            ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id')
+        $demandQuery = IndicatorScope::offers(DB::table('tech_position_job_offer as tpo')
+            ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id'), 'jo')
             ->join('career_tech_position as ctp', 'ctp.tech_position_id', '=', 'tpo.tech_position_id')
             ->join('careers as c', 'c.id', '=', 'ctp.career_id')
             ->whereBetween('jo.published_at', [$range['start'], $range['end']])
@@ -93,8 +94,8 @@ $period = $request->get('period', $DEFAULT_PERIOD);
     /* ==================================================
    4. KPIs / META (CORRECTO PARA ESTE INDICADOR)
 ================================================== */
-$totalVacantesAnalizadas = DB::table('tech_position_job_offer as tpo')
-    ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id')
+$totalVacantesAnalizadas = IndicatorScope::offers(DB::table('tech_position_job_offer as tpo')
+    ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id'), 'jo')
     ->join('career_tech_position as ctp', 'ctp.tech_position_id', '=', 'tpo.tech_position_id')
     ->whereBetween('jo.published_at', [$range['start'], $range['end']])
     ->distinct('tpo.job_offer_id')

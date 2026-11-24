@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -76,11 +77,13 @@ class TakeCareerSnapshotCommand extends Command
             🟢 3️⃣ CALCULAR EL TOTAL REAL DEL MERCADO HASTA HOY
             ==================================================
             */
-            $totalMarketJobs = DB::table('job_offers')
-                ->whereBetween('published_at', [$range['start'], $startDate])
-                ->orWhere(function($q) use ($range, $startDate) {
-                    $q->whereNull('published_at')
-                      ->whereBetween('created_at', [$range['start'], $startDate]);
+            $totalMarketJobs = IndicatorScope::offers(DB::table('job_offers'))
+                ->where(function ($w) use ($range, $startDate) {
+                    $w->whereBetween('published_at', [$range['start'], $startDate])
+                      ->orWhere(function ($q) use ($range, $startDate) {
+                          $q->whereNull('published_at')
+                            ->whereBetween('created_at', [$range['start'], $startDate]);
+                      });
                 })
                 ->count();
 
@@ -94,11 +97,10 @@ class TakeCareerSnapshotCommand extends Command
             🔵 4️⃣ DISTRIBUCIÓN DE VACANTES POR CARRERA
             ==================================================
             */
-            $careersData = DB::table('job_offers as jo')
-                ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-                ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-                ->join('careers as c', 'c.id', '=', 'cc.career_id')
+            // Por carrera: ofertas del tramo con al menos una asociación válida (IndicatorScope) a una
+            // tecnología de los cursos de la carrera. EXISTS por (carrera, oferta) en vez de unir
+            // oferta × tecnologías × carreras y contar DISTINCT, que multiplica las filas.
+            $careersData = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
                 ->where(function ($q) use ($range, $startDate) {
                     $q->whereBetween('jo.published_at', [$range['start'], $startDate])
                       ->orWhere(function ($q2) use ($range, $startDate) {
@@ -106,12 +108,21 @@ class TakeCareerSnapshotCommand extends Command
                              ->whereBetween('jo.created_at', [$range['start'], $startDate]);
                       });
                 })
+                ->whereExists(function ($q) {
+                    $q->from('technology_job as tj')
+                        ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
+                        ->join('career_course as cc', function ($j) {
+                            $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
+                        })
+                        ->whereColumn('tj.job_offer_id', 'jo.id');
+                    IndicatorScope::associations($q, 'technology_job', 'tj');
+                })
                 ->groupBy('c.id', 'c.name', 'c.slug')
                 ->select([
                     'c.id as career_id',
                     'c.name as career_name',
                     'c.slug as career_slug',
-                    DB::raw("COUNT(DISTINCT jo.id) as total_jobs")
+                    DB::raw('COUNT(*) as total_jobs'),
                 ])
                 ->get();
 

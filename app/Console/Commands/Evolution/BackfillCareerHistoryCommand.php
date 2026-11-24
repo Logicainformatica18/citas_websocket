@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -23,6 +24,7 @@ class BackfillCareerHistoryCommand extends Command
         ];
 
         $currentMonth = 1;
+        $semesters = [];   // agregación por semestre (semesterCounts), calculada una vez
 
         // Si es el año actual, frena en el mes en curso. Si es un año pasado, procesa los 12 meses.
         $endMonth = ($year === (int)date('Y')) ? Carbon::now()->month : 12;
@@ -100,48 +102,30 @@ class BackfillCareerHistoryCommand extends Command
 
                 /*
                 ==================================================
-                🟢 1️⃣ CALCULAR EL TOTAL REAL ÚNICO DEL MERCADO
+                🟢 1️⃣ TOTAL DEL MERCADO Y 🔵 2️⃣ DISTRIBUCIÓN POR CARRERA
                 ==================================================
                 */
-                // Contamos cuántas ofertas globales (sin importar la carrera) existen en este tramo temporal acumulativo
-                $totalMarketJobs = DB::table('job_offers')
-                    ->whereBetween('published_at', [$semStart, $endString])
-                    ->orWhere(function($q) use ($semStart, $endString) {
-                        $q->whereNull('published_at')
-                          ->whereBetween('created_at', [$semStart, $endString]);
-                    })
-                    ->count();
+                // Ofertas acumuladas desde el inicio del semestre hasta el corte, con el criterio de los
+                // indicadores (IndicatorScope). Antes eran dos consultas pesadas por tramo (77 tramos,
+                // 515 s); ahora una agregación por semestre (semesterCounts) y cada tramo se suma en PHP
+                // con exactamente la misma condición de fechas.
+                $agg = $semesters[$semester] ??= $this->semesterCounts($year, $semester);
+
+                $totalMarketJobs = $this->countUntil($agg['market'], $semStart, $endString);
 
                 if ($totalMarketJobs === 0) {
                     continue;
                 }
 
-                /*
-                ==================================================
-                🔵 2️⃣ QUERY DE DISTRIBUCIÓN DE CARRERAS
-                ==================================================
-                */
-                // Buscamos y agrupamos las ofertas cruzando las relaciones de tu ecosistema de tablas
-                $careersData = DB::table('job_offers as jo')
-                    ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-                    ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                    ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-                    ->join('careers as c', 'c.id', '=', 'cc.career_id')
-                    ->where(function ($q) use ($semStart, $endString) {
-                        $q->whereBetween('jo.published_at', [$semStart, $endString])
-                          ->orWhere(function ($q2) use ($semStart, $endString) {
-                              $q2->whereNull('jo.published_at')
-                                 ->whereBetween('jo.created_at', [$semStart, $endString]);
-                          });
-                    })
-                    ->groupBy('c.id', 'c.name', 'c.slug')
-                    ->select([
-                        'c.id as career_id',
-                        'c.name as career_name',
-                        'c.slug as career_slug',
-                        DB::raw("COUNT(DISTINCT jo.id) as total_jobs")
+                $careersData = collect($agg['careers'])
+                    ->map(fn ($c) => (object) [
+                        'career_id' => $c['id'],
+                        'career_name' => $c['name'],
+                        'career_slug' => $c['slug'],
+                        'total_jobs' => $this->countUntil($c['days'], $semStart, $endString),
                     ])
-                    ->get();
+                    ->filter(fn ($c) => $c->total_jobs > 0)
+                    ->values();
 
                 /*
                 ==================================================
@@ -189,5 +173,76 @@ class BackfillCareerHistoryCommand extends Command
 
         $this->info("=== ¡PROCESO DE CARRERAS COMPLETADO AL 100%! ===");
         return 0;
+    }
+
+    /**
+     * Ofertas del semestre por día de la fecha efectiva (published_at, o created_at si no hay), con
+     * el criterio de los indicadores: total del mercado y, por carrera, las que tienen al menos una
+     * asociación válida (IndicatorScope) a una tecnología de los cursos de la carrera.
+     * Cada día guarda [todas, a las 00:00:00]: los tramos comparan la fecha y hora con 'Y-m-d'
+     * (medianoche), así que el último día solo cuenta lo publicado exactamente a las 00:00:00.
+     *
+     * @return array{market: array<string, array{0:int,1:int}>, careers: array<int, array{id:int, name:string, slug:?string, days: array}>}
+     */
+    private function semesterCounts(int $year, int $semester): array
+    {
+        $from = $semester === 1 ? "{$year}-01-01" : "{$year}-07-01";
+        $to = $semester === 1 ? "{$year}-06-30" : "{$year}-12-31";   // último corte posible ('Y-m-d')
+        $d = 'COALESCE(jo.published_at, jo.created_at)';
+        $inSemester = function ($q) use ($from, $to) {
+            $q->whereBetween('jo.published_at', [$from, $to])
+              ->orWhere(function ($q2) use ($from, $to) {
+                  $q2->whereNull('jo.published_at')->whereBetween('jo.created_at', [$from, $to]);
+              });
+        };
+        $cols = [DB::raw("DATE({$d}) as d"), DB::raw("TIME({$d}) = '00:00:00' as mid"), DB::raw('COUNT(*) as n')];
+
+        $market = [];
+        foreach (IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')->where($inSemester)
+            ->groupBy('d', 'mid')->select($cols)->get() as $r) {
+            $market[$r->d][0] = ($market[$r->d][0] ?? 0) + $r->n;
+            $market[$r->d][1] = ($market[$r->d][1] ?? 0) + ($r->mid ? $r->n : 0);
+        }
+
+        $careers = [];
+        $rows = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
+            ->where($inSemester)
+            ->whereExists(function ($q) {
+                $q->from('technology_job as tj')
+                    ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
+                    ->join('career_course as cc', function ($j) {
+                        $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
+                    })
+                    ->whereColumn('tj.job_offer_id', 'jo.id');
+                IndicatorScope::associations($q, 'technology_job', 'tj');
+            })
+            ->groupBy('c.id', 'c.name', 'c.slug', 'd', 'mid')
+            ->select(array_merge(['c.id', 'c.name', 'c.slug'], $cols))
+            ->get();
+        foreach ($rows as $r) {
+            $c = &$careers[$r->id];
+            $c ??= ['id' => (int) $r->id, 'name' => $r->name, 'slug' => $r->slug, 'days' => []];
+            $c['days'][$r->d][0] = ($c['days'][$r->d][0] ?? 0) + $r->n;
+            $c['days'][$r->d][1] = ($c['days'][$r->d][1] ?? 0) + ($r->mid ? $r->n : 0);
+            unset($c);
+        }
+        $this->line("   Semestre {$semester}: " . array_sum(array_column($market, 0)) . ' ofertas, ' . count($careers) . ' carreras con demanda');
+
+        return ['market' => $market, 'careers' => $careers];
+    }
+
+    /** Ofertas con fecha efectiva entre $from 00:00 y $to 00:00 (como whereBetween con 'Y-m-d'). */
+    private function countUntil(array $days, string $from, string $to): int
+    {
+        $n = 0;
+        foreach ($days as $day => [$all, $midnight]) {
+            if ($day >= $from && $day < $to) {
+                $n += $all;
+            } elseif ($day === $to) {
+                $n += $midnight;
+            }
+        }
+
+        return $n;
     }
 }
