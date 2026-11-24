@@ -14,6 +14,7 @@ interface HeaderProps {
     year: number;
     period: "s1" | "s2";
     periodo_label: string;
+    updated_at?: string | null;
     total_vacantes: number;
   };
   filters: {
@@ -189,6 +190,11 @@ export function JobModalityIndicatorHeader({ meta, filters }: HeaderProps) {
               </span>{" "}
               {meta.periodo_label}
             </p>
+            {meta.updated_at && (
+              <p className="text-xs text-[#0A2540]/60 dark:text-gray-400">
+                Última actualización: {meta.updated_at}
+              </p>
+            )}
 
           </div>
 

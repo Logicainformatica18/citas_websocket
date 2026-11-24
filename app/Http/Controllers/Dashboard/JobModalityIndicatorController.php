@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\Facts\ModalityFacts;
+use App\Services\Indicators\IndicatorFacts;
 use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -33,54 +35,11 @@ class JobModalityIndicatorController extends Controller
            SOLO REMOTO / HÍBRIDO / PRESENCIAL
         ===================================================== */
 
-        $classified = IndicatorScope::offers(DB::table('job_offers'))
-            ->selectRaw("
-                CASE
-                    WHEN modality IN ('remote','fully_remote','remote_local')
-                        THEN 'remoto'
-                    WHEN modality = 'hybrid'
-                        THEN 'híbrido'
-                    WHEN modality = 'no_remote'
-                        THEN 'presencial'
-                END AS modalidad
-            ")
-            ->whereBetween('published_at', [$range['start'], $range['end']])
-            ->where('region','!=','Desconocido')   // 🔥 ignorar región desconocida
+        // Precalculado por periodo (ModalityFacts); los filtros se aplican al leer. Sin ofertas
+        // excluidas por título. Cuenta ofertas.
+        [$totalVacantes, $rows] = ModalityFacts::classified($year, $period, $filters);
 
-            // 🔥 ignorar no_precisa y null
-         ->whereIn('modality', [
-    'remote',
-    'fully_remote',
-    'remote_local',
-    'hybrid',
-    'no_remote'
-]);
-
-        if ($filters['region']) {
-            $classified->where('region', $filters['region']);
-        }
-
-        if ($filters['country']) {
-            $classified->where('country', $filters['country']);
-        }
-
-        if ($filters['city']) {
-            $classified->where('city', $filters['city']);
-        }
-
-        if ($filters['source']) {
-            $classified->where('source', $filters['source']);
-        }
-
-        $totalVacantes = (clone $classified)->count();
-
-        $data = DB::query()
-            ->fromSub($classified, 't')
-            ->select('modalidad', DB::raw('COUNT(*) AS vacantes'))
-            ->groupBy('modalidad')
-            ->orderByDesc('vacantes')
-            ->get()
-            ->map(fn ($row) => [
+        $data = $rows->map(fn ($row) => [
                 'modalidad'  => $row->modalidad,
                 'vacantes'   => (int) $row->vacantes,
                 'porcentaje' => $totalVacantes > 0
@@ -89,41 +48,10 @@ class JobModalityIndicatorController extends Controller
             ]);
 
         /* =====================================================
-           TENDENCIA MENSUAL (%)
-           SOLO SOBRE LAS 3 MODALIDADES
+           TENDENCIA MENSUAL (%) — sin los filtros de la página, como antes
         ===================================================== */
 
-        $trendData = IndicatorScope::offers(DB::table('job_offers'))
-            ->whereBetween('published_at', [$range['start'], $range['end']])
-->where('region','!=','Desconocido')   // 🔥
-            // 🔥 ignorar no_precisa
-            ->whereNotNull('modality')
-            ->where('modality','!=','no_precisa')
-
-
-            ->selectRaw("
-                YEAR(published_at)  AS year,
-                MONTH(published_at) AS month_num,
-
-                ROUND(
-                    SUM(modality IN ('remote','fully_remote','remote_local'))
-                    / COUNT(*) * 100,
-                1) AS remoto,
-
-                ROUND(
-                    SUM(modality = 'hybrid')
-                    / COUNT(*) * 100,
-                1) AS hibrido,
-
-                ROUND(
-                    SUM(modality = 'no_remote')
-                    / COUNT(*) * 100,
-                1) AS presencial
-            ")
-            ->groupByRaw('YEAR(published_at), MONTH(published_at)')
-            ->orderByRaw('YEAR(published_at), MONTH(published_at)')
-            ->limit(6)
-            ->get()
+        $trendData = ModalityFacts::trend($year, $period)
             ->map(fn ($row) => [
                 'month'      => Carbon::create()->month($row->month_num)->translatedFormat('M'),
                 'remoto'     => (float) $row->remoto,
@@ -148,6 +76,7 @@ class JobModalityIndicatorController extends Controller
                     ? "Semestre 1 – Enero a Junio {$year}"
                     : "Semestre 2 – Julio a Diciembre {$year}",
                 'total_vacantes' => $totalVacantes,
+                'updated_at' => IndicatorFacts::updatedAt('modality', $year, $period),
             ],
             'jobMarketStatus' => $jobMarketStatus,
         ]);
