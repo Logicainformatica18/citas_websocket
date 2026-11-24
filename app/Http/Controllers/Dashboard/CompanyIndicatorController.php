@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ public function companyJobs(Request $request, $company)
 
     $regionSql = $this->normalizedRegionSql();
 
-    $query = DB::table('job_offers')
+    $query = IndicatorScope::offers(DB::table('job_offers'))
         ->select('id', 'title', 'country', 'published_at', 'url')
         ->whereNotNull('company')
         ->whereBetween('published_at', [$range['start'], $range['end']])
@@ -115,7 +116,7 @@ Log::info('MODAL PARAMS', [
 
        $regionSql = $this->normalizedRegionSql();
 
-$baseQuery = DB::table('job_offers')
+$baseQuery = IndicatorScope::offers(DB::table('job_offers'))
     ->whereNotNull('company')
     ->whereBetween('published_at', [$range['start'], $range['end']])
     ->whereRaw("$regionSql <> 'Desconocido'");

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -76,7 +77,7 @@ class TakeCompanySnapshotCommand extends Command
                     $this->line("⏳ Procesando [{$type}] - Mercado [{$market}] para la etiqueta: '{$label}'...");
 
                     // 3. Query base para extraer los datos crudos desde job_offers en ese rango de fechas
-                    $query = DB::table('job_offers')
+                    $query = IndicatorScope::offers(DB::table('job_offers'))
                         ->whereNotNull('company')
                         ->where(function ($q) use ($dates) {
                             $q->whereBetween('published_at', [$dates['start'], $dates['end']])

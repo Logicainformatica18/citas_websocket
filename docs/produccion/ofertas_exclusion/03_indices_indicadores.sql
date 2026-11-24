@@ -6,6 +6,9 @@
 --   al ignorar las ofertas excluidas por título (title_exclusion_id IS NULL,
 --   criterio común App\Services\Indicators\IndicatorScope). Sin ellos, los
 --   indicadores dan el mismo resultado pero más lentos.
+--   Además deja INVISIBLE idx_jo_title_excl (no la borra): para
+--   "title_exclusion_id IS NULL" (85 % de las filas) el optimizador la elegía
+--   en lugar del rango por fecha y los indicadores tardaban el doble.
 --   Equivale a la migración
 --   2026_11_24_000001_add_indicator_indexes_to_job_offers.php
 --
@@ -43,10 +46,20 @@ SET @sql = IF(@col > 0 AND @existe = 0,
     'DO 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- idx_jo_title_excl invisible para el optimizador (instantáneo; se revierte con VISIBLE)
+SET @existe = (SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema = DATABASE() AND table_name = 'job_offers' AND index_name = 'idx_jo_title_excl');
+SET @sql = IF(@existe > 0, 'ALTER TABLE `job_offers` ALTER INDEX `idx_jo_title_excl` INVISIBLE', 'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Verificación: cada línea indica el valor esperado entre corchetes
 SELECT CONCAT('title_exclusion_id existe [1]: ', @col) AS verificacion
 UNION ALL
 SELECT CONCAT('índices nuevos presentes [2]: ', COUNT(DISTINCT index_name))
   FROM information_schema.statistics
  WHERE table_schema = DATABASE() AND table_name = 'job_offers'
-   AND index_name IN ('idx_jo_source_created_excl', 'idx_jo_created_excl');
+   AND index_name IN ('idx_jo_source_created_excl', 'idx_jo_created_excl')
+UNION ALL
+SELECT CONCAT('idx_jo_title_excl invisible [NO]: ', MAX(is_visible))
+  FROM information_schema.statistics
+ WHERE table_schema = DATABASE() AND table_name = 'job_offers' AND index_name = 'idx_jo_title_excl';

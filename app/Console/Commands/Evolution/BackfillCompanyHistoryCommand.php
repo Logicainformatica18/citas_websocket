@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -96,7 +97,7 @@ class BackfillCompanyHistoryCommand extends Command
                 foreach ($markets as $market) {
                     
                     // 1️⃣ Base Query para el tramo actual
-                    $baseQuery = DB::table('job_offers')
+                    $baseQuery = IndicatorScope::offers(DB::table('job_offers'))
                         ->whereNotNull('company')
                         ->whereRaw("TRIM(company) != ''")
                         ->whereBetween('published_at', [$semStart, $endString]);

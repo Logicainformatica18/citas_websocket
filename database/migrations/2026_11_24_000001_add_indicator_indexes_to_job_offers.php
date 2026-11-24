@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Índices para que los indicadores de análisis filtren job_offers.title_exclusion_id
  * (IndicatorScope) sin recorrer la tabla. Idempotente: solo crea los que faltan.
+ *
+ * Además deja INVISIBLE idx_jo_title_excl (title_exclusion_id sola): para "title_exclusion_id
+ * IS NULL" (85 % de las filas) MySQL la elegía en vez del rango por fecha y los indicadores
+ * tardaban el doble. Invisible no es borrar: se mantiene y se reactiva con VISIBLE; sus otras
+ * consultas (conteo por patrón, excluidas) tardan casi lo mismo sin ella (~0,5 s).
  * Equivale a docs/produccion/ofertas_exclusion/03_indices_indicadores.sql.
  */
 return new class extends Migration
@@ -19,6 +24,9 @@ return new class extends Migration
         'idx_jo_created_excl' => ['created_at', 'title_exclusion_id'],
     ];
 
+    /** Índice que queda invisible para el optimizador (ver arriba). */
+    public const HIDDEN = 'idx_jo_title_excl';
+
     public function up(): void
     {
         if (! Schema::hasColumn('job_offers', 'title_exclusion_id')) {
@@ -29,10 +37,16 @@ return new class extends Migration
                 DB::statement('ALTER TABLE job_offers ADD INDEX ' . $name . ' (' . implode(', ', $cols) . '), ALGORITHM=INPLACE, LOCK=NONE');
             }
         }
+        if ($this->exists(self::HIDDEN)) {
+            DB::statement('ALTER TABLE job_offers ALTER INDEX ' . self::HIDDEN . ' INVISIBLE');
+        }
     }
 
     public function down(): void
     {
+        if ($this->exists(self::HIDDEN)) {
+            DB::statement('ALTER TABLE job_offers ALTER INDEX ' . self::HIDDEN . ' VISIBLE');
+        }
         foreach (array_keys(self::INDEXES) as $name) {
             if ($this->exists($name)) {
                 DB::statement("ALTER TABLE job_offers DROP INDEX {$name}");
