@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ class JobModalityIndicatorController extends Controller
            SOLO REMOTO / HÍBRIDO / PRESENCIAL
         ===================================================== */
 
-        $classified = DB::table('job_offers')
+        $classified = IndicatorScope::offers(DB::table('job_offers'))
             ->selectRaw("
                 CASE
                     WHEN modality IN ('remote','fully_remote','remote_local')
@@ -92,7 +93,7 @@ class JobModalityIndicatorController extends Controller
            SOLO SOBRE LAS 3 MODALIDADES
         ===================================================== */
 
-        $trendData = DB::table('job_offers')
+        $trendData = IndicatorScope::offers(DB::table('job_offers'))
             ->whereBetween('published_at', [$range['start'], $range['end']])
 ->where('region','!=','Desconocido')   // 🔥
             // 🔥 ignorar no_precisa
