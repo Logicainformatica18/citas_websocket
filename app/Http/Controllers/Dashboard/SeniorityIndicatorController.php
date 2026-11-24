@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Services\Indicators\IndicatorScope;
+use App\Services\Indicators\Facts\SeniorityFacts;
+use App\Services\Indicators\IndicatorFacts;
+use App\Services\Indicators\IndicatorRefresher;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,39 +17,22 @@ use App\Exports\SeniorityEvolutionCareerExport;
 use Maatwebsite\Excel\Facades\Excel;
 class SeniorityIndicatorController extends Controller
 {
-private function buildGeneralData(array $range, array $careers = []): array
+private function buildGeneralData(array $range, int $offers): array
 {
-    /* =========================================
-       GLOBAL
-    ========================================= */
-
-    $total = IndicatorScope::offers(DB::table('job_offers'))->count();
-
-    $monthStart = now()->startOfMonth();
-
-    $newMonth = IndicatorScope::offers(DB::table('job_offers'))
-        ->where('created_at', '>=', $monthStart)
-        ->count();
+    // Totales globales: los de Datos Generales (caché de 1 h, sin ofertas excluidas por título)
+    $global = JobMarketStatusController::get()['global'];
 
     $first = DB::table('job_offers')
         ->orderBy('created_at')
         ->value('created_at');
-
-    /* =========================================
-       PERIOD (🔥 USA TU BASE REAL)
-    ========================================= */
-
-    $base = $this->baseCareerQuery($range, $careers);
-
-    $offers = $base->count();
 
     $days = \Carbon\Carbon::parse($range['start'])
         ->diffInDays(\Carbon\Carbon::parse($range['end'])) + 1;
 
     return [
         'global' => [
-            'offers_total'     => $total,
-            'offers_new_month' => $newMonth,
+            'offers_total'     => $global['offers_total'],
+            'offers_new_month' => $global['offers_new_month'],
             'history_age'      => $first
                 ? \Carbon\Carbon::parse($first)->diffForHumans(null, true)
                 : null,
@@ -84,10 +69,13 @@ private function buildGeneralData(array $range, array $careers = []): array
     $range = $this->getPeriodRange($period, $year);
 
     /* =====================================================
-       BASE
+       BASE: ofertas por seniority (precalculado por periodo y carrera; varias carreras, en vivo)
     ===================================================== */
-    $base = $this->baseCareerQuery($range, $careers);
-    $vacantesAnalizadas = $base->count();
+    $careerIds = $careers
+        ? DB::table('careers')->whereIn('slug', $careers)->pluck('id')->map(fn ($id) => (int) $id)->all()
+        : [];
+    $rows = SeniorityFacts::bySeniority($year, $period, $careerIds);
+    $vacantesAnalizadas = (int) $rows->sum('total');
 
     $availableCareers = DB::table('careers')
         ->where('active', 1)
@@ -97,7 +85,7 @@ private function buildGeneralData(array $range, array $careers = []): array
     /* =====================================================
        🔥 JOB MARKET DATA (CLAVE)
     ===================================================== */
-   $jobMarketData = $this->buildGeneralData($range, $careers);
+   $jobMarketData = $this->buildGeneralData($range, $vacantesAnalizadas);
 
     // Scraping status (opcional pero recomendado)
     try {
@@ -112,11 +100,6 @@ private function buildGeneralData(array $range, array $careers = []): array
     /* =====================================================
        DISTRIBUCIÓN SENIORITY (TU LÓGICA)
     ===================================================== */
-    $rows = $this->baseCareerQuery($range, $careers)
-        ->select('jo.seniority', DB::raw('COUNT(*) as total'))
-        ->groupBy('jo.seniority')
-        ->get();
-
     $total = $rows->sum('total');
 
     $jobMarketStatus = collect(['junior','mid','senior'])
@@ -162,6 +145,7 @@ private function buildGeneralData(array $range, array $careers = []): array
                     ? "Semestre 1 – Enero a Junio {$year}"
                     : "Semestre 2 – Julio a Diciembre {$year}",
             'vacantes_analizadas' => $vacantesAnalizadas,
+            'updated_at' => IndicatorFacts::updatedAt('seniority', $year, $period),
         ],
     ]);
 }
@@ -202,6 +186,9 @@ END
 
         $affected = DB::affectingStatement($sql);
 
+        // El seniority cambió: recalcular el precálculo del indicador en la cola por defecto
+        IndicatorRefresher::queue(['seniority']);
+
         return response()->json([
             'status' => 'ok',
             'rows_updated' => $affected,
@@ -226,36 +213,11 @@ END
         ->where('active', 1)
         ->get(['id','name']);
 
-    // Una sola consulta para todas las carreras (antes: una por carrera, ids en PHP). Por cada
-    // (carrera, oferta del periodo) un EXISTS que se detiene en la primera asociación válida con
-    // una tecnología de los cursos de la carrera (IndicatorScope: sin ofertas excluidas por título,
-    // asociaciones excluidas por el detector ni entidades inactivas). Unir oferta × tecnologías ×
-    // carreras y luego COUNT(DISTINCT) multiplicaba las filas (82 s). Se agrupa por el seniority
-    // tal como está guardado, igual que antes: el total suma las variantes y cada nivel cuenta
-    // solo el valor exacto.
-    $byCareer = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
-        ->whereIn('c.id', $careers->pluck('id'))
-        ->where(function ($q) use ($range) {
-            $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
-              ->orWhere(function ($q2) use ($range) {
-                  $q2->whereNull('jo.published_at')
-                     ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
-              });
-        })
-        ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior', 'mid', 'senior'])
-        ->whereExists(function ($q) {
-            $q->from('technology_job as tj')
-                ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                ->join('career_course as cc', function ($j) {
-                    $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
-                })
-                ->whereColumn('tj.job_offer_id', 'jo.id');
-            IndicatorScope::associations($q, 'technology_job', 'tj');
-        })
-        ->groupBy('c.id', 'jo.seniority')
-        ->select('c.id as career_id', 'jo.seniority', DB::raw('COUNT(*) as jobs'))
-        ->get()
-        ->groupBy('career_id');
+    // MENCIONES: cada par (oferta, tecnología de los cursos de la carrera) suma 1; una oferta con
+    // Java y Python, ambas de la carrera, suma 2. Sin ofertas excluidas por título; asociaciones
+    // completas. Precalculado por periodo (SeniorityFacts); el total suma todas las variantes del
+    // seniority guardado y cada nivel cuenta solo el valor exacto, como antes.
+    $byCareer = SeniorityFacts::mentionsByCareer($year, $period, $careers->pluck('id')->map(fn ($id) => (int) $id)->all());
 
     $result = [];
 
@@ -288,40 +250,11 @@ END
         'status' => 'ok',
         'data'   => $result,
         'meta'   => [
-            'source' => 'career-driven (DISTINCT jobs)',
+            'source' => 'career-driven (menciones: oferta × tecnología de la carrera)',
+            'updated_at' => IndicatorFacts::updatedAt('seniority_career', $year, $period),
             'coherent_with_market' => true,
         ],
     ]);
-}
-private function baseCareerQuery(array $range, array $careers = [])
-{
-    return IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-      ->where(function ($q) use ($range) {
-    $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
-      ->orWhere(function ($q2) use ($range) {
-          $q2->whereNull('jo.published_at')
-             ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
-      });
-})
-      ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
-        ->when(!empty($careers), function ($query) use ($careers) {
-
-            $query->whereExists(function ($q) use ($careers) {
-                $q->select(DB::raw(1))
-                  ->from('career_course as cc')
-                  ->join('careers as ca', 'ca.id', '=', 'cc.career_id')
-                  ->whereIn('ca.slug', $careers)
-                  ->whereExists(function ($sub) {
-                      $sub->select(DB::raw(1))
-                          ->from('technology_job as tj')
-                          ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                          ->whereColumn('tj.job_offer_id', 'jo.id')
-                          ->whereColumn('ct.course_id', 'cc.course_id');
-                      IndicatorScope::associations($sub, 'technology_job', 'tj');
-                  });
-            });
-
-        });
 }
     /* =====================================================
        Utils
@@ -339,17 +272,7 @@ private function baseCareerQuery(array $range, array $careers = [])
 
     $range = $this->getPeriodRange($period, $year);
 
-    $data = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
-        ->whereBetween('jo.created_at', [
-            $range['start'],
-            $range['end'],
-        ])
-        ->select(
-            'jo.modality',
-            DB::raw('COUNT(*) as total')
-        )
-        ->groupBy('jo.modality')
-        ->get();
+    $data = SeniorityFacts::byModality($year, $period);   // precalculado por periodo
 
     $total = $data->sum('total');
 

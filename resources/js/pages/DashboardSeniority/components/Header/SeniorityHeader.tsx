@@ -19,6 +19,7 @@ interface HeaderProps {
         period: "s1" | "s2";
         periodo_label: string;
         vacantes_analizadas: number;
+        updated_at?: string | null;
     };
    onOpenEvolution: (type: "general" | "career") => void;
 }
@@ -327,6 +328,11 @@ const [openEvolutionMenu, setOpenEvolutionMenu] = useState(false);
                         </span>{" "}
                         {meta.periodo_label}
                     </p>
+                    {meta.updated_at && (
+                        <p className="text-xs text-[#0A2540]/60 dark:text-gray-500">
+                            Última actualización: {meta.updated_at}
+                        </p>
+                    )}
 
                 </div>
 
@@ -345,14 +351,14 @@ const [openEvolutionMenu, setOpenEvolutionMenu] = useState(false);
                         <li>• Normalización de experiencia (junior / mid / senior).</li>
                         <li>
                             • {hasCareerFilter
-                                ? "Asociación directa a la carrera seleccionada mediante tech positions."
+                                ? "Asociación a la carrera seleccionada mediante las tecnologías de sus cursos."
                                 : "Cobertura del mercado laboral general (sin filtro por carrera)."}
                         </li>
-                        <li>• Cálculo porcentual por carrera.</li>
+                        <li>• Por carrera, en menciones: una oferta suma 1 por cada tecnología de la carrera.</li>
                     </ul>
 
                     <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                        % nivel = (vacantes del nivel ÷ total vacantes de la carrera) × 100
+                        % nivel = (menciones del nivel ÷ total de menciones de la carrera) × 100
                     </p>
 
                     <p className="mt-2 text-xs font-semibold text-teal-600 dark:text-teal-300">

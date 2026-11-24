@@ -55,7 +55,7 @@ export function SeniorityBarChart({ data }: Props) {
             Distribución de niveles de experiencia por área profesional
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">
-  Un mismo job puede estar asociado a múltiples carreras académicas.
+  Cifras en menciones: una oferta suma 1 por cada tecnología de los cursos de la carrera que pide.
 </p>
         </div>
 
@@ -132,13 +132,13 @@ export function SeniorityBarChart({ data }: Props) {
 
       {/* SUMMARY */}
       <div className="mt-8 grid grid-cols-3 gap-4">
-        <SummaryCard label="Total Junior" value={totals.junior} color={COLORS.junior} />
-        <SummaryCard label="Total Mid" value={totals.mid} color={COLORS.mid} />
+        <SummaryCard label="Menciones Junior" value={totals.junior} color={COLORS.junior} />
+        <SummaryCard label="Menciones Mid" value={totals.mid} color={COLORS.mid} />
   <SummaryCard
-  label="Total Senior"
+  label="Menciones Senior"
   value={totals.senior}
   color={COLORS.senior}
-  tooltip="Puede incluir duplicaciones porque una oferta puede pertenecer a múltiples carreras"
+  tooltip="Suma de menciones de todas las carreras: una oferta cuenta una vez por cada tecnología de cada carrera"
 />
         
       </div>
