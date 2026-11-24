@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -395,7 +396,7 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
 {
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-    $jobs = DB::table('job_offers as j')
+    $jobs = IndicatorScope::offers(DB::table('job_offers as j'), 'j')
         ->join('technology_trend_job as ttj', 'ttj.job_offer_id', '=', 'j.id')
         ->where('ttj.technology_trend_id', $trendId)
         ->select(
@@ -427,8 +428,9 @@ public function jobsByTechnologyTrend(Request $request, int $trendId)
 {
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-    $jobs = DB::table('job_offers as j')
-        ->join('technology_job as tj', 'tj.job_offer_id', '=', 'j.id')
+    // Mismo criterio que el ranking: sin ofertas excluidas por título ni asociaciones excluidas
+    $jobs = IndicatorScope::associations(IndicatorScope::offers(DB::table('job_offers as j'), 'j')
+        ->join('technology_job as tj', 'tj.job_offer_id', '=', 'j.id'), 'technology_job', 'tj')
         ->where('tj.market_entity_id', $technologyId)
         ->orderByDesc('j.published_at')
         ->select(

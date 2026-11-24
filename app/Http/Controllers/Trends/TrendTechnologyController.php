@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Trends;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -86,8 +87,8 @@ class TrendTechnologyController extends Controller
         /* ===============================
            Métricas laborales (TENDENCIA)
         =============================== */
-        $jobMetrics = DB::table('technology_trend_job as ttj')
-            ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id')
+        $jobMetrics = IndicatorScope::offers(DB::table('technology_trend_job as ttj')
+            ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id'), 'j')
             ->where('ttj.technology_trend_id', $trendId)
             ->selectRaw('COUNT(DISTINCT j.id) as total_jobs')
             ->first();
@@ -148,8 +149,8 @@ class TrendTechnologyController extends Controller
             ], 400);
         }
 
-        return DB::table('technology_trend_job as ttj')
-            ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id')
+        return IndicatorScope::offers(DB::table('technology_trend_job as ttj')
+            ->join('job_offers as j', 'j.id', '=', 'ttj.job_offer_id'), 'j')
             ->where('ttj.technology_trend_id', $trendId)
             ->orderByDesc('j.published_at')
             ->paginate($perPage, [

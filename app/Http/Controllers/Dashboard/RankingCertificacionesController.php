@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Exports\EntityEvolutionExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Dashboard\Concerns\RefreshesEntityRanking;
@@ -229,8 +230,9 @@ public function jobsByCertification(Request $request, int $marketEntityId)
     $page    = (int) $request->get('page', 1);
 
 
-       $jobs = DB::table('certification_job as cj')
-    ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id')
+       // Mismo criterio que el ranking: sin ofertas excluidas por título ni asociaciones excluidas
+       $jobs = IndicatorScope::associations(IndicatorScope::offers(DB::table('certification_job as cj')
+    ->join('job_offers as j', 'j.id', '=', 'cj.job_offer_id'), 'j'), 'certification_job', 'cj')
     ->where('cj.market_entity_id', $marketEntityId)
     ->select(
         'j.id',

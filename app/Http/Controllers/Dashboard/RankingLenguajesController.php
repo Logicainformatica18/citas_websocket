@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -267,8 +268,9 @@ public function runLanguageGapDiscovery(Request $request)
     $perPage = min((int) $request->get('per_page', 10), 50);
     $page    = (int) $request->get('page', 1);
 
-    $paginator = DB::table('language_job as lj')
-        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id')
+    // Mismo criterio que el ranking: sin ofertas excluidas por título ni asociaciones excluidas
+    $paginator = IndicatorScope::associations(IndicatorScope::offers(DB::table('language_job as lj')
+        ->join('job_offers as j', 'j.id', '=', 'lj.job_offer_id'), 'j'), 'language_job', 'lj')
         ->where('lj.market_entity_id', $marketEntityId)
         ->orderByDesc('j.published_at')
         ->paginate(
