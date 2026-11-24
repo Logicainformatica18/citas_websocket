@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\Facts\CompanyFacts;
+use App\Services\Indicators\Facts\GeoFacts;
+use App\Services\Indicators\IndicatorFacts;
 use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -30,8 +33,14 @@ public function companyJobs(Request $request, $company)
         ->select('id', 'title', 'country', 'published_at', 'url')
         ->whereNotNull('company')
         ->whereBetween('published_at', [$range['start'], $range['end']])
-        ->whereRaw("$regionSql <> 'Desconocido'")
-        ->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))]);
+        ->whereRaw("$regionSql <> 'Desconocido'");
+
+    // Con el periodo precalculado se busca por las grafías guardadas de la empresa (usa el índice
+    // de company; la igualdad no distingue mayúsculas ni tildes). Si no, UPPER(TRIM()) en vivo.
+    $spellings = CompanyFacts::spellings($year, $period, strtoupper(trim($company)));
+    $spellings !== null
+        ? $query->whereIn('company', $spellings ?: [''])->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))])
+        : $query->whereRaw('UPPER(TRIM(company)) = ?', [strtoupper(trim($company))]);
 
     if ($country) {
         $query->where('country', $country);
@@ -44,6 +53,7 @@ Log::info('MODAL PARAMS', [
 ]);
     $jobs = $query
         ->orderByDesc('published_at')
+        ->orderByDesc('id')
         ->paginate(5);
 
     return response()->json($jobs);
@@ -116,31 +126,9 @@ Log::info('MODAL PARAMS', [
 
        $regionSql = $this->normalizedRegionSql();
 
-$baseQuery = IndicatorScope::offers(DB::table('job_offers'))
-    ->whereNotNull('company')
-    ->whereBetween('published_at', [$range['start'], $range['end']])
-    ->whereRaw("$regionSql <> 'Desconocido'");
-
-        if ($region) {
-            $baseQuery->whereRaw("$regionSql = ?", [$region]);
-        }
-
-        if ($country) {
-            $baseQuery->where('country', $country);
-        }
-
-        /* =========================================
-           3️⃣ Ranking global (KPIs)
-        ========================================= */
-        $fullRanking = (clone $baseQuery)
-            ->selectRaw("
-    UPPER(TRIM(company)) as company_normalized,
-    MIN(company) as company,
-    COUNT(*) as total_vacancies
-")
-->groupBy('company_normalized')
-            ->orderByDesc('total_vacancies')
-            ->get();
+// Ofertas por empresa (UPPER(TRIM(company))), precalculadas por periodo (CompanyFacts); región
+// y país se filtran al leer. Sin ofertas excluidas por título.
+        $fullRanking = CompanyFacts::ranking($year, $period, $region, $country)->get();
 
         $empresaLider = $fullRanking->first();
 
@@ -152,28 +140,21 @@ $baseQuery = IndicatorScope::offers(DB::table('job_offers'))
             : 0;
 
         /* =========================================
-           4️⃣ Ranking paginado
+           4️⃣ Ranking paginado (en memoria, sobre el resultado anterior)
         ========================================= */
-      $companies = (clone $baseQuery)
-    ->selectRaw("
-        UPPER(TRIM(company)) as company_normalized,
-        MIN(company) as company,
-        COUNT(*) as total_vacancies
-    ")
-    ->groupBy('company_normalized')
-    ->orderByDesc('total_vacancies')
-    ->paginate($perPage)
-    ->withQueryString();
+        $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+        $companies = new \Illuminate\Pagination\LengthAwarePaginator(
+            $fullRanking->slice(($page - 1) * $perPage, $perPage)->values(),
+            $fullRanking->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         /* =========================================
            5️⃣ Regiones NORMALIZADAS (para filtro)
         ========================================= */
-      $regions = DB::table('job_offers')
-    ->selectRaw("$regionSql as region")
-    ->whereRaw("$regionSql <> 'Desconocido'")
-    ->distinct()
-    ->orderBy('region')
-    ->pluck('region');
+      $regions = GeoFacts::regions();   // regiones normalizadas (precalculadas)
 
         /* =========================================
            6️⃣ Meta
@@ -191,6 +172,7 @@ $baseQuery = IndicatorScope::offers(DB::table('job_offers'))
     'empresa_lider'          => $empresaLider->company ?? null,
     'empresa_lider_vacantes' => $empresaLider->total_vacancies ?? 0,
     'concentracion_top_3'    => $concentracionTop3,
+    'updated_at'             => IndicatorFacts::updatedAt('companies', $year, $period),
 ];
 
 $jobMarketStatus = JobMarketStatusBuilder::build([

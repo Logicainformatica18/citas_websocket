@@ -9,7 +9,7 @@ use Carbon\Carbon;
 
 class BackfillCompanyHistoryCommand extends Command
 {
-    protected $signature = 'companies:backfill-all {year=2026}';
+    protected $signature = 'companies:backfill-all {year=2026} {--month= : solo este mes (pasos cortos de indicators:refresh-all)}';
     protected $description = 'Reconstruye el historial de Empresas (Semanal, Quincenal y Mensual) guardando únicamente las TOP 10 y el total real del mercado.';
 
     public function handle()
@@ -24,6 +24,9 @@ class BackfillCompanyHistoryCommand extends Command
 
         $currentMonth = 1;
         $endMonth = Carbon::now()->month;
+        if ($this->option('month')) {
+            $currentMonth = $endMonth = (int) $this->option('month');
+        }
         $markets = ['national', 'international'];
 
         while ($currentMonth <= $endMonth) {

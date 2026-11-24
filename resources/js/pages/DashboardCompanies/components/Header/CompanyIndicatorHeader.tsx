@@ -15,6 +15,7 @@ interface HeaderProps {
         year: number;
         period: "s1" | "s2";
         periodo_label: string;
+        updated_at?: string | null;
         vacantes_analizadas?: number;
         empresas_activas: number;
     };
@@ -221,6 +222,11 @@ export function CompanyIndicatorHeader({ meta, onOpenEvolution }: HeaderProps) {
                                 </span>{" "}
                                 {meta.periodo_label}
                             </p>
+                            {meta.updated_at && (
+                                <p className="text-xs text-[#0A2540]/60 dark:text-gray-500">
+                                    Última actualización: {meta.updated_at}
+                                </p>
+                            )}
                         </div>
 
                         {/* ================= RIGHT – METODOLOGÍA ================= */}
