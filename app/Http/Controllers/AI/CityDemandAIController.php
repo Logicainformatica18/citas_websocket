@@ -4,6 +4,8 @@ namespace App\Http\Controllers\AI;
 
 use App\Http\Controllers\Controller;
 use App\Models\JobOffer;
+use App\Services\Indicators\Facts\CityDemandFacts;
+use App\Services\Indicators\IndicatorFacts;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -60,52 +62,12 @@ class CityDemandAIController extends Controller
 
 
 
-        // 🔹 Base: ignora ubicaciones remotas para el mapa
-        $query = JobOffer::query()->forIndicators()
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->where(function ($q) {
-                $q->where('country', 'NOT LIKE', '%remote%')
-                  ->where('country', 'NOT LIKE', '%remoto%')
-                  ->where('city', 'NOT LIKE', '%remote%')
-                  ->where('city', 'NOT LIKE', '%remoto%');
-            });
-
-        // 🔹 Año
-        if ($year) $query->whereYear('published_at', $year);
-
-        // 🔹 Fechas personalizadas
-        if ($startDate && $endDate) {
-            try {
-                $query->whereBetween('published_at', [
-                    Carbon::parse($startDate)->startOfDay(),
-                    Carbon::parse($endDate)->endOfDay(),
-                ]);
-            } catch (\Exception $e) {
-                Log::warning("⚠️ Error al parsear fechas: {$e->getMessage()}");
-            }
-        }
-
-        // 🔹 Trimestre
-        $quarters = [
-            'Q1' => [1,2,3], 'Q2' => [4,5,6], 'Q3' => [7,8,9], 'Q4' => [10,11,12],
-        ];
-        if ($quarter && isset($quarters[$quarter])) {
-            $query->whereIn(DB::raw('MONTH(published_at)'), $quarters[$quarter]);
-        }
-
-        // 🔹 Filtros dinámicos
-        if (!empty($sources)) $query->whereIn('source', $sources);
-        if (!empty($countries)) $query->whereIn('country', $countries);
-        if (!empty($modalities)) $query->whereIn('modality', $modalities);
-
-        // 🔹 Agrupar por ciudad
-        $results = $query->selectRaw("
-            country, city,
-            AVG(latitude) as lat,
-            AVG(longitude) as lng,
-            COUNT(*) as total
-        ")->groupBy('country', 'city')->get();
+        // Puntos del mapa (sin ubicaciones remotas), precalculados por año (CityDemandFacts): fuente,
+        // país, modalidad y trimestre se filtran al leer; un rango de fechas exacto, en vivo.
+        $results = CityDemandFacts::points($year, [
+            'sources' => $sources, 'countries' => $countries, 'modalities' => $modalities,
+            'quarter' => $quarter, 'start_date' => $startDate, 'end_date' => $endDate,
+        ]);
 
         if ($results->isEmpty()) {
             return response()->json(['results' => [], 'message' => 'Sin datos para los filtros.']);
@@ -118,17 +80,8 @@ class CityDemandAIController extends Controller
         // 🔹 KPIs adicionales
         $totalOffers = $results->sum('total');
 
-        $byModality = JobOffer::forIndicators()->select('modality', DB::raw('COUNT(*) as total'))
-            ->when($year, fn($q) => $q->whereYear('published_at', $year))
-            ->groupBy('modality')
-            ->orderByDesc('total')
-            ->get();
-
-        $bySource = JobOffer::forIndicators()->select('source', DB::raw('COUNT(*) as total'))
-            ->when($year, fn($q) => $q->whereYear('published_at', $year))
-            ->groupBy('source')
-            ->orderByDesc('total')
-            ->get();
+        $byModality = CityDemandFacts::kpi($year, 'modality');
+        $bySource = CityDemandFacts::kpi($year, 'source');
 
         $topCountries = $results
             ->groupBy('country')
@@ -150,6 +103,7 @@ class CityDemandAIController extends Controller
                 'top_source' => $bySource->first(),
             ],
             'message' => "📊 Total de demanda por ciudad (sin ubicaciones remotas).",
+            'updated_at' => IndicatorFacts::updatedAt('city_demand', $year, CityDemandFacts::PERIOD),
         ]);
     }
 
