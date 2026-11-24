@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -81,7 +82,7 @@ class TakeSenioritySnapshotCommand extends Command
                             WEEK(published_at, 1) AS num_semana, 
                             DAY(published_at) AS dia
                         FROM job_offers
-                        WHERE published_at BETWEEN '{$startYear}' AND '{$endYear}' 
+                        WHERE published_at BETWEEN '{$startYear}' AND '{$endYear}'" . IndicatorScope::offersSql('job_offers') . " 
                           AND seniority IN ('junior', 'mid', 'senior')
                     ),
                     agrupacion_temporal AS (

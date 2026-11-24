@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +21,11 @@ private function buildGeneralData(array $range, array $careers = []): array
        GLOBAL
     ========================================= */
 
-    $total = DB::table('job_offers')->count();
+    $total = IndicatorScope::offers(DB::table('job_offers'))->count();
 
     $monthStart = now()->startOfMonth();
 
-    $newMonth = DB::table('job_offers')
+    $newMonth = IndicatorScope::offers(DB::table('job_offers'))
         ->where('created_at', '>=', $monthStart)
         ->count();
 
@@ -225,59 +226,56 @@ END
         ->where('active', 1)
         ->get(['id','name']);
 
+    // Una sola consulta para todas las carreras (antes: una por carrera, ids en PHP). Por cada
+    // (carrera, oferta del periodo) un EXISTS que se detiene en la primera asociación válida con
+    // una tecnología de los cursos de la carrera (IndicatorScope: sin ofertas excluidas por título,
+    // asociaciones excluidas por el detector ni entidades inactivas). Unir oferta × tecnologías ×
+    // carreras y luego COUNT(DISTINCT) multiplicaba las filas (82 s). Se agrupa por el seniority
+    // tal como está guardado, igual que antes: el total suma las variantes y cada nivel cuenta
+    // solo el valor exacto.
+    $byCareer = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
+        ->whereIn('c.id', $careers->pluck('id'))
+        ->where(function ($q) use ($range) {
+            $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
+              ->orWhere(function ($q2) use ($range) {
+                  $q2->whereNull('jo.published_at')
+                     ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
+              });
+        })
+        ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior', 'mid', 'senior'])
+        ->whereExists(function ($q) {
+            $q->from('technology_job as tj')
+                ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
+                ->join('career_course as cc', function ($j) {
+                    $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
+                })
+                ->whereColumn('tj.job_offer_id', 'jo.id');
+            IndicatorScope::associations($q, 'technology_job', 'tj');
+        })
+        ->groupBy('c.id', 'jo.seniority')
+        ->select('c.id as career_id', 'jo.seniority', DB::raw('COUNT(*) as jobs'))
+        ->get()
+        ->groupBy('career_id');
+
     $result = [];
 
     foreach ($careers as $career) {
+        $rows = $byCareer->get($career->id, collect());
+        $total = $rows->sum('jobs');
 
-        // 🔥 Paso 1: obtener jobs únicos para esa carrera
-        $jobIds = DB::table('job_offers as jo')
-            ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-            ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-            ->join('career_course as cc', 'cc.course_id', '=', 'ct.course_id')
-            ->where('cc.career_id', $career->id)
-           ->where(function ($q) use ($range) {
-    $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
-      ->orWhere(function ($q2) use ($range) {
-          $q2->whereNull('jo.published_at')
-             ->whereBetween('jo.created_at', [$range['start'], $range['end']]);
-      });
-})
-          ->whereIn(DB::raw('LOWER(TRIM(jo.seniority))'), ['junior','mid','senior'])
-            ->distinct()
-            ->pluck('jo.id');
+        $distribution = collect(['junior', 'mid', 'senior'])
+            ->map(function ($level) use ($rows, $total) {
+                $row = $rows->firstWhere('seniority', $level);
+                $jobs = $row ? (int) $row->jobs : 0;
 
-        if ($jobIds->isEmpty()) {
-            $distribution = collect(['junior','mid','senior'])->map(fn($level) => [
-                'seniority' => $level,
-                'jobs' => 0,
-                'percentage' => 0,
-            ]);
-        } else {
-
-            // 🔥 Paso 2: contar sobre jobs únicos
-            $rows = DB::table('job_offers')
-                ->whereIn('id', $jobIds)
-                ->select('seniority', DB::raw('COUNT(*) as jobs'))
-                ->groupBy('seniority')
-                ->get();
-
-            $total = $rows->sum('jobs');
-
-            $distribution = collect(['junior','mid','senior'])
-                ->map(function ($level) use ($rows, $total) {
-
-                    $row = $rows->firstWhere('seniority', $level);
-                    $jobs = $row ? (int)$row->jobs : 0;
-
-                    return [
-                        'seniority'  => $level,
-                        'jobs'       => $jobs,
-                        'percentage' => $total > 0
-                            ? round(($jobs / $total) * 100, 2)
-                            : 0,
-                    ];
-                });
-        }
+                return [
+                    'seniority'  => $level,
+                    'jobs'       => $jobs,
+                    'percentage' => $total > 0
+                        ? round(($jobs / $total) * 100, 2)
+                        : 0,
+                ];
+            });
 
         $result[] = [
             'career_id'   => $career->id,
@@ -297,7 +295,7 @@ END
 }
 private function baseCareerQuery(array $range, array $careers = [])
 {
-    return DB::table('job_offers as jo')
+    return IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
       ->where(function ($q) use ($range) {
     $q->whereBetween('jo.published_at', [$range['start'], $range['end']])
       ->orWhere(function ($q2) use ($range) {
@@ -319,6 +317,7 @@ private function baseCareerQuery(array $range, array $careers = [])
                           ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
                           ->whereColumn('tj.job_offer_id', 'jo.id')
                           ->whereColumn('ct.course_id', 'cc.course_id');
+                      IndicatorScope::associations($sub, 'technology_job', 'tj');
                   });
             });
 
@@ -340,7 +339,7 @@ private function baseCareerQuery(array $range, array $careers = [])
 
     $range = $this->getPeriodRange($period, $year);
 
-    $data = DB::table('job_offers as jo')
+    $data = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
         ->whereBetween('jo.created_at', [
             $range['start'],
             $range['end'],
