@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\AI;
 
-use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use App\Models\JobOffer;
 use Illuminate\Support\Facades\Log;

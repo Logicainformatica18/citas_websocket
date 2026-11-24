@@ -235,6 +235,12 @@ class RunAllJobs extends Command
 'computrabajo:clean-all',
 // Marca las ofertas cuyo título es de un rol no TI (lista job_title_exclusion_keywords); los rankings las ignoran
 'job-offers:apply-title-exclusions',
+// Indicadores con el criterio común (IndicatorScope): precálculo de PE y CCTC (~30 s) y evolución
+// de Seniority (~5 s), Empresas y Carreras (~90 s cada una) del año en curso
+'indicators:curricular-demand',
+'seniority:backfill-all ' . date('Y'),
+'companies:backfill-all ' . date('Y'),
+'careers:backfill-all ' . date('Y'),
 // Recalcula el resumen del Ranking de Lenguajes con los datos ya importados y normalizados
 'ranking:refresh-languages',
 // Ídem para el Ranking de Tecnologías
