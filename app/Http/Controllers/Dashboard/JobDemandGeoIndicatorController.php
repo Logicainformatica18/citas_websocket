@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use App\Services\JobMarketStatusBuilder;
 use App\Support\PerformanceTimer;
@@ -81,7 +82,7 @@ class JobDemandGeoIndicatorController extends Controller
     {
         $version = Cache::get('geo_indicator:version', 1);
 
-        return 'geo_indicator:v' . $version . ':' . $name . ':' . md5(json_encode($params));
+        return 'geo_indicator:v' . $version . '.' . IndicatorScope::cacheVersion() . ':' . $name . ':' . md5(json_encode($params));
     }
 
     /* =====================================================
@@ -105,27 +106,30 @@ class JobDemandGeoIndicatorController extends Controller
             $this->cacheKey('career_demand', $range),
             self::CACHE_TTL,
             function () use ($range) {
-                // Mapa carrera → tecnología sin duplicados (tablas pequeñas).
-                // Evita multiplicar filas cuando una tecnología aparece en varios cursos de la misma carrera.
+                // 1) Pares (oferta, tecnología) válidos del periodo (IndicatorScope: sin ofertas excluidas
+                //    por título, asociaciones excluidas por el detector ni entidades inactivas). El
+                //    DISTINCT obliga a MySQL a materializarlos antes de unir (si los fusiona, el filtro
+                //    se evalúa por cada carrera y tarda minutos).
+                $validPairs = IndicatorScope::associations(IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
+                    ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id'), 'technology_job', 'tj')
+                    ->whereBetween('jo.published_at', $range)
+                    ->select('tj.job_offer_id', 'tj.technology_id')
+                    ->distinct();
+
+                // 2) Mapa carrera → tecnología sin duplicados (tablas pequeñas).
                 $careerTechnology = DB::table('career_course as cc')
                     ->join('course_technology as ct', 'ct.course_id', '=', 'cc.course_id')
                     ->select('cc.career_id', 'ct.technology_id')
                     ->distinct();
 
-                // Se parte de las ofertas del periodo y se llega a sus tecnologías
-                // por el índice existente technology_job(job_offer_id).
-                return DB::table('job_offers as jo')
-                    ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
-                    ->joinSub($careerTechnology, 'm', function ($join) {
-                        $join->on('m.technology_id', '=', 'tj.technology_id');
-                    })
+                return DB::query()->fromSub($validPairs, 'v')
+                    ->joinSub($careerTechnology, 'm', 'm.technology_id', '=', 'v.technology_id')
                     ->join('careers as c', 'c.id', '=', 'm.career_id')
-                    ->whereBetween('jo.published_at', $range)
                     ->groupBy('c.id', 'c.name')
                     ->select(
                         'c.id',
                         'c.name',
-                        DB::raw('COUNT(DISTINCT jo.id) as total_jobs')
+                        DB::raw('COUNT(DISTINCT v.job_offer_id) as total_jobs')
                     )
                     ->orderByDesc('total_jobs')
                     ->get();
@@ -215,7 +219,7 @@ class JobDemandGeoIndicatorController extends Controller
             $this->cacheKey('city_rows', $filters),
             self::CACHE_TTL,
             function () use ($range, $regionSql, $careerId, $region, $country) {
-                $query = DB::table('job_offers as jo')
+                $query = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
                     ->join('job_offer_alignment as a', 'a.job_offer_id', '=', 'jo.id')
                     ->whereBetween('jo.published_at', $range)
                     ->whereNotNull('jo.city')
@@ -416,7 +420,7 @@ class JobDemandGeoIndicatorController extends Controller
             $this->cacheKey('heatmap', [$range, $region, $country]),
             self::CACHE_TTL,
             function () use ($range, $regionSql, $region, $country) {
-                $query = DB::table('job_offers as jo')
+                $query = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
                     ->whereBetween('jo.published_at', $range)
                     ->whereNotNull('jo.latitude')
                     ->whereNotNull('jo.longitude')
