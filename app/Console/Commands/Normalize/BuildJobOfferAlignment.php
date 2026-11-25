@@ -11,13 +11,13 @@ use Illuminate\Support\Facades\DB;
  * geográfica: una fila por (oferta, carrera, fuente) si la oferta tiene alguna tecnología,
  * lenguaje o metodología de los cursos de la carrera, con `mentions` = cuántas. Asociaciones
  * completas (sin el filtro del detector ni el de entidades inactivas); la exclusión por título se
- * aplica al leer. Ver AlignmentBuilder (por tramos de job_offer_id; cada tramo reemplaza solo sus
- * filas, así la tabla nunca queda vacía).
+ * aplica al leer. Ver AlignmentBuilder (por tramos de job_offer_id; cada tramo actualiza solo lo
+ * que cambió, así la tabla nunca queda vacía).
  */
 class BuildJobOfferAlignment extends Command
 {
-    protected $signature = 'jobs:build-alignment {--truncate : vaciar la tabla antes (no hace falta: cada tramo reemplaza sus filas)}
-                            {--chunk=50000 : ofertas (rango de ids) por tramo}';
+    protected $signature = 'jobs:build-alignment {--truncate : vaciar la tabla antes (no hace falta: cada tramo actualiza sus filas)}
+                            {--chunk=25000 : ofertas (rango de ids) por tramo}';
 
     protected $description = 'Construye la tabla job_offer_alignment basada en tecnologías, lenguajes y metodologías';
 
@@ -31,8 +31,8 @@ class BuildJobOfferAlignment extends Command
         $t = microtime(true);
         $chunk = max(1000, (int) $this->option('chunk'));
         foreach (AlignmentBuilder::chunks($chunk) as [$from, $to]) {
-            $n = AlignmentBuilder::buildRange($from, $to);
-            $this->line(sprintf('  ofertas %d-%d: %d filas', $from, $to - 1, $n));
+            $r = AlignmentBuilder::buildRange($from, $to);
+            $this->line(sprintf('  ofertas %d-%d: %d insertadas o actualizadas, %d borradas', $from, $to - 1, $r['upsert'], $r['borradas']));
         }
 
         $total = DB::table('job_offer_alignment')->count();
