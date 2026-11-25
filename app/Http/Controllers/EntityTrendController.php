@@ -48,6 +48,8 @@ class EntityTrendController extends Controller
                 'year'             => $t->year,
                 'quarter'          => $t->quarter,
                 'created_at'       => optional($t->created_at)->format('Y-m-d'),
+                'relevance_status' => $t->relevance_status,
+                'relevance_origin' => $t->relevance_origin,
             ]),
             'filters' => [
                 'search'  => $search,
@@ -65,11 +67,17 @@ class EntityTrendController extends Controller
     $search  = $request->get('search');
     $year    = $request->get('year');
     $quarter = $request->get('quarter');
+    // Clasificación con IA (estado único): relevante | ruido | dudosa | pendiente | en_proceso
+    $status  = in_array($request->get('relevance'), ['relevante', 'ruido', 'dudosa', 'pendiente', 'en_proceso'], true)
+        ? $request->get('relevance') : null;
 
     $trends = EntityTrend::query()
         ->with('marketEntity') // 🔥 IMPORTANTE
         ->when($search, fn ($q) =>
             $q->where('trend_name', 'like', "%{$search}%")
+        )
+        ->when($status, fn ($q) =>
+            $q->where('relevance_status', $status)
         )
         ->when($year, fn ($q) =>
             $q->where('year', $year)
@@ -96,6 +104,8 @@ class EntityTrendController extends Controller
             'year'             => $t->year,
             'quarter'          => $t->quarter,
             'created_at'       => optional($t->created_at)->format('Y-m-d'),
+            'relevance_status' => $t->relevance_status,
+            'relevance_origin' => $t->relevance_origin,
         ])
     );
 }

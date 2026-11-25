@@ -41,6 +41,8 @@ class JobOfferExportService
         ['Tipo Aplicación', 'jo.application_type'], ['Publicado', 'jo.published_at'], ['Expira', 'jo.expiry'],
         ['Registrado', 'jo.created_at'], ['Actualizado', 'jo.updated_at'],
         ['Excluida por título (patrón)', 'k.pattern'],
+        // Clasificación TI: estado único que leen los indicadores (solo no_ti deja de contar) y su origen
+        ['Clasificación TI', 'jo.ti_status'], ['Origen de la clasificación', 'jo.ti_origin'],
     ];
 
     /** Índices de COLUMNS que se escriben como número: id, latitud, longitud, salarios. */

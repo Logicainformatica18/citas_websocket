@@ -26,6 +26,8 @@ export default function JobOfferFilters({ filters, combos }) {
         year: filters.year ?? "",
         semester: filters.semester ?? "",
         excluded: filters.excluded ?? "",
+        // Clasificación TI (estado único de los indicadores)
+        ti_status: filters.ti_status ?? "",
     });
 
     const [open, setOpen] = useState({});
@@ -293,6 +295,22 @@ useEffect(() => {
                         <option value="">Todas</option>
                         <option value="valid">Solo válidas</option>
                         <option value="excluded">Solo excluidas (rol no TI)</option>
+                    </select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">Clasificación TI</label>
+                    <select
+                        value={state.ti_status}
+                        onChange={(e) => update("ti_status", e.target.value)}
+                        className="border rounded-lg px-3 py-2 dark:bg-gray-800 dark:border-gray-700"
+                    >
+                        <option value="">Todas</option>
+                        <option value="ti">TI</option>
+                        <option value="no_ti">No TI (no cuentan en los indicadores)</option>
+                        <option value="dudosa">Dudosas</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="en_proceso">En proceso (Batch API)</option>
                     </select>
                 </div>
 

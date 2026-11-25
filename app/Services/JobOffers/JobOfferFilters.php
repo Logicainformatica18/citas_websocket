@@ -15,6 +15,7 @@ use Illuminate\Database\Query\Builder;
  *   - periodo: año y semestre con los rangos de exportar_periodos.py
  *       s1 = [año-01-01, año-07-01)   s2 = [año-07-01, año+1-01-01)   solo año = [año-01-01, año+1-01-01)
  *   - excluidas por título: all (todas) | valid (solo válidas) | excluded (solo excluidas)
+ *   - clasificación TI (estado único que leen los indicadores): pendiente | en_proceso | ti | no_ti | dudosa
  */
 final class JobOfferFilters
 {
@@ -29,7 +30,9 @@ final class JobOfferFilters
         'workloads' => 'workload',
     ];
 
-    public const SCALAR = ['published_from', 'published_to', 'created_from', 'created_to', 'year', 'semester', 'excluded'];
+    public const TI_STATUSES = ['pendiente', 'en_proceso', 'ti', 'no_ti', 'dudosa'];
+
+    public const SCALAR = ['published_from', 'published_to', 'created_from', 'created_to', 'year', 'semester', 'excluded', 'ti_status'];
 
     /** Normaliza lo que llega por la URL ("null", "", "a,b", arreglos). */
     public static function fromInput(array $input): array
@@ -48,6 +51,7 @@ final class JobOfferFilters
         }
         $f['year'] = $f['year'] !== null && preg_match('/^\d{4}$/', $f['year']) ? $f['year'] : null;
         $f['semester'] = in_array($f['semester'], ['s1', 's2'], true) ? $f['semester'] : null;
+        $f['ti_status'] = in_array($f['ti_status'], self::TI_STATUSES, true) ? $f['ti_status'] : null;
         $f['excluded'] = in_array($f['excluded'], ['valid', 'excluded'], true) ? $f['excluded'] : null;
         foreach (['published_from', 'published_to', 'created_from', 'created_to'] as $key) {
             if ($f[$key] !== null && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $f[$key])) {
@@ -107,6 +111,10 @@ final class JobOfferFilters
             $f['excluded'] === 'valid'
                 ? $query->whereNull($col('title_exclusion_id'))
                 : $query->whereNotNull($col('title_exclusion_id'));
+        }
+
+        if ($f['ti_status'] ?? null) {
+            $query->where($col('ti_status'), $f['ti_status']);
         }
 
         return $query;

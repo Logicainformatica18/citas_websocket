@@ -4,7 +4,7 @@ import { usePage, router, Link } from '@inertiajs/react';   // <--- OK
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Trash2, Plus, Briefcase, ShieldOff, Download } from 'lucide-react';
+import { Trash2, Plus, Briefcase, ShieldOff, Download, Sparkles } from 'lucide-react';
 import { ProcessBar, useProcess, type JobOfferProcess } from './ProcessStatus';
 import JobOfferModal from './JobOfferModal';
 import JobOfferCsvModal from './JobOfferCsvModal';
@@ -14,6 +14,15 @@ import JobOfferDetailModal from "./JobOfferDetailModal";
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Ofertas de Empleo', href: '/job-offers' },
 ];
+
+// Clasificación TI (estado único de los indicadores: solo "No TI" deja de contar)
+const TI_LABEL: Record<string, string> = { pendiente: 'pendiente', en_proceso: 'en proceso', ti: 'TI', no_ti: 'No TI', dudosa: 'dudosa' };
+const TI_BADGE: Record<string, string> = {
+    en_proceso: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    ti: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    no_ti: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    dudosa: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+};
 
 // === FORMATEO DE FECHAS ===
 function formatDate(dateString?: string | null): string {
@@ -183,7 +192,10 @@ export default function JobOffersIndex() {
             {exportProc.result.truncated_rows > 0 && ` · ${exportProc.result.truncated_rows.toLocaleString('es-PE')} filas no caben en Excel`}
           </a>
         )}
-        <Link href="/job-offers/title-exclusions" className="ml-auto px-4 py-2 rounded-md shadow flex items-center gap-2 bg-[#0C647A] hover:bg-[#0a5466] text-white">
+        <Link href="/ai-classification" className="ml-auto px-4 py-2 rounded-md shadow flex items-center gap-2 border">
+          <Sparkles className="w-4 h-4" /> Clasificación con IA
+        </Link>
+        <Link href="/job-offers/title-exclusions" className="px-4 py-2 rounded-md shadow flex items-center gap-2 bg-[#0C647A] hover:bg-[#0a5466] text-white">
           <ShieldOff className="w-4 h-4" /> Exclusión por título (roles no TI)
         </Link>
       </div>
@@ -285,6 +297,14 @@ export default function JobOffersIndex() {
                   >
                     {item.title}
                   </button>
+                  {item.ti_status && item.ti_status !== 'pendiente' && !item.title_exclusion && (
+                    <span
+                      className={`ml-2 px-1.5 py-0.5 text-[10px] rounded ${TI_BADGE[item.ti_status] ?? ''}`}
+                      title={`Clasificación TI: ${TI_LABEL[item.ti_status] ?? item.ti_status} (origen: ${item.ti_origin ?? '-'})`}
+                    >
+                      {TI_LABEL[item.ti_status] ?? item.ti_status}
+                    </span>
+                  )}
                   {item.title_exclusion && (
                     <span
                       className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"

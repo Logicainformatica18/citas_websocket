@@ -1,15 +1,25 @@
 import AppLayout from "@/layouts/app-layout";
 import { type BreadcrumbItem } from "@/types";
-import { usePage } from "@inertiajs/react";
+import { usePage, Link } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Search, Edit, TrendingUp, Plus } from "lucide-react";
+import { Trash2, Search, Edit, TrendingUp, Plus, Sparkles } from "lucide-react";
 import EntityTrendModal from "./EntityTrendModal";
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: "Entity Trends", href: "/entity-trends" },
 ];
+
+// Clasificación con IA (estado único: cuando se active el filtro, los rankings ignoran el ruido)
+const REL_LABEL: Record<string, string> = { pendiente: "pendiente", en_proceso: "en proceso", relevante: "relevante", ruido: "ruido", dudosa: "dudosa" };
+const REL_BADGE: Record<string, string> = {
+  pendiente: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  en_proceso: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  relevante: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  ruido: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  dudosa: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+};
 
 function formatDate(dateString?: string | null): string {
   if (!dateString) return "-";
@@ -35,6 +45,8 @@ type EntityTrend = {
   year: number;
   quarter: number;
   created_at?: string;
+  relevance_status?: string | null;
+  relevance_origin?: string | null;
 };
 
 type Pagination<T> = {
@@ -54,7 +66,17 @@ export default function EntityTrendsIndex() {
   const [pagination, setPagination] =
     useState<Pagination<EntityTrend>>(initialPagination);
   const [search, setSearch] = useState("");
+  const [relevance, setRelevance] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const listUrl = (page?: number) => {
+    const q = new URLSearchParams();
+    if (page) q.set("page", String(page));
+    if (search.trim()) q.set("search", search.trim());
+    if (relevance) q.set("relevance", relevance);
+    const s = q.toString();
+    return `/entity-trends/fetch${s ? `?${s}` : ""}`;
+  };
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<EntityTrend | null>(null);
 
@@ -64,18 +86,10 @@ export default function EntityTrendsIndex() {
   }, [initialPagination]);
 
   useEffect(() => {
-    const delay = setTimeout(() => {
-      if (search.trim() === "") {
-        fetchPage("/entity-trends/fetch");
-      } else {
-        fetchPage(
-          `/entity-trends/fetch?search=${encodeURIComponent(search)}`
-        );
-      }
-    }, 400);
+    const delay = setTimeout(() => fetchPage(listUrl()), 400);
 
     return () => clearTimeout(delay);
-  }, [search]);
+  }, [search, relevance]);
 
 const normalizePagePayload = (payload: any): Pagination<EntityTrend> => {
   if (!payload) {
@@ -180,7 +194,7 @@ const fetchPage = async (url: string) => {
         </div>
 
         {/* SEARCH */}
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap gap-3 items-center">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             <input
@@ -194,6 +208,22 @@ const fetchPage = async (url: string) => {
                 focus:ring-2 focus:ring-[#1CBCE8] outline-none"
             />
           </div>
+          <select
+            value={relevance}
+            onChange={(e) => setRelevance(e.target.value)}
+            className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700"
+            title="Clasificación con IA"
+          >
+            <option value="">Clasificación: todas</option>
+            <option value="relevante">Relevantes</option>
+            <option value="ruido">Ruido</option>
+            <option value="dudosa">Dudosas</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="en_proceso">En proceso (Batch API)</option>
+          </select>
+          <Link href="/ai-classification?tab=review&kind=trends" className="px-3 py-2 rounded-md border flex items-center gap-2">
+            <Sparkles className="w-4 h-4" /> Clasificación con IA
+          </Link>
         </div>
 
         {/* TABLE */}
@@ -250,6 +280,14 @@ const fetchPage = async (url: string) => {
 
                     <td className="px-4 py-3 font-semibold">
                       {item.trend_name}
+                      {item.relevance_status && (
+                        <span
+                          className={`ml-2 px-1.5 py-0.5 text-[10px] font-normal rounded ${REL_BADGE[item.relevance_status] ?? ""}`}
+                          title={`Clasificación con IA: ${REL_LABEL[item.relevance_status] ?? item.relevance_status} (origen: ${item.relevance_origin ?? "-"})`}
+                        >
+                          {REL_LABEL[item.relevance_status] ?? item.relevance_status}
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3">
@@ -293,11 +331,7 @@ const fetchPage = async (url: string) => {
           <button
             key={p}
             onClick={() =>
-              fetchPage(
-                `/entity-trends/fetch?page=${p}${
-                  search ? `&search=${encodeURIComponent(search)}` : ""
-                }`
-              )
+              fetchPage(listUrl(p))
             }
             className={`px-3 py-1 rounded-md text-sm transition
               ${

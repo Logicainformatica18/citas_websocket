@@ -79,6 +79,10 @@ class JobOfferController extends Controller
     'published_at'      => optional($offer->published_at)->format('Y-m-d'),
     'created_at'        => optional($offer->created_at)->format('Y-m-d'),
 
+    // Clasificación TI (estado único que leen los indicadores) y su origen (keyword / ia / manual)
+    'ti_status'         => $offer->ti_status,
+    'ti_origin'         => $offer->ti_origin,
+
     // Exclusión por título (rol no TI): patrón que la excluyó, o null
     'title_exclusion'   => $offer->titleExclusion ? [
         'id' => $offer->titleExclusion->id,
