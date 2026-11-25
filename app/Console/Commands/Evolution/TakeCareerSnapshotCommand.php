@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Evolution;
 
+use App\Services\Indicators\Facts\SeniorityFacts;
 use App\Services\Indicators\IndicatorScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -100,7 +101,9 @@ class TakeCareerSnapshotCommand extends Command
             // Por carrera: ofertas del tramo con al menos una asociación válida (IndicatorScope) a una
             // tecnología de los cursos de la carrera. EXISTS por (carrera, oferta) en vez de unir
             // oferta × tecnologías × carreras y contar DISTINCT, que multiplica las filas.
-            $careersData = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
+            // MENCIONES por carrera: cada par (oferta, tecnología de los cursos de la carrera) suma 1.
+            // Asociaciones completas; solo se excluyen las ofertas por título.
+            $careersData = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
                 ->where(function ($q) use ($range, $startDate) {
                     $q->whereBetween('jo.published_at', [$range['start'], $startDate])
                       ->orWhere(function ($q2) use ($range, $startDate) {
@@ -108,15 +111,9 @@ class TakeCareerSnapshotCommand extends Command
                              ->whereBetween('jo.created_at', [$range['start'], $startDate]);
                       });
                 })
-                ->whereExists(function ($q) {
-                    $q->from('technology_job as tj')
-                        ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                        ->join('career_course as cc', function ($j) {
-                            $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
-                        })
-                        ->whereColumn('tj.job_offer_id', 'jo.id');
-                    IndicatorScope::associations($q, 'technology_job', 'tj');
-                })
+                ->join('technology_job as tj', 'tj.job_offer_id', '=', 'jo.id')
+                ->joinSub(SeniorityFacts::careerTechnology(), 'm', 'm.technology_id', '=', 'tj.technology_id')
+                ->join('careers as c', 'c.id', '=', 'm.career_id')
                 ->groupBy('c.id', 'c.name', 'c.slug')
                 ->select([
                     'c.id as career_id',
@@ -136,12 +133,15 @@ class TakeCareerSnapshotCommand extends Command
             💾 5️⃣ OPERACIÓN TRANSACCIONAL DE GUARDADO (SNAPSHOT)
             ==================================================
             */
-            DB::transaction(function () use ($careersData, $periodsToProcess, $year, $startDate, $endDate, $totalMarketJobs) {
+            $mentionsTotal = (int) $careersData->sum('total_jobs');
+
+            DB::transaction(function () use ($careersData, $periodsToProcess, $year, $startDate, $endDate, $totalMarketJobs, $mentionsTotal) {
                 foreach ($periodsToProcess as $type => $label) {
 
                     foreach ($careersData as $car) {
-                        $percentage = $totalMarketJobs > 0
-                            ? round(($car->total_jobs / $totalMarketJobs) * 100, 2)
+                        // % = parte de las menciones del tramo (todas las carreras suman 100)
+                        $percentage = $mentionsTotal > 0
+                            ? round(($car->total_jobs / $mentionsTotal) * 100, 2)
                             : 0;
 
                         // Usamos updateOrInsert para reescribir si el cron corre dos veces el mismo día de corte

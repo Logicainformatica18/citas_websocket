@@ -77,7 +77,7 @@ export function SeniorityEvolutionCareerModal({ open, onClose }) {
             <div>
               <DialogTitle>Evolución por Carrera</DialogTitle>
               <DialogDescription>
-                Evolución de vacantes tecnológicas agrupadas por carrera
+                Evolución de menciones tecnológicas por carrera (una oferta suma 1 por cada tecnología de la carrera)
               </DialogDescription>
             </div>
 
@@ -141,7 +141,7 @@ export function SeniorityEvolutionCareerModal({ open, onClose }) {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs text-slate-400">Total</p>
+                    <p className="text-xs text-slate-400">Ofertas del mercado</p>
                     <p className="text-lg font-bold text-teal-600">
                       {getTotal(period)}
                     </p>
@@ -162,11 +162,11 @@ export function SeniorityEvolutionCareerModal({ open, onClose }) {
                       </p>
 
                       <p className="text-lg font-bold text-[#0A2540]">
-                        {c.jobs} vacantes
+                        {c.jobs} menciones
                       </p>
 
                       <p className="text-xs text-slate-500">
-                        {c.percentage}%
+                        {c.percentage}% de las menciones
                       </p>
                     </div>
                   ))}

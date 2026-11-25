@@ -10,7 +10,7 @@ use Carbon\Carbon;
 class BackfillCareerHistoryCommand extends Command
 {
     // Por defecto toma el año actual (2026) o el que le pases por parámetro
-    protected $signature = 'careers:backfill-all {year=2026}';
+    protected $signature = 'careers:backfill-all {year=2026} {--semester= : solo s1 o s2 (pasos cortos de indicators:refresh-all)}';
     protected $description = 'Reconstruye el historial de Evolución por Carreras (Semanal, Quincenal y Mensual) calculando la distribución exacta y el total del mercado.';
 
     public function handle()
@@ -28,6 +28,11 @@ class BackfillCareerHistoryCommand extends Command
 
         // Si es el año actual, frena en el mes en curso. Si es un año pasado, procesa los 12 meses.
         $endMonth = ($year === (int)date('Y')) ? Carbon::now()->month : 12;
+        if ($this->option('semester') === 's1') {
+            $endMonth = min($endMonth, 6);
+        } elseif ($this->option('semester') === 's2') {
+            $currentMonth = 7;
+        }
 
         while ($currentMonth <= $endMonth) {
             $monthName = $meses[$currentMonth];
@@ -132,7 +137,9 @@ class BackfillCareerHistoryCommand extends Command
                 💾 3️⃣ TRANSACCIÓN E INSERCIÓN EN CACHÉ
                 ==================================================
                 */
-                DB::transaction(function () use ($careersData, $tramo, $year, $startString, $endString, $totalMarketJobs) {
+                $mentionsTotal = (int) $careersData->sum('total_jobs');
+
+                DB::transaction(function () use ($careersData, $tramo, $year, $startString, $endString, $totalMarketJobs, $mentionsTotal) {
 
                     // Limpiamos el tramo exacto antes de reescribir para evitar duplicados
                     DB::table('career_evolution_cache')
@@ -143,8 +150,9 @@ class BackfillCareerHistoryCommand extends Command
 
                     foreach ($careersData as $car) {
                         // Calculamos el porcentaje que representa esta carrera frente al mercado global real
-                        $percentage = $totalMarketJobs > 0
-                            ? round(($car->total_jobs / $totalMarketJobs) * 100, 2)
+                        // % = parte de las menciones del tramo (todas las carreras suman 100)
+                        $percentage = $mentionsTotal > 0
+                            ? round(($car->total_jobs / $mentionsTotal) * 100, 2)
                             : 0;
 
                         DB::table('career_evolution_cache')->insert([
@@ -176,9 +184,9 @@ class BackfillCareerHistoryCommand extends Command
     }
 
     /**
-     * Ofertas del semestre por día de la fecha efectiva (published_at, o created_at si no hay), con
-     * el criterio de los indicadores: total del mercado y, por carrera, las que tienen al menos una
-     * asociación válida (IndicatorScope) a una tecnología de los cursos de la carrera.
+     * Ofertas del semestre por día de la fecha efectiva (published_at, o created_at si no hay), sin
+     * las excluidas por título: total del mercado (ofertas) y, por carrera, MENCIONES (pares oferta ×
+     * tecnología de los cursos de la carrera; asociaciones completas).
      * Cada día guarda [todas, a las 00:00:00]: los tramos comparan la fecha y hora con 'Y-m-d'
      * (medianoche), así que el último día solo cuenta lo publicado exactamente a las 00:00:00.
      *
@@ -204,20 +212,20 @@ class BackfillCareerHistoryCommand extends Command
             $market[$r->d][1] = ($market[$r->d][1] ?? 0) + ($r->mid ? $r->n : 0);
         }
 
+        // MENCIONES por carrera: cada par (oferta, tecnología de los cursos de la carrera) suma 1.
+        // Sale de job_offer_alignment.mentions (fuente tecnología: tecnologías distintas de los
+        // cursos de la carrera en la oferta), que indicators:refresh-all reconstruye antes: mismas
+        // menciones que cruzar oferta × tecnología × carrera, en 12 s en vez de 75 s por semestre.
+        // Asociaciones completas; solo se excluyen las ofertas por título.
         $careers = [];
-        $rows = IndicatorScope::offers(DB::table('careers as c')->crossJoin('job_offers as jo'), 'jo')
+        $rows = IndicatorScope::offers(DB::table('job_offers as jo'), 'jo')
             ->where($inSemester)
-            ->whereExists(function ($q) {
-                $q->from('technology_job as tj')
-                    ->join('course_technology as ct', 'ct.technology_id', '=', 'tj.technology_id')
-                    ->join('career_course as cc', function ($j) {
-                        $j->on('cc.course_id', '=', 'ct.course_id')->on('cc.career_id', '=', 'c.id');
-                    })
-                    ->whereColumn('tj.job_offer_id', 'jo.id');
-                IndicatorScope::associations($q, 'technology_job', 'tj');
+            ->join('job_offer_alignment as a', function ($j) {
+                $j->on('a.job_offer_id', '=', 'jo.id')->where('a.source', '=', 'technology');
             })
+            ->join('careers as c', 'c.id', '=', 'a.career_id')
             ->groupBy('c.id', 'c.name', 'c.slug', 'd', 'mid')
-            ->select(array_merge(['c.id', 'c.name', 'c.slug'], $cols))
+            ->select(array_merge(['c.id', 'c.name', 'c.slug'], [$cols[0], $cols[1], DB::raw('SUM(a.mentions) AS n')]))
             ->get();
         foreach ($rows as $r) {
             $c = &$careers[$r->id];

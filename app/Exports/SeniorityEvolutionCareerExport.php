@@ -69,9 +69,9 @@ class SeniorityEvolutionCareerExport implements FromCollection, WithHeadings
                 'ID Carrera'           => $row->career_id,
                 'Carrera'              => $row->career_name,
                 'Slug Carrera'         => $row->career_slug,
-                'Vacantes por Carrera' => $row->jobs,
-                'Mercado Global Total' => $row->total_market_jobs,
-                'Porcentaje (%)'       => number_format($row->percentage, 2) . '%',
+                'Menciones por Carrera' => $row->jobs,
+                'Ofertas del Mercado' => $row->total_market_jobs,
+                '% de las Menciones'       => number_format($row->percentage, 2) . '%',
             ];
         });
     }
@@ -90,9 +90,9 @@ class SeniorityEvolutionCareerExport implements FromCollection, WithHeadings
             'ID Carrera',
             'Carrera',
             'Slug Carrera',
-            'Vacantes por Carrera',
-            'Mercado Global Total',
-            'Porcentaje (%)',
+            'Menciones por Carrera',
+            'Ofertas del Mercado',
+            '% de las Menciones',
         ];
     }
 }
