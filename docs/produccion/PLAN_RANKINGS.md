@@ -423,6 +423,21 @@ Bloque 9 (los demás indicadores: solo exclusión por título, menciones y prec�
   corrida tras la migración (`mentions` = 1 en todas las filas: hay que reescribir el millón de filas del alineamiento):
   ~36 min solo el alineamiento en local (tramos de hasta 220 s) → hacerla por consola, no desde un botón.
 
+Bloque 10 (clasificación con IA de ofertas y tendencias, desde 2026-11-26; ver `docs/produccion/clasificacion_ia/`):
+- Decisiones de la usuaria (resumen): histórico y dudosas sin Excel (Batch API + segunda pasada con la descripción +
+  revisión manual); clave de título sin paréntesis ni "(m/w/d)"; lo no TI se guarda marcado; dudosas y pendientes cuentan;
+  casos frontera (no TI: Sales Engineer, Technical Account Manager, Customer Success, diseño de contenido de videojuegos
+  sin programación; TI: técnicos de campo de telecomunicaciones, instructores de TI, formadores de SAP; dudosa: Product
+  Manager y Business Analyst genéricos); gpt-search = ruido por regla; tendencias: relevante si la entidad es el tema
+  principal, categoría inmediata = dudosa; filtro de tendencias en los rankings solo tras mostrar su efecto; guardar el
+  extracto de Tavily; gpt-4.1-mini; LinkedIn 2024 al final; títulos genéricos una por una; UN SOLO ESTADO por oferta y
+  por tendencia que leen los indicadores; sin Jobs ni colas (comandos de consola en jobs:run-all).
+- Fase 0 (sin consulta): prompts v2 en `database/data/ai_prompts/` (fuente de la versión 1 de la base). Piloto 2 sobre
+  los mismos 300 elementos dos veces (borrador A y final; 0,054 USD en total, ver `clasificacion_ia/README.md`).
+  `TitleKey` (clave y títulos genéricos) entra en esta fase porque lo usa el piloto. Sin descripción no hay segunda
+  pasada: genérico o dudoso → dudosa; `d = 1` con clase decidida → clase del título. Segunda pasada con gpt-4.1-mini
+  (gpt-4.1 dio las mismas clases a 5-6 veces el costo).
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y

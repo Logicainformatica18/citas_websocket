@@ -1,0 +1,1063 @@
+{
+    "usage": {
+        "in": 7080,
+        "cached": 0,
+        "out": 4494,
+        "calls": 3,
+        "secs": 53.8864049911499,
+        "cost_usd": 0.01002,
+        "model": "gpt-4.1-mini"
+    },
+    "r": {
+        "15360": {
+            "id": 15360,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Administrador de sistemas Linux",
+            "p": 95
+        },
+        "30436": {
+            "id": 30436,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Android Kotlin",
+            "p": 95
+        },
+        "156777": {
+            "id": 156777,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero Front End Senior",
+            "p": 95
+        },
+        "162045": {
+            "id": 162045,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Inmunólogo postdoctoral, investigación médica",
+            "p": 95
+        },
+        "163169": {
+            "id": 163169,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador C++",
+            "p": 95
+        },
+        "172487": {
+            "id": 172487,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Arquitecto de soluciones y gestión en transformación digital",
+            "p": 90
+        },
+        "178299": {
+            "id": 178299,
+            "c": "ti",
+            "cat": "redes y telecomunicaciones",
+            "m": "Ingeniero de redes",
+            "p": 95
+        },
+        "191879": {
+            "id": 191879,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Profesional de salud mental",
+            "p": 95
+        },
+        "248142": {
+            "id": 248142,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Científico de datos líder en IA generativa",
+            "p": 95
+        },
+        "269823": {
+            "id": 269823,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Ingeniero de confiabilidad de sitio (SRE)",
+            "p": 95
+        },
+        "273652": {
+            "id": 273652,
+            "c": "ti",
+            "cat": "ciberseguridad",
+            "m": "Ingeniero senior en operaciones de firewall",
+            "p": 95
+        },
+        "276588": {
+            "id": 276588,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador de software",
+            "p": 95
+        },
+        "319333": {
+            "id": 319333,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Científico de datos senior",
+            "p": 95
+        },
+        "329288": {
+            "id": 329288,
+            "c": "ti",
+            "cat": "ERP\/CRM",
+            "m": "Desarrollador líder en tecnología de cumplimiento",
+            "p": 90
+        },
+        "343869": {
+            "id": 343869,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador PHP",
+            "p": 95
+        },
+        "346636": {
+            "id": 346636,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Android",
+            "p": 95
+        },
+        "350010": {
+            "id": 350010,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Líder de ingeniería Python y Django",
+            "p": 95
+        },
+        "525506": {
+            "id": 525506,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Desarrollador Scala y Hadoop",
+            "p": 95
+        },
+        "525658": {
+            "id": 525658,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador senior C++ Linux",
+            "p": 95
+        },
+        "553520": {
+            "id": 553520,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero de software full stack",
+            "p": 95
+        },
+        "626722": {
+            "id": 626722,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Gerente de centro ILSP, apoyo social",
+            "p": 90
+        },
+        "660098": {
+            "id": 660098,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Ingeniero de plataforma de búsqueda con ELK",
+            "p": 95
+        },
+        "686659": {
+            "id": 686659,
+            "c": "dudosa",
+            "cat": "gestión de TI",
+            "m": "Consultor senior sin detalle técnico claro",
+            "p": 70
+        },
+        "698085": {
+            "id": 698085,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Ingeniero de base de datos PostgreSQL",
+            "p": 95
+        },
+        "711954": {
+            "id": 711954,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Ejecutivo de ventas en sector farmacéutico",
+            "p": 95
+        },
+        "716767": {
+            "id": 716767,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Jardinero",
+            "p": 95
+        },
+        "722675": {
+            "id": 722675,
+            "c": "ti",
+            "cat": "redes y telecomunicaciones",
+            "m": "Ingeniero senior de redes",
+            "p": 95
+        },
+        "723393": {
+            "id": 723393,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Administrador de base de datos",
+            "p": 95
+        },
+        "735458": {
+            "id": 735458,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador PHP nivel medio\/senior",
+            "p": 95
+        },
+        "736360": {
+            "id": 736360,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Ingeniero senior operaciones centro de datos",
+            "p": 95
+        },
+        "36807": {
+            "id": 36807,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Investigador postdoctoral en inmunología",
+            "p": 95
+        },
+        "38232": {
+            "id": 38232,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Analista económico recursos naturales",
+            "p": 90
+        },
+        "44122": {
+            "id": 44122,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Analista de centro de servicio",
+            "p": 90
+        },
+        "47719": {
+            "id": 47719,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Practicante en ingeniería de proyectos y embalaje",
+            "p": 90
+        },
+        "51101": {
+            "id": 51101,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Asistente de cirugía oral",
+            "p": 95
+        },
+        "51932": {
+            "id": 51932,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Gerente técnico Oracle",
+            "p": 90
+        },
+        "52836": {
+            "id": 52836,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Asistente veterinario",
+            "p": 95
+        },
+        "68521": {
+            "id": 68521,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Especialista en compras",
+            "p": 90
+        },
+        "74049": {
+            "id": 74049,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Empleado administrativo de servicios públicos",
+            "p": 90
+        },
+        "80786": {
+            "id": 80786,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Representante de cuentas de campo",
+            "p": 90
+        },
+        "81346": {
+            "id": 81346,
+            "c": "dudosa",
+            "cat": "gestión de TI",
+            "m": "Gerente de proyecto senior sin detalle técnico",
+            "p": 75
+        },
+        "82318": {
+            "id": 82318,
+            "c": "no_ti",
+            "cat": "educación",
+            "m": "Profesor adjunto de narrativa de marca",
+            "p": 95
+        },
+        "83052": {
+            "id": 83052,
+            "c": "no_ti",
+            "cat": "finanzas",
+            "m": "Controlador financiero",
+            "p": 95
+        },
+        "83193": {
+            "id": 83193,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Trabajador de mantenimiento de instalaciones",
+            "p": 95
+        },
+        "104169": {
+            "id": 104169,
+            "c": "ti",
+            "cat": "ERP\/CRM",
+            "m": "Especialista en capacitación SAP",
+            "p": 90
+        },
+        "115410": {
+            "id": 115410,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Gerente de operaciones de contratos",
+            "p": 90
+        },
+        "117033": {
+            "id": 117033,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Gerente de programa técnico hardware",
+            "p": 90
+        },
+        "117986": {
+            "id": 117986,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Programa SkillBridge militar, sin detalle TI",
+            "p": 70
+        },
+        "120405": {
+            "id": 120405,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Arquitecto de datos GCP",
+            "p": 95
+        },
+        "133167": {
+            "id": 133167,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Gerente de EH&S y cumplimiento",
+            "p": 90
+        },
+        "137888": {
+            "id": 137888,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Recaudador de fondos, no funciones TI",
+            "p": 95
+        },
+        "142667": {
+            "id": 142667,
+            "c": "ti",
+            "cat": "UX\/UI",
+            "m": "Diseñador de contenido digital, diseño de producto digital",
+            "p": 90
+        },
+        "143939": {
+            "id": 143939,
+            "c": "no_ti",
+            "cat": "finanzas",
+            "m": "Gerente de inteligencia de pagos, no desarrollo TI",
+            "p": 90
+        },
+        "144992": {
+            "id": 144992,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Técnico de instrumentos de encuesta, no TI",
+            "p": 90
+        },
+        "145005": {
+            "id": 145005,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Repositor de supermercado, no TI",
+            "p": 100
+        },
+        "203607": {
+            "id": 203607,
+            "c": "no_ti",
+            "cat": "administración",
+            "m": "Asistente de cuentas, no TI",
+            "p": 100
+        },
+        "203665": {
+            "id": 203665,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero Full Stack, desarrollo de software",
+            "p": 100
+        },
+        "205784": {
+            "id": 205784,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Archivista asistente, no TI",
+            "p": 95
+        },
+        "208386": {
+            "id": 208386,
+            "c": "no_ti",
+            "cat": "atención al cliente",
+            "m": "Especialista en retención de clientes, no TI",
+            "p": 95
+        },
+        "209692": {
+            "id": 209692,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Arquitecto Blockchain, tecnología TI",
+            "p": 95
+        },
+        "432058": {
+            "id": 432058,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": ".NET Developer, desarrollo software",
+            "p": 100
+        },
+        "433933": {
+            "id": 433933,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Trainee Ingeniero IA, aprendizaje automático",
+            "p": 100
+        },
+        "458622": {
+            "id": 458622,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Arquitecto empresarial líder, gestión TI",
+            "p": 95
+        },
+        "464350": {
+            "id": 464350,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Front End, desarrollo software",
+            "p": 100
+        },
+        "489491": {
+            "id": 489491,
+            "c": "no_ti",
+            "cat": "educación",
+            "m": "Instructor de conducción, no TI",
+            "p": 100
+        },
+        "519704": {
+            "id": 519704,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Analista de datos junior, análisis de datos",
+            "p": 100
+        },
+        "526208": {
+            "id": 526208,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Porteros de fin de semana, no TI",
+            "p": 100
+        },
+        "548091": {
+            "id": 548091,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero de aplicaciones software, desarrollo",
+            "p": 100
+        },
+        "559485": {
+            "id": 559485,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Trainee en programación, desarrollo software",
+            "p": 100
+        },
+        "570456": {
+            "id": 570456,
+            "c": "no_ti",
+            "cat": "administración",
+            "m": "Administrador, no TI",
+            "p": 100
+        },
+        "582537": {
+            "id": 582537,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Arquitecto de datos, gestión de datos",
+            "p": 100
+        },
+        "611199": {
+            "id": 611199,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Dispensador de audífonos, no TI",
+            "p": 100
+        },
+        "627910": {
+            "id": 627910,
+            "c": "ti",
+            "cat": "ciberseguridad",
+            "m": "Analista senior de seguridad, ciberseguridad",
+            "p": 100
+        },
+        "644422": {
+            "id": 644422,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Científico de datos junior, análisis avanzado",
+            "p": 100
+        },
+        "707877": {
+            "id": 707877,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Trainee DevOps, operaciones TI",
+            "p": 100
+        },
+        "184887": {
+            "id": 184887,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Arquitecto Java, metodologías ágiles TI",
+            "p": 95
+        },
+        "184938": {
+            "id": 184938,
+            "c": "dudosa",
+            "cat": "gestión de TI",
+            "m": "Consultor senior gestión, posible TI o negocio",
+            "p": 70
+        },
+        "193606": {
+            "id": 193606,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Operador de desbarbado, manufactura no TI",
+            "p": 100
+        },
+        "193944": {
+            "id": 193944,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Gerente de producto senior tecnología, gestión TI",
+            "p": 95
+        },
+        "196725": {
+            "id": 196725,
+            "c": "ti",
+            "cat": "ERP\/CRM",
+            "m": "Arquitecto Salesforce, consultoría técnica TI",
+            "p": 95
+        },
+        "199320": {
+            "id": 199320,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Diseñador gráfico\/preprensa, no diseño digital",
+            "p": 100
+        },
+        "199848": {
+            "id": 199848,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Gerente de programa, gestión proyectos TI",
+            "p": 95
+        },
+        "226137": {
+            "id": 226137,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Product Manager AWS, gestión producto TI",
+            "p": 95
+        },
+        "227078": {
+            "id": 227078,
+            "c": "no_ti",
+            "cat": "finanzas",
+            "m": "Director financiero, no TI",
+            "p": 100
+        },
+        "227200": {
+            "id": 227200,
+            "c": "ti",
+            "cat": "ciberseguridad",
+            "m": "Ingeniero senior seguridad, ciberseguridad",
+            "p": 100
+        },
+        "230857": {
+            "id": 230857,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Manipulador de paquetes, logística no TI",
+            "p": 100
+        },
+        "232053": {
+            "id": 232053,
+            "c": "ti",
+            "cat": "soporte TI",
+            "m": "Ingeniero soporte Live Ops, soporte TI",
+            "p": 95
+        },
+        "307265": {
+            "id": 307265,
+            "c": "no_ti",
+            "cat": "operarios y oficios",
+            "m": "Mesero, no TI",
+            "p": 100
+        },
+        "391042": {
+            "id": 391042,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador IA remoto, programación TI",
+            "p": 95
+        },
+        "402350": {
+            "id": 402350,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador UI, desarrollo software",
+            "p": 100
+        },
+        "215476": {
+            "id": 215476,
+            "c": "no_ti",
+            "cat": "marketing",
+            "m": "Gerente de performance, marketing digital",
+            "p": 95
+        },
+        "314671": {
+            "id": 314671,
+            "c": "no_ti",
+            "cat": "administración",
+            "m": "Gerente finanzas y operaciones, no TI",
+            "p": 95
+        },
+        "634585": {
+            "id": 634585,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Gerente senior arquitecto IA, IA avanzada",
+            "p": 95
+        },
+        "662776": {
+            "id": 662776,
+            "c": "ti",
+            "cat": "infraestructura y cloud",
+            "m": "Ingeniero DevOps, operaciones TI",
+            "p": 100
+        },
+        "713432": {
+            "id": 713432,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Óptico, no TI",
+            "p": 100
+        },
+        "713970": {
+            "id": 713970,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Líder operaciones TI en banca, gestión TI",
+            "p": 95
+        },
+        "725279": {
+            "id": 725279,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Full-Stack senior, desarrollo software",
+            "p": 100
+        },
+        "729574": {
+            "id": 729574,
+            "c": "no_ti",
+            "cat": "marketing",
+            "m": "Growth engineer en prácticas, marketing digital",
+            "p": 90
+        },
+        "729659": {
+            "id": 729659,
+            "c": "no_ti",
+            "cat": "administración",
+            "m": "Asociado operaciones negocio, no TI",
+            "p": 95
+        },
+        "730023": {
+            "id": 730023,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Ingeniero software base de datos, desarrollo TI",
+            "p": 100
+        },
+        "2419": {
+            "id": 2419,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero de software Python senior",
+            "p": 95
+        },
+        "26609": {
+            "id": 26609,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador BackEnd PHP",
+            "p": 95
+        },
+        "170589": {
+            "id": 170589,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Fullstack PHP",
+            "p": 95
+        },
+        "287456": {
+            "id": 287456,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Python senior",
+            "p": 95
+        },
+        "307863": {
+            "id": 307863,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Desarrollador de mercado no es TI",
+            "p": 90
+        },
+        "396775": {
+            "id": 396775,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador JAVA senior",
+            "p": 95
+        },
+        "469634": {
+            "id": 469634,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Ingeniero de datos Python y Scala",
+            "p": 95
+        },
+        "521269": {
+            "id": 521269,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Programador de maniobras no es TI",
+            "p": 90
+        },
+        "3292": {
+            "id": 3292,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Científico de datos",
+            "p": 95
+        },
+        "174455": {
+            "id": 174455,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Data Scientist visión computacional",
+            "p": 95
+        },
+        "246235": {
+            "id": 246235,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero backend Python fintech",
+            "p": 95
+        },
+        "286068": {
+            "id": 286068,
+            "c": "ti",
+            "cat": "QA",
+            "m": "Ingeniero QA automatización",
+            "p": 95
+        },
+        "500507": {
+            "id": 500507,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador front-end Angular con IA",
+            "p": 95
+        },
+        "243002": {
+            "id": 243002,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Customer Success no es TI",
+            "p": 95
+        },
+        "564312": {
+            "id": 564312,
+            "c": "ti",
+            "cat": "gestión de TI",
+            "m": "Manager TechOps conexiones financieras",
+            "p": 90
+        },
+        "707334": {
+            "id": 707334,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Customer Success Manager no es TI",
+            "p": 95
+        },
+        "185504": {
+            "id": 185504,
+            "c": "ti",
+            "cat": "soporte TI",
+            "m": "Administrador operaciones TI senior",
+            "p": 95
+        },
+        "185659": {
+            "id": 185659,
+            "c": "ti",
+            "cat": "datos e IA",
+            "m": "Experto en ciencia de datos IA",
+            "p": 95
+        },
+        "269593": {
+            "id": 269593,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Inspector seguridad aviación no es TI",
+            "p": 95
+        },
+        "269599": {
+            "id": 269599,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Gerente seguridad y salud ocupacional no TI",
+            "p": 95
+        },
+        "33906": {
+            "id": 33906,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Sales Associate no es TI",
+            "p": 95
+        },
+        "44654": {
+            "id": 44654,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Sales Associate no es TI",
+            "p": 95
+        },
+        "47487": {
+            "id": 47487,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Enfermero vocacional licenciado",
+            "p": 95
+        },
+        "47740": {
+            "id": 47740,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Supervisor clínico",
+            "p": 95
+        },
+        "48565": {
+            "id": 48565,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Enfermero practicante",
+            "p": 95
+        },
+        "50096": {
+            "id": 50096,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Director calidad clínica no TI",
+            "p": 95
+        },
+        "50342": {
+            "id": 50342,
+            "c": "no_ti",
+            "cat": "contabilidad",
+            "m": "Contador",
+            "p": 95
+        },
+        "68991": {
+            "id": 68991,
+            "c": "no_ti",
+            "cat": "contabilidad",
+            "m": "Coordinador contable",
+            "p": 95
+        },
+        "72206": {
+            "id": 72206,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Especialista soporte ventas no TI",
+            "p": 95
+        },
+        "112916": {
+            "id": 112916,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Gerente ventas tecnología eventos no TI",
+            "p": 95
+        },
+        "4188": {
+            "id": 4188,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Director desarrollo negocio no TI",
+            "p": 95
+        },
+        "18170": {
+            "id": 18170,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Account Manager no TI",
+            "p": 95
+        },
+        "248848": {
+            "id": 248848,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Enfermero preoperatorio",
+            "p": 95
+        },
+        "252658": {
+            "id": 252658,
+            "c": "no_ti",
+            "cat": "marketing",
+            "m": "Marketing producto no TI",
+            "p": 95
+        },
+        "263750": {
+            "id": 263750,
+            "c": "no_ti",
+            "cat": "salud",
+            "m": "Enfermero vocacional licenciado",
+            "p": 95
+        },
+        "322062": {
+            "id": 322062,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Ingeniero software aplicaciones construcción",
+            "p": 90
+        },
+        "553561": {
+            "id": 553561,
+            "c": "ti",
+            "cat": "desarrollo",
+            "m": "Desarrollador Python\/Go en call center",
+            "p": 90
+        },
+        "643656": {
+            "id": 643656,
+            "c": "ti",
+            "cat": "preventa técnica",
+            "m": "Technical Account Manager con AI",
+            "p": 90
+        },
+        "207795": {
+            "id": 207795,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Coach de ventas no TI",
+            "p": 95
+        },
+        "210808": {
+            "id": 210808,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Sales Engineer es preventa técnica? dudosa",
+            "p": 70
+        },
+        "581798": {
+            "id": 581798,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Asistente ventas retail no TI",
+            "p": 95
+        },
+        "594130": {
+            "id": 594130,
+            "c": "no_ti",
+            "cat": "marketing",
+            "m": "Asistente marketing comercial no TI",
+            "p": 95
+        },
+        "661125": {
+            "id": 661125,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Asistente comercial facturación no TI",
+            "p": 95
+        },
+        "667097": {
+            "id": 667097,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Aprendiz ventas no TI",
+            "p": 95
+        },
+        "198883": {
+            "id": 198883,
+            "c": "no_ti",
+            "cat": "legal",
+            "m": "Abogado asociado no TI",
+            "p": 95
+        },
+        "326096": {
+            "id": 326096,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Director operaciones construcción no TI",
+            "p": 95
+        },
+        "334699": {
+            "id": 334699,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Business Development Representative no TI",
+            "p": 95
+        },
+        "566384": {
+            "id": 566384,
+            "c": "no_ti",
+            "cat": "otros",
+            "m": "Ingeniero sistemas manufactura no TI",
+            "p": 90
+        },
+        "646189": {
+            "id": 646189,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Account Executive no TI",
+            "p": 95
+        },
+        "693942": {
+            "id": 693942,
+            "c": "no_ti",
+            "cat": "ventas",
+            "m": "Account Executive no TI",
+            "p": 95
+        }
+    }
+}

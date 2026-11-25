@@ -1,0 +1,1063 @@
+{
+    "usage": {
+        "in": 9439,
+        "cached": 0,
+        "out": 5092,
+        "calls": 3,
+        "secs": 41.543009757995605,
+        "cost_usd": 0.01192,
+        "model": "gpt-4.1-mini"
+    },
+    "r": {
+        "32548": {
+            "id": 32548,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Perfil personal sin tendencia sobre EtherChannel",
+            "p": 90
+        },
+        "32551": {
+            "id": 32551,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Tema general Azure, no específico de EJB",
+            "p": 80
+        },
+        "33428": {
+            "id": 33428,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Blog AWS sobre Amazon ElastiCache y evolución",
+            "p": 90
+        },
+        "33887": {
+            "id": 33887,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Reporte general AI, no específico de AWS Step Functions",
+            "p": 85
+        },
+        "37503": {
+            "id": 37503,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Reporte sobre Maze en AWS Marketplace",
+            "p": 85
+        },
+        "37719": {
+            "id": 37719,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Evento Postgres que puede incluir AMQP",
+            "p": 70
+        },
+        "40193": {
+            "id": 40193,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Comparativa general nube, EC2 puede ser sección",
+            "p": 75
+        },
+        "41769": {
+            "id": 41769,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Artículo Oracle AI Database, no sobre SSMS",
+            "p": 85
+        },
+        "42214": {
+            "id": 42214,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post personal LinkedIn sobre MongoDB y AI",
+            "p": 85
+        },
+        "42604": {
+            "id": 42604,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Tendencias generales, Windows Server puede ser parte",
+            "p": 75
+        },
+        "42839": {
+            "id": 42839,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Sitemap sin contenido de tendencia sobre Asana",
+            "p": 95
+        },
+        "42850": {
+            "id": 42850,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post personal LinkedIn sobre VMware y Broadcom",
+            "p": 85
+        },
+        "43484": {
+            "id": 43484,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Ranking plataformas nube, SQL Server puede ser parte",
+            "p": 75
+        },
+        "43644": {
+            "id": 43644,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Comparativa Java, MERN, .NET, AngularJS puede ser parte",
+            "p": 75
+        },
+        "45504": {
+            "id": 45504,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Tendencias M&A generales, no sobre Exchange Server 2019",
+            "p": 85
+        },
+        "45592": {
+            "id": 45592,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Novedades AI en Amazon SageMaker",
+            "p": 90
+        },
+        "46163": {
+            "id": 46163,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Definición general Enterprise AI, no EC2 Auto Scaling",
+            "p": 85
+        },
+        "47037": {
+            "id": 47037,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Informe AI en Corea, no específico de EAI",
+            "p": 80
+        },
+        "49902": {
+            "id": 49902,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Tendencias adopción AI, Transformers tema central",
+            "p": 90
+        },
+        "50893": {
+            "id": 50893,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn sobre Rocky Linux y DevOps",
+            "p": 85
+        },
+        "61502": {
+            "id": 61502,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Encuesta Stack Overflow, ArrayList puede ser parte",
+            "p": 75
+        },
+        "62701": {
+            "id": 62701,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Innovaciones AI en seguridad AWS IAM",
+            "p": 90
+        },
+        "62710": {
+            "id": 62710,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Predicciones Deloitte generales, Miro puede ser parte",
+            "p": 80
+        },
+        "65318": {
+            "id": 65318,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Tendencias generales tecnología, XAudio2 puede ser parte",
+            "p": 70
+        },
+        "67376": {
+            "id": 67376,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Reseñas Gartner sobre AI empresarial, GCP relevante",
+            "p": 90
+        },
+        "75782": {
+            "id": 75782,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Guía CFO sobre tendencias, Bootstrap no central",
+            "p": 80
+        },
+        "76044": {
+            "id": 76044,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Listado ITSM, AWS KMS no tema principal",
+            "p": 85
+        },
+        "77482": {
+            "id": 77482,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Mercado software SSL\/TLS con tendencias 2026-2033",
+            "p": 90
+        },
+        "79576": {
+            "id": 79576,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn sobre AI y VAES en RRHH",
+            "p": 85
+        },
+        "79611": {
+            "id": 79611,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn sobre Maze y AI, no tendencia clara",
+            "p": 80
+        },
+        "81101": {
+            "id": 81101,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Tendencias tecnológicas generales, Monday puede ser parte",
+            "p": 75
+        },
+        "83294": {
+            "id": 83294,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn sobre seguridad adaptativa, Sprite Shape dudoso",
+            "p": 75
+        },
+        "84625": {
+            "id": 84625,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Fin de registro AWS Mechanical Turk 2026",
+            "p": 90
+        },
+        "85318": {
+            "id": 85318,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Desarrollo empresarial Azure, BPMS no central",
+            "p": 80
+        },
+        "93305": {
+            "id": 93305,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Herramientas AI construcción, Autodesk 3ds Max no central",
+            "p": 80
+        },
+        "93542": {
+            "id": 93542,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Salarios y tendencias cloud, Amazon Redshift puede ser parte",
+            "p": 75
+        },
+        "94314": {
+            "id": 94314,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Carreras Linux, Docker no tema principal",
+            "p": 85
+        },
+        "94590": {
+            "id": 94590,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Recursos networking general, DHCP no central",
+            "p": 85
+        },
+        "96498": {
+            "id": 96498,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Página LinkedIn sin contenido de tendencia BoscaCeoil",
+            "p": 95
+        },
+        "96835": {
+            "id": 96835,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Artículo SaaS general, WordPress no tema principal",
+            "p": 85
+        },
+        "98546": {
+            "id": 98546,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Colaboración AWS-NVIDIA para Apache Spark AI",
+            "p": 90
+        },
+        "101130": {
+            "id": 101130,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Monetización datos y AI, DataMarts posible sección",
+            "p": 75
+        },
+        "110545": {
+            "id": 110545,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Tendencias IT generales, SQL Server puede ser parte",
+            "p": 75
+        },
+        "112756": {
+            "id": 112756,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Competencia tecnológica general, Prometheus posible sección",
+            "p": 75
+        },
+        "113735": {
+            "id": 113735,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Página Cisco formación, Laravel no tema principal",
+            "p": 85
+        },
+        "116000": {
+            "id": 116000,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Advisory AWS Marketplace, Amazon Forecast no central",
+            "p": 80
+        },
+        "117203": {
+            "id": 117203,
+            "c": "dudosa",
+            "cat": "dudosa",
+            "m": "Informe McKinsey tecnología general, HDFS posible sección",
+            "p": 75
+        },
+        "126185": {
+            "id": 126185,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Noticias IT general, Elastic Stack no central",
+            "p": 80
+        },
+        "128180": {
+            "id": 128180,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn sobre IA y BitLocker, no tendencia clara",
+            "p": 80
+        },
+        "128700": {
+            "id": 128700,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Tendencias negocio general, Matplotlib no central",
+            "p": 80
+        },
+        "1090": {
+            "id": 1090,
+            "c": "relevante",
+            "cat": "empleo",
+            "m": "Demanda laboral creciente para habilidades en Obsidian",
+            "p": 90
+        },
+        "2663": {
+            "id": 2663,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Nuevas funciones AI en Adobe Photoshop impactan diseño",
+            "p": 90
+        },
+        "2709": {
+            "id": 2709,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "SOAP sigue vigente en integración empresarial",
+            "p": 85
+        },
+        "2796": {
+            "id": 2796,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Automatización mejora eficiencia en CyberOps SOCs",
+            "p": 85
+        },
+        "2956": {
+            "id": 2956,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "pip ampliamente adoptado para gestión de paquetes Python",
+            "p": 90
+        },
+        "3008": {
+            "id": 3008,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Unity 3D integra nube para acelerar desarrollo",
+            "p": 85
+        },
+        "3061": {
+            "id": 3061,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "AWS Budgets impulsa eficiencia en sectores clave",
+            "p": 85
+        },
+        "6491": {
+            "id": 6491,
+            "c": "relevante",
+            "cat": "empleo",
+            "m": "Alta demanda laboral de habilidades Copilot AI",
+            "p": 90
+        },
+        "7171": {
+            "id": 7171,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "SQS crece con arquitecturas serverless y microservicios",
+            "p": 85
+        },
+        "7894": {
+            "id": 7894,
+            "c": "dudosa",
+            "cat": "otro",
+            "m": "Uso de ArrayList en industrias, posible sección en informe",
+            "p": 70
+        },
+        "8515": {
+            "id": 8515,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Virtual Box integra con contenedores y DevOps",
+            "p": 85
+        },
+        "8733": {
+            "id": 8733,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Conda en infraestructura cloud para ML escalable",
+            "p": 85
+        },
+        "9295": {
+            "id": 9295,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "UnityEditor y nube para desarrollo de juegos escalable",
+            "p": 85
+        },
+        "13184": {
+            "id": 13184,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Google Analytics 4 ampliamente usado en industrias",
+            "p": 90
+        },
+        "14403": {
+            "id": 14403,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "IAM crece por adopción de modelos Zero Trust",
+            "p": 90
+        },
+        "14536": {
+            "id": 14536,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "ASP.NET mantiene adopción en proyectos empresariales",
+            "p": 85
+        },
+        "19430": {
+            "id": 19430,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Web Services API-driven para transformación digital",
+            "p": 90
+        },
+        "22104": {
+            "id": 22104,
+            "c": "relevante",
+            "cat": "empleo",
+            "m": "Demanda creciente para especialistas en Cockpit",
+            "p": 85
+        },
+        "22853": {
+            "id": 22853,
+            "c": "relevante",
+            "cat": "empleo",
+            "m": "Cisco ASA con alta demanda en ciberseguridad",
+            "p": 90
+        },
+        "24050": {
+            "id": 24050,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "scikit-learn crece en pipelines ML automatizados",
+            "p": 90
+        },
+        "25141": {
+            "id": 25141,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Fargate integra Kubernetes y CI\/CD para automatización",
+            "p": 85
+        },
+        "28527": {
+            "id": 28527,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Asana expande infraestructura cloud nativa",
+            "p": 85
+        },
+        "35799": {
+            "id": 35799,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "AWS CloudFront crece en streaming y comercio electrónico",
+            "p": 85
+        },
+        "36186": {
+            "id": 36186,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "AWS Savings Plans adoptado en finanzas y salud",
+            "p": 85
+        },
+        "51192": {
+            "id": 51192,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Wi-Fi avanzado usado en salud y manufactura",
+            "p": 85
+        },
+        "55462": {
+            "id": 55462,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Google Analytics 4 integra con cloud y marketing",
+            "p": 85
+        },
+        "88312": {
+            "id": 88312,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "HumanIK crece para animación en metaverso y digital twins",
+            "p": 85
+        },
+        "90306": {
+            "id": 90306,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Teams impulsa migración cloud empresarial",
+            "p": 85
+        },
+        "119321": {
+            "id": 119321,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "SQL Server clave en transformación digital sector salud",
+            "p": 90
+        },
+        "120000": {
+            "id": 120000,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Veracrypt usado en cifrado para cumplimiento normativo",
+            "p": 85
+        },
+        "11877": {
+            "id": 11877,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Artículo personal sobre Amazon Cost Explorer",
+            "p": 80
+        },
+        "12081": {
+            "id": 12081,
+            "c": "dudosa",
+            "cat": "otro",
+            "m": "Solicitud de información sobre tecnologías emergentes",
+            "p": 70
+        },
+        "12404": {
+            "id": 12404,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Promoción de Cisco DNA Center como futuro de redes",
+            "p": 85
+        },
+        "13745": {
+            "id": 13745,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Maya 2025 con mejoras significativas para artistas 3D",
+            "p": 85
+        },
+        "13754": {
+            "id": 13754,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Novedades en LoRaWAN para IoT en 2026",
+            "p": 85
+        },
+        "14087": {
+            "id": 14087,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Prometheus impulsa mantenimiento predictivo y confiabilidad",
+            "p": 85
+        },
+        "15347": {
+            "id": 15347,
+            "c": "dudosa",
+            "cat": "otro",
+            "m": "Integración de Acunetix en CI\/CD, posible sección",
+            "p": 70
+        },
+        "15478": {
+            "id": 15478,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Blog sobre tendencias en Outlook Web App",
+            "p": 85
+        },
+        "16342": {
+            "id": 16342,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Explicación general sobre Data Marts",
+            "p": 85
+        },
+        "17607": {
+            "id": 17607,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Importancia creciente de gestión de conexiones SSH",
+            "p": 85
+        },
+        "30525": {
+            "id": 30525,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Perfil personal en LinkedIn sin tendencia",
+            "p": 90
+        },
+        "30614": {
+            "id": 30614,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Evento de coaching Oracle sin datos de tendencia",
+            "p": 85
+        },
+        "36526": {
+            "id": 36526,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Página corporativa Cisco sin tendencia específica",
+            "p": 85
+        },
+        "36882": {
+            "id": 36882,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Guía salarial general sin foco en certificación",
+            "p": 85
+        },
+        "36897": {
+            "id": 36897,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Artículo de Coursera sobre certificaciones cloud",
+            "p": 85
+        },
+        "39438": {
+            "id": 39438,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Perfil personal LinkedIn sin datos de tendencia",
+            "p": 90
+        },
+        "39742": {
+            "id": 39742,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Publicación personal sin datos de tendencia",
+            "p": 90
+        },
+        "39801": {
+            "id": 39801,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Página Oracle sin datos específicos de certificación",
+            "p": 85
+        },
+        "39898": {
+            "id": 39898,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Listado de cursos AI sin datos de tendencia",
+            "p": 85
+        },
+        "44488": {
+            "id": 44488,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Página Red Hat AI sin datos de certificación",
+            "p": 85
+        },
+        "48690": {
+            "id": 48690,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "No indica tendencia ni evolución de la certificación IBM AI Engineering",
+            "p": 80
+        },
+        "48703": {
+            "id": 48703,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "Reporte general de mercado no enfocado en certificación Oracle Cloud Data Science",
+            "p": 85
+        },
+        "64791": {
+            "id": 64791,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "Guía de certificaciones AI, no análisis de evolución o adopción",
+            "p": 85
+        },
+        "64823": {
+            "id": 64823,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "Tendencias AI generales, no sobre certificación Oracle Machine Learning",
+            "p": 85
+        },
+        "86620": {
+            "id": 86620,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Perfil personal LinkedIn, no análisis de certificación CKA",
+            "p": 95
+        },
+        "95926": {
+            "id": 95926,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Artículo promocional de Udemy, no análisis de certificación CISM",
+            "p": 90
+        },
+        "96080": {
+            "id": 96080,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post personal LinkedIn, no análisis de certificación Azure Solutions Architect",
+            "p": 95
+        },
+        "111919": {
+            "id": 111919,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Página de cursos Udemy, no análisis de certificación Azure Administrator",
+            "p": 90
+        },
+        "112209": {
+            "id": 112209,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Página de formación Google Cloud, no análisis de certificación Cloud Network Engineer",
+            "p": 90
+        },
+        "115500": {
+            "id": 115500,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Promoción de cursos Pluralsight, no análisis de certificación Azure Fundamentals",
+            "p": 90
+        },
+        "118353": {
+            "id": 118353,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Pruebas prácticas Udemy, no análisis de certificación SAFe Agilist",
+            "p": 90
+        },
+        "123854": {
+            "id": 123854,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Artículo LinkedIn menciona certificación AWS Advanced Networking de paso",
+            "p": 85
+        },
+        "126933": {
+            "id": 126933,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Artículo Coursera sobre certificaciones, no análisis específico Google Cloud Digital Leader",
+            "p": 85
+        },
+        "127080": {
+            "id": 127080,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Artículo LinkedIn menciona certificación Terraform Associate de paso",
+            "p": 85
+        },
+        "127090": {
+            "id": 127090,
+            "c": "ruido",
+            "cat": "promocion",
+            "m": "Curso Udemy para práctica, no análisis de certificación AWS Developer Associate",
+            "p": 90
+        },
+        "599": {
+            "id": 599,
+            "c": "ruido",
+            "cat": "mencion_de_paso",
+            "m": "Resumen de tendencias laborales menciona Google Associate Cloud Engineer de paso",
+            "p": 85
+        },
+        "627": {
+            "id": 627,
+            "c": "ruido",
+            "cat": "mencion_de_paso",
+            "m": "Artículo sobre Agile menciona Certified Scrum Master de paso",
+            "p": 85
+        },
+        "3442": {
+            "id": 3442,
+            "c": "ruido",
+            "cat": "mencion_de_paso",
+            "m": "Encuesta Stack Overflow menciona AWS DevOps Engineer Professional de paso",
+            "p": 85
+        },
+        "3506": {
+            "id": 3506,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Informe de demanda laboral y crecimiento para certificación CISSP",
+            "p": 95
+        },
+        "4387": {
+            "id": 4387,
+            "c": "ruido",
+            "cat": "mencion_de_paso",
+            "m": "Informe Deloitte menciona certificación Oracle Machine Learning de paso",
+            "p": 85
+        },
+        "48942": {
+            "id": 48942,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "Lista GitHub no trata tendencias ni evolución de CSS",
+            "p": 90
+        },
+        "61410": {
+            "id": 61410,
+            "c": "ruido",
+            "cat": "otro",
+            "m": "Lista GitHub no trata tendencias ni evolución de Rust",
+            "p": 90
+        },
+        "79318": {
+            "id": 79318,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post personal LinkedIn, no análisis de tendencia HTML",
+            "p": 90
+        },
+        "79337": {
+            "id": 79337,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Artículo sobre low-code, no sobre lenguaje IDC",
+            "p": 90
+        },
+        "108848": {
+            "id": 108848,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Artículo sobre modernización Java, no sobre lenguaje XML",
+            "p": 85
+        },
+        "115546": {
+            "id": 115546,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Informe general de tendencias tecnológicas, no sobre lenguaje OECD",
+            "p": 85
+        },
+        "124371": {
+            "id": 124371,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn menciona Scala, no análisis de tendencia clara",
+            "p": 85
+        },
+        "124400": {
+            "id": 124400,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Post LinkedIn sobre tendencias y adopción de Python",
+            "p": 90
+        },
+        "124461": {
+            "id": 124461,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo LinkedIn sobre tendencias de R en desarrollo software",
+            "p": 90
+        },
+        "127292": {
+            "id": 127292,
+            "c": "ruido",
+            "cat": "post_personal",
+            "m": "Post LinkedIn menciona MATLAB en contexto AI, no análisis profundo",
+            "p": 85
+        },
+        "3969": {
+            "id": 3969,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Encuesta Stack Overflow muestra demanda global de JavaScript",
+            "p": 95
+        },
+        "5176": {
+            "id": 5176,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Informe Deloitte sobre adopción empresarial de R para analítica",
+            "p": 90
+        },
+        "11008": {
+            "id": 11008,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre nuevas tendencias y adopción en Kotlin",
+            "p": 90
+        },
+        "21268": {
+            "id": 21268,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Informe LinkedIn sobre demanda global creciente de Rust",
+            "p": 90
+        },
+        "103688": {
+            "id": 103688,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Informe W3C sobre uso sostenido de XML en dominios específicos",
+            "p": 90
+        },
+        "114671": {
+            "id": 114671,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Blog sobre crecimiento del uso de JSON en APIs y microservicios",
+            "p": 90
+        },
+        "120825": {
+            "id": 120825,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo TechCrunch sobre adopción creciente de Swift cross-platform",
+            "p": 90
+        },
+        "121828": {
+            "id": 121828,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Blog sobre desafíos de lenguajes nicho, no solo IDC",
+            "p": 85
+        },
+        "16238": {
+            "id": 16238,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre BPM con foco en minería y analítica para mejora",
+            "p": 90
+        },
+        "16593": {
+            "id": 16593,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Encuesta sobre adopción empresarial de metodología LeSS",
+            "p": 90
+        },
+        "19771": {
+            "id": 19771,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Blog sobre metodología startup, no análisis de tendencia amplia",
+            "p": 85
+        },
+        "21301": {
+            "id": 21301,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre adopción del NIST Cybersecurity Framework en industria",
+            "p": 90
+        },
+        "26349": {
+            "id": 26349,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo McKinsey sobre adopción amplia de XP en varias industrias",
+            "p": 90
+        },
+        "27354": {
+            "id": 27354,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre relevancia sostenida de CRISP-DM en ciencia de datos",
+            "p": 90
+        },
+        "38415": {
+            "id": 38415,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Blog sobre combinación de XP con Scrum y Kanban, no tendencia pura",
+            "p": 85
+        },
+        "60289": {
+            "id": 60289,
+            "c": "ruido",
+            "cat": "otro_tema",
+            "m": "Artículo sobre integración OCTAVE con Agile, no análisis de tendencia",
+            "p": 85
+        },
+        "64123": {
+            "id": 64123,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre declive de Cascada frente a Agile en industrias reguladas",
+            "p": 90
+        },
+        "99294": {
+            "id": 99294,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre integración NIST RMF para seguridad en nube 2026",
+            "p": 90
+        },
+        "107174": {
+            "id": 107174,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Informe LinkedIn sobre demanda creciente de habilidades DesignOps",
+            "p": 90
+        },
+        "114696": {
+            "id": 114696,
+            "c": "relevante",
+            "cat": "tendencia",
+            "m": "Artículo sobre pérdida de terreno de Cascada frente a Agile y DevOps",
+            "p": 90
+        }
+    }
+}
