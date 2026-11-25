@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands\Curriculum;
 
-use App\Services\Indicators\IndicatorScope;
+use App\Services\Indicators\CurricularDemand;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Models\Prueba;
@@ -10,13 +10,27 @@ use App\Models\Prueba;
 class RecalculatePeAlignment extends Command
 {
     protected $signature = 'pe:recalculate
-                            {career_id : ID de la carrera}
+                            {career_id? : ID de la carrera}
+                            {--all : todas las carreras activas (el conteo de mercado se calcula una vez)}
                             {--year= : Año (default actual)}';
 
     protected $description = 'Recalcula y materializa resultados PE Alignment (idéntico al modelo dinámico)';
 
     public function handle()
     {
+        if ($this->option('all')) {
+            foreach (DB::table('careers')->where('active', 1)->orderBy('id')->pluck('id') as $id) {
+                $this->call('pe:recalculate', ['career_id' => $id, '--year' => $this->option('year')]);
+            }
+
+            return self::SUCCESS;
+        }
+        if (! $this->argument('career_id')) {
+            $this->error('Indica una carrera o --all.');
+
+            return self::FAILURE;
+        }
+
         $careerId = (int) $this->argument('career_id');
         $year = $this->option('year')
             ? (int) $this->option('year')
@@ -195,73 +209,18 @@ class RecalculatePeAlignment extends Command
         }
     }
 
-    /** Conteo por competencia y año, compartido entre carreras del mismo proceso (no depende de la carrera). */
-    private static array $marketCache = [];
-
     /**
      * Ofertas del año por competencia: por cada fuente (tecnologías, lenguajes, metodologías) una
-     * oferta cuenta una vez por competencia alcanzada a través de los cursos; luego se suman las
-     * tres fuentes (igual que el SQL anterior: COUNT(DISTINCT oferta) por fuente y SUM).
-     * Pares (oferta, entidad) del año con el criterio común (IndicatorScope), leídos por tramos de
-     * job_offer_id; el mapa entidad → competencias está en memoria. Antes, un COUNT(DISTINCT) sobre
-     * pares × cursos × competencias tardaba varios minutos por carrera.
+     * oferta cuenta una vez por competencia alcanzada a través de los cursos; se suman las tres
+     * fuentes (igual que el SQL original: COUNT(DISTINCT oferta) por fuente y SUM). Sale de la
+     * pasada del año de CurricularDemand (precalculada por indicators:refresh-all), compartida por
+     * todas las carreras: antes cada carrera recorría el año (~60 s).
      *
-     * @return array<int, int> competency_id => job_count (solo > 0)
+     * @return array<int, int> competency_id => job_count (solo > 0), ordenado por competency_id
      */
-    private function marketCounts(int $year, int $chunk = 10000): array
+    private function marketCounts(int $year): array
     {
-        $key = $year . '|' . implode(',', IndicatorScope::$off);
-        if (isset(self::$marketCache[$key])) {
-            return self::$marketCache[$key];
-        }
-
-        $from = "{$year}-01-01";
-        $to = ($year + 1) . '-01-01';
-        $maxId = (int) DB::table('job_offers')->max('id');
-        $counts = [];
-
-        foreach ([
-            ['technology_job', 'tj', 'technology_id', 'course_technology'],
-            ['language_job', 'lj', 'language_id', 'course_language'],
-            ['methodology_job', 'mj', 'methodology_id', 'course_methodology'],
-        ] as [$pivot, $a, $col, $courseTable]) {
-            $map = [];   // entidad => [competency_id => true]
-            foreach (DB::table($courseTable . ' as x')->join('competency_course as cc', 'cc.course_id', '=', 'x.course_id')
-                ->distinct()->get(["x.{$col} as e", 'cc.competency_id as c']) as $r) {
-                $map[$r->e][$r->c] = true;
-            }
-
-            $active = IndicatorScope::activeIdSet(IndicatorScope::entityType($pivot));
-
-            for ($lo = 0; $lo <= $maxId; $lo += $chunk) {
-                // Asociaciones válidas (IndicatorScope): las exclusiones del detector del tramo se leen
-                // una vez y se descartan en memoria (un NOT EXISTS por par tardaba ~5 min).
-                $excluded = IndicatorScope::excludedPairSet($pivot, $lo, $lo + $chunk);
-                $offers = [];   // oferta => [competency_id => true]
-                foreach (DB::select(
-                    "SELECT DISTINCT {$a}.job_offer_id AS o, {$a}.{$col} AS e, {$a}.market_entity_id AS me
-                       FROM job_offers jo
-                       JOIN {$pivot} {$a} ON {$a}.job_offer_id = jo.id
-                      WHERE jo.id >= ? AND jo.id < ? AND jo.published_at >= ? AND jo.published_at < ?"
-                        . IndicatorScope::offersSql('jo'),
-                    [$lo, $lo + $chunk, $from, $to]
-                ) as $r) {
-                    if (! isset($map[$r->e])
-                        || ($active !== null && ! isset($active[(int) $r->me]))
-                        || isset($excluded[$r->o . ':' . $r->me])) {
-                        continue;
-                    }
-                    $offers[$r->o] = ($offers[$r->o] ?? []) + $map[$r->e];
-                }
-                foreach ($offers as $competencies) {
-                    foreach ($competencies as $c => $_) {
-                        $counts[$c] = ($counts[$c] ?? 0) + 1;
-                    }
-                }
-            }
-        }
-
-        return self::$marketCache[$key] = $counts;
+        return CurricularDemand::forYear($year)['competency_jobs'];
     }
 
     /** Filas (competency_id, job_count) como tabla derivada; sin filas si no hay conteos. */

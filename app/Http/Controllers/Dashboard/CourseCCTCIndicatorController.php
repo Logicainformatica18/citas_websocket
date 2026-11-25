@@ -482,35 +482,19 @@ public function getRecentJobsByCourse(int $courseId)
 
     if ($entityIds->isNotEmpty()) {
 
-        $jobIds = collect()
-            ->merge(
-               IndicatorScope::associations(DB::table('technology_job as tj'), 'technology_job', 'tj')
-    ->join('technologies as t', 't.id', '=', 'tj.technology_id')
-    ->whereIn('t.market_entity_id', $entityIds)
-    ->pluck('tj.job_offer_id')
-
-            )
-            ->merge(
-               IndicatorScope::associations(DB::table('language_job as lj'), 'language_job', 'lj')
-    ->join('languages as l', 'l.id', '=', 'lj.language_id')
-    ->whereIn('l.market_entity_id', $entityIds)
-    ->pluck('lj.job_offer_id')
-
-            )
-            ->merge(
-                IndicatorScope::associations(DB::table('methodology_job as mj'), 'methodology_job', 'mj')
-    ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
-    ->whereIn('m.market_entity_id', $entityIds)
-    ->pluck('mj.job_offer_id')
-
-            )
-            ->unique()
-            ->values();
-
-        if ($jobIds->isNotEmpty()) {
-         $recentJobs = IndicatorScope::offers(DB::table('job_offers'))
-    ->whereIn('id', $jobIds)
+        // Una consulta: las ofertas más recientes con alguna entidad del curso (antes: todos los
+        // ids en PHP + whereIn, que con las asociaciones completas pasa de 65 535 parámetros).
+        // Sin ofertas excluidas por título; asociaciones completas.
+        $ids = $entityIds->map(fn ($id) => (int) $id)->implode(',');
+        $recentJobs = IndicatorScope::offers(DB::table('job_offers'))
+            ->where(function ($q) use ($ids) {
+                foreach ([['technology_job', 'technologies', 'technology_id'], ['language_job', 'languages', 'language_id'], ['methodology_job', 'methodologies', 'methodology_id']] as [$pivot, $catalog, $col]) {
+                    $q->orWhereRaw("EXISTS (SELECT 1 FROM {$pivot} p JOIN {$catalog} e ON e.id = p.{$col}"
+                        . " WHERE p.job_offer_id = job_offers.id AND e.market_entity_id IN ({$ids}))");
+                }
+            })
     ->orderByDesc('published_at')
+    ->orderByDesc('id')
     ->limit(10)
     ->get([
         'id',
@@ -529,7 +513,6 @@ public function getRecentJobsByCourse(int $courseId)
         'application_url',
         'published_at'
     ]);
-        }
     }
 
     return response()->json([
@@ -631,31 +614,20 @@ public function getCourseGaps(int $courseId)
     $entityIds = $entities->pluck('market_entity_id');
 
     // 2️⃣ Entidades con señal de empleo
-  $entitiesWithJobs = collect()
-    ->merge(
-        IndicatorScope::associations(IndicatorScope::offers(DB::table('technology_job as tj')
-            ->join('job_offers as jo', 'jo.id', '=', 'tj.job_offer_id'), 'jo'), 'technology_job', 'tj')
-            ->join('technologies as t', 't.id', '=', 'tj.technology_id')
-            ->whereIn('t.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
-            ->distinct()
-            ->pluck('t.market_entity_id')
-    )
-    ->merge(
-        IndicatorScope::associations(IndicatorScope::offers(DB::table('language_job as lj')
-            ->join('job_offers as jo', 'jo.id', '=', 'lj.job_offer_id'), 'jo'), 'language_job', 'lj')
-            ->join('languages as l', 'l.id', '=', 'lj.language_id')
-            ->whereIn('l.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
-            ->distinct()
-            ->pluck('l.market_entity_id')
-    )
-    ->merge(
-        IndicatorScope::associations(IndicatorScope::offers(DB::table('methodology_job as mj')
-            ->join('job_offers as jo', 'jo.id', '=', 'mj.job_offer_id'), 'jo'), 'methodology_job', 'mj')
-            ->join('methodologies as m', 'm.id', '=', 'mj.methodology_id')
-            ->whereIn('m.market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
-            ->distinct()
-            ->pluck('m.market_entity_id')
-    )
+  // Entidades del curso con al menos una oferta en el histórico (sin excluidas por título;
+  // asociaciones completas): conjunto precalculado por fuente (CurricularDemand::entitiesWithOffers).
+  // Consultarlo en vivo recorría todas las asociaciones de cada entidad (1-4 s).
+  $entitiesWithJobs = collect();
+  foreach (CurricularDemand::SOURCES as $src => [, , $col, $catalog]) {
+      $entitiesWithJobs = $entitiesWithJobs->merge(
+          DB::table($catalog)
+              ->whereIn('market_entity_id', $entityIds)   // solo las entidades del curso (antes: todo el mercado)
+              ->whereIn('id', CurricularDemand::entitiesWithOffers($src) ?: [0])
+              ->distinct()
+              ->pluck('market_entity_id')
+      );
+  }
+  $entitiesWithJobs = $entitiesWithJobs
     ->filter()
     ->map(fn($id) => (int) $id)
     ->unique()

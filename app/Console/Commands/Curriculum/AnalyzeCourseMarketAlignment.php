@@ -774,9 +774,9 @@ PROMPT;
         $jobIds = $entityIds->isEmpty()
             ? collect()
             : collect()
-                ->merge(IndicatorScope::associations(DB::table('technology_job'), 'technology_job', 'technology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
-                ->merge(IndicatorScope::associations(DB::table('language_job'), 'language_job', 'language_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
-                ->merge(IndicatorScope::associations(DB::table('methodology_job'), 'methodology_job', 'methodology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(DB::table('technology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(DB::table('language_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
+                ->merge(DB::table('methodology_job')->whereIn('market_entity_id', $entityIds)->pluck('job_offer_id'))
                 ->unique()
                 ->values();
 

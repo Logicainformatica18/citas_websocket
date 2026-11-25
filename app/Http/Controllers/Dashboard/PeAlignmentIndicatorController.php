@@ -313,12 +313,10 @@ public function refreshData(Request $request)
     $careerId = (int) $request->career_id;
     $year = now()->year;
 
-    Artisan::call('pe:recalculate', [
-        'career_id' => $careerId,
-        '--year' => $year,
-    ]);
+    // En la cola por defecto (un Job de < 60 s): en la petición podía pasar de los 30 s de la web
+    \App\Jobs\RefreshIndicatorsJob::dispatch([['pe', $careerId, $year]]);
 
-    return response()->json(['status' => 'ok']);
+    return response()->json(['status' => 'queued']);
 }
 private function calculateCareerAlignmentSummaryFromMaterialized(
     int $careerId,
