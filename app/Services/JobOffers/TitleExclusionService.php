@@ -2,6 +2,7 @@
 
 namespace App\Services\JobOffers;
 
+use App\Services\Indicators\IndicatorRefresher;
 use App\Services\Indicators\IndicatorScope;
 use App\Jobs\RefreshRankingsChainJob;
 use App\Models\JobOffer;
@@ -121,10 +122,9 @@ class TitleExclusionService
 
         if (! $dry) {
             IndicatorScope::bumpCacheVersion();   // Datos Generales, Geo… (cachés de los indicadores)
-            // Recalcular en la cola por defecto lo que es corto (≤ 30 s); la evolución de Empresas y
-            // Carreras (~90 s) se recalcula en jobs:run-all
-            Artisan::queue('indicators:curricular-demand');
-            Artisan::queue('seniority:backfill-all', ['year' => (int) date('Y')]);
+            // Precálculos de los demás indicadores en la cola por defecto (Jobs encadenados de < 60 s);
+            // job_offer_alignment no depende del título y no se reconstruye
+            IndicatorRefresher::queue(array_values(array_diff(array_keys(IndicatorRefresher::INDICATORS), ['alignment'])));
             $now = now();
             foreach ($keywords as $id => $k) {
                 DB::table('job_title_exclusion_keywords')->where('id', $id)

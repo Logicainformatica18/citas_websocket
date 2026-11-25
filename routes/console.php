@@ -16,3 +16,7 @@ Schedule::command('ranking:refresh-technologies')->dailyAt('07:00')->timezone('A
 
 // Ranking de Certificaciones: respaldo diario. jobs:run-all también lo ejecuta al final.
 Schedule::command('ranking:refresh-certifications')->dailyAt('07:00')->timezone('America/Lima')->withoutOverlapping();
+
+// Precálculos de los demás indicadores (todo menos los tres rankings): respaldo diario.
+// jobs:run-all también lo ejecuta al final.
+Schedule::command('indicators:refresh-all')->dailyAt('07:00')->timezone('America/Lima')->withoutOverlapping();

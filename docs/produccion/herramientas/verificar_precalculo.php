@@ -63,6 +63,40 @@ $CASES = [
         ['/dashboard/indicators/seniority', ['year' => $y, 'period' => $p, 'career' => [$GLOBALS['careers'][0]->slug]], true],
         ['/dashboard/indicators/seniority/distribution-by-career', ['year' => $y, 'period' => $p, 'career' => [$GLOBALS['careers'][4]->slug]], false],
     ], "{$y}-{$p}" === '2026-s2' ? array_map(fn ($c) => ['/dashboard/indicators/seniority', ['year' => $y, 'period' => $p, 'career' => [$c->slug]], true], $GLOBALS['careers']->slice(1)->all()) : []),
+    'geo' => fn ($y, $p) => [
+        ['/dashboard/indicators/job-demand-geo', ['year' => $y, 'period' => $p], true],
+        ['/dashboard/indicators/job-demand-geo', ['year' => $y, 'period' => $p, 'career_id' => $GLOBALS['careers'][4]->id], true],
+        ['/dashboard/indicators/job-demand-geo', ['year' => $y, 'period' => $p, 'region' => 'Latinoamérica', 'page' => 2], true],
+        ['/dashboard/indicators/job-demand-geo', ['year' => $y, 'period' => $p, 'country' => 'Peru', 'career_id' => $GLOBALS['careers'][0]->id], true],
+        ['/dashboard/indicators/job-demand-geo/heatmap', ['year' => $y, 'period' => $p], false],
+        ['/dashboard/indicators/job-demand-geo/heatmap', ['year' => $y, 'period' => $p, 'region' => 'Europa'], false],
+        ['/dashboard/indicators/job-demand-geo/heatmap', ['year' => $y, 'period' => $p, 'country' => 'Peru'], false],
+    ],
+    'companies' => fn ($y, $p) => [
+        ['/dashboard/indicators/companies', ['year' => $y, 'period' => $p], true],
+        ['/dashboard/indicators/companies', ['year' => $y, 'period' => $p, 'page' => 3], true],
+        ['/dashboard/indicators/companies', ['year' => $y, 'period' => $p, 'region' => 'Latinoamérica'], true],
+        ['/dashboard/indicators/companies', ['year' => $y, 'period' => $p, 'country' => 'Peru'], true],
+        ['/dashboard/indicators/companies/' . rawurlencode('ITOL Recruit') . '/jobs', ['year' => $y, 'period' => $p], false],
+        ['/dashboard/indicators/companies/' . rawurlencode('Accenture') . '/jobs', ['year' => $y, 'period' => $p, 'page' => 2], false],
+    ],
+    'modality' => fn ($y, $p) => [
+        ['/dashboard/indicadores/modalidad-laboral', ['year' => $y, 'period' => $p], true],
+        ['/dashboard/indicadores/modalidad-laboral', ['year' => $y, 'period' => $p, 'region' => 'Latinoamérica'], true],
+        ['/dashboard/indicadores/modalidad-laboral', ['year' => $y, 'period' => $p, 'country' => 'Peru', 'source' => 'computrabajo'], true],
+        ['/dashboard/indicadores/modalidad-laboral', ['year' => $y, 'period' => $p, 'city' => 'Lima'], true],
+    ],
+    'city_demand' => fn ($y, $p) => $p !== 's1' ? [] : [
+        ['/ai/city-demand/get-data', ['year' => $y], false],
+        ['/ai/city-demand/get-data', ['year' => $y, 'quarter' => 'Q2', 'sources' => ['computrabajo', 'adzuna']], false],
+        ['/ai/city-demand/get-data', ['year' => $y, 'countries' => ['Peru', 'Chile'], 'modalities' => ['hybrid']], false],
+    ],
+    'careers_ranking' => fn ($y, $p) => [
+        ['/dashboard/ranking-carreras', ['year' => $y, 'period' => $p], true],
+        ['/dashboard/ranking-carreras', ['year' => $y, 'period' => $p, 'page' => 2], true],
+        ['/dashboard/ranking-carreras', ['year' => $y, 'period' => $p, 'country' => ['Peru', 'Chile']], true],
+        ['/dashboard/ranking-carreras', ['year' => $y, 'period' => $p, 'career' => [$GLOBALS['careers'][4]->slug, $GLOBALS['careers'][0]->slug]], true],
+    ],
 ];
 
 $cases = $CASES[$name] ?? exit("Indicador sin casos: {$name}\n");
