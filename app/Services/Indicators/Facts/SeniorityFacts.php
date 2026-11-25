@@ -89,17 +89,27 @@ final class SeniorityFacts
     {
         $range = self::range($year, $period);
 
-        // Sin filtro de carrera (career_id NULL) y por carrera (EXISTS por carrera y oferta)
+        // Sin filtro de carrera (career_id NULL) y por carrera. Por carrera sale de job_offer_alignment
+        // (fuente tecnología: una fila por oferta y carrera si la oferta tiene alguna tecnología de los
+        // cursos de la carrera; mentions = cuántas), que indicators:refresh-all reconstruye antes:
+        // mismo resultado que el EXISTS / cruce de la lectura en vivo, sin recorrer carrera × oferta.
         $all = self::offers($range)->groupBy('jo.seniority')
             ->select(DB::raw('NULL AS career_id'), 'jo.seniority AS seniority', DB::raw('COUNT(*) AS n'));
-        $byCareer = self::offers($range)->crossJoin('careers as c')
-            ->tap(fn ($q) => self::whereCareer($q, 'c.id'))
-            ->groupBy('c.id', 'jo.seniority')
-            ->select('c.id AS career_id', 'jo.seniority AS seniority', DB::raw('COUNT(*) AS n'));
+        $byCareer = self::offers($range)
+            ->join('job_offer_alignment as a', function ($j) {
+                $j->on('a.job_offer_id', '=', 'jo.id')->where('a.source', '=', 'technology');
+            })
+            ->groupBy('a.career_id', 'jo.seniority')
+            ->select('a.career_id AS career_id', 'jo.seniority AS seniority', DB::raw('COUNT(*) AS n'));
         $a = IndicatorFacts::replace('seniority', $year, $period, $all->unionAll($byCareer), ['career_id', 'seniority', 'n']);
 
         $b = IndicatorFacts::replace('seniority_career', $year, $period,
-            self::mentions($range)->select('m.career_id AS career_id', 'jo.seniority AS seniority', DB::raw('COUNT(*) AS n')),
+            self::offers($range)
+                ->join('job_offer_alignment as a', function ($j) {
+                    $j->on('a.job_offer_id', '=', 'jo.id')->where('a.source', '=', 'technology');
+                })
+                ->groupBy('a.career_id', 'jo.seniority')
+                ->select('a.career_id AS career_id', 'jo.seniority AS seniority', DB::raw('SUM(a.mentions) AS n')),
             ['career_id', 'seniority', 'n']);
 
         $c = IndicatorFacts::replace('seniority_modality', $year, $period,
