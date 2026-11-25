@@ -2,7 +2,10 @@
 
 namespace App\Models;
 use App\Models\MarketEntity;
+use App\Services\AiClassification\OfferClassifier;
+use App\Services\AiClassification\TitleKey;
 use App\Services\Indicators\IndicatorScope;
+use Illuminate\Support\Facades\DB;
 use App\Services\JobOffers\TitleExclusionMatcher;
 use App\Services\JobOffers\TitleExclusionStats;
 use App\Support\Eloquent\SavedParentBelongsToMany;
@@ -33,13 +36,60 @@ class JobOffer extends Model
 
                 return false;
             }
+            if (self::hasTiStatusColumn()) {
+                $offer->title_key = TitleKey::key($offer->title) ?: OfferClassifier::EMPTY_KEY;
+                $offer->inheritTitleClassification();
+            }
         });
 
         static::updating(function (JobOffer $offer) {
             if ($offer->isDirty('title') && self::hasTitleExclusionColumn()) {
                 $offer->title_exclusion_id = TitleExclusionMatcher::active()->excludedId($offer->title);
             }
+            // Estado único: si cambia el título, la keyword decide y, si no, la oferta vuelve a clasificarse
+            // (salvo decisión manual)
+            if ($offer->isDirty('title') && self::hasTiStatusColumn() && $offer->ti_origin !== 'manual') {
+                $offer->title_key = TitleKey::key($offer->title) ?: OfferClassifier::EMPTY_KEY;
+                if ($offer->title_exclusion_id !== null) {
+                    [$offer->ti_status, $offer->ti_origin, $offer->ti_result_id] = ['no_ti', 'keyword', null];
+                } else {
+                    [$offer->ti_status, $offer->ti_origin, $offer->ti_result_id] = ['pendiente', null, null];
+                    $offer->inheritTitleClassification();
+                }
+            }
         });
+    }
+
+    /**
+     * Clasificación con IA: si el título ya tiene decisión (ai_title_classifications) la oferta la hereda sin
+     * llamada (decisión 3: lo no TI se guarda marcado), con el mismo criterio que OfferClassifier::inherit().
+     */
+    public function inheritTitleClassification(): void
+    {
+        static $hasTable = null;
+        $hasTable ??= Schema::hasTable('ai_title_classifications');
+        if (! $hasTable || $this->title_key === null || TitleKey::isGeneric((string) $this->title)) {
+            return;
+        }
+        $tc = DB::table('ai_title_classifications')->where('title_key', $this->title_key)->first(['status', 'depends_on_description', 'origin', 'result_id']);
+        if (! $tc) {
+            return;
+        }
+        $text = trim(strip_tags((string) ($this->functions ?: ($this->description ?: $this->requirements))));
+        $paren = str_contains((string) $this->title, '(') || str_contains((string) $this->title, '[');
+        $noText = mb_strlen($text) < (int) config('ai_classification.min_description', 50) && ! $paren;
+        if (($tc->status !== 'dudosa' && ! $tc->depends_on_description) || $noText) {
+            $this->ti_status = $tc->status;
+            $this->ti_origin = $tc->origin;
+            $this->ti_result_id = $tc->result_id;
+        }
+    }
+
+    public static function hasTiStatusColumn(): bool
+    {
+        static $has = null;
+
+        return $has ??= Schema::hasColumn('job_offers', 'ti_status');
     }
 
     /**

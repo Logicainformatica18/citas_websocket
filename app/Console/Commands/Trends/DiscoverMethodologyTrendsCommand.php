@@ -12,12 +12,22 @@ class DiscoverMethodologyTrendsCommand extends Command
 {
     protected $signature = 'trends:discover-methodologies
                             {--limit=20}
-                            {--sleep=10}';
+                            {--sleep=10}
+                            {--legacy : Ejecutarlo igualmente aunque esté retirado}';
 
     protected $description = 'Descubre tendencias de mercado SOLO para metodologías (market_entities)';
 
     public function handle()
     {
+        // RETIRADO (clasificación con IA, PLAN_RANKINGS.md Bloque 10): pedía a GPT tendencias SIN búsqueda web y guardaba
+        // títulos y URL inventados (discovered_by = gpt-search, ruido por regla). No crea entidades: el descubrimiento de
+        // entidades nuevas está en *:discover-gaps, que no cambia. Sin --legacy no hace nada (para que el cron no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('trends:discover-methodologies está RETIRADO: generaba reportes sin búsqueda web (gpt-search). No se hizo nada.');
+
+            return Command::SUCCESS;
+        }
+
         $year    = now()->year;
         $quarter = now()->quarter;
 

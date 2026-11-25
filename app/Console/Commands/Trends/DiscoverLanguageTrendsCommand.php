@@ -12,7 +12,8 @@ class DiscoverLanguageTrendsCommand extends Command
 {
     protected $signature = 'trends:discover-languages
                             {--limit=20 : Cantidad máxima de lenguajes}
-                            {--sleep=10 : Segundos entre requests GPT}';
+                            {--sleep=10 : Segundos entre requests GPT}
+                            {--legacy : Ejecutarlo igualmente aunque esté retirado}';
 
     protected $description = 'Descubre tendencias de mercado SOLO para lenguajes (market_entities)';
 
@@ -21,6 +22,15 @@ class DiscoverLanguageTrendsCommand extends Command
     ========================================================= */
     public function handle()
     {
+        // RETIRADO (clasificación con IA, PLAN_RANKINGS.md Bloque 10): pedía a GPT tendencias SIN búsqueda web y guardaba
+        // títulos y URL inventados (discovered_by = gpt-search, ruido por regla). No crea entidades: el descubrimiento de
+        // entidades nuevas está en *:discover-gaps, que no cambia. Sin --legacy no hace nada (para que el cron no falle).
+        if (! $this->option('legacy')) {
+            $this->warn('trends:discover-languages está RETIRADO: generaba reportes sin búsqueda web (gpt-search). No se hizo nada.');
+
+            return Command::SUCCESS;
+        }
+
         $year    = now()->year;
         $quarter = now()->quarter;
 

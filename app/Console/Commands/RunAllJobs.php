@@ -219,9 +219,7 @@ class RunAllJobs extends Command
  'adzuna:trends-languages --country=gb',
 
 
-'trends:discover-languages --limit=50 --sleep=5',
-'trends:discover-methodologies --limit=50 --sleep=5',
-'trends:discover-technologies --limit=500 --sleep=5',
+// trends:discover-* RETIRADOS (generaban reportes gpt-search sin búsqueda web; clasificación con IA, Bloque 10)
 
 'normalize:asia-countries',
 'normalize:europe-countries',
@@ -235,6 +233,10 @@ class RunAllJobs extends Command
 'computrabajo:clean-all',
 // Marca las ofertas cuyo título es de un rol no TI (lista job_title_exclusion_keywords); los rankings las ignoran
 'job-offers:apply-title-exclusions',
+// Clasificación con IA (TI / no TI y relevancia de tendencias): recoge y continúa el histórico de la Batch API y
+// clasifica lo nuevo con llamadas directas. Después de las keywords y antes de los recálculos.
+'ai:classify-history --collect',
+'ai:classify',
 // Recalcula el resumen del Ranking de Lenguajes con los datos ya importados y normalizados
 'ranking:refresh-languages',
 // Ídem para el Ranking de Tecnologías

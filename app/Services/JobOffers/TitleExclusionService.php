@@ -65,10 +65,11 @@ class TitleExclusionService
         TitleExclusionMatcher::flush();
         $active = $clear ? new TitleExclusionMatcher([]) : TitleExclusionMatcher::active();
         $all = TitleExclusionMatcher::all();
+        $hasTi = JobOffer::hasTiStatusColumn();
 
         while (microtime(true) < $deadline) {
             $rows = DB::table('job_offers')->where('id', '>', (int) $p->cursor_id)->orderBy('id')
-                ->limit(self::CHUNK)->get(['id', 'title', 'title_exclusion_id']);
+                ->limit(self::CHUNK)->get($hasTi ? ['id', 'title', 'title_exclusion_id', 'ti_status', 'ti_origin'] : ['id', 'title', 'title_exclusion_id']);
 
             if ($rows->isEmpty()) {
                 $p->state = $state;
@@ -78,10 +79,21 @@ class TitleExclusionService
             }
 
             $updates = [];
+            $toNoTi = [];
+            $toPending = [];
             foreach ($rows as $r) {
                 $title = (string) $r->title;
                 $new = $active->excludedId($title);
                 $old = $r->title_exclusion_id === null ? null : (int) $r->title_exclusion_id;
+                // Estado único (clasificación TI): la keyword escribe no_ti / keyword; si deja de aplicar, la
+                // oferta vuelve a pendiente. Nunca se tocan las decisiones manuales.
+                if ($hasTi && $r->ti_origin !== 'manual') {
+                    if ($new !== null && ! ($r->ti_status === 'no_ti' && $r->ti_origin === 'keyword')) {
+                        $toNoTi[] = $r->id;
+                    } elseif ($new === null && $r->ti_origin === 'keyword') {
+                        $toPending[] = $r->id;
+                    }
+                }
                 if ($new !== null) {
                     $state['excluded']++;
                     $state['by_keyword'][$new] = ($state['by_keyword'][$new] ?? 0) + 1;
@@ -104,6 +116,15 @@ class TitleExclusionService
                         DB::table('job_offers')->whereIn('id', $batch)->update(['title_exclusion_id' => $value ?: null]);
                     }
                 }
+                foreach (array_chunk($toNoTi, 1000) as $batch) {
+                    DB::table('job_offers')->whereIn('id', $batch)->update(['ti_status' => 'no_ti', 'ti_origin' => 'keyword', 'ti_result_id' => null, 'ti_batch_id' => null]);
+                }
+                foreach (array_chunk($toPending, 1000) as $batch) {
+                    DB::table('job_offers')->whereIn('id', $batch)->where('ti_origin', 'keyword')
+                        ->update(['ti_status' => 'pendiente', 'ti_origin' => null, 'ti_result_id' => null]);
+                }
+                $state['ti_to_no_ti'] = ($state['ti_to_no_ti'] ?? 0) + count($toNoTi);
+                $state['ti_to_pending'] = ($state['ti_to_pending'] ?? 0) + count($toPending);
             }
 
             $p->cursor_id = $rows->last()->id;
@@ -526,6 +547,12 @@ class TitleExclusionService
                     $n = 0;
                     foreach (array_chunk($insert, 100) as $batch) {
                         $n += DB::table($table)->insertOrIgnore($batch);
+                    }
+                    // Respaldos anteriores al estado único (sin ti_status): la oferta excluida por título vuelve
+                    // como no_ti / keyword, igual que en la migración 2026_11_25_000004
+                    if ($table === 'job_offers' && isset($columns['ti_status'])) {
+                        DB::table('job_offers')->whereIn('id', array_column($insert, 'id'))->whereNotNull('title_exclusion_id')
+                            ->whereNull('ti_origin')->update(['ti_status' => 'no_ti', 'ti_origin' => 'keyword']);
                     }
                     $state['restored'][$table] = ($state['restored'][$table] ?? 0) + $n;
                 }

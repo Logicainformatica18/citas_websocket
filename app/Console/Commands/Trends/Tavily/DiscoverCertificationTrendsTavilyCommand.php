@@ -194,6 +194,10 @@ class DiscoverCertificationTrendsTavilyCommand extends Command
                         'discovered_by' =>
                             'tavily-search',
 
+                        // Extracto del resultado (antes se descartaba): lo usa la clasificación con IA
+                        'source_snippet' =>
+                            mb_substr($content, 0, 1000) ?: null,
+
                         'discovered_at' =>
                             now(),
                     ]);

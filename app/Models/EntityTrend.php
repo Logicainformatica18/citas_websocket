@@ -40,6 +40,10 @@ class EntityTrend extends Model
 
         'raw_payload',
         'created_at',
+
+        // Extracto de Tavily (clasificación con IA). El estado (relevance_status / relevance_origin) lo escriben
+        // los comandos ai:classify* y la revisión manual, no la asignación masiva.
+        'source_snippet',
     ];
 
     /**
