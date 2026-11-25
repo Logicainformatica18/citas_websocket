@@ -477,6 +477,11 @@ Bloque 9 (los demás indicadores: solo exclusión por título, menciones y prec�
 - (Bloque 9) Un rango de fechas exacto en Demanda por ciudad y la selección de varias carreras en Seniority se calculan
   en vivo (no se pueden armar desde las filas precalculadas).
 - (Bloque 9) Local: `innodb_buffer_pool_size` = 128 MB; los tiempos de los precálculos variaron hasta ×5 entre corridas.
+- (Despliegue) `php artisan optimize` / `route:cache` fallan: dos rutas se llaman `logout` (`GET /logout` en
+  `routes/web.php` y `POST logout` en `routes/auth.php`). El GLPI usa `config:cache`, `event:cache` y `view:cache`.
+  Corregirlo toca el cierre de sesión (SAML): no se hizo.
+- (Despliegue) Las migraciones `2026_11_17_000001/2` (funciones del puesto en `job_offers`) son posteriores a
+  `DESPLIEGUE_RANKINGS_PRODUCCION.sql` y van en el GLPI final; no tienen SQL equivalente (requieren `ALTER`).
 
 ## 3. Estado actual (2026-11-16: plan completo)
 
@@ -688,6 +693,8 @@ cada carrera activa (o el botón "Actualizar" de PE). Después de cada `entities
 (nunca `migrate` sin `--path`), `symfony php artisan optimize:clear`, `symfony php artisan queue:restart`,
 `symfony php artisan indicators:refresh-all` (la primera vez por consola: reescribe el alineamiento) y
 `symfony php artisan schedule:list`. Detalle en `docs/produccion/indicadores_optimizacion/README.md`.
+
+**Todo lo pendiente desde `DESPLIEGUE_RANKINGS_PRODUCCION.sql`, en un solo ticket**: `docs/produccion/GLPI_DESPLIEGUE_FINAL.md`.
 
 **Mantenimiento**: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
 reglas del matcher o se reactive una entidad. **Apagado de emergencia**: `php artisan entities:exclusions --disable` y
