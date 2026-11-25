@@ -423,7 +423,7 @@ Bloque 9 (los demás indicadores: solo exclusión por título, menciones y prec�
   corrida tras la migración (`mentions` = 1 en todas las filas: hay que reescribir el millón de filas del alineamiento):
   ~36 min solo el alineamiento en local (tramos de hasta 220 s) → hacerla por consola, no desde un botón.
 
-Bloque 10 (clasificación con IA de ofertas y tendencias, desde 2026-11-26; ver `docs/produccion/clasificacion_ia/`):
+Bloque 10 (clasificación con IA de ofertas y tendencias, desde 2026-11-25; ver `docs/produccion/clasificacion_ia/`):
 - Decisiones de la usuaria (resumen): histórico y dudosas sin Excel (Batch API + segunda pasada con la descripción +
   revisión manual); clave de título sin paréntesis ni "(m/w/d)"; lo no TI se guarda marcado; dudosas y pendientes cuentan;
   casos frontera (no TI: Sales Engineer, Technical Account Manager, Customer Success, diseño de contenido de videojuegos
@@ -437,6 +437,96 @@ Bloque 10 (clasificación con IA de ofertas y tendencias, desde 2026-11-26; ver 
   `TitleKey` (clave y títulos genéricos) entra en esta fase porque lo usa el piloto. Sin descripción no hay segunda
   pasada: genérico o dudoso → dudosa; `d = 1` con clase decidida → clase del título. Segunda pasada con gpt-4.1-mini
   (gpt-4.1 dio las mismas clases a 5-6 veces el costo).
+- Fase 1 (migraciones `2026_11_25_000004-6`, idempotentes, `--path`):
+  - `job_offers`: `ti_status` ENUM(pendiente, en_proceso, ti, no_ti, dudosa) NOT NULL DEFAULT pendiente, `ti_origin`
+    ENUM(keyword, ia, manual), `title_key` CHAR(32) ascii, `ti_result_id`, `ti_batch_id` (INSTANT). Valores actuales:
+    `title_exclusion_id` NOT NULL → no_ti / keyword (por tramos de 20 000 ids). Índices `idx_jo_pub_ti`,
+    `idx_jo_created_ti`, `idx_jo_source_created_ti` (los mismos de antes con `ti_status` en lugar de
+    `title_exclusion_id`), `idx_jo_ti_status_key`, `idx_jo_title_key`; los tres `*_excl` quedan INVISIBLES.
+  - `entity_trends`: `relevance_status` ENUM(pendiente, en_proceso, relevante, ruido, dudosa), `relevance_origin`
+    ENUM(regla, ia, manual), `ai_result_id`, `ai_batch_id`, `source_snippet` TEXT; índices `idx_et_relevance`,
+    `idx_et_year_q_relevance`. Todo queda pendiente (las reglas las aplica `ai:classify`).
+  - Tablas: `ai_prompts`, `ai_prompt_versions` (siembra los prompts v2 como versión 1 activa), `ai_title_classifications`
+    (decisión VIGENTE por título; caché derivada: `--reclassify-version` borra las filas de esa versión, el historial
+    queda en `ai_classification_results`), `ai_classification_results` (una fila por decisión: estado, categoría, motivo,
+    confianza, versión, modelo, origen, pasada, lote, corrida, usuario), `ai_batches`, `ai_batch_requests` (índice corto
+    de cada línea → elemento), `ai_runs` (cada corrida: procesados, heredados, por regla, llamadas, tokens, costo,
+    errores), `ai_prompt_tests`, `ai_classification_settings` (fila única: interruptor, filtro de tendencias apagado,
+    corte histórico/nuevo = MAX(id) al migrar, fecha del `--submit`).
+- Fase 2 (clasificador y comandos; `app/Services/AiClassification/`, `config/ai_classification.php`):
+  - **Corte histórico / nuevo**: `ai:classify` (en jobs:run-all, llamadas directas) solo toma ids posteriores al corte;
+    el histórico lo toma `ai:classify-history` (Batch API). Así jobs:run-all nunca clasifica el histórico en directo.
+    Tope de `ai:classify`: 5 000 elementos por tipo y corrida (`sync_max_items`).
+  - Ofertas: clave → herencia por SQL (título decidido ti/no_ti sin d = 1, o sin descripción ni paréntesis) → pasada por
+    título (50 títulos por llamada, hasta 3 empresas) → herencia → pasada por oferta (25 por llamada, descripción de
+    hasta 2 000 caracteres: funciones, descripción o requisitos). Genéricos sin descripción ni paréntesis → dudosa sin
+    llamada (una fila de historial por corrida, `pass = sin_descripcion`). Los títulos con ofertas en un lote en curso
+    se esperan (no se envían dos veces).
+  - Al aplicar, `ti_origin IS NULL` (y `relevance_origin IS NULL`): nunca se pisa manual ni keyword.
+  - Tendencias: reglas sin IA (gpt-search y gpt-*-gap; URL de cursos, perfiles, empleo, portadas, sitemaps) → IA (50 por
+    llamada). Una "dudosa" de la IA con categoría distinta de `categoria` se guarda como ruido (decisión 8).
+  - Batch API: `--submit` (operador, una vez) marca lo enviado en_proceso con el id del lote; `--collect` (jobs:run-all)
+    aplica, devuelve a pendiente lo que no volvió y, si ya hubo `--submit`, envía lo que falte (segunda pasada incluida)
+    con un tope de 3 lotes en curso (`--max-in-flight`, por el límite de tokens en cola de la cuenta) y 2 000 peticiones
+    por lote. LinkedIn se envía cuando no queda histórico sin LinkedIn pendiente o en proceso.
+  - Keywords y estado: `job-offers:apply-title-exclusions` escribe no_ti / keyword (si la keyword deja de aplicar,
+    vuelve a pendiente; manual nunca se toca; una keyword nueva gana sobre una decisión de la IA). Restaurar ofertas
+    eliminadas recupera no_ti / keyword. `JobOffer::creating`: clave de título y herencia (no TI se guarda marcado);
+    `updating` con título nuevo: keyword o vuelve a pendiente.
+  - Interruptor de emergencia = sin llamadas a la IA (las reglas y la herencia siguen). No apaga el filtro de los
+    indicadores: estos solo leen el estado (decisión 14).
+  - `trends:discover-languages/-technologies/-methodologies` RETIRADOS (sin `--legacy` no hacen nada) y quitados de
+    jobs:run-all: pedían a GPT tendencias sin búsqueda web. **No descubrían entidades**: el alta de entidades nuevas está
+    en `*:discover-gaps` (`technologies/languages/certifications:discover-gaps`), que no cambia ni estaba en jobs:run-all.
+  - Tavily guarda `source_snippet` (extracto de hasta 1 000 caracteres) en los tres comandos.
+  - "Sugerir con IA" de la exclusión por título ya propone excepciones con aprobación manual (decisión 5): no se tocó
+    (sigue el timeout anotado en el análisis).
+- Fase 3: `IndicatorScope::offers*/countSql` leen `ti_status <> 'no_ti'` (con `title_exclusion_id` si la columna no
+  existe). `IndicatorScope::trends*` (filtro de reportes en ruido) en la consulta de reportes de `EntityRankingService`
+  y en los listados de reportes de los modales de los tres rankings; solo actúa con `trends_filter_enabled = 1`
+  (apagado). El efecto se mide con `docs/produccion/herramientas/efecto_filtro_tendencias.php`.
+- Fases 4 y 5: módulo `/ai-classification` (menú Datos, solo administradores; `AiClassificationController`,
+  `ModuleService`): resumen, prompts y versiones (diferencias por línea, activar, volver a una versión), probar versión
+  (queda pendiente; la ejecutan `ai:classify` o `ai:prompt-test`), revisión manual (ofertas agrupadas por título con
+  ejemplos y descripción; botón por grupo y por oferta; tendencias con enlace). Una decisión manual por grupo en un título
+  específico aplica a todas sus ofertas que no son de keyword y queda como decisión del título (la heredan las nuevas);
+  en un título genérico, solo a las ofertas del grupo. Las de keyword no se revisan aquí (se corrigen con excepciones).
+  job-offers: insignia, filtro "Clasificación TI", enlace y dos columnas en el export. Entity Trends: insignia, filtro
+  y enlace.
+- Verificación del estado único (local, 2026-11-25): migración 2 min 45 s (job_offers tiene FULLTEXT: MySQL no admite
+  INSTANT y reconstruye la tabla; bloquea escrituras); 59 512 ofertas → no_ti / keyword, 0 desajustes con
+  `title_exclusion_id`; re-ejecutar las migraciones no cambia nada. Fotos doradas de los tres rankings
+  (`storage/app/foto_dorada/clasificacion_ia_antes_2026-11-25/`): **0 diferencias**; huella de las 18 tablas que escribe
+  `indicators:refresh-all` (`docs/produccion/herramientas/huella_indicadores.php`): **0 diferencias**.
+- Fase 6 (prueba local):
+  - `arbeitnow:technologies --pages=1`: 78 ofertas nuevas guardadas con `title_key` y pendientes; 14 descartadas por
+    keyword (sin cambios, decisión 15). Tavily respondió "límite de pago excedido" (no se pudo probar el extracto en vivo);
+    `searchtrend:discover-technologies --limit=3` no devolvió reportes. Para probar tendencias "nuevas" se movió el corte
+    local 200 ids hacia atrás y luego se restauró (`ai_runs` lo registra).
+  - `ai:classify --limit=100`: 81 s, 7 llamadas, 0,022 USD (incluida la prueba de versión pendiente, 0,008 USD). Ofertas:
+    72 títulos enviados, 73 heredadas, 5 por descripción → 63 TI, 14 no TI, 1 dudosa. Error visto: "Data Analyst -
+    Logistics" → no TI (corregido a mano en la prueba). Tendencias: 4 por regla, 100 con IA → 76 ruido, 23 relevantes,
+    1 dudosa; "AI Agents Transform Enterprise Workflows" para RNN quedó relevante (corregido a mano).
+  - Prueba de versión con un borrador que solo agrega una línea: concordancia 88 % → la IA no es determinista en los casos
+    límite aun con temperatura 0; tenerlo en cuenta al comparar versiones (una concordancia de ~90 % es el piso).
+  - Herencia al crear (en transacción revertida): un título ya no TI se guarda marcado; "(m/w/d)" comparte clave; un título
+    genérico queda pendiente; una keyword sigue descartando. Revisión manual por HTTP (grupo, oferta, tendencia,
+    interruptor) correcta; una oferta de keyword devuelve 422. `job-offers:apply-title-exclusions` deja 0 desajustes y no
+    toca lo manual.
+  - `ai:classify-history --dry-run` (con la base local): ofertas sin LinkedIn 278 862 pendientes → 118 415 títulos,
+    3 293 por descripción, 4 895 genéricas sin descripción (→ revisión manual), ~3 250 de segunda pasada estimada:
+    **4,78 USD**; tendencias 34 955 por regla y 56 692 a la IA: **2,21 USD**; LinkedIn 65 507 → 38 918 títulos:
+    **1,45 USD**. Total **≈ 8,4 USD** con la Batch API (21 s, 2 631 + 1 134 + 821 peticiones).
+  - Reglas aplicadas en local al histórico de tendencias (34 951; sin IA) para medir el efecto real del filtro
+    (`clasificacion_ia/efecto_tendencias/`). Con el filtro apagado no cambia ningún indicador.
+- Fase 7: `docs/produccion/clasificacion_ia/GLPI_CLASIFICACION_IA.md`.
+- Pendientes de la clasificación con IA:
+  - Enviar el histórico (`ai:classify-history --submit`) solo con la confirmación del costo; luego medir otra vez el efecto
+    del filtro de tendencias (`efecto_filtro_tendencias.php 2026 s2 actual`) antes de activarlo.
+  - El límite de tokens en cola de la Batch API depende del nivel de la cuenta de OpenAI: si los lotes fallan, bajar
+    `--max-requests` / `--max-in-flight`.
+  - La cuenta de Tavily está en su límite de pago: los comandos `trends:discover-*-tavily` fallan.
+  - Decisión 15 (recomendación en el informe final): guardar marcadas las ofertas nuevas que coinciden con una keyword.
 
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**

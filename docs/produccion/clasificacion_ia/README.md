@@ -6,7 +6,7 @@
 - Prompts vigentes (fuente de la versión 1 en la base): `database/data/ai_prompts/ofertas_v2.txt` y `tendencias_v2.txt`.
 - Diseño, decisiones y operación: `docs/produccion/PLAN_RANKINGS.md`, Bloque 10.
 
-## Piloto 2 (2026-11-26, prompts v2, gpt-4.1-mini)
+## Piloto 2 (2026-11-25, prompts v2, gpt-4.1-mini)
 
 Mismas 150 ofertas del piloto 1 y 150 tendencias (las 95 de Tavily/search-gpt del piloto 1 + 55 nuevas; gpt-search ya es
 ruido por regla). Se ejecutó dos veces sobre los mismos 300 elementos: borrador A y, tras corregir dos defectos, el final.
@@ -45,3 +45,10 @@ ruido por regla). Se ejecutó dos veces sobre los mismos 300 elementos: borrador
   de aguas residuales (homónimo), certificaciones de Microsoft en general para Azure Developer; "top networking trends"
   para Wi-Fi debería ser dudosa. Ruido: ≈ 95 % de acuerdo.
 - Reglas sin IA (12 + 5 de 150): perfiles de LinkedIn, Udemy/Coursera/LinkedIn Learning, portadas, sitemaps, empleo.
+
+## Operación
+
+- GLPI: `GLPI_CLASIFICACION_IA.md`. Diseño y decisiones: `docs/produccion/PLAN_RANKINGS.md`, Bloque 10.
+- Efecto del filtro de tendencias en los rankings (apagado): `efecto_tendencias/` (`actual` = con las reglas aplicadas;
+  `proyeccion` = descontando las pendientes con la tasa de ruido del piloto 2). Se vuelve a medir con
+  `php83 docs/produccion/herramientas/efecto_filtro_tendencias.php 2026 s2 actual`.
