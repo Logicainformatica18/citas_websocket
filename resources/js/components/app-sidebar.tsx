@@ -37,6 +37,7 @@ import {
     ListChecks,
     ChevronDown,
     Link2,
+    Sparkles,
 } from "lucide-react";
 
 
@@ -234,6 +235,7 @@ export function AppSidebar() {
                     icon={<FolderSearch className={colorAlign} />}
                 >
                     <MenuItem href="/job-offers" icon={<BriefcaseBusiness className={colorAlign} />} label="Empleos" />
+                    {isAdmin && <MenuItem href="/ai-classification" icon={<Sparkles className={colorAlign} />} label="Clasificación con IA" />}
                     <MenuItem href="/topics-ia" icon={<FileSearch className={colorAlign} />} label="Topics IA" />
                 </CollapsibleSection>
 

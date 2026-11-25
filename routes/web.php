@@ -909,6 +909,22 @@ Route::prefix('entity-trends')->group(function () {
         ->name('entity-trends.destroy')->middleware('permission:administrar');
 
 });
+// Clasificación con IA (ofertas TI / no TI y relevancia de tendencias). Acciones livianas: la IA corre en consola.
+Route::prefix('ai-classification')->middleware('permission:administrar')->group(function () {
+    Route::get('/', [\App\Http\Controllers\AiClassificationController::class, 'index'])->name('ai_classification.index');
+    Route::get('/summary', [\App\Http\Controllers\AiClassificationController::class, 'summary']);
+    Route::post('/toggle', [\App\Http\Controllers\AiClassificationController::class, 'toggle'])->middleware('throttle:10,1');
+    Route::post('/prompts', [\App\Http\Controllers\AiClassificationController::class, 'storeVersion'])->middleware('throttle:20,1');
+    Route::post('/prompts/{version}/activate', [\App\Http\Controllers\AiClassificationController::class, 'activate'])->whereNumber('version');
+    Route::get('/prompts/{version}/diff', [\App\Http\Controllers\AiClassificationController::class, 'diff'])->whereNumber('version');
+    Route::get('/tests', [\App\Http\Controllers\AiClassificationController::class, 'tests']);
+    Route::post('/tests', [\App\Http\Controllers\AiClassificationController::class, 'storeTest'])->middleware('throttle:10,1');
+    Route::get('/review/offers', [\App\Http\Controllers\AiClassificationController::class, 'offerGroups']);
+    Route::post('/review/offers/group', [\App\Http\Controllers\AiClassificationController::class, 'decideGroup']);
+    Route::post('/review/offers/{offer}', [\App\Http\Controllers\AiClassificationController::class, 'decideOffer'])->whereNumber('offer');
+    Route::get('/review/trends', [\App\Http\Controllers\AiClassificationController::class, 'trends']);
+    Route::post('/review/trends/{trend}', [\App\Http\Controllers\AiClassificationController::class, 'decideTrend'])->whereNumber('trend');
+});
     Route::prefix('languages')->group(function () {
         Route::get('/', [LanguageController::class, 'index'])->name('languages.index')->middleware('permission:administrar');
         Route::get('/fetch', [LanguageController::class, 'fetchPaginated'])->name('languages.fetch')->middleware('permission:administrar');
