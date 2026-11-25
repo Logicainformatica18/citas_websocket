@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Services\Indicators\IndicatorScope;
+use App\Services\Indicators\Facts\CareerRankingFacts;
+use App\Services\Indicators\IndicatorFacts;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -57,49 +58,16 @@ $period = $request->get('period', $DEFAULT_PERIOD);
         /* ==================================================
            2. Query: demanda laboral por carrera
         ================================================== */
-        $demandQuery = IndicatorScope::offers(DB::table('tech_position_job_offer as tpo')
-            ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id'), 'jo')
-            ->join('career_tech_position as ctp', 'ctp.tech_position_id', '=', 'tpo.tech_position_id')
-            ->join('careers as c', 'c.id', '=', 'ctp.career_id')
-            ->whereBetween('jo.published_at', [$range['start'], $range['end']])
-            ->select(
-                'c.id',
-                'c.name',
-                DB::raw('COUNT(DISTINCT tpo.job_offer_id) as total_jobs')
-            )
-            ->groupBy('c.id', 'c.name');
+        // Ofertas únicas por carrera (puestos técnicos), precalculadas por semestre y país
+        // (CareerRankingFacts); países y carreras se filtran al leer. Sin excluidas por título.
+        $all = CareerRankingFacts::ranking($year, $period, $countries, $careers)->get();
+        $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+        $ranking = (new \Illuminate\Pagination\LengthAwarePaginator(
+            $all->slice(($page - 1) * 6, 6)->values(), $all->count(), 6, $page,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+        ))->withQueryString();
 
-        /* ==================================================
-           2.1 Filtros opcionales
-        ================================================== */
-        if (!empty($countries)) {
-            $demandQuery->whereIn('jo.country', $countries);
-        }
-
-        if (!empty($careers)) {
-            $demandQuery->whereIn('c.slug', $careers);
-        }
-
-        /* ==================================================
-           3. Ranking final
-        ================================================== */
-        $ranking = $demandQuery
-            ->orderByDesc('total_jobs')
-            ->paginate(6)
-            ->withQueryString();
-
-        /* ==================================================
-           4. KPIs / META (ESTRUCTURA ISIL)
-        ================================================== */
-    /* ==================================================
-   4. KPIs / META (CORRECTO PARA ESTE INDICADOR)
-================================================== */
-$totalVacantesAnalizadas = IndicatorScope::offers(DB::table('tech_position_job_offer as tpo')
-    ->join('job_offers as jo', 'jo.id', '=', 'tpo.job_offer_id'), 'jo')
-    ->join('career_tech_position as ctp', 'ctp.tech_position_id', '=', 'tpo.tech_position_id')
-    ->whereBetween('jo.published_at', [$range['start'], $range['end']])
-    ->distinct('tpo.job_offer_id')
-    ->count('tpo.job_offer_id');
+        $totalVacantesAnalizadas = CareerRankingFacts::analysed($year, $period);
 
         $periodoLabel = $period === 's1'
             ? "Semestre 1 – Enero a Junio {$year}"
@@ -131,6 +99,7 @@ $totalVacantesAnalizadas = IndicatorScope::offers(DB::table('tech_position_job_o
                     'vacantes_analizadas'  => $totalVacantesAnalizadas,
                     'peso_laboral'         => '100%',
                     'actualizado'          => now()->toDateTimeString(),
+                    'updated_at'           => IndicatorFacts::updatedAt('careers_ranking', $year, $period),
                 ],
             ]
         );
