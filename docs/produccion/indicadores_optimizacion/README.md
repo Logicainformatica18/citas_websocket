@@ -56,10 +56,15 @@ periodo). Si el usuario de la aplicación no tiene `CREATE`/`ALTER`, el DBA pued
 ```sh
 symfony php artisan optimize:clear
 symfony php artisan queue:restart                 # los workers cargan el código nuevo
-symfony php artisan indicators:refresh-all        # todos los precálculos (ver tiempos en el PLAN)
+symfony php artisan indicators:refresh-all        # todos los precálculos; la 1.ª vez POR CONSOLA (ver abajo)
 symfony php artisan schedule:list                 # indicators:refresh-all a las 07:00 (America/Lima)
 ```
 
 `indicators:refresh-all --only=<indicador>` recalcula uno solo (`alignment`, `seniority`, `geo`, `companies`,
 `market_status`, `modality`, `city_demand`, `curricular`, `pe`, `seniority_evolution`, `companies_evolution`,
 `careers_evolution`); con `--queue` lo encola en la cola por defecto (un Job de menos de 60 s por paso).
+
+**Primera corrida**: después de la migración `000002`, `job_offer_alignment.mentions` vale 1 en todas las filas, así
+que la primera `indicators:refresh-all` reescribe el alineamiento completo (~1 millón de filas; en local ~36 min, con
+tramos de hasta ~220 s). Ejecutarla por consola (sin límite de tiempo) y no desde los botones de la interfaz. Las
+corridas diarias siguientes solo escriben lo que cambió (en local, ~5 min el alineamiento y ~12 min en total).

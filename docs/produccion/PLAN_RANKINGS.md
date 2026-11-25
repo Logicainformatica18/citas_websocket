@@ -340,6 +340,89 @@ Bloque 8 (criterio común en TODOS los indicadores de análisis, 2026-11-24):
 | Tendencias tecnológicas (detalle y ofertas) | título | tendencia #109: 2 981 → 2 923 | incluido arriba |
 | Demanda por ciudad (mapa IA y su export, 2026) | título | total 171 859 → 153 608 (−18 251); puntos 5 239 → 4 877 | 7,4 s → 6,5 s, 58 MB |
 
+Bloque 9 (los demás indicadores: solo exclusión por título, menciones y precálculo, 2026-11-25; ver
+`docs/produccion/indicadores_optimizacion/README.md`):
+- **Criterio final**: en todos los indicadores que no son los tres rankings, SOLO la exclusión por título
+  (`IndicatorScope::offers`). Las asociaciones oferta–entidad se usan completas: sin `entity_association_exclusions`
+  ni `market_entities.is_active` (eso queda solo en los rankings, su evolución y sus modales, sin cambios: fotos
+  doradas de Lenguajes y Tecnologías con 0 diferencias). Vistas operativas sin filtro (siguen 403 881 ofertas).
+- **Menciones** (criterio confirmado por la usuaria) donde se llega a una carrera por sus tecnologías: una oferta suma
+  1 por cada tecnología de los cursos de la carrera (una tecnología en varios cursos de la misma carrera cuenta una
+  vez). Cómo contaba cada uno antes → ahora:
+  - Seniority por carrera: ofertas únicas → menciones. % de nivel = menciones del nivel ÷ menciones de la carrera
+    (cada mención lleva el seniority de su oferta: una oferta con 5 tecnologías de la carrera pesa 5).
+  - Evolución por carrera: ofertas únicas → menciones; % = parte de las menciones del tramo (las carreras suman 100);
+    el total sigue siendo de ofertas del mercado.
+  - Geo, demanda por carrera: ofertas únicas → menciones (solo tecnologías, como antes).
+  - Geo, ranking de ciudades: filas oferta × carrera × fuente de `job_offer_alignment` (ni ofertas ni menciones) →
+    menciones (`job_offer_alignment.mentions`: tecnologías, lenguajes y metodologías de los cursos de la carrera, las
+    mismas fuentes que ya usaba el alineamiento).
+  - Siguen contando OFERTAS (decisión: no llegan a una carrera por tecnologías o son totales "vacantes"): Seniority
+    (vacantes y distribución), Ranking de carreras (puestos técnicos), Empresas, Modalidad, Datos Generales, mapa de
+    calor, Demanda por ciudad, Tendencias, y Alineamiento PE / CCTC (vacantes de la carrera, demanda de cursos y
+    competencias: son puntajes de alineamiento curricular con umbrales y cuartiles propios).
+  - Etiquetas: "menciones" en Seniority por carrera (gráfico, totales y metodología, que además decía "tech positions"
+    por error), modal y export de evolución por carrera, y Geo (KPI, insignia, tabla, metodología).
+- **Precálculo**: tablas `indicator_facts` (filas agregadas por indicador, año, semestre y dimensiones de la página) e
+  `indicator_fact_runs` (último cálculo, filas, ms y MB). Cada indicador tiene una clase en
+  `app/Services/Indicators/Facts/` con la consulta base, el precálculo y la lectura (precalculado o, si falta el periodo
+  o se pide algo no precalculado, en vivo con la MISMA consulta). Filtros con pocas filas se aplican al leer. Semestres
+  precalculados: 2024-s1 a 2026-s2 (Demanda por ciudad: años 2024-2026). Las páginas muestran la última actualización
+  (hora de Perú). Equivalencia comprobada con `docs/produccion/herramientas/verificar_precalculo.php` (vivo vs
+  precalculado, JSON idéntico) y `verificar_demanda_curricular.php` (precálculo vs SQL directo).
+- Determinismo (necesario para que vivo y precalculado sean idénticos): de cada grupo "Lima"/"LIMA" (la intercalación no
+  distingue mayúsculas ni tildes) se muestra la menor grafía por bytes; los rankings desempatan por nombre o id; las
+  coordenadas promedio se redondean a 6 decimales (Demanda por ciudad: en millonésimas enteras y DECIMAL, porque en
+  coma flotante variaba el 6.º decimal).
+- **Pasos < 60 s** (`IndicatorRefresher`, `RefreshIndicatorsJob` en la cola `default`): alineamiento por tramos de
+  25 000 ofertas; Geo por semestre y parte (carreras, ciudades, mapa); demanda curricular en 4 partes + suma + entidades
+  por fuente; `pe:recalculate` por carrera (lee el conteo por competencia de la demanda curricular: 1-6 s, antes 64 s);
+  `companies:backfill-all --month`; `careers:backfill-all --semester` (suma `job_offer_alignment.mentions`: 14-15 s,
+  antes 151-230 s, 1 036 filas idénticas). `indicators:refresh-all` los ejecuta en un proceso (al final de
+  `RunAllJobs.php`, después de `job-offers:apply-title-exclusions` y de los `ranking:refresh-*`, y a las 07:00 por
+  `routes/console.php` con `withoutOverlapping`); `--queue` los encola. Botones: "Recalcular seniority" encola
+  Seniority; "Reconstruir alineamiento" encola alineamiento + Geo; "Actualizar" de PE encola la carrera (antes corría en
+  la petición, ~25 s); "Excluir de los indicadores" encola todos menos el alineamiento.
+- Optimizaciones de consultas en vivo: ofertas de una empresa por las grafías guardadas (índice de `company`); ofertas
+  recientes de CCTC en una consulta (antes ids en PHP + whereIn, que con asociaciones completas pasa de 65 535
+  parámetros); brechas de CCTC desde un conjunto precalculado (4,1 s → 62 ms). Índices nuevos para autocompletados de
+  filtros: `idx_jo_region_country`, `idx_jo_country_city`.
+- **Migraciones** (producción: `migrate` con `--path` y `--force`; nunca sin `--path`): `2026_11_25_000001` (tablas
+  resumen), `000002` (`job_offer_alignment.mentions`, INSTANT), `000003` (índices de filtros, INPLACE/LOCK=NONE).
+  Idempotentes; SQL equivalente en `indicadores_optimizacion/01, 02, 04` y reversión `03`.
+- Local: MySQL con `innodb_buffer_pool_size` = 128 MB (≈ 9 % de las lecturas van a disco): los tiempos varían mucho
+  entre corridas; producción debería ser más rápida con un buffer pool adecuado.
+- Resultados en local (2026-s2 salvo que se indique; "sin filtros" = sin ninguna exclusión, "título" = criterio nuevo;
+  carga = página leyendo el precálculo, máximo de los casos verificados):
+
+| Indicador | Carga antes → después | Sin filtros | Con título | Diferencia | Vivo = precalculado |
+|---|---|---|---|---|---|
+| Datos Generales (total / semestre) | 1,3 s → caché (0,7 s en frío) | 403 881 / 98 685 | 344 369 / 87 950 | −59 512 / −10 735 | — |
+| Seniority (vacantes) | 20,6 s → 19 ms | 20 108 | 18 603 | −1 505 | 38 + 18 casos iguales |
+| Seniority por carrera (menciones) | 16 s → 7 ms | — | Desarrollo de Software 85 391; Arquitectura de Datos 53 428 | — | ídem |
+| Geo: página (demanda por carrera y ciudades, menciones) | 19,7 s → 0,52 s | — | 2 441 290 menciones por carrera | — | 21 casos iguales |
+| Geo: mapa de calor (ofertas) | 1,9-6,8 s → 69 ms | 91 440 | 81 424 | −10 016 | ídem |
+| Empresas (vacantes) | 6,0-10,7 s → 0,93 s (mediana 0,25) | 89 305 | 79 375 | −9 930 | 36 casos iguales |
+| Empresas: ofertas de una empresa | 4,1 s → 0,33 s | — | — | — | ídem |
+| Modalidad (total) | 3,4-17 s → 0,23 s | 19 637 | 17 671 | −1 966 | 24 casos iguales |
+| Ranking de carreras (2025-s2) | 1,3-4,7 s → 80 ms | 20 367 | 20 255 | −112 | 8 casos iguales |
+| Demanda por ciudad (2026) | 7,4-21 s → 0,49 s | 171 859 | 153 608 | −18 251 | 9 casos iguales |
+| Alineamiento PE (carrera 1, 2026) | 3,6 s → 78 ms | 53 642 | 47 891 | −5 751 | 31 de 31 vs SQL directo; tabla PE idéntica |
+| CCTC (carrera 1, 2026-s2) | 7,3 s → 0,34 s | 28 823 | 25 133 | −3 690 | ídem |
+| CCTC: ofertas recientes / brechas | 4,7 s / 4,1-12,9 s → 46 ms / 62 ms | — | — | — | — |
+| Tendencias (#109) | 0,23 s → 0,03-0,09 s | 2 981 | 2 923 | −58 | — |
+| Evolución por carrera (menciones) | lee tabla (< 0,1 s) | — | DS al corte de octubre: 277 084 | — | 1 036 filas = cruce directo |
+
+- **Menciones de ofertas con muchas tecnologías** (Geo, demanda por carrera, 2026-s2): 9 984 ofertas con más de 20
+  tecnologías aportan 2 250 513 de las 2 441 290 menciones (92 %); las otras 28 381 ofertas, 190 777. Seniority por
+  carrera con menciones: Desarrollo de Software junior 5,6 % / mid 1,1 % / senior 93,3 % (en ofertas únicas
+  8,8 / 2,8 / 88,4); Arquitectura de Datos 5,8 / 1,0 / 93,3 (ofertas únicas 7,4 / 2,5 / 90,1).
+- **indicators:refresh-all** en local: primera corrida completa 98 pasos en 1 452 s (24 min), pico 98 MB (alineamiento
+  971 s con borrar y reinsertar; luego se optimizó). Con las optimizaciones: alineamiento sin cambios 283 s (tramo
+  máximo ~15 s); Seniority 46 s; Geo ~100 s; curricular ~60 s; PE ~10 s; evoluciones ~150 s; resto ~60 s. Primera
+  corrida tras la migración (`mentions` = 1 en todas las filas: hay que reescribir el millón de filas del alineamiento):
+  ~36 min solo el alineamiento en local (tramos de hasta 220 s) → hacerla por consola, no desde un botón.
+
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
   (`course_language`): los 6 lenguajes nuevos solo los buscan Adzuna, Arbeitnow, Computrabajo, Jooble, Selecta y
@@ -383,6 +466,17 @@ Bloque 8 (criterio común en TODOS los indicadores de análisis, 2026-11-24):
   desactualizada desde 2026-06-04 (ciudades de Geo en 2026-s2 = 0) hasta que se reconstruyó en esta prueba.
 - (Bloque 8) Medir en producción el precálculo curricular, Geo y CCTC: en local el buffer pool de 128 MB hace que las
   búsquedas en `entity_association_exclusions` vayan a disco; pedir `innodb_buffer_pool_size` al DBA (paso 12).
+- (Bloque 9) Las ofertas con muchas tecnologías dominan las menciones (92 % de las menciones por carrera en 2026-s2
+  vienen de ofertas con más de 20 tecnologías): revisar si conviene un tope por oferta o normalizar (decisión de
+  negocio, no se tocó).
+- (Bloque 9) Las primeras corridas en producción: el alineamiento con `mentions` = 1 en todas las filas reescribe el
+  millón de filas (~36 min en local): ejecutar `indicators:refresh-all` por consola la primera vez; los botones encolan
+  pasos que, en esa primera vez, pueden pasar de 60 s.
+- (Bloque 9) `careers:take-snapshot` (cron externo) cruza oferta × tecnología × carrera directamente; el backfill usa
+  `job_offer_alignment.mentions` (mismo resultado, más rápido).
+- (Bloque 9) Un rango de fechas exacto en Demanda por ciudad y la selección de varias carreras en Seniority se calculan
+  en vivo (no se pueden armar desde las filas precalculadas).
+- (Bloque 9) Local: `innodb_buffer_pool_size` = 128 MB; los tiempos de los precálculos variaron hasta ×5 entre corridas.
 
 ## 3. Estado actual (2026-11-16: plan completo)
 
@@ -589,6 +683,12 @@ ejecuta `symfony php artisan optimize:clear`, `symfony php artisan queue:restart
 cada carrera activa (o el botón "Actualizar" de PE). Después de cada `entities:exclude-associations`: también
 `jobs:build-alignment --truncate` e `indicators:curricular-demand`.
 
+**Los demás indicadores: solo título, menciones y precálculo (2026-11-25)**: el operador despliega el código y ejecuta
+`symfony php artisan migrate:status`, luego `symfony php artisan migrate --path=database/migrations/2026_11_25_000001_create_indicator_facts.php --path=database/migrations/2026_11_25_000002_add_mentions_to_job_offer_alignment.php --path=database/migrations/2026_11_25_000003_add_filter_indexes_to_job_offers.php --force`
+(nunca `migrate` sin `--path`), `symfony php artisan optimize:clear`, `symfony php artisan queue:restart`,
+`symfony php artisan indicators:refresh-all` (la primera vez por consola: reescribe el alineamiento) y
+`symfony php artisan schedule:list`. Detalle en `docs/produccion/indicadores_optimizacion/README.md`.
+
 **Mantenimiento**: volver a ejecutar `entities:exclude-associations` (y luego `ranking:refresh-*`) cuando cambien las
 reglas del matcher o se reactive una entidad. **Apagado de emergencia**: `php artisan entities:exclusions --disable` y
 `ranking:refresh-*` (para volver: `--enable` y `ranking:refresh-*`).
@@ -618,6 +718,7 @@ Todo el trabajo está commiteado y subido en la rama `observer`:
 | `b83044e` | Configuración de la exclusión en la base (`entities:exclusions --enable/--disable`, fecha de confianza automática), sin `.env` |
 | `5b771a9` | Exclusión de ofertas por título (roles no TI): lista y pantalla, scrapers, `title_exclusion_id`, IA, análisis, eliminación con respaldo, filtros por periodo, export en cola, índices (`ofertas_exclusion/01-02`) |
 | `eed1738`…`51a5a21` | Criterio común de los indicadores (Bloque 8): `IndicatorScope`, Datos Generales, Empresas, Modalidad, Seniority, Carreras, Geo, PE, CCTC (`CurricularDemand`), modales y tendencias, demanda por ciudad, RunAllJobs (`ofertas_exclusion/03-04`) |
+| `7da0d23`…`e12006f` | Los demás indicadores (Bloque 9): solo título, menciones, tablas resumen `indicator_facts`, `indicators:refresh-all`, migraciones `2026_11_25_000001-3` (`indicadores_optimizacion/01-04`) |
 
 **El commit `b048f75` no funciona solo**: sus archivos de Lenguajes ya usan `EntityRankingService`, que entra en
 `d84a4dd`. **A partir de `d84a4dd` todo es coherente.** No conviene desplegar ni hacer checkout de `b048f75` aislado.
