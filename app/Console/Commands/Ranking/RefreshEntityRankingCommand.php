@@ -74,8 +74,11 @@ abstract class RefreshEntityRankingCommand extends Command
             ? '  Exclusiones del matcher: APLICADAS (entity_association_exclusions)'
             : '  Exclusiones del matcher: NO aplicadas (desactivadas con entities:exclusions --disable, o sin tabla)');
         $this->line($service::titleExclusionSql() !== ''
-            ? '  Ofertas excluidas por título: IGNORADAS (job_offers.title_exclusion_id)'
-            : '  Ofertas excluidas por título: falta la columna job_offers.title_exclusion_id (no se filtran)');
+            ? '  Ofertas no TI: IGNORADAS (job_offers.ti_status = no_ti: keyword, IA o manual)'
+            : '  Ofertas no TI: falta la columna job_offers.ti_status / title_exclusion_id (no se filtran)');
+        $this->line(\App\Services\Indicators\IndicatorScope::trendsFilterActive()
+            ? '  Reportes de tendencia en estado ruido: IGNORADOS (filtro de la clasificación con IA ACTIVO)'
+            : '  Reportes de tendencia: se cuentan todos (filtro de la clasificación con IA apagado)');
 
         if (! $result['ok']) {
             $this->error('Algunos periodos fallaron; conservan sus datos anteriores. Revisa storage/logs.');

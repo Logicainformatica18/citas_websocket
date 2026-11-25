@@ -13,8 +13,13 @@ use Illuminate\Support\Facades\DB;
  * distribución, tendencias y totales que ve el usuario). Las vistas operativas (módulo
  * job-offers, estado de scraping, importaciones, logs) NO lo usan: muestran todo lo recolectado.
  *
- *  a) Ofertas: se ignoran las excluidas por título (rol no TI, job_offers.title_exclusion_id,
- *     que marca job-offers:apply-title-exclusions).
+ *  a) Ofertas: se ignoran las de estado no_ti (job_offers.ti_status, estado ÚNICO: lo escriben la
+ *     exclusión por keywords —origen keyword—, la clasificación con IA y la revisión manual). Las
+ *     dudosas, pendientes y en proceso cuentan. Si la columna aún no existe (código desplegado antes de
+ *     la migración 2026_11_25_000004), se usa title_exclusion_id: mismo resultado.
+ *  d) Reportes de tendencia (solo rankings, sus modales y su evolución): se ignoran los de estado ruido
+ *     (entity_trends.relevance_status) SOLO si está activo el filtro (ai_classification_settings.
+ *     trends_filter_enabled, apagado hasta que la usuaria vea su efecto).
  *  b) Asociaciones oferta–entidad: se ignoran los pares de entity_association_exclusions
  *     vigentes (entities:exclude-associations), salvo apagado de emergencia
  *     (entities:exclusions --disable).
@@ -73,18 +78,64 @@ final class IndicatorScope
 
     /* ---------------- a) ofertas ---------------- */
 
-    /** " AND {alias}.title_exclusion_id IS NULL" (vacío si la columna aún no existe). */
+    /** Condición "la oferta cuenta" sobre {alias}, o null si no hay columna o el filtro está apagado. */
+    private static function offerCondition(string $alias): ?string
+    {
+        if (in_array('title', self::$off, true)) {
+            return null;
+        }
+        if (JobOffer::hasTiStatusColumn()) {
+            return "{$alias}.ti_status <> 'no_ti'";
+        }
+
+        return JobOffer::hasTitleExclusionColumn() ? "{$alias}.title_exclusion_id IS NULL" : null;
+    }
+
+    /** " AND {alias}.ti_status <> 'no_ti'" (vacío si la columna aún no existe). */
     public static function offersSql(string $alias = 'job_offers'): string
     {
-        return JobOffer::hasTitleExclusionColumn() && ! in_array('title', self::$off, true)
-            ? " AND {$alias}.title_exclusion_id IS NULL" : '';
+        $c = self::offerCondition($alias);
+
+        return $c === null ? '' : " AND {$c}";
     }
 
     /** Igual que offersSql() para el Query Builder. */
     public static function offers(Builder $query, string $alias = 'job_offers'): Builder
     {
-        if (JobOffer::hasTitleExclusionColumn() && ! in_array('title', self::$off, true)) {
-            $query->whereNull("{$alias}.title_exclusion_id");
+        $c = self::offerCondition($alias);
+        if ($c !== null) {
+            $query->whereRaw($c);
+        }
+
+        return $query;
+    }
+
+    /* ---------------- d) reportes de tendencia (rankings) ---------------- */
+
+    /** true si los rankings ignoran los reportes en estado ruido (interruptor en la base, apagado por defecto). */
+    public static function trendsFilterActive(): bool
+    {
+        static $active = null;
+        if ($active === null) {
+            $active = ! in_array('trends', self::$off, true)
+                && \Illuminate\Support\Facades\Schema::hasColumn('entity_trends', 'relevance_status')
+                && \App\Services\AiClassification\AiSettings::trendsFilterEnabled();
+        }
+
+        return $active;
+    }
+
+    /** " AND {alias}.relevance_status <> 'ruido'" si el filtro de tendencias está activo; si no, ''. */
+    public static function trendsSql(string $alias = 'entity_trends'): string
+    {
+        return self::trendsFilterActive() ? " AND {$alias}.relevance_status <> 'ruido'" : '';
+    }
+
+    /** Igual que trendsSql() para el Query Builder. */
+    public static function trends(Builder $query, string $alias = 'entity_trends'): Builder
+    {
+        if (self::trendsFilterActive()) {
+            $query->where("{$alias}.relevance_status", '<>', 'ruido');
         }
 
         return $query;
@@ -98,8 +149,9 @@ final class IndicatorScope
      */
     public static function countSql(string $alias = 'job_offers'): string
     {
-        return JobOffer::hasTitleExclusionColumn() && ! in_array('title', self::$off, true)
-            ? "SUM({$alias}.title_exclusion_id IS NULL)" : 'COUNT(*)';
+        $c = self::offerCondition($alias);
+
+        return $c === null ? 'COUNT(*)' : "SUM({$c})";
     }
 
     /* ---------------- b) + c) asociaciones ---------------- */

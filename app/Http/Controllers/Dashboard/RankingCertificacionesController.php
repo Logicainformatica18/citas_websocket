@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use AppServicesIndicatorsIndicatorScope;
 use App\Services\Indicators\IndicatorScope;
 use App\Exports\EntityEvolutionExport;
 use App\Http\Controllers\Controller;
@@ -293,7 +294,7 @@ public function trendDetail(
     ==================================================
     */
 
-    $trends = DB::table('entity_trends')
+    $trends = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where(
             'market_entity_id',
@@ -338,7 +339,7 @@ public function trendDetail(
     ==================================================
     */
 
-    $tavilyTotal = DB::table('entity_trends')
+    $tavilyTotal = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where(
             'market_entity_id',
@@ -365,7 +366,7 @@ public function trendDetail(
 
         ->count();
 
-    $gptTotal = DB::table('entity_trends')
+    $gptTotal = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where(
             'market_entity_id',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use AppServicesIndicatorsIndicatorScope;
 use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -432,7 +433,7 @@ ROUND(
 }
 private function getDirectLanguageTrendsSubquery(array $range)
 {
-    return DB::table('entity_trends as et')
+    return IndicatorScope::trends(DB::table('entity_trends as et'), 'et')
         ->join('market_entities as me', function ($j) {
             $j->on('me.id', '=', 'et.market_entity_id')
               ->where('me.entity_type', 'language');
@@ -450,7 +451,7 @@ private function getDirectLanguageTrendsSubquery(array $range)
 
 private function getTrendReportsCountByRange(array $range): int
 {
-    return DB::table('entity_trends as et')
+    return IndicatorScope::trends(DB::table('entity_trends as et'), 'et')
         ->join('market_entities as me', function ($j) {
             $j->on('me.id', '=', 'et.market_entity_id')
               ->where('me.entity_type', 'language');
@@ -503,7 +504,7 @@ public function trendsByLanguage(
     ==================================================
     */
 
-    $trends = DB::table('entity_trends')
+    $trends = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where('market_entity_id', $marketEntityId)
 
@@ -540,7 +541,7 @@ public function trendsByLanguage(
     ==================================================
     */
 
-    $tavilyTotal = DB::table('entity_trends')
+    $tavilyTotal = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where('market_entity_id', $marketEntityId)
 
@@ -561,7 +562,7 @@ public function trendsByLanguage(
 
         ->count();
 
-    $gptTotal = DB::table('entity_trends')
+    $gptTotal = IndicatorScope::trends(DB::table('entity_trends'))
 
         ->where('market_entity_id', $marketEntityId)
 

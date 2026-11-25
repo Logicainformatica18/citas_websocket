@@ -151,7 +151,7 @@ abstract class EntityRankingService
     }
 
     /**
-     * Ofertas excluidas por título (rol no TI, job_offers.title_exclusion_id): no cuentan en el
+     * Ofertas no TI (estado único job_offers.ti_status = no_ti: keyword, IA o manual): no cuentan en el
      * ranking, la evolución ni las vacantes analizadas. Criterio común: IndicatorScope.
      */
     public static function titleExclusionSql(string $alias = 'j'): string
@@ -232,8 +232,10 @@ abstract class EntityRankingService
             'periods' => array_keys($requested),
             // true = se ignoran las asociaciones de entity_association_exclusions
             'exclusiones' => $this->exclusionSql() !== '',
-            // true = se ignoran las ofertas excluidas por título (job_offers.title_exclusion_id)
+            // true = se ignoran las ofertas no TI (job_offers.ti_status = no_ti)
             'exclusion_titulos' => self::titleExclusionSql() !== '',
+            // true = se ignoran los reportes de tendencia en estado ruido (filtro de la clasificación con IA)
+            'filtro_tendencias' => IndicatorScope::trendsFilterActive(),
         ]);
 
         $entities = DB::table('market_entities')
@@ -452,7 +454,9 @@ abstract class EntityRankingService
             'SELECT et.market_entity_id AS entity_id, DATE(et.created_at) AS d, COUNT(DISTINCT et.id) AS reports
                FROM entity_trends et
                JOIN market_entities me ON me.id = et.market_entity_id ' . $this->activeJoin() . '
-              WHERE et.year = ? AND et.quarter IN (' . ($period === 's1' ? '1, 2' : '3, 4') . ')
+              WHERE et.year = ? AND et.quarter IN (' . ($period === 's1' ? '1, 2' : '3, 4') . ')'
+                // Reportes en estado ruido (clasificación con IA): solo con el filtro activo (apagado por defecto)
+                . IndicatorScope::trendsSql('et') . '
               GROUP BY et.market_entity_id, d',
             [$year]
         );

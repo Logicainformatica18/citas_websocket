@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use AppServicesIndicatorsIndicatorScope;
 use App\Services\Indicators\IndicatorScope;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -198,7 +199,7 @@ public function trendsByTechnology(Request $request, int $marketEntityId)
 $semester = $period === 's1' ? 1 : 2;
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-$trends = DB::table('entity_trends as et')
+$trends = IndicatorScope::trends(DB::table('entity_trends as et'), 'et')
     ->where('et.market_entity_id', $marketEntityId)
     ->where('et.year', $year)
     ->whereIn(
@@ -305,7 +306,7 @@ public function reportsByTechnology(Request $request, int $marketEntityId)
 
     $perPage = min((int) $request->get('per_page', 10), 50);
 
-   $paginator = DB::table('entity_trends')
+   $paginator = IndicatorScope::trends(DB::table('entity_trends'))
     ->where('market_entity_id', $marketEntityId)
     ->where('year', $year)
     ->whereIn(
@@ -327,7 +328,7 @@ public function reportsByTechnology(Request $request, int $marketEntityId)
                 'created_at',
             ]
         );
-$tavilyTotal = DB::table('entity_trends')
+$tavilyTotal = IndicatorScope::trends(DB::table('entity_trends'))
     ->where('market_entity_id', $marketEntityId)
     ->where('year', $year)
     ->whereIn(
@@ -339,7 +340,7 @@ $tavilyTotal = DB::table('entity_trends')
     ->where('discovered_by', 'LIKE', '%tavily%')
     ->count();
 
-$gptTotal = DB::table('entity_trends')
+$gptTotal = IndicatorScope::trends(DB::table('entity_trends'))
     ->where('market_entity_id', $marketEntityId)
     ->where('year', $year)
     ->whereIn(
