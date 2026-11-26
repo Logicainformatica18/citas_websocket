@@ -1,5 +1,8 @@
 # GLPI — Clasificación con IA de ofertas y tendencias (QA y PROD)
 
+> **Reemplazado por `docs/produccion/GLPI_CONSOLIDADO.md`** (probado el 2026-11-26 con una copia de la base de producción).
+> Este documento queda como detalle técnico; el operador ejecuta el consolidado.
+
 **Rama:** `observer`. **Requisito:** desplegado antes `docs/produccion/GLPI_DESPLIEGUE_FINAL.md` (exclusión por título,
 `indicator_facts`, `indicators:refresh-all`).
 
@@ -28,8 +31,9 @@ Mismos pasos en **QA** y luego en **PROD**. Anotar los tiempos en QA.
 
 ## DBA
 
-1. Respaldo de la base (`mysqldump --single-transaction`). Las migraciones no borran datos; agregan columnas (INSTANT),
-   índices (INPLACE, sin bloqueo) y 9 tablas nuevas `ai_*`. Permisos del usuario de la aplicación: `CREATE`, `ALTER`,
+1. Respaldo de la base (`mysqldump --single-transaction`). Las migraciones no borran datos; agregan columnas (en `job_offers`
+   MySQL reconstruye la tabla por su índice FULLTEXT: bloquea escrituras unos minutos), índices (INPLACE, sin bloqueo) y
+   9 tablas nuevas `ai_*`. Permisos del usuario de la aplicación: `CREATE`, `ALTER`,
    `INDEX` (los mismos del GLPI anterior).
 
 ## Operador (servidor de la aplicación)
@@ -37,7 +41,7 @@ Mismos pasos en **QA** y luego en **PROD**. Anotar los tiempos en QA.
 2. Detener `jobs:run-all` y los scrapers.
 3. Desplegar el código (`git pull` de `observer`) y compilar el frontend (`npm ci && npm run build`, si el servidor lo
    compila; si no, subir `public/build`).
-4. Migraciones (en QA local: 4 min con 403 881 ofertas):
+4. Migraciones (en la copia de producción: 2 min 21 s las tres, con 418 451 ofertas):
    ```sh
    symfony php artisan migrate:status
    symfony php artisan migrate --path=database/migrations/2026_11_25_000004_add_ti_status_to_job_offers.php --path=database/migrations/2026_11_25_000005_add_relevance_to_entity_trends.php --path=database/migrations/2026_11_25_000006_create_ai_classification_tables.php --force
@@ -54,7 +58,8 @@ Mismos pasos en **QA** y luego en **PROD**. Anotar los tiempos en QA.
    symfony php artisan ranking:refresh-technologies
    symfony php artisan ranking:refresh-certifications
    ```
-7. Prueba corta de la clasificación de lo nuevo (llama a la IA; unos centavos de dólar):
+7. Prueba corta de la clasificación de lo nuevo. Justo después del despliegue procesa 0 elementos (lo existente es
+   histórico; lo nuevo llega con los scrapers):
    ```sh
    symfony php artisan ai:classify --dry-run
    symfony php artisan ai:classify --limit=100

@@ -1,12 +1,16 @@
 # GLPI — Despliegue final del Observatorio (QA y PROD)
 
+> **Reemplazado por `docs/produccion/GLPI_CONSOLIDADO.md`** (probado el 2026-11-26 con una copia de la base de producción).
+> Este documento queda como detalle técnico; el operador ejecuta el consolidado.
+
 **Rama:** `observer` (último commit incluido: ver `git log -1` tras el `git pull`).
 **Ya aplicado en producción:** `docs/produccion/DESPLIEGUE_RANKINGS_PRODUCCION.sql` (rankings de Lenguajes, Tecnologías y
 Certificaciones, y las tablas de exclusiones del detector `entity_association_exclusions` /
 `entity_association_exclusion_settings`).
 
 **Este ticket lleva lo pendiente desde ese despliegue:**
-1. Exclusiones del detector: activarlas (las tablas ya existen; falta ejecutar el comando).
+1. Exclusiones del detector: **ya ejecutadas en producción el 2026-11-23** (la copia de producción tiene la fecha de
+   confianza); solo se comprueban con `entities:exclusions`.
 2. Exclusión de ofertas por título (roles que no son de TI).
 3. Índices de los indicadores (Datos Generales, Empresas).
 4. Tablas resumen de los indicadores (`indicator_facts`) y precálculo diario (`indicators:refresh-all`).
@@ -117,7 +121,8 @@ En el servidor de la aplicación, desde la carpeta del proyecto. Los comandos de
 
 ### Exclusiones del detector
 
-7. Primera ejecución: evalúa todas las asociaciones y guarda la fecha de confianza (3-6 min):
+7. **Solo si `entities:exclusions` dice que no hay fecha de confianza** (en producción ya se ejecutó el 2026-11-23; repetirlo
+   tardó 21 min en la prueba y no cambió nada): evalúa todas las asociaciones y guarda la fecha de confianza:
    ```sh
    symfony php artisan entities:exclude-associations
    ```
@@ -132,7 +137,7 @@ En el servidor de la aplicación, desde la carpeta del proyecto. Los comandos de
    ```sh
    symfony php artisan job-offers:apply-title-exclusions --dry-run
    ```
-   En local: 59 512 de 403 674 ofertas (14,7 %). Si la cifra se aleja mucho, no seguir y avisar.
+   En local: 59 512 de 403 674 ofertas (14,7 %); en la copia de producción del 2026-11-25: 60 752 de 418 451 (14,5 %). Si la cifra se aleja mucho, no seguir y avisar.
 10. Aplicar (~2 min con 400 000 ofertas; marca, no borra):
    ```sh
    symfony php artisan job-offers:apply-title-exclusions

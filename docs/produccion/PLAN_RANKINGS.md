@@ -527,6 +527,26 @@ Bloque 10 (clasificación con IA de ofertas y tendencias, desde 2026-11-25; ver 
     `--max-requests` / `--max-in-flight`.
   - La cuenta de Tavily está en su límite de pago: los comandos `trends:discover-*-tavily` fallan.
   - Decisión 15 (recomendación en el informe final): guardar marcadas las ofertas nuevas que coinciden con una keyword.
+- **Simulación del despliegue con una copia de la base de producción (2026-11-26, base local `observatorio_3`, 418 451
+  ofertas, buffer pool de 128 MB)**. Producción ya tenía `DESPLIEGUE_RANKINGS_PRODUCCION.sql` (las 9 verificaciones del
+  final dan lo esperado) y la primera ejecución del detector (fecha de confianza 2026-11-23 15:42:35); le faltaban las 10
+  migraciones de los dos GLPI. Resultado → **`docs/produccion/GLPI_CONSOLIDADO.md`** (reemplaza a los dos GLPI):
+  - Migraciones juntas: 5 min 43 s, idempotentes (segunda vez 3 s). La del estado único corrió ANTES de aplicar las
+    keywords y `job-offers:apply-title-exclusions` dejó igual el estado coherente (0 desajustes).
+  - `entities:exclude-associations` repetido: 21 min y ningún cambio (252 729 / 1 569 786 / 13 827 vigentes) → en el
+    consolidado solo se comprueba con `entities:exclusions`.
+  - Exclusión por título: 60 752 de 418 451 (14,5 %); 65 s en seco y 3 min 13 s al aplicar.
+  - Rankings: 19 s, 72 s, 23 s. Top 10 de 2026-s2 casi igual al que mostraba la copia (vecinos que se intercambian;
+    Certificaciones: salen CDMP y CISM, entran ITIL 4 y CEH). Vacantes analizadas: Lenguajes 12 554 → 12 320,
+    Tecnologías 9 993 → 9 590, Certificaciones 551 → 506.
+  - `indicators:refresh-all`: la primera ejecución se cortó sin ningún mensaje (código 1) al empezar el paso 99
+    (`companies:backfill-all 2026 --month=4`, que solo funciona: 84 s); la segunda terminó bien (114 pasos, 44,6 min,
+    98 MB). No se encontró la causa (nada en el log). El consolidado indica repetirlo si no termina con "Listo".
+  - `ai:classify` procesa 0 elementos justo después del despliegue (todo lo existente es histórico).
+    `ai:classify-history --dry-run`: 5,00 + 2,33 + 1,45 = **≈ 8,8 USD**.
+  - Diferencias con `observatorio_2`: 20 lenguajes activos y 220 reglas (no existen Perl, Ruby, VBA, Lua, COBOL ni F# como
+    entidades en producción); Certificaciones lidera PMP (251 vacantes); el módulo de clasificación tarda 4-9 s en cargar
+    (los `GROUP BY` del resumen sobre `job_offers` con 128 MB de buffer pool).
 
 ### Pendientes fuera de alcance (anotados, no tocados)
 - Greenhouse, GetOnBoard, reed, Remotive, RemoteOk, USAJOBS, Wantedly y BuiltIn solo buscan lenguajes **con cursos**
